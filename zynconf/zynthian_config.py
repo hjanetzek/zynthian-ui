@@ -22,6 +22,7 @@
 #
 # ********************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import socket
@@ -166,9 +167,9 @@ ServerPort = {
 # Global variables
 # -------------------------------------------------------------------------------
 
-sys_dir = os.environ.get('ZYNTHIAN_SYS_DIR', "/zynthian/zynthian-sys")
-config_dir = os.environ.get('ZYNTHIAN_CONFIG_DIR', '/zynthian/config')
-my_data_dir = os.environ.get("ZYNTHIAN_MY_DATA_DIR", "/zynthian/zynthian-my-data")
+sys_dir = zynthian_paths.sys_dir
+config_dir = zynthian_paths.config_dir
+my_data_dir = zynthian_paths.my_data_dir
 config_fpath = config_dir + "/zynthian_envars.sh"
 
 # -------------------------------------------------------------------------------
@@ -309,7 +310,7 @@ def load_plain_envars(fpath, set_env=True):
 def update_sys():
     try:
         os.environ['ZYNTHIAN_FLAG_MASTER'] = "NONE"
-        check_output(os.environ.get('ZYNTHIAN_SYS_DIR') + "/scripts/update_zynthian_sys.sh", shell=True)
+        check_output(zynthian_paths.sys_dir + "/scripts/update_zynthian_sys.sh", shell=True)
     except Exception as e:
         logging.error("Updating Sytem Config: %s" % e)
 

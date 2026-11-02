@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import copy
@@ -41,7 +42,7 @@ from zyngine.zynthian_controller import zynthian_controller
 
 class zynthian_engine_alsa_mixer(zynthian_engine):
 
-    sys_dir = os.environ.get('ZYNTHIAN_SYS_DIR', "/zynthian/zynthian-sys")
+    sys_dir = zynthian_paths.sys_dir
     soundcard_name = os.environ.get('SOUNDCARD_NAME', "Unknown")
 
     # ---------------------------------------------------------------------------

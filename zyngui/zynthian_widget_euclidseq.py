@@ -19,6 +19,7 @@
 # For a full copy of the GNU General Public License see the LICENSE.txt file.
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re # NEW: Import regex for path parsing
 import sys
@@ -28,7 +29,7 @@ import pyliblo3 as liblo
 from tkinter import font as tkFont
 
 # Zynthian specific modules
-sys.path.append("/zynthian/zynthian-ui/")
+sys.path.append(f"{zynthian_paths.ui_dir}/")
 from zyngui import zynthian_gui_config, zynthian_widget_base
 
 

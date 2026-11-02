@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import logging
 from time import sleep
@@ -40,7 +41,7 @@ from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 
 class zynthian_gui_wifi(zynthian_gui_selector_info):
 
-    sys_dir = os.environ.get('ZYNTHIAN_SYS_DIR', "/zynthian/zynthian-sys")
+    sys_dir = zynthian_paths.sys_dir
 
     def __init__(self):
         super().__init__('Connection', default_icon="wifi.png")

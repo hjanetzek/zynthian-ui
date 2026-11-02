@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import copy
 import shutil
@@ -75,7 +76,7 @@ class zynthian_engine_audioplayer(zynthian_engine):
         self.dur = 0.0
         self.zoom = 1.0
 
-        self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_audio_file.py"
+        self.custom_gui_fpath = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_audio_file.py"
 
         self.allow_preset_preload = False
 

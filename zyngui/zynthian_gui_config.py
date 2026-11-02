@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import sys
 import logging
@@ -579,7 +580,7 @@ if touch_navigation:
     wiring_layout_custom_profile = os.environ.get("ZYNTHIAN_WIRING_LAYOUT_CUSTOM_PROFILE", "")
     if len(zynswitches_pins) < 24:
         #not wiring_layout_custom_profile.lower().startswith("v5") and not wiring_layout_custom_profile.lower().endswith("v5"):
-        config_dir = os.environ.get("ZYNTHIAN_CONFIG_DIR", "/zynthian/config")
+        config_dir = zynthian_paths.config_dir
         zynconf.load_plain_envars(f"{config_dir}/wiring-profiles/v5", True)
         # Modify zynswitches wiring configuration to work with V5 keypad
         if len(zynswitches_pins) >= 4:

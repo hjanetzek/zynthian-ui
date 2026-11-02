@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import logging
 import tkinter
@@ -40,7 +41,7 @@ from zyngui import zynthian_gui_config
 
 class zynthian_gui_help(HtmlFrame):
 
-    help_dir = os.environ.get('ZYNTHIAN_HELP_DIR', "/zynthian/zynthian-help")
+    help_dir = zynthian_paths.help_dir
 
     # Scale for touch swipe action after-roll
     touch_swipe_roll_scale = [1, 0, 1, 1, 2, 2, 2, 4, 4, 4, 4, 4]  # 1, 0, 1, 0, 1, 0, 1, 0,

@@ -24,6 +24,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import logging
@@ -297,7 +298,7 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                     append_service("qmidinet", "QmidiNet",
                                    "QmidiNet. Provides MIDI over an IP connection using UDP/IP multicast (ipMIDI).", "midi_network.png")
 
-                if os.path.isfile("/zynthian/venv/bin/touchosc2midi"):
+                if os.path.isfile(f"{zynthian_paths.venv_dir}/bin/touchosc2midi"):
                     append_service("touchosc2midi", "TouchOSC",
                                    "Interface with Hexler TouchOSC modular control surface.", "midi_network.png")
 

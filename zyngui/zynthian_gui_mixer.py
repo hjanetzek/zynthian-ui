@@ -25,6 +25,7 @@
 # ******************************************************************************
 
 
+from zynconf import zynthian_paths
 import copy
 import tkinter
 import logging
@@ -1415,7 +1416,7 @@ class zynthian_gui_mixer(zynthian_gui_base):
         self.mode_icons = {}
         for f in ("empty", "loopsync", "oneshot", "oneshotall"):
             try:
-                img = Image.open(f"/zynthian/zynthian-ui/icons/zynpad_mode_{f}.png")
+                img = Image.open(f"{zynthian_paths.ui_dir}/icons/zynpad_mode_{f}.png")
                 self.mode_icons[f] = ImageTk.PhotoImage(img.resize(iconsize))
             except:
                 self.mode_icons[f] = empty_icon

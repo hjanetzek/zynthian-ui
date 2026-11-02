@@ -23,6 +23,7 @@
 #
 # ********************************************************************
 
+from zynconf import zynthian_paths
 import ctypes
 import logging
 from os.path import dirname, realpath
@@ -188,7 +189,7 @@ class zynseq(zynthian_engine):
     def __init__(self, state_manager=None, proc=None):
         self.state_manager = state_manager
         self.proc = proc
-        self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_tempo.py"
+        self.custom_gui_fpath = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_tempo.py"
 
         try:
             self.libseq = ctypes.cdll.LoadLibrary(dirname(realpath(__file__))+"/build/libzynseq.so")

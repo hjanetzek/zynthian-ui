@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import sys
 import logging
@@ -41,8 +42,7 @@ from zyngui.zynthian_gui_selector import zynthian_gui_selector
 class zynthian_gui_midi_profile(zynthian_gui_selector):
 
     def __init__(self):
-        self.midi_profiles_dir = os.environ.get(
-            'ZYNTHIAN_CONFIG_DIR', "/zynthian/config") + "/midi-profiles"
+        self.midi_profiles_dir = zynthian_paths.config_dir + "/midi-profiles"
         super().__init__('Profile', True)
 
     def get_profile_fpath(self, f):

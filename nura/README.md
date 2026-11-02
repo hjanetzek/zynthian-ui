@@ -115,6 +115,14 @@ nura/deploy.sh -r zynthian-ui
 nura/deploy.sh -r zyncoder zynthian-ui
 ```
 
+A device whose image was built with another pmbootstrap work dir (e.g. the Kick image) rejects
+the packages with "UNTRUSTED signature": each work dir signs with its own key. Add `-k` once to
+install this work dir's key on the device:
+
+```sh
+nura/deploy.sh -k -n zyncoder zynthian-data zynthian-ui
+```
+
 ## Known issues
 
 - Not yet tested with pmbootstrap or on a device.

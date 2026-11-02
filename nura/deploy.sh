@@ -1,13 +1,16 @@
 #!/bin/sh
 # Build Nura packages and install them on a running device over SSH.
 #
-# Usage: deploy.sh [-c CONFIG] [-H HOST] [-u USER] [-a ARCH] [-z ZYNCODER] [-n] [-S] [-r] [-d] PACKAGE...
+# Usage: deploy.sh [-c CONFIG] [-H HOST] [-u USER] [-a ARCH] [-z ZYNCODER] [-k] [-n] [-S] [-r] [-d] PACKAGE...
 #   -c CONFIG    pmbootstrap config (default: ~/.config/pmbootstrap-zynthian.cfg)
 #   -H HOST      device address (default: <hostname from the config>.local, via avahi)
 #   -u USER      SSH user on the device (default: user from the config)
 #   -a ARCH      package architecture (default: aarch64)
 #   -z ZYNCODER  zyncoder checkout for the zyncoder package (default: ../zyncoder next to
 #                this zynthian-ui checkout)
+#   -k           install this work dir's package signing key on the device if needed (a device
+#                whose image was built with another work dir rejects the packages: "UNTRUSTED
+#                signature")
 #   -n           do not build; install the newest packages already built
 #   -S           strict build: let pmbootstrap zap the build chroots first (its default).
 #                Without it builds run with --lax, which keeps the chroot and the --src copy.
@@ -36,16 +39,18 @@ build=1
 lax=--lax
 restart=0
 dry=0
+installkey=
 
 usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0}"; }
 
-while getopts c:H:u:a:z:nSrdh opt; do
+while getopts c:H:u:a:z:knSrdh opt; do
 	case $opt in
 		c) cfg=$OPTARG ;;
 		H) host=$OPTARG ;;
 		u) user=$OPTARG ;;
 		a) arch=$OPTARG ;;
 		z) zyncoder=$OPTARG ;;
+		k) installkey=--install-key ;;
 		n) build=0 ;;
 		S) lax= ;;
 		r) restart=1 ;;
@@ -106,7 +111,8 @@ if [ "$build" = 1 ]; then
 	done
 fi
 
-pmb sideload --arch "$arch" --host "$host" --user "$user" "$@"
+# shellcheck disable=SC2086 # empty $installkey is intended
+pmb sideload $installkey --arch "$arch" --host "$host" --user "$user" "$@"
 
 if [ "$restart" = 1 ]; then
 	run ssh -t "$user@$host" 'sudo systemctl restart tinydm'

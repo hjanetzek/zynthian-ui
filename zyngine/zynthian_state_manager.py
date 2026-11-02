@@ -68,6 +68,19 @@ zynthian_dir = zynthian_paths.zynthian_dir
 ui_dir = zynthian_paths.ui_dir
 my_data_dir = zynthian_paths.my_data_dir
 ex_data_dir = zynthian_paths.ex_data_dir
+
+
+def system_service(method):
+    """Decorator for methods that start or stop system services.
+    In desktop mode they do nothing: the services belong to the host system."""
+    def wrapper(*args, **kwargs):
+        if zynconf.desktop_mode:
+            logging.debug(f"Desktop mode: skipping {method.__name__}")
+            return None
+        return method(*args, **kwargs)
+    wrapper.__name__ = method.__name__
+    wrapper.__doc__ = method.__doc__
+    return wrapper
 capture_dir_sdc = my_data_dir + "/capture"
 
 MAIN_MIXBUS_ID = -1
@@ -928,13 +941,15 @@ class zynthian_state_manager:
             self.last_event_flag = False
             self.last_event_ts = monotonic() - zynthian_gui_config.power_save_secs
             try:
-                check_output("powersave_control.sh on", shell=True)
+                if not zynconf.desktop_mode:
+                    check_output("powersave_control.sh on", shell=True)
             except Exception as e:
                 logging.error(e)
         else:
             logging.info("Power Save Mode: OFF")
             try:
-                check_output("powersave_control.sh off", shell=True)
+                if not zynconf.desktop_mode:
+                    check_output("powersave_control.sh off", shell=True)
             except Exception as e:
                 logging.error(e)
             self.ctrldev_manager.sleep_off()
@@ -2475,6 +2490,7 @@ class zynthian_state_manager:
     # Core Network Services
     # ---------------------------------------------------------------------------
 
+    @system_service
     def start_vncserver(self, save_config=True):
         # Start VNC for Zynthian-UI
         self.start_busy("start_vncserver", "starting VNC")
@@ -2520,6 +2536,7 @@ class zynthian_state_manager:
 
         self.end_busy("start_vncserver")
 
+    @system_service
     def stop_vncserver(self, save_config=True):
         self.start_busy("stop_vncserver", "stopping VNC")
 
@@ -2583,6 +2600,7 @@ class zynthian_state_manager:
         else:
             self.stop_netump(False)
 
+    @system_service
     def start_netump(self, save_config=True, wait=0):
         service = "jacknetumpd"
         if zynconf.is_service_active(service):
@@ -2608,6 +2626,7 @@ class zynthian_state_manager:
 
         self.end_busy("start_netump")
 
+    @system_service
     def stop_netump(self, save_config=True, wait=0):
         service = "jacknetumpd"
         if not zynconf.is_service_active(service):
@@ -2639,6 +2658,7 @@ class zynthian_state_manager:
         else:
             self.stop_rtpmidi(False)
 
+    @system_service
     def start_rtpmidi(self, save_config=True, wait=0):
         service = "jackrtpmidid"
         if zynconf.is_service_active(service):
@@ -2664,6 +2684,7 @@ class zynthian_state_manager:
 
         self.end_busy("start_rtpmidi")
 
+    @system_service
     def stop_rtpmidi(self, save_config=True, wait=0):
         service = "jackrtpmidid"
         if not zynconf.is_service_active(service):
@@ -2688,6 +2709,7 @@ class zynthian_state_manager:
 
         self.end_busy("stop_rtpmidi")
 
+    @system_service
     def start_qmidinet(self, save_config=True, wait=0):
         service = "qmidinet"
         if zynconf.is_service_active(service):
@@ -2713,6 +2735,7 @@ class zynthian_state_manager:
 
         self.end_busy("start_qmidinet")
 
+    @system_service
     def stop_qmidinet(self, save_config=True, wait=0):
         service = "qmidinet"
         if not zynconf.is_service_active(service):
@@ -2743,6 +2766,7 @@ class zynthian_state_manager:
         else:
             self.stop_qmidinet(False)
 
+    @system_service
     def start_touchosc2midi(self, save_config=True, wait=0):
         service = "touchosc2midi"
         if zynconf.is_service_active(service):
@@ -2768,6 +2792,7 @@ class zynthian_state_manager:
 
         self.end_busy("start_touchosc2midi")
 
+    @system_service
     def stop_touchosc2midi(self, save_config=True, wait=0):
         service = "touchosc2midi"
         if not zynconf.is_service_active(service):
@@ -2799,6 +2824,7 @@ class zynthian_state_manager:
             self.stop_touchosc2midi(False)
 
     # Unblock all soft-blocked bluetooth controllers
+    @system_service
     def unblock_bluetooth_controllers(self):
         self.start_busy("Unblock Bluetooth Controllers")
         for row in check_output("rfkill -n", shell=True, encoding="utf-8").split("\n"):
@@ -2808,6 +2834,7 @@ class zynthian_state_manager:
                 check_output(f"rfkill unblock {parts[0].strip()}", shell=True)
         self.end_busy("Unblock Bluetooth Controllers")
 
+    @system_service
     def select_bluetooth_controller(self, controller):
         if controller.count(":") != 5:
             logging.error(f"Bad controller address ({controller})!")
@@ -2829,6 +2856,7 @@ class zynthian_state_manager:
             "ZYNTHIAN_MIDI_BLE_CONTROLLER": zynthian_gui_config.ble_controller
         })
 
+    @system_service
     def start_bluetooth(self, save_config=True, wait=0):
         service = "bluetooth"
         if zynconf.is_service_active(service):
@@ -2856,6 +2884,7 @@ class zynthian_state_manager:
 
         self.end_busy("start_bluetooth")
 
+    @system_service
     def stop_bluetooth(self, save_config=True, wait=0):
         service = "bluetooth"
         if not zynconf.is_service_active(service):
@@ -2886,6 +2915,7 @@ class zynthian_state_manager:
         else:
             self.stop_bluetooth(False)
 
+    @system_service
     def start_aubionotes(self, save_config=True, wait=0):
         service = "aubionotes"
         if zynconf.is_service_active(service):
@@ -2912,6 +2942,7 @@ class zynthian_state_manager:
 
         self.end_busy("start_aubionotes")
 
+    @system_service
     def stop_aubionotes(self, save_config=True, wait=0):
         service = "aubionotes"
         if not zynconf.is_service_active(service):
@@ -2960,7 +2991,8 @@ class zynthian_state_manager:
             return False
 
     def check_for_updates(self):
-        if self.checking_for_updates:
+        if self.checking_for_updates or zynconf.desktop_mode:
+            # On a desktop, zynthian is updated by the package manager
             return
         self.checking_for_updates = True
 

@@ -67,7 +67,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
         self.state_manager = self.zyngui.state_manager
 
-        if self.state_manager.allow_rbpi_headphones():
+        if not zynconf.desktop_mode and self.state_manager.allow_rbpi_headphones():
             self.default_rbpi_headphones()
 
     def refresh_status(self):
@@ -89,7 +89,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
     def build_view(self):
         self.update_available = self.state_manager.update_available
-        if not self.refresh_wifi_thread:
+        if not self.refresh_wifi_thread and not zynconf.desktop_mode:
             self.refresh_wifi = True
             self.refresh_wifi_thread = Thread(target=self.refresh_wifi_task, name="wifi_refresh")
             self.refresh_wifi_thread.start()
@@ -163,7 +163,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         #self.list_data.append((self.audio_levels, 0, "Audio Levels", ["Show audio levels view.", "meters.png"]))
         self.list_data.append((self.pfl, 0, f"PFL Output ({zynthian_gui_config.pfl_output})", ["Select the audio output device for pre-fader listening.", "headphones.png"]))
         self.list_data.append((self.show_tts, 0, "ZynVoice", ["Text to speech accessibility options", "audio_options.png"]))
-        if self.state_manager.allow_rbpi_headphones():
+        if not zynconf.desktop_mode and self.state_manager.allow_rbpi_headphones():
             if zynthian_gui_config.rbpi_headphones:
                 self.list_data.append((self.stop_rbpi_headphones, 0, "\u2612 RBPi Headphones",
                                        ["RBPi onboard headphone output (Lo-Fi) is enabled", "headphones.png"]))
@@ -194,17 +194,19 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
         self.list_data.append((self.network_info, 0, "Network Info",
                                ["Show network details, e.g. IP address, etc.", "network.png"]))
-        self.list_data.append((self.wifi_config, 0, f"Wi-Fi Config ({self.wifi_status})",
-                               ["Configure Wi-Fi connections.", "wifi.png"]))
-        self.wifi_index = len(self.list_data) - 1
-        if zynconf.is_service_active("vncserver0"):
-            self.list_data.append((self.state_manager.stop_vncserver, 0, "\u2612 VNC Server",
-                                   ["Display zynthian UI and processors' native GUI via VNC.\n This uses more CPU. It is advised to disable during performance.", "network.png"]))
-        else:
-            self.list_data.append((self.state_manager.start_vncserver, 0, "\u2610 VNC Server",
-                                   ["Display zynthian UI and processors' native GUI via VNC.\n This uses more CPU. It is advised to disable during performance.", "network.png"]))
-        self.list_data.append((self.bluetooth, 0, "Bluetooth",
-                               ["Scan, enable and configure Bluetooth devices.\n\nMust enable Bluetooth here to access BLE MIDI devices. Also supports HID devices.", "bluetooth.png"]))
+        # On a desktop, Wi-Fi, VNC and Bluetooth are managed by the host system
+        if not zynconf.desktop_mode:
+            self.list_data.append((self.wifi_config, 0, f"Wi-Fi Config ({self.wifi_status})",
+                                   ["Configure Wi-Fi connections.", "wifi.png"]))
+            self.wifi_index = len(self.list_data) - 1
+            if zynconf.is_service_active("vncserver0"):
+                self.list_data.append((self.state_manager.stop_vncserver, 0, "\u2612 VNC Server",
+                                       ["Display zynthian UI and processors' native GUI via VNC.\n This uses more CPU. It is advised to disable during performance.", "network.png"]))
+            else:
+                self.list_data.append((self.state_manager.start_vncserver, 0, "\u2610 VNC Server",
+                                       ["Display zynthian UI and processors' native GUI via VNC.\n This uses more CPU. It is advised to disable during performance.", "network.png"]))
+            self.list_data.append((self.bluetooth, 0, "Bluetooth",
+                                   ["Scan, enable and configure Bluetooth devices.\n\nMust enable Bluetooth here to access BLE MIDI devices. Also supports HID devices.", "bluetooth.png"]))
 
         self.list_data.append((None, 0, "> USER INTERFACE"))
         self.list_data.append((self.visible_chains, 0, f"Visible Chains ({zynthian_gui_config.visible_mixer_strips})",
@@ -237,9 +239,10 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         if "brightness_config" in self.zyngui.screens and self.zyngui.screens["brightness_config"].get_num_zctrls() > 0:
             self.list_data.append((self.zyngui.brightness_config, 0, "Brightness",
                                    ["Adjust display and LED brightness.", "bright_settings.png"]))
-        self.list_data.append((self.zyngui.calibrate_touchscreen, 0, "Calibrate Touchscreen",
-                               ["Show touchscreen calibration.\nTouch each crosshair until it changes color.\nScreen closes after 15s of inactivity.",
-                                "settings.png"]))
+        if not zynconf.desktop_mode:  # Writes the system's X11 configuration
+            self.list_data.append((self.zyngui.calibrate_touchscreen, 0, "Calibrate Touchscreen",
+                                   ["Show touchscreen calibration.\nTouch each crosshair until it changes color.\nScreen closes after 15s of inactivity.",
+                                    "settings.png"]))
         self.list_data.append((self.zyngui.cuia_screen_clean, 0, "Clean Screen",
                                ["10s countdown with no touch trigger. Allows screen to be cleaned without triggering any action.", "settings.png"]))
 

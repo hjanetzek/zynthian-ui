@@ -21,6 +21,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import json
 import logging
 from subprocess import run, PIPE
@@ -225,7 +226,7 @@ def load(config="keybinding"):
     Returns : True on success
     """
 
-    config_fpath = f"{environ.get('ZYNTHIAN_CONFIG_DIR', '/zynthian/config')}/{config}.json"
+    config_fpath = f"{zynthian_paths.config_dir}/{config}.json"
     try:
         with open(config_fpath, "r") as fh:
             j = fh.read()
@@ -279,7 +280,7 @@ def save(config="keybinding"):
     Returns : True on success
     """
 
-    config_fpath = f"{environ.get('ZYNTHIAN_CONFIG_DIR', '/zynthian/config')}/{config}.json"
+    config_fpath = f"{zynthian_paths.config_dir}/{config}.json"
     try:
         with open(config_fpath, "w") as fh:
             fh.write(json.dumps(get_html_map(), indent=4))

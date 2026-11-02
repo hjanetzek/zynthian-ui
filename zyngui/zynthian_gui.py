@@ -21,6 +21,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import sys
 import json
@@ -168,8 +169,8 @@ class zynthian_gui:
     SCREEN_HMODE_RESET = 3
 
     def __init__(self):
-        self.capture_dir_sdc = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/capture"
-        self.ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
+        self.capture_dir_sdc = zynthian_paths.my_data_dir + "/capture"
+        self.ex_data_dir = zynthian_paths.ex_data_dir
 
         self.ignore_next_touch_release = False
 

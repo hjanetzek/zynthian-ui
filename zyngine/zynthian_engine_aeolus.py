@@ -21,6 +21,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import copy
 import json
 import logging
@@ -242,9 +243,9 @@ class zynthian_engine_aeolus(zynthian_engine):
     # ----------------------------------------------------------------------------
 
     # TODO: Use paths from global config
-    stops_fpath = "/zynthian/zynthian-data/aeolus/stops"
-    user_presets_fpath = "/zynthian/zynthian-my-data/presets/aeolus.json"
-    default_presets_fpath = "/zynthian/zynthian-data/presets/aeolus.json"
+    stops_fpath = f"{zynthian_paths.data_dir}/aeolus/stops"
+    user_presets_fpath = f"{zynthian_paths.my_data_dir}/presets/aeolus.json"
+    default_presets_fpath = f"{zynthian_paths.data_dir}/presets/aeolus.json"
 
     stop_cc_num = 98
 

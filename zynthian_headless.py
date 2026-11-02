@@ -1,3 +1,4 @@
+from zynconf import zynthian_paths
 from zyncoder.zyncore import lib_zyncore_init
 from zyngui import zynthian_gui_config
 from zyngine import zynthian_state_manager
@@ -32,7 +33,7 @@ class zyn_headless:
 
         if zynthian_gui_config.restore_last_state:
             snapshot_loaded = self.state_manager.load_snapshot(
-                "/zynthian/zynthian-my-data/snapshots/last_state.zss")
+                f"{zynthian_paths.my_data_dir}/snapshots/last_state.zss")
 
         self.state_manager.init_midi()
         self.state_manager.init_midi_services()

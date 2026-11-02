@@ -24,6 +24,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import glob
 import logging
@@ -47,7 +48,7 @@ DRIVER_DEVELOPMENT = False
 
 class zynthian_ctrldev_manager():
 
-    ctrldev_path_base = os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui") + "/zyngine"
+    ctrldev_path_base = zynthian_paths.ui_dir + "/zyngine"
     ctrldev_dirnames = ["ctrldev_user", "ctrldev"]
 
     # Function to initialise class

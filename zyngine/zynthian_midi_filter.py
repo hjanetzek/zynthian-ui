@@ -52,8 +52,9 @@ import logging
 
 import unittest
 from zyncoder.zyncore import lib_zyncore
+from zynconf import zynthian_paths
 
-sys.path.append(os.environ.get('ZYNTHIAN_UI_DIR'))
+sys.path.append(zynthian_paths.ui_dir)
 
 # Zynthian specific modules
 

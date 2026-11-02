@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import ctypes
@@ -79,7 +80,7 @@ class zynthian_engine_clippy(zynthian_engine):
         self.samplerate = zynautoconnect.get_jackd_samplerate()
 
         self.monitors_dict = {}
-        self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_audio_file.py"
+        self.custom_gui_fpath = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_audio_file.py"
 
         self.libclippy =  None
         self.start()
@@ -89,7 +90,7 @@ class zynthian_engine_clippy(zynthian_engine):
     # ---------------------------------------------------------------------------
 
     def start(self):
-        self.libclippy = ctypes.cdll.LoadLibrary("/zynthian/zynthian-ui/zynlibs/zynclippy/build/libzynclippy.so")
+        self.libclippy = ctypes.cdll.LoadLibrary(f"{zynthian_paths.ui_dir}/zynlibs/zynclippy/build/libzynclippy.so")
         self.libclippy.init()
         self.libclippy.getGain.restype = ctypes.c_float
         self.libclippy.getJackname.restype = ctypes.c_char_p

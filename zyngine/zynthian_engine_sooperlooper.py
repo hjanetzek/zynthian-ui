@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import logging
 from glob import glob
@@ -367,7 +368,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
         self.channels = 2
         self.selected_loop_cc_binding = True # True for MIDI CC to control selected loop. False to target all loops
 
-        ui_dir = os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui")
+        ui_dir = zynthian_paths.ui_dir
         self.custom_gui_fpath = f"{ui_dir}/zyngui/zynthian_widget_sooperlooper.py"
         self.monitors_dict = {
             "state": 0,

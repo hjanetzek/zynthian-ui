@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import logging
 import tkinter
@@ -46,10 +47,10 @@ from zyngine.zynthian_signal_manager import zynsigman
 
 class zynthian_gui_midi_recorder(zynthian_gui_selector_info):
 
-    system_dir_sdc = os.environ.get('ZYNTHIAN_DATA_DIR', "/zynthian/zynthian-data") + "/files/Midi"
-    capture_dir_sdc = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/capture"
-    user_dir_sdc = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/files/Midi"
-    ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
+    system_dir_sdc = zynthian_paths.data_dir + "/files/Midi"
+    capture_dir_sdc = zynthian_paths.my_data_dir + "/capture"
+    user_dir_sdc = zynthian_paths.my_data_dir + "/files/Midi"
+    ex_data_dir = zynthian_paths.ex_data_dir
 
     def __init__(self):
         super().__init__('MIDI file', default_icon="file_midi.png", tiny_ctrls=False, zsel_hidden=False)

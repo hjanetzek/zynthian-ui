@@ -24,6 +24,7 @@
 # ****************************************************************************
 
 import os
+from zynconf import zynthian_paths
 import ctypes
 import logging
 import traceback
@@ -64,10 +65,10 @@ from zyngui import zynthian_gui_config
 # ----------------------------------------------------------------------------
 
 
-zynthian_dir = os.environ.get('ZYNTHIAN_DIR', "/zynthian")
-ui_dir = os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui")
-my_data_dir = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data")
-ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
+zynthian_dir = zynthian_paths.zynthian_dir
+ui_dir = zynthian_paths.ui_dir
+my_data_dir = zynthian_paths.my_data_dir
+ex_data_dir = zynthian_paths.ex_data_dir
 capture_dir_sdc = my_data_dir + "/capture"
 
 MAIN_MIXBUS_ID = -1
@@ -96,7 +97,7 @@ class zynthian_state_manager:
         self.busy_ts = None
         self.start_busy("zynthian_state_manager")
 
-        self.snapshot_dir = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/snapshots"
+        self.snapshot_dir = zynthian_paths.my_data_dir + "/snapshots"
         self.default_snapshot_fpath = join(self.snapshot_dir, "default.zss")
         self.last_state_snapshot_fpath = join(self.snapshot_dir, "last_state.zss")
         # Increments each time a snapshot is loaded - modules may use to update if required
@@ -2997,7 +2998,7 @@ class zynthian_state_manager:
                 if os.environ.get('ZYNTHIAN_STABLE_TAG', "") == "last":
                     stable_branch = os.environ.get('ZYNTHIAN_STABLE_BRANCH', "oram")
                     for repo in repos:
-                        path = f"/zynthian/{repo}"
+                        path = f"{zynthian_paths.zynthian_dir}/{repo}"
                         branch = get_repo_branch(path)
                         # Get last tag release
                         check_output(["git", "-C", path, "remote", "update", "origin", "--prune"],
@@ -3013,7 +3014,7 @@ class zynthian_state_manager:
                 # else => Check for commits to pull
                 else:
                     for repo in repos:
-                        path = f"/{zynthian_dir}/{repo}"
+                        path = f"{zynthian_dir}/{repo}"
                         branch = get_repo_branch(path)
                         local_hash = check_output(["git", "-C", path, "rev-parse", "HEAD"],
                                                   encoding="utf-8", stderr=STDOUT).strip()

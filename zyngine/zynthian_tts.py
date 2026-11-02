@@ -23,6 +23,7 @@
 #
 # ****************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import math
@@ -39,7 +40,7 @@ import zynconf
 import zynautoconnect
 from zyngui import zynthian_gui_config
 
-TTS_DATA_PATH = f"{os.environ.get('ZYNTHIAN_DATA_DIR', '/zynthian/zynthian-data')}/tts"
+TTS_DATA_PATH = f"{zynthian_paths.data_dir}/tts"
 TTS_FLITE_LEX_PATH = f"{TTS_DATA_PATH}/lexicon"
 TTS_FLITE_VOICES_PATH = f"{TTS_DATA_PATH}/voices"
 TTS_DICT = {

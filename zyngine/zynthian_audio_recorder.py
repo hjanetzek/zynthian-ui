@@ -24,6 +24,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import logging
 from subprocess import Popen
@@ -40,8 +41,8 @@ from zyngui import zynthian_gui_config
 
 class zynthian_audio_recorder:
 
-    capture_dir_sdc = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/capture"
-    ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
+    capture_dir_sdc = zynthian_paths.my_data_dir + "/capture"
+    ex_data_dir = zynthian_paths.ex_data_dir
 
     def __init__(self, state_manager):
         self.rec_proc = None

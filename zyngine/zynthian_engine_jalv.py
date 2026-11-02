@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import sys
@@ -683,9 +684,9 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
     }
 
     plugin2native_presets_dir = {
-        "TAL U-No-LX-V2": "/zynthian/zynthian-my-data/presets/TAL-U-No-LX",
-        "Vavra": "/zynthian/zynthian-my-data/presets/Vavra",
-        "Xenia": "/zynthian/zynthian-my-data/presets/Xenia"
+        "TAL U-No-LX-V2": f"{zynthian_paths.my_data_dir}/presets/TAL-U-No-LX",
+        "Vavra": f"{zynthian_paths.my_data_dir}/presets/Vavra",
+        "Xenia": f"{zynthian_paths.my_data_dir}/presets/Xenia"
     }
 
     # ---------------------------------------------------------------------------

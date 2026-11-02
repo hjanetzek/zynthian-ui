@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import copy
 import json
 import socket
@@ -557,7 +558,7 @@ class zynthian_engine_inet_radio(zynthian_engine):
             "artwork": "",
             'reset': False
         }
-        self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_inet_radio.py"
+        self.custom_gui_fpath = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_inet_radio.py"
         self.last_info = 0
 
         self.command = ["vlc",

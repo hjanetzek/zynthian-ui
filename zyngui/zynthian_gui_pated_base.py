@@ -24,6 +24,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import copy
 import tkinter
@@ -50,7 +51,7 @@ GRID_LINE_XTRONG = "#FFFFFF"
 PLAYHEAD_BACKGROUND = zynthian_gui_config.color_variant(zynthian_gui_config.color_panel_bd, 40)
 PLAYHEAD_LINE = zynthian_gui_config.color_tx_off
 PLAYHEAD_HEIGHT = 12
-CONFIG_ROOT = "/zynthian/zynthian-data/zynseq"
+CONFIG_ROOT = f"{zynthian_paths.data_dir}/zynseq"
 
 DRAG_SENSIBILITY = 1.5
 SAVE_SNAPSHOT_DELAY = 10
@@ -241,7 +242,7 @@ class zynthian_gui_pated_base(zynthian_gui_base):
     # Function to initialise class
     def __init__(self):
         super().__init__()
-        self.my_data_dpath = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data")
+        self.my_data_dpath = zynthian_paths.my_data_dir
         self.my_patterns_dpath =  self.my_data_dpath + "/files/Patterns"
         self.my_capture_dpath = self.my_data_dpath + "/capture"
         self.my_smf_dpath = self.my_data_dpath + "/files/Midi/patterns"

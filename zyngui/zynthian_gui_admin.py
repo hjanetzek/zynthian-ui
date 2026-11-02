@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import signal
@@ -46,8 +47,8 @@ from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 
 class zynthian_gui_admin(zynthian_gui_selector_info):
 
-    data_dir = os.environ.get('ZYNTHIAN_DATA_DIR', "/zynthian/zynthian-data")
-    sys_dir = os.environ.get('ZYNTHIAN_SYS_DIR', "/zynthian/zynthian-sys")
+    data_dir = zynthian_paths.data_dir
+    sys_dir = zynthian_paths.sys_dir
 
     def __init__(self):
         self.commands = None

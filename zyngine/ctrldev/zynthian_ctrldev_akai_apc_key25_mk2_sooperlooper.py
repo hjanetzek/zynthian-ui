@@ -24,6 +24,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import logging
 import time
 import random
@@ -792,7 +793,7 @@ class looper_handler(
     # OSC_SL_PORT = ServerPort["sooperlooper_osc"] # 9951
     # OSC_SL_HOST = "127.0.0.1"; # Unnecessary
 
-    SL_SESSION_PATH = "/zynthian/zynthian-my-data/presets/sooperlooper/"
+    SL_SESSION_PATH = f"{zynthian_paths.my_data_dir}/presets/sooperlooper/"
 
     def __init__(self, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None, parent=None):
         """Initialize the controller with required parameters"""

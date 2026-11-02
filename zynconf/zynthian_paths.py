@@ -52,3 +52,16 @@ recipe_dir = _env("ZYNTHIAN_RECIPE_DIR", f"{sys_dir}/scripts/recipes")
 
 # Writable LV2 directory where zynthian installs plugins and presets
 lv2_dir = _env("ZYNTHIAN_LV2_DIR", f"{plugins_dir}/lv2")
+
+# Installed native libraries (e.g. /usr/lib/zynthian in a package). Unset: each
+# library is loaded from its build directory in the source tree.
+lib_dir = os.environ.get("ZYNTHIAN_LIB_DIR", "")
+
+
+def native_lib(fname, build_dir):
+    """Path of native library fname: from ZYNTHIAN_LIB_DIR if it's there, else from build_dir"""
+    if lib_dir:
+        fpath = os.path.join(lib_dir, fname)
+        if os.path.isfile(fpath):
+            return fpath
+    return os.path.join(build_dir, fname)

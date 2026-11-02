@@ -8,6 +8,10 @@ set -eu
 cfg=${1:-$HOME/.config/pmbootstrap-zynthian.cfg}
 work=$(sed -n 's/^work *= *//p' "$cfg")
 [ -n "$work" ] || { echo "no work dir in $cfg" >&2; exit 1; }
+if [ ! -f "$work/version" ]; then
+	echo "pmbootstrap work dir $work not initialised: run pmbootstrap -c $cfg init first" >&2
+	exit 1
+fi
 dest="$work/cache_distfiles"
 here=$(cd "$(dirname "$0")" && pwd)
 tmp=$(mktemp -d)
@@ -34,6 +38,8 @@ for aport in zynthian-ui; do
 	sed -n '/^sha512sums="/,/^"/p' "$apkbuild" | grep '  ' >> "$tmp/sha512sums"
 done
 
+# pmbootstrap creates the cache only when it first needs it; same owner and mode as it uses
+[ -d "$dest" ] || sudo install -d -o root -g 300 -m 775 "$dest"
 for f in "$tmp"/*; do
 	name=$(basename "$f")
 	[ "$name" = sha512sums ] && continue

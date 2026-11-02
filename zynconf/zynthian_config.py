@@ -172,6 +172,11 @@ config_dir = zynthian_paths.config_dir
 my_data_dir = zynthian_paths.my_data_dir
 config_fpath = config_dir + "/zynthian_envars.sh"
 
+# Running as an application on a desktop (or Nura) system instead of ZynthianOS:
+# zynthian doesn't own the system there, so it must not start or stop system
+# services, change power, display or network settings, or update the system.
+desktop_mode = os.environ.get("ZYNTHIAN_DESKTOP", "0") == "1"
+
 # -------------------------------------------------------------------------------
 # Config management
 # -------------------------------------------------------------------------------
@@ -538,6 +543,9 @@ def is_process_running(procname):
 
 
 def is_service_active(service):
+    if desktop_mode:
+        # The system's services are not zynthian's
+        return False
     try:
         result = check_output(["systemctl", "is-active", service]).decode('utf-8', 'ignore')
     except Exception as e:

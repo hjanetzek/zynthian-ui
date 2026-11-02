@@ -192,7 +192,7 @@ class zynseq(zynthian_engine):
         self.custom_gui_fpath = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_tempo.py"
 
         try:
-            self.libseq = ctypes.cdll.LoadLibrary(dirname(realpath(__file__))+"/build/libzynseq.so")
+            self.libseq = ctypes.cdll.LoadLibrary(zynthian_paths.native_lib("libzynseq.so", dirname(realpath(__file__)) + "/build"))
             self.libseq.getSequenceName.restype = ctypes.c_char_p
 
             self.libseq.addNote.argtypes = [ctypes.c_uint32, ctypes.c_uint8, ctypes.c_uint8, ctypes.c_float, ctypes.c_float]

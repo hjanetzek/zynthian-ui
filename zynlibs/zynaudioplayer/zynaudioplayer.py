@@ -25,6 +25,7 @@
 # ********************************************************************
 
 import ctypes
+from zynconf import zynthian_paths
 import logging
 #from _ctypes import dlclose
 from os.path import dirname, realpath
@@ -49,7 +50,7 @@ def cb_handler(id, play_state, loop, pos, varispeed):
 
 try:
     # Load or increment ref to lib
-    libaudioplayer = ctypes.cdll.LoadLibrary(dirname(realpath(__file__))+"/build/libzynaudioplayer.so")
+    libaudioplayer = ctypes.cdll.LoadLibrary(zynthian_paths.native_lib("libzynaudioplayer.so", dirname(realpath(__file__)) + "/build"))
     libaudioplayer.get_codec.restype = ctypes.c_char_p
     libaudioplayer.get_duration.restype = ctypes.c_float
     libaudioplayer.get_position.restype = ctypes.c_float

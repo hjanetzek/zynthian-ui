@@ -26,7 +26,9 @@
 
 from zynconf import zynthian_paths
 import os
+import sys
 import glob
+import types
 import logging
 import importlib
 import traceback
@@ -40,6 +42,30 @@ from zyncoder.zyncore import lib_zyncore
 # TODO! GET TO WORK DYNAMIC MODULE LOADING
 DRIVER_DEVELOPMENT = False
 #DRIVER_DEVELOPMENT = True
+
+# ------------------------------------------------------------------------------
+# User drivers
+# ------------------------------------------------------------------------------
+# User drivers live in $ZYNTHIAN_MY_DATA_DIR/ctrldev and are imported as
+# zyngine.ctrldev_user.<module>. ZynthianOS links zyngine/ctrldev_user to that
+# directory. Where the code is read-only (installed package) there is no link:
+# register the package with its path pointing to the user directory instead.
+
+user_ctrldev_dir = f"{zynthian_paths.my_data_dir}/ctrldev"
+
+
+def setup_user_ctrldev_package():
+    if os.path.exists(f"{zynthian_paths.ui_dir}/zyngine/ctrldev_user") or "zyngine.ctrldev_user" in sys.modules:
+        return
+    package = types.ModuleType("zyngine.ctrldev_user")
+    package.__path__ = [user_ctrldev_dir]
+    package.__package__ = "zyngine.ctrldev_user"
+    sys.modules["zyngine.ctrldev_user"] = package
+    import zyngine
+    zyngine.ctrldev_user = package
+
+
+setup_user_ctrldev_package()
 
 # ------------------------------------------------------------------------------
 # Zynthian Control Device Manager Class
@@ -74,7 +100,11 @@ class zynthian_ctrldev_manager():
 
         # Find and load new driver modules
         for dirname in self.ctrldev_dirnames:
-            for module_path in glob.glob(f"{self.ctrldev_path_base}/{dirname}/*.py"):
+            if dirname == "ctrldev_user" and not os.path.exists(f"{self.ctrldev_path_base}/{dirname}"):
+                dpath = user_ctrldev_dir
+            else:
+                dpath = f"{self.ctrldev_path_base}/{dirname}"
+            for module_path in glob.glob(f"{dpath}/*.py"):
                 module_name = Path(module_path).stem
                 if not module_name.startswith("__") and not module_name.startswith("zynthian_ctrldev_base") and module_name not in self.driver_classes:
                     try:

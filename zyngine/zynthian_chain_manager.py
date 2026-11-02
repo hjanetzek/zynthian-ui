@@ -23,6 +23,7 @@
 #
 # ****************************************************************************
 
+import shutil
 import logging
 
 # Zynthian specific modules
@@ -30,6 +31,7 @@ import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 
 from zyngine import *
+import zynconf
 from zyngine import zynthian_lv2
 from zyngine.zynthian_chain import *
 from zyngine.zynthian_engine_jalv import *
@@ -83,6 +85,21 @@ engine2class = {
     "MX": zynthian_engine_alsa_mixer,
     "TP": zynthian_engine_tempo,
     'CL': zynthian_engine_clippy
+}
+
+# Programs that engines run, by engine code. In desktop mode an engine whose program isn't
+# installed is left out (ZynthianOS has them all): selecting it would add a silent chain.
+engine2program = {
+    "ZY": "zynaddsubfx",
+    "FS": "fluidsynth",
+    "SF": "sfizz_jack",
+    "LS": "linuxsampler",
+    "BF": "setBfree",
+    "JV": "jalv",
+    "AE": "aeolus",
+    "SL": "sooperlooper",
+    "PD": "pd",
+    "IR": "vlc"
 }
 
 # ----------------------------------------------------------------------------
@@ -196,6 +213,17 @@ class zynthian_chain_manager:
                     f"Engine {key} has been disabled. Can't find an engine class for it.")
                 info['ENGINE'] = None
                 info['ENABLED'] = False
+
+        # Desktop mode: leave out engines that can't run here
+        if zynconf.desktop_mode:
+            for key, info in cls.engine_info.items():
+                program = engine2program.get(key[0:2])
+                if info['ENGINE'] and program and not shutil.which(program):
+                    logging.info(f"Engine {key} not available: '{program}' is not installed")
+                    info['ENGINE'] = None
+                elif key[0:2] == "MD":
+                    # MOD-UI runs as a ZynthianOS system service
+                    info['ENGINE'] = None
 
         # Complete Pianoteq config
         pt_info = get_pianoteq_binary_info()
@@ -1099,7 +1127,10 @@ class zynthian_chain_manager:
 
         engine = self.start_engine(processor, eng_code, eng_config)
         if not engine:
-            # Failed!! => Remove processor from list
+            # Failed!! => Remove processor from chain and list. A processor left in the chain
+            # without engine breaks the next rebuild_graph() (e.g. loading a snapshot).
+            if chain_id is not None:
+                chain.remove_processor(processor)
             del self.processors[proc_id]
             self.state_manager.end_busy("add_processor")
             return None
@@ -1416,6 +1447,10 @@ class zynthian_chain_manager:
         if eng_code not in self.engine_info:
             logging.error(f"Engine '{eng_code}' not found!")
             return None
+        if self.engine_info[eng_code]["ENGINE"] is None:
+            # Not available here (e.g. its program isn't installed, see get_engine_info)
+            logging.error(f"Engine '{eng_code}' is not available!")
+            return None
 
         if eng_code in self.zyngines:
             # Engine already started
@@ -1479,7 +1514,9 @@ class zynthian_chain_manager:
                 eng_cat = info["CAT"]
                 if eng_cat in result:
                     hide_if_single_proc = eng_code not in self.single_processor_engines or eng_code not in self.zyngines
-                    if (info["ENABLED"] or all) and hide_if_single_proc:
+                    # ENGINE is None for engines that can't run (see get_engine_info)
+                    available = info.get("ENGINE", True) is not None
+                    if (info["ENABLED"] or all) and hide_if_single_proc and available:
                         result[eng_cat][eng_code] = info
                 else:
                     logging.error(f"Engine '{eng_code}' has invalid category '{eng_cat}'!")

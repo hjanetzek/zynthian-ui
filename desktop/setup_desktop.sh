@@ -107,11 +107,12 @@ do_dirs() {
 	if [ ! -f "$ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh" ]; then
 		cp "$DESKTOP_DIR/zynthian_envars_desktop.sh" "$ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh"
 	fi
-	# Factory config from zynthian-sys; files the user may change are copied only once
-	cp -a "$ZYNTHIAN_SYS_DIR/config/wiring-profiles" "$ZYNTHIAN_CONFIG_DIR"
-	cp -a "$ZYNTHIAN_SYS_DIR/config/sidechain.json" "$ZYNTHIAN_CONFIG_DIR"
+	# Factory config from zynthian-sys; files the user may change are copied only once.
+	# No cp -a: the sources may belong to root (installed package), the copies are the user's.
+	cp -R "$ZYNTHIAN_SYS_DIR/config/wiring-profiles" "$ZYNTHIAN_CONFIG_DIR"
+	cp "$ZYNTHIAN_SYS_DIR/config/sidechain.json" "$ZYNTHIAN_CONFIG_DIR"
 	for f in config_backup_items.txt data_backup_items.txt; do
-		[ -f "$ZYNTHIAN_CONFIG_DIR/$f" ] || cp -a "$ZYNTHIAN_SYS_DIR/config/$f" "$ZYNTHIAN_CONFIG_DIR"
+		[ -f "$ZYNTHIAN_CONFIG_DIR/$f" ] || cp "$ZYNTHIAN_SYS_DIR/config/$f" "$ZYNTHIAN_CONFIG_DIR"
 	done
 	if [ ! -f "$ZYNTHIAN_CONFIG_DIR/midi-profiles/default.sh" ]; then
 		mkdir -p "$ZYNTHIAN_CONFIG_DIR/midi-profiles"
@@ -135,7 +136,7 @@ do_dirs() {
 	[ -e "$ZYNTHIAN_MY_DATA_DIR/files/Samples/sfz" ] || ln -s "$ZYNTHIAN_MY_DATA_DIR/soundfonts/sfz" "$ZYNTHIAN_MY_DATA_DIR/files/Samples/sfz"
 	# Factory snapshots
 	mkdir -p "$ZYNTHIAN_MY_DATA_DIR/snapshots/000-Factory"
-	cp -au "$ZYNTHIAN_DATA_DIR/snapshots/." "$ZYNTHIAN_MY_DATA_DIR/snapshots/000-Factory/"
+	cp -Ru "$ZYNTHIAN_DATA_DIR/snapshots/." "$ZYNTHIAN_MY_DATA_DIR/snapshots/000-Factory/"
 
 	mkdir -p "$ZYNTHIAN_LV2_DIR" "$ZYNTHIAN_SW_DIR"
 }

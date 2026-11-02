@@ -611,8 +611,9 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
     # Custom plugin info
     # ------------------------------------------------------------------------------
 
-    rbpi_version = os.environ.get('RBPI_VERSION', '')
-    if "Raspberry Pi 4" in rbpi_version:
+    rbpi_version = os.environ.get('RBPI_VERSION', "")
+    if not rbpi_version or "Raspberry Pi 4" in rbpi_version:
+        # Not a Raspberry Pi (desktop) => as capable as a Pi 4
         rpi = "RPi4"
     elif "Raspberry Pi 3" in rbpi_version:
         rpi = "RPi3"

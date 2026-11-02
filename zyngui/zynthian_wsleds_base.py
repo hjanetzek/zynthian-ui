@@ -23,10 +23,8 @@
 #
 # ******************************************************************************
 
-import board
 import logging
 import traceback
-import neopixel_spi as neopixel
 
 # Zynthian specific modules
 from zyngine.zynthian_signal_manager import zynsigman
@@ -128,6 +126,10 @@ class zynthian_wsleds_base:
     def start(self):
         if self.num_leds > 0:
             try:
+                # Imported here: the LED strip needs SPI hardware (Raspberry Pi),
+                # the touch keypad's virtual LEDs (subclasses) don't
+                import board
+                import neopixel_spi as neopixel
                 self.spi_board = board.SPI()
                 self.wsleds = neopixel.NeoPixel_SPI(self.spi_board,
                                                     self.num_leds,

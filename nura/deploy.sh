@@ -83,20 +83,27 @@ if [ "$build" = 1 ]; then
 		main=$(mainpkg "$pkg")
 		case " $mains " in *" $main "*) ;; *) mains="$mains $main" ;; esac
 	done
-	others=
+	# Dependencies first: with --src, pmbootstrap doesn't build missing dependencies
+	# (zynthian-ui needs zyncoder and zynthian-data, the kiosk needs zynthian-ui).
+	ordered=
+	for main in zyncoder zynthian-data zynthian-ui postmarketos-ui-zynthian; do
+		case " $mains " in *" $main "*) ordered="$ordered $main" ;; esac
+	done
 	for main in $mains; do
+		case " $ordered " in *" $main "*) ;; *) ordered="$ordered $main" ;; esac
+	done
+	for main in $ordered; do
 		case $main in
 			# shellcheck disable=SC2086 # empty $lax is intended
 			zynthian-ui) pmb build $lax --arch "$arch" --src="$checkout" zynthian-ui ;;
 			# shellcheck disable=SC2086
 			zyncoder) pmb build $lax --arch "$arch" --src="$zyncoder" zyncoder ;;
-			*) others="$others $main" ;;
+			# Also noarch packages for the device's architecture: otherwise pmbootstrap builds
+			# them for the host and pulls in host builds of their dependencies.
+			# shellcheck disable=SC2086
+			*) pmb build $lax --arch "$arch" "$main" ;;
 		esac
 	done
-	# Build noarch packages for the device's architecture too: otherwise pmbootstrap builds
-	# them for the host and pulls in host builds of their dependencies.
-	# shellcheck disable=SC2086 # word splitting intended
-	[ -z "$others" ] || pmb build $lax --arch "$arch" $others
 fi
 
 pmb sideload --arch "$arch" --host "$host" --user "$user" "$@"

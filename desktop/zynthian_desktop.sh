@@ -13,12 +13,21 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/zynthian_desktop_env.sh"
 
-if [ ! -f "$ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh" ] || [ ! -x "$ZYNTHIAN_VENV_DIR/bin/python3" ]; then
-	echo "zynthian is not set up yet, running setup_desktop.sh ..."
-	"$ZYNTHIAN_UI_DIR/desktop/setup_desktop.sh" || exit 1
-fi
-if [ ! -f "$ZYNTHIAN_ZYNCODER_DIR/build/libzyncore.so" ]; then
-	"$ZYNTHIAN_UI_DIR/desktop/setup_desktop.sh" build || exit 1
+if [ -n "$ZYNTHIAN_LIB_DIR" ]; then
+	# Installed (package): libraries and Python packages come with it, only the
+	# user's directories need to be created
+	if [ ! -f "$ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh" ]; then
+		"$ZYNTHIAN_UI_DIR/desktop/setup_desktop.sh" dirs || exit 1
+	fi
+else
+	# Source checkout
+	if [ ! -f "$ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh" ] || [ ! -x "$ZYNTHIAN_VENV_DIR/bin/python3" ]; then
+		echo "zynthian is not set up yet, running setup_desktop.sh ..."
+		"$ZYNTHIAN_UI_DIR/desktop/setup_desktop.sh" || exit 1
+	fi
+	if [ ! -f "$ZYNTHIAN_ZYNCODER_DIR/build/libzyncore.so" ]; then
+		"$ZYNTHIAN_UI_DIR/desktop/setup_desktop.sh" build || exit 1
+	fi
 fi
 
 load_config_env() {
@@ -48,11 +57,14 @@ fi
 
 # zyncoder is imported as a package from the UI directory
 if [ ! -e "$ZYNTHIAN_UI_DIR/zyncoder" ]; then
-	echo "Missing $ZYNTHIAN_UI_DIR/zyncoder (symlink to $ZYNTHIAN_ZYNCODER_DIR)"
+	echo "Missing $ZYNTHIAN_UI_DIR/zyncoder (symlink to $ZYNTHIAN_ZYNCODER_DIR, or the zyncoder package)"
 	exit 1
 fi
 
-source "$ZYNTHIAN_VENV_DIR/bin/activate"
+# The venv, if there is one (source checkout); a package uses the system Python
+if [ -f "$ZYNTHIAN_VENV_DIR/bin/activate" ]; then
+	source "$ZYNTHIAN_VENV_DIR/bin/activate"
+fi
 
 # LV2 plugin cache, generated on first boot on ZynthianOS. Regenerate it after
 # installing plugins with: (cd zyngine && python3 zynthian_lv2.py)

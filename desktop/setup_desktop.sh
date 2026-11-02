@@ -52,9 +52,10 @@ PY_PACKAGES=(
 	pyusb
 )
 
+# check_dirs <dir>... => fail if one is missing
 check_dirs() {
 	local missing=0
-	for d in "$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_DATA_DIR" "$ZYNTHIAN_ZYNCODER_DIR"; do
+	for d in "$@"; do
 		if [ ! -d "$d" ]; then
 			echo "Missing: $d (clone it next to zynthian-ui, see desktop/README.md)"
 			missing=1
@@ -139,13 +140,11 @@ do_dirs() {
 	mkdir -p "$ZYNTHIAN_LV2_DIR" "$ZYNTHIAN_SW_DIR"
 }
 
-check_dirs
-
 case "${1:-all}" in
-	build) do_build ;;
+	build) check_dirs "$ZYNTHIAN_ZYNCODER_DIR"; do_build ;;
 	venv) do_venv ;;
-	dirs) do_dirs ;;
-	all) do_build; do_venv; do_dirs ;;
+	dirs) check_dirs "$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_DATA_DIR"; do_dirs ;;
+	all) check_dirs "$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_DATA_DIR" "$ZYNTHIAN_ZYNCODER_DIR"; do_build; do_venv; do_dirs ;;
 	*) echo "Usage: $0 [all|build|venv|dirs]"; exit 1 ;;
 esac
 

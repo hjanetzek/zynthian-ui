@@ -9,6 +9,7 @@
 # Environment: see zynthian_desktop_env.sh for the directories. Also
 #   ZYNTHIAN_LOG_LEVEL   10=DEBUG, 20=INFO (default), 30=WARNING, ...
 #   ZYNTHIAN_DEBUG=1     same as ZYNTHIAN_LOG_LEVEL=10 plus Python fault handler
+#   ZYNTHIAN_FULLSCREEN=1  use the whole screen (kiosk), ignoring DISPLAY_WIDTH/HEIGHT
 #******************************************************************************
 
 source "$(dirname "${BASH_SOURCE[0]}")/zynthian_desktop_env.sh"
@@ -39,6 +40,10 @@ load_config_env() {
 	fi
 	if [ -f "$ZYNTHIAN_CONFIG_DIR/zynthian_custom_config.sh" ]; then
 		source "$ZYNTHIAN_CONFIG_DIR/zynthian_custom_config.sh"
+	fi
+	# Kiosk: use the whole screen, whatever size the config has
+	if [ "$ZYNTHIAN_FULLSCREEN" == "1" ]; then
+		unset DISPLAY_WIDTH DISPLAY_HEIGHT
 	fi
 }
 

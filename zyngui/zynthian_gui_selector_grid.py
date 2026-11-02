@@ -135,20 +135,29 @@ class zynthian_gui_selector_grid(zynthian_gui_base):
         except:
             logging.error(f"Can't update node '{idx}'")
 
-    def get_icon(self, icon_fname=None):
+    # Icons, loaded and scaled once, shared by all grid screens; indexed by (file name, size,
+    # background). Loading and scaling them on each redraw made every visit to a grid screen
+    # slow (about 0.2 s for the main menu on a 1920x1200 screen, ARM). They are blended onto
+    # their node's background color: Tk draws images with transparency on X11 by reading back
+    # and blending the background in software, opaque ones are copied (another 0.15 s).
+    icon_cache = {}
+
+    def get_icon(self, icon_fname=None, bg=None):
         if not icon_fname:
             icon_fname = self.default_icon
-        if icon_fname not in self.icons:
+        key = (icon_fname, self.icon_size, bg)
+        icon = self.icon_cache.get(key)
+        if icon is None:
             try:
-                img = Image.open(f"{self.ui_dir}/icons/{icon_fname}")
-                icon = ImageTk.PhotoImage(img.resize(self.icon_size))
-                self.icons[icon_fname] = icon
-                return icon
+                img = Image.open(f"{self.ui_dir}/icons/{icon_fname}").convert("RGBA").resize(self.icon_size)
+                if bg:
+                    img = Image.alpha_composite(Image.new("RGBA", img.size, bg), img).convert("RGB")
+                icon = ImageTk.PhotoImage(img)
+                self.icon_cache[key] = icon
             except Exception as e:
                 logging.error(f"Can't load info icon {icon_fname} => {e}")
                 return None
-        else:
-            return self.icons[icon_fname]
+        return icon
 
     def _draw_node(self, idx, node, x, y):
         fill = "#666666" if node["action"] else "#444444"
@@ -157,7 +166,7 @@ class zynthian_gui_selector_grid(zynthian_gui_base):
             outline=fill,
             tags=("node", f"node_{idx}", "rect"))
         if "icon" in node:
-            img = self.get_icon(node["icon"])
+            img = self.get_icon(node["icon"], fill)
             if img:
                 self.canvas.create_image(x, y + self.BLOCK_HEIGHT // 2,
                     image=img,
@@ -176,7 +185,8 @@ class zynthian_gui_selector_grid(zynthian_gui_base):
     def _update_node(self, idx, node):
         node_idx = f"node_{idx}"
         if "icon" in node:
-            img = self.get_icon(node["icon"])
+            bg = self.canvas.itemcget(f"{node_idx} && rect", "fill") or None
+            img = self.get_icon(node["icon"], bg)
             if img:
                 self.canvas.itemconfig(f"{node_idx} && img", image=img)
         if "title" in node:
@@ -186,7 +196,6 @@ class zynthian_gui_selector_grid(zynthian_gui_base):
         if self.width == 1:
             return # Not yet resized
         self.canvas.delete("all")
-        self.icons = {}
         x = self.SPACING
         y = self.SPACING
         for idx, node in enumerate(self.config):

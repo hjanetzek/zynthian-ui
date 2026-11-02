@@ -96,13 +96,17 @@ ln -sfn "$PWD/nura" ~/.local/var/pmbootstrap/cache_git/pmaports/zynthian
 nura/seed-distfiles.sh                                          # once per work dir
 pmb() { pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg "$@"; }
 pmb build --arch aarch64 --src=../zyncoder zyncoder
+pmb build --arch aarch64 zynthian-data
 pmb build --arch aarch64 --src="$PWD" zynthian-ui
-pmb build --arch aarch64 zynthian-data postmarketos-ui-zynthian
+pmb build --arch aarch64 postmarketos-ui-zynthian
 pmb install --sdcard=/dev/sdX
 ```
 
-Build the `--src` packages before `install`, and the noarch packages with `--arch aarch64`
-(see the Kick README for why). Updating a running device:
+Build in this order: with `--src`, pmbootstrap doesn't build missing dependencies ("Additional
+packages need building"), and zynthian-ui depends on zyncoder and zynthian-data. Build the
+`--src` packages before `install`, and the noarch packages with `--arch aarch64` (see the Kick
+README for why). `--src` builds get the version `<pkgver base>_p<timestamp>`, so pmbootstrap
+warns that the local pmaports have another version; that is expected. Updating a running device:
 
 ```sh
 nura/deploy.sh -r zynthian-ui              # rebuild from this checkout, install, restart the session

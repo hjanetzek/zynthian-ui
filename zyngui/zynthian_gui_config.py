@@ -860,6 +860,22 @@ if "zynthian_main.py" in sys.argv[0]:
         if not font_size:
             font_size = int(display_width / 40)
 
+        # UI scale (desktop/kiosk): a factor for the font size, or "auto" to scale it with the
+        # screen height, relative to 600 px (the 1024x600 layout the font sizes are made for).
+        # Tk sizes fonts in points from the DPI the display reports; XWayland reports 96 dpi
+        # whatever the panel, so on a high-DPI screen the fonts come out small.
+        ui_scale = os.environ.get('ZYNTHIAN_UI_SCALE', "").strip()
+        if ui_scale == "auto":
+            ui_scale = display_height / 600
+        else:
+            try:
+                ui_scale = float(ui_scale)
+            except ValueError:
+                ui_scale = 1.0
+        if ui_scale > 0 and ui_scale != 1.0:
+            font_size = max(1, round(font_size * ui_scale))
+            logging.info(f"UI scale {ui_scale:.2f} => font size {font_size}")
+
         # Topbar variables
         if screen_width >= 800:
             topbar_height = screen_height // 12

@@ -30,6 +30,7 @@ import logging
 import alsaaudio
 from subprocess import check_output
 
+import zynconf
 from zyncoder.zyncore import lib_zyncore
 from zyngine.zynthian_engine import zynthian_engine
 from zyngine.zynthian_controller import zynthian_controller
@@ -612,6 +613,9 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         self.device = f"hw:{self.device_name}"
 
         try:
+            if zynconf.desktop_mode:
+                # Raspberry Pi onboard audio; the zynthian-sys script isn't installed
+                raise Exception("desktop mode")
             cmd = self.sys_dir + "/sbin/get_rbpi_audio_device.sh"
             self.rbpi_device_name = check_output([cmd]).decode("utf-8")
         except:

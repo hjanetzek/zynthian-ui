@@ -22,6 +22,7 @@
 #
 # *****************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import copy
@@ -38,9 +39,9 @@ class zynthian_processor:
     # Data dirs
     # ---------------------------------------------------------------------------
 
-    data_dir = os.environ.get('ZYNTHIAN_DATA_DIR', "/zynthian/zynthian-data")
-    my_data_dir = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data")
-    ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/usb0")
+    data_dir = zynthian_paths.data_dir
+    my_data_dir = zynthian_paths.my_data_dir
+    ex_data_dir = zynthian_paths.ex_data_dir
 
     # ------------------------------------------------------------------------
     # Initialization

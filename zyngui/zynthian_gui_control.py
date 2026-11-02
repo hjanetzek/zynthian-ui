@@ -22,6 +22,7 @@
 # ******************************************************************************
 
 import os
+from zynconf import zynthian_paths
 import logging
 import tkinter
 import importlib
@@ -350,7 +351,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         self.purge_widgets()
 
         if self.screen_type:
-            module_path = f"/zynthian/zynthian-ui/zyngui/zynthian_widget_{self.screen_type}.py"
+            module_path = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_{self.screen_type}.py"
         else:
             # Widget files can be added, removed or updated while running
             processor.engine.refresh_custom_gui()

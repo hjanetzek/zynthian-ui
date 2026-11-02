@@ -1,0 +1,42 @@
+# zyncore library of zynthian (MIDI router, controller handling) for postmarketOS/Nura.
+#
+# Built from a local checkout of zyncoder (nura branch):
+#   pmbootstrap build --src=/path/to/zyncoder zyncoder
+# Without wiringPi (not packaged, Raspberry Pi only) zyncoder builds its wiringPi
+# stand-in: no GPIO and I2C, so no hardware encoders or switches.
+pkgname=zyncoder
+pkgver=2610_git20261102
+pkgrel=0
+pkgdesc="zynthian zyncore library: MIDI router and controller handling"
+url="https://github.com/zynthian/zyncoder"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+options="!check"
+depends="python3"
+makedepends="
+	boost-dev
+	cmake
+	jack-dev
+	liblo-dev
+	linux-headers
+	samurai
+	"
+subpackages="$pkgname-dbg"
+builddir="$srcdir/$pkgname"
+
+build() {
+	# DUMMIES: touch-only layout without GPIO (CMakeLists.txt). No RPATH: the
+	# library goes to /usr/lib/zynthian, its dependencies are system libraries.
+	ZYNTHIAN_WIRING_LAYOUT=DUMMIES cmake -B build \
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+		-DCMAKE_SKIP_RPATH=ON
+	cmake --build build --target zyncore
+}
+
+package() {
+	# Same layout as zynthian-ui's desktop/install.sh (component "zyncoder")
+	install -Dm755 build/libzyncore.so -t "$pkgdir"/usr/lib/zynthian/
+	install -Dm644 __init__.py zyncore.py -t "$pkgdir"/usr/share/zynthian/zynthian-ui/zyncoder/
+	python3 -m compileall -q -d /usr/share/zynthian/zynthian-ui/zyncoder \
+		"$pkgdir"/usr/share/zynthian/zynthian-ui/zyncoder
+}

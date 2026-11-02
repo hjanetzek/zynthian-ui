@@ -67,8 +67,16 @@ install_ui() {
 	#!/bin/sh
 	export ZYNTHIAN_DIR="\${ZYNTHIAN_DIR:-$PREFIX/share/zynthian}"
 	export ZYNTHIAN_LIB_DIR="\${ZYNTHIAN_LIB_DIR:-$PREFIX/lib/zynthian}"
+	# Python packages bundled with the package (not packaged by the distribution)
+	if [ -d "\$ZYNTHIAN_DIR/python" ]; then
+		export PYTHONPATH="\$ZYNTHIAN_DIR/python\${PYTHONPATH:+:\$PYTHONPATH}"
+	fi
 	exec "\$ZYNTHIAN_DIR/zynthian-ui/desktop/zynthian_desktop.sh" "\$@"
 	EOF
+
+	# The UI's fonts (Audiowide, ...), found by Tk through fontconfig
+	mkdir -p "$destdir$PREFIX/share/fonts"
+	ln -sfn ../zynthian/zynthian-ui/fonts "$destdir$PREFIX/share/fonts/zynthian"
 	chmod 755 "$destdir$PREFIX/bin/zynthian"
 
 	# Byte-compile: the installed tree is read-only at run time

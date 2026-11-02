@@ -854,11 +854,19 @@ class zynthian_gui_mixer_strip():
             self.over_id = self.canvas.after(4000, lambda: self.canvas.itemconfig(self.mute_text, fill=self.gui_mixer.button_txcol))
 
 
+    def has_mixer_widgets(self):
+        """True if the strip has its audio mixer widgets (fader, balance, ...). A strip built
+        while its chain had no mixer processor yet (e.g. while loading a snapshot) has none
+        until it is rebuilt."""
+        return hasattr(self, "fader_overlay")
+
     def draw_balance(self):
         """
         Draws the mixer strip balance indication
         """
 
+        if not self.has_mixer_widgets():
+            return
         balance = self.chain.zynmixer_proc.controllers_dict["balance"].value
         if balance is None:
             return
@@ -872,6 +880,8 @@ class zynthian_gui_mixer_strip():
 
     """Draws the mixer strip level"""
     def draw_level(self):
+        if not self.has_mixer_widgets():
+            return
         level = self.chain.zynmixer_proc.controllers_dict["level"].value
         if level is not None:
             self.canvas.coords(self.fader_overlay,
@@ -1823,7 +1833,7 @@ class zynthian_gui_mixer(zynthian_gui_base):
         self.highlighted_strip.canvas.itemconfig(self.highlighted_strip.legend_strip_midi_bg, fill=self.legend_bg_color_hl)
         self.left_canvas.itemconfig("fader_overlay", fill=self.fader_color)
         self.right_canvas.itemconfig("fader_overlay", fill=self.fader_color)
-        if self.highlighted_strip.chain.zynmixer_proc:
+        if self.highlighted_strip.chain.zynmixer_proc and self.highlighted_strip.has_mixer_widgets():
             self.highlighted_strip.canvas.itemconfig(self.highlighted_strip.fader_overlay, fill=self.fader_color_hl)
         self.highlight_launcher()
 

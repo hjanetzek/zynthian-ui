@@ -21,6 +21,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import time
 import logging
@@ -40,7 +41,7 @@ from zyngui.zynthian_gui_dpm import zynthian_gui_dpm, run_script
 
 class zynthian_gui_base(tkinter.Frame):
 
-    ui_dir = os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui")
+    ui_dir = zynthian_paths.ui_dir
 
     def __init__(self, parent=None, topbar=None):
         if parent:

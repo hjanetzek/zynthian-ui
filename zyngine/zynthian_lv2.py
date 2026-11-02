@@ -25,6 +25,11 @@
 import os
 import re
 import sys
+
+# Also run as a script from zyngine/ (first boot, plugin cache regeneration)
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from zynconf import zynthian_paths
 import json
 import lilv
 import copy
@@ -190,13 +195,13 @@ try:
 except:
     rbpi_version_number = 4
 
-ENGINE_DEFAULT_CONFIG_FILE = "{}/config/engine_config.json".format(os.environ.get('ZYNTHIAN_SYS_DIR'))
-ENGINE_CONFIG_FILE = "{}/engine_config.json".format(os.environ.get('ZYNTHIAN_CONFIG_DIR'))
-JALV_LV2_CONFIG_FILE = "{}/jalv/plugins.json".format(os.environ.get('ZYNTHIAN_CONFIG_DIR'))
+ENGINE_DEFAULT_CONFIG_FILE = "{}/config/engine_config.json".format(zynthian_paths.sys_dir)
+ENGINE_CONFIG_FILE = "{}/engine_config.json".format(zynthian_paths.config_dir)
+JALV_LV2_CONFIG_FILE = "{}/jalv/plugins.json".format(zynthian_paths.config_dir)
 # Touch this file after updating files inside an existing LV2 bundle (e.g. a widget's manifest),
 # so the UI reloads the LV2 data. Adding or removing bundles is detected without it.
-LV2_STAMP_FILE = "{}/lv2.stamp".format(os.environ.get('ZYNTHIAN_CONFIG_DIR'))
-LV2_DIR = "/zynthian/zynthian-plugins/lv2"
+LV2_STAMP_FILE = "{}/lv2.stamp".format(zynthian_paths.config_dir)
+LV2_DIR = zynthian_paths.lv2_dir
 
 engines = None
 engines_by_type = None
@@ -944,7 +949,7 @@ def generate_plugin_presets_cache(plugin_url, refresh=True):
 
 
 def _get_plugin_preset_cache_fpath(plugin_name):
-    return "{}/jalv/presets_{}.json".format(os.environ.get('ZYNTHIAN_CONFIG_DIR'), sanitize_fname(plugin_name))
+    return "{}/jalv/presets_{}.json".format(zynthian_paths.config_dir, sanitize_fname(plugin_name))
 
 
 def _generate_plugin_presets_cache(plugin):

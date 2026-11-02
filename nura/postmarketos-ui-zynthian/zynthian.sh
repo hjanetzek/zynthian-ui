@@ -21,7 +21,11 @@ zynthian_wait_for_audio || true
 pw-metadata -n settings 0 clock.force-quantum 256 >/dev/null 2>&1 || true
 export PIPEWIRE_LATENCY=256/48000
 
-# Use the whole output, whatever window size the user's config has (desktop default 1024x600).
+# Use the whole output, whatever window size the user's config has (desktop default 1024x600),
+# and scale the UI with it: XWayland reports 96 dpi whatever the panel, so the configured font
+# size (made for 1024x600) would be tiny on a high-resolution panel (1920x1200 on the Duet).
+# Override in ~/.config/zynthian/zynthian_custom_config.sh, e.g. ZYNTHIAN_UI_SCALE=1.5.
 export ZYNTHIAN_FULLSCREEN=1
+export ZYNTHIAN_UI_SCALE=auto
 
 CAGE_UI_COMMAND=zynthian

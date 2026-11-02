@@ -74,6 +74,58 @@ class fake_port:
             pass
 
 # -------------------------------------------------------------------------------
+# Port aliases for JACK servers that refuse them
+# -------------------------------------------------------------------------------
+# zynthian keeps a port's uid and friendly name in its JACK aliases 0 & 1.
+# jackd lets any client set aliases on any port. PipeWire (pipewire-jack) only
+# lets the client that owns a port set its aliases and returns EINVAL for the
+# hardware ports, which are owned by PipeWire. For those, keep the aliases in
+# this process, indexed by port name. jack.Port.aliases returns them in place of
+# the server's, so the rest of the code doesn't need to know.
+
+
+local_port_aliases = {}  # Aliases the server refused, indexed by port name
+
+_jack_port_aliases = jack.Port.aliases
+_jack_port_set_alias = jack.Port.set_alias
+_jack_port_unset_alias = jack.Port.unset_alias
+
+
+def _port_get_aliases(port):
+    try:
+        return list(local_port_aliases[port.name])
+    except KeyError:
+        return _jack_port_aliases.fget(port)
+
+
+def _port_set_alias(port, alias):
+    if port.name not in local_port_aliases:
+        try:
+            _jack_port_set_alias(port, alias)
+            return
+        except jack.JackError:
+            local_port_aliases[port.name] = []
+    aliases = local_port_aliases[port.name]
+    if len(aliases) >= 2:
+        raise jack.JackError(f"Port {port.name} already has two aliases")
+    aliases.append(alias)
+
+
+def _port_unset_alias(port, alias):
+    aliases = local_port_aliases.get(port.name)
+    if aliases is None:
+        _jack_port_unset_alias(port, alias)
+    elif alias in aliases:
+        aliases.remove(alias)
+        if not aliases:
+            del local_port_aliases[port.name]
+
+
+jack.Port.aliases = property(_port_get_aliases, doc=_jack_port_aliases.__doc__)
+jack.Port.set_alias = _port_set_alias
+jack.Port.unset_alias = _port_unset_alias
+
+# -------------------------------------------------------------------------------
 # Define some Constants and Global Variables
 # -------------------------------------------------------------------------------
 

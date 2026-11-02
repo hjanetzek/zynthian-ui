@@ -113,6 +113,12 @@ _srcfile() {
 }
 
 build() {
+	# With --src, abuild doesn't fetch $source: the files must be in the distfiles cache
+	local f
+	for f in $_pywheels $_pysdists; do
+		[ -e "$(_srcfile $f)" ] || die "$f missing from $SRCDEST: run nura/seed-distfiles.sh"
+	done
+
 	# Native libraries, without RPATH: they go to /usr/lib/zynthian and only use system libraries
 	local lib
 	for lib in zynsmf zynseq zynaudioplayer zynmixer zynclippy; do
@@ -128,7 +134,6 @@ build() {
 	local pysrc="$srcdir"/pysrc
 	rm -rf "$pysrc" "$srcdir"/pywheels
 	mkdir -p "$pysrc" "$srcdir"/pywheels
-	local f
 	for f in $_pysdists; do
 		tar --no-same-owner -xzf "$(_srcfile $f)" -C "$pysrc"
 	done

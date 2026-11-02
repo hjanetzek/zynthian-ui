@@ -313,6 +313,9 @@ def load_plain_envars(fpath, set_env=True):
 
 
 def update_sys():
+    if desktop_mode:
+        # update_zynthian_sys.sh reconfigures the whole system (boot, services, ...) as root
+        return
     try:
         os.environ['ZYNTHIAN_FLAG_MASTER'] = "NONE"
         check_output(zynthian_paths.sys_dir + "/scripts/update_zynthian_sys.sh", shell=True)

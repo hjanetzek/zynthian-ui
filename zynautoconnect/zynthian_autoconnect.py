@@ -74,55 +74,56 @@ class fake_port:
             pass
 
 # -------------------------------------------------------------------------------
-# Patch the jack library when running under pipewire
+# Port aliases for JACK servers that refuse them
 # -------------------------------------------------------------------------------
-
-def patch_jack_library():
-    # 1. Capture the original, official read-only property logic
-    original_aliases_getter = jack.Port.aliases
-
-    # 2. Define a custom getter that checks for our injected fallback aliases
-    def patched_aliases_getter(self):
-        # Check if we manually force-injected aliases onto this specific port instance
-        if hasattr(self, '_forced_aliases'):
-            return self._forced_aliases
-
-        # Otherwise, fallback cleanly to standard library behavior
-        return original_aliases_getter.__get__(self, jack.Port)
-
-    # 3. Define a custom setter to gracefully consume `port.aliases = [...]` calls
-    def patched_aliases_setter(self, value):
-        if isinstance(value, list):
-            self._forced_aliases = value
-        else:
-            raise TypeError("Aliases must be provided as a list of strings.")
-
-    # 4. Inject the new writable property directly into the base library
-    jack.Port.aliases = property(patched_aliases_getter, patched_aliases_setter)
-
-    # 5. Patch the set_alias/unset_alias methods to avoid pw-jack failure loops
-    def patched_set_alias(self, alias):
-        if not hasattr(self, '_forced_aliases'):
-            # Initialize with current system ones if empty
-            self._forced_aliases = original_aliases_getter.__get__(self, jack.Port)
-        if alias not in self._forced_aliases and len(self._forced_aliases) < 2:
-            self._forced_aliases.append(alias)
-        return 0  # Return success code
-
-    def patched_unset_alias(self, alias):
-        if hasattr(self, '_forced_aliases') and alias in self._forced_aliases:
-            self._forced_aliases.remove(alias)
-        return 0  # Return success code
-
-    jack.Port.set_alias = patched_set_alias
-    jack.Port.unset_alias = patched_unset_alias
+# zynthian keeps a port's uid and friendly name in its JACK aliases 0 & 1.
+# jackd lets any client set aliases on any port. PipeWire (pipewire-jack) only
+# lets the client that owns a port set its aliases and returns EINVAL for the
+# hardware ports, which are owned by PipeWire. For those, keep the aliases in
+# this process, indexed by port name. jack.Port.aliases returns them in place of
+# the server's, so the rest of the code doesn't need to know.
 
 
-# Patch jack library when running under PipeWire
-if "pipewire" in jack.version_string().lower():
-    print("[*] Detected PipeWire backend. Patching jack library ...")
-    patch_jack_library()
+local_port_aliases = {}  # Aliases the server refused, indexed by port name
 
+_jack_port_aliases = jack.Port.aliases
+_jack_port_set_alias = jack.Port.set_alias
+_jack_port_unset_alias = jack.Port.unset_alias
+
+
+def _port_get_aliases(port):
+    try:
+        return list(local_port_aliases[port.name])
+    except KeyError:
+        return _jack_port_aliases.fget(port)
+
+
+def _port_set_alias(port, alias):
+    if port.name not in local_port_aliases:
+        try:
+            _jack_port_set_alias(port, alias)
+            return
+        except jack.JackError:
+            local_port_aliases[port.name] = []
+    aliases = local_port_aliases[port.name]
+    if len(aliases) >= 2:
+        raise jack.JackError(f"Port {port.name} already has two aliases")
+    aliases.append(alias)
+
+
+def _port_unset_alias(port, alias):
+    aliases = local_port_aliases.get(port.name)
+    if aliases is None:
+        _jack_port_unset_alias(port, alias)
+    elif alias in aliases:
+        aliases.remove(alias)
+        if not aliases:
+            del local_port_aliases[port.name]
+
+
+jack.Port.aliases = property(_port_get_aliases, doc=_jack_port_aliases.__doc__)
+jack.Port.set_alias = _port_set_alias
+jack.Port.unset_alias = _port_unset_alias
 
 # -------------------------------------------------------------------------------
 # Define some Constants and Global Variables

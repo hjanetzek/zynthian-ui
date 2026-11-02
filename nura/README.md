@@ -46,8 +46,10 @@ Without it the help screen is disabled.
 `$SRCDEST` (the distfiles cache). Seed it once per work dir:
 
 ```sh
-nura/seed-distfiles.sh ~/.config/pmbootstrap-zynthian.cfg   # needs sudo: the cache is owned by root
+nura/seed-distfiles.sh ~/.config/pmbootstrap-zynthian.cfg
 ```
+
+(It needs sudo: the cache is owned by root.)
 
 ### Engines
 
@@ -62,55 +64,55 @@ don't work.
 
 ## Setup
 
-As for Kick, with its own config and work directory. `~/.config/pmbootstrap-zynthian.cfg`:
+All commands below work when pasted into fish or bash, run from the zynthian-ui checkout.
 
-```ini
-[pmbootstrap]
-device = google-kukui
-hostname = zynthian-duet
-is_default_channel = False
-locale = C.UTF-8
-service_manager = systemd
-ssh_key_glob = ~/.ssh/id_ed25519.pub
-ssh_keys = True
-timezone = Europe/Berlin
-ui = zynthian
-user = <user>
-work = <home>/postmarketos/zynthian
-
-[providers]
-postmarketos-base-ui-audio-backend = postmarketos-base-ui-audio-backend-pipewire
-
-[mirrors]
-```
-
-Link the packages into pmbootstrap's pmaports checkout:
+Write the pmbootstrap config (own config and work directory, as for Kick; `ui = cage` until the
+kiosk package is built). Skip this if you already have `~/.config/pmbootstrap-zynthian.cfg`:
 
 ```sh
+printf '%s\n' '[pmbootstrap]' 'device = google-kukui' 'hostname = zynthian-duet' 'is_default_channel = False' 'locale = C.UTF-8' 'service_manager = systemd' 'ssh_key_glob = ~/.ssh/id_ed25519.pub' 'ssh_keys = True' 'timezone = Europe/Berlin' 'ui = cage' "user = $USER" "work = $HOME/postmarketos/zynthian" '' '[providers]' 'postmarketos-base-ui-audio-backend = postmarketos-base-ui-audio-backend-pipewire' '' '[mirrors]' > ~/.config/pmbootstrap-zynthian.cfg
+```
+
+Initialise the work directory (interactive; answers as for Kick: channel edge, systemd, audio
+backend PipeWire), link the packages into pmbootstrap's pmaports checkout and seed the distfiles
+cache (needs sudo):
+
+```sh
+pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg init
 ln -sfn "$PWD/nura" ~/.local/var/pmbootstrap/cache_git/pmaports/zynthian
+nura/seed-distfiles.sh ~/.config/pmbootstrap-zynthian.cfg
 ```
 
 ## Build and install
 
+Build the packages, in this order, and switch the UI to zynthian:
+
 ```sh
-nura/seed-distfiles.sh                                          # once per work dir
-pmb() { pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg "$@"; }
-pmb build --arch aarch64 --src=../zyncoder zyncoder
-pmb build --arch aarch64 zynthian-data
-pmb build --arch aarch64 --src="$PWD" zynthian-ui
-pmb build --arch aarch64 postmarketos-ui-zynthian
-pmb install --sdcard=/dev/sdX
+pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg build --arch aarch64 --src="$PWD/../zyncoder" zyncoder
+pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg build --arch aarch64 zynthian-data
+pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg build --arch aarch64 --src="$PWD" zynthian-ui
+pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg build --arch aarch64 postmarketos-ui-zynthian
+pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg config ui zynthian
 ```
 
-Build in this order: with `--src`, pmbootstrap doesn't build missing dependencies ("Additional
-packages need building"), and zynthian-ui depends on zyncoder and zynthian-data. Build the
+With `--src`, pmbootstrap doesn't build missing dependencies ("Additional packages need
+building"), and zynthian-ui depends on zyncoder and zynthian-data, hence the order. Build the
 `--src` packages before `install`, and the noarch packages with `--arch aarch64` (see the Kick
 README for why). `--src` builds get the version `<pkgver base>_p<timestamp>`, so pmbootstrap
-warns that the local pmaports have another version; that is expected. Updating a running device:
+warns that the local pmaports have another version; that is expected.
+
+Write the image. Replace `/dev/sdX` with the SD card or USB stick first (check with `lsblk`):
 
 ```sh
-nura/deploy.sh -r zynthian-ui              # rebuild from this checkout, install, restart the session
-nura/deploy.sh zyncoder zynthian-ui        # both checkouts
+pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg install --sdcard=/dev/sdX
+```
+
+Update a running device (rebuilds from the checkouts, installs over SSH; `-r` restarts the
+session):
+
+```sh
+nura/deploy.sh -r zynthian-ui
+nura/deploy.sh -r zyncoder zynthian-ui
 ```
 
 ## Known issues

@@ -101,7 +101,8 @@ class zynthian_gui_base(tkinter.Frame):
         self.rowconfigure(self.main_row, weight=1)
 
         # Main Frame
-        self.main_frame = tkinter.Frame(self, bg=zynthian_gui_config.color_panel_bg)
+        # Black: the gaps between the screen's panels are its divider lines
+        self.main_frame = tkinter.Frame(self, bg=zynthian_gui_config.color_bg)
         self.main_frame.grid_propagate(False)
         self.main_frame.grid(row=self.main_row, sticky='NEWS')
 

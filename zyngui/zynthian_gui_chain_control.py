@@ -106,6 +106,16 @@ class zynthian_gui_chain_control(zynthian_gui_base):
     def reset(self):
         self.set_chain(reset=True)
 
+    def is_reset_state(self, chain_id):
+        """True if the screen already shows what reset() would show for chain_id:
+        the controllers of the chain's current processor, no side chain or submenu"""
+        chain = self.chain_manager.chains.get(chain_id)
+        if not chain or not chain.current_processor:
+            return False
+        return (self.shown and self.chain_id == chain_id and not self.chain_shown
+                and self.subscreen_key == "control" and self.subscreen.mode == "control"
+                and self.zyngui.current_processor == chain.current_processor)
+
     def build_view(self):
         self.chain_canvas.build_view()
         if self.chain_shown:

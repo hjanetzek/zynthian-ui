@@ -52,6 +52,9 @@ class touchkeypad_button_colors:
         self.mode_map[wsleds.wscolor_active2] = 'active2'
 
     def __setitem__(self, index, color):
+        # The LED update runs 5 times per second for all buttons: skip unchanged ones
+        if self.led_status[index] == color:
+            return
         self.led_status[index] = color
         mode = self.mode_map.get(color, None)
         # request color change on the onscreen touchkeypad

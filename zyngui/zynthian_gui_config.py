@@ -892,10 +892,13 @@ if "zynthian_main.py" in sys.argv[0]:
         # Setup Root Frame for the GUI
         # ------------------------------------------------------------------------------
 
+        # Background behind the screens: what shows for a moment while switching screens, before
+        # the new screen is drawn. The panel color (grey), as most screens, so it doesn't flash.
+        top.configure(bg=color_panel_bg)
         root_frame = tkinter.Frame(top,
                                   width=screen_width,
                                   height=screen_height,
-                                  bg="#000000")
+                                  bg=color_panel_bg)
 
         # Configure columns
         root_frame.grid_propagate(False)

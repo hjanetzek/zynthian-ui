@@ -53,7 +53,8 @@ class zynthian_gui_base(tkinter.Frame):
             self.parent = None
             self.parent_frame = zynthian_gui_config.root_frame
 
-        tkinter.Frame.__init__(self, self.parent_frame)
+        # Panel color: shows while the screen is built (see root_frame in zynthian_gui_config)
+        tkinter.Frame.__init__(self, self.parent_frame, bg=zynthian_gui_config.color_panel_bg)
         self.grid_propagate(False)
         self.shown = False
         self.sidebar_shown = True
@@ -100,7 +101,7 @@ class zynthian_gui_base(tkinter.Frame):
         self.rowconfigure(self.main_row, weight=1)
 
         # Main Frame
-        self.main_frame = tkinter.Frame(self, bg=zynthian_gui_config.color_bg)
+        self.main_frame = tkinter.Frame(self, bg=zynthian_gui_config.color_panel_bg)
         self.main_frame.grid_propagate(False)
         self.main_frame.grid(row=self.main_row, sticky='NEWS')
 

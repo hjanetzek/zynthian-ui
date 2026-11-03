@@ -248,20 +248,22 @@ class zynthian_gui_touchkeypad_v5(tkinter.Canvas):
         self.move(f"v5_button_{button}", -2, -2)
         zynthian_gui_config.zyngui.cuia_queue.put_nowait(f"zynswitch {button + 4},R")
 
-    def set_button_color(self, button, color, mode):
+    def set_button_color(self, button, color, mode, alt=False):
         """ Change color of a button according to the wsleds signal
         Args:
             button: Index of the button
             color : Color requested by the wsled system
             mode : A wanna-be abstraction (string name) of the mode/state - currently
             just derived from the requested color by the `wsleds_v5touch` "fake NeoPixel" emulator
+            alt : True to show the button's ALT label (ALT mode active)
         """
 
         config = self.buttons[button]
         # don't bother with update if nothing has really changed (redrawing images causes visible blinking!)
-        if config[LED_STATE] == mode:
+        state = (color, alt or mode == "alt")
+        if config[LED_STATE] == state:
             return
-        config[LED_STATE] = mode
+        config[LED_STATE] = state
         # in case the color is still the original wsled integer number, convert it
         label = config[LABEL]
         if  label.startswith('_'):
@@ -282,7 +284,7 @@ class zynthian_gui_touchkeypad_v5(tkinter.Canvas):
         else:
             # plain text labels may just change the color and possibly also its label if a special label
             # is associated with the requested mode (<=color) in the button definition
-            if mode == "alt" and config[ALT_LABEL]:
+            if (alt or mode == "alt") and config[ALT_LABEL]:
                 label = config[ALT_LABEL]
             else:
                 label = config[LABEL]

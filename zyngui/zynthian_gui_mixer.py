@@ -1249,6 +1249,7 @@ class zynthian_gui_mixer(zynthian_gui_base):
         self.bpb = 4
         self.beat = 0
         self.chain_strips = [] # List of channel strips excluding main mixbus, indexed by strip position
+        self.layout_key = None # Layout the strips were built for, see get_layout_key()
         self.state_changed = True
         self.press_event = None
         self.dragging = False # True if click/touch dragging
@@ -1437,10 +1438,19 @@ class zynthian_gui_mixer(zynthian_gui_base):
             except:
                 self.mode_icons[f] = empty_icon
 
+    def get_layout_key(self):
+        """What the strips' layout depends on: geometry, chains and their mixer processors"""
+        chains = tuple((id(chain), chain.chain_id, id(chain.zynmixer_proc),
+                        chain.zynmixer_proc.eng_code if chain.zynmixer_proc else None)
+                       for chain in self.chain_manager.chains.values())
+        return (self.width, self.height, self.strip_width, self.launcher_height, self.zynseq.phrases,
+                self.chain_manager.get_pinned_pos(), self.chain_manager.get_pinned_count(), chains)
+
     def build_mixer(self):
         """ Draw chain strips"""
 
         self.state_changed = True
+        self.layout_key = self.get_layout_key()
 
         # Create mixer strip UI objects
         self.chan2strip = {}
@@ -1531,13 +1541,14 @@ class zynthian_gui_mixer(zynthian_gui_base):
 
     def build_view(self):
         """ Function to handle showing display"""
-        #try:
-        #    self.build_mixer() #TODO: Don't do full rebuild
-        #except Exception as e:
-        #    logging.warning(e)
-        #self.set_launcher_mode()
-
-        self.build_mixer()
+        # Rebuild the strips only if their layout changed since they were built, else
+        # refresh their contents (a full rebuild creates ~400 canvas items: ~80 ms on ARM)
+        if self.chain_strips and self.layout_key == self.get_layout_key():
+            self.refresh_mixer_controls()
+            self.refresh_launchers(force=True)
+            self.set_launcher_mode()
+        else:
+            self.build_mixer()
         self.set_title()
         if zynthian_gui_config.enable_dpm:
             self.state_manager.zynmixer_chan.enable_dpm(True)

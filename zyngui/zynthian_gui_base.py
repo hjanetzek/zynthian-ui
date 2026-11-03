@@ -186,9 +186,8 @@ class zynthian_gui_base(tkinter.Frame):
             self.init_status()
             self.init_dpmeter()
 
-            # Update Title
+            # Update Title (the title scrolls while the screen is shown, see show())
             self.set_select_path()
-            self.cb_scroll_select_path()
 
         self.bind("<Configure>", self.on_size)
 
@@ -221,6 +220,7 @@ class zynthian_gui_base(tkinter.Frame):
         if not self.shown:
             self.parent_frame.grid_main(self)
             self.shown = True
+            self.start_scroll_select_path()
             self.refresh_status()
             if self.tts_title and self.zyngui.tts:
                 self.zyngui.tts.announce(f"View: {self.tts_title}", replace=True, interrupt=True)
@@ -233,6 +233,7 @@ class zynthian_gui_base(tkinter.Frame):
                 self.disable_param_editor()
             self.grid_remove()
             self.shown = False
+            self.stop_scroll_select_path()
 
     # Show topbar (if allowed)
     # show: True to show, False to hide
@@ -782,12 +783,25 @@ class zynthian_gui_base(tkinter.Frame):
         self.select_path_dir = 2
         self.label_select_path.place(x=0, rely=0.5, anchor='w')
 
+    # The title scroll timer runs only while the screen is shown: every screen ran its own
+    # 50 ms timer forever, ~700 Tk timer callbacks per second with ~35 screens.
+    def start_scroll_select_path(self):
+        if hasattr(self, "label_select_path") and not getattr(self, "scroll_select_path_id", None):
+            self.scroll_select_path_id = zynthian_gui_config.top.after(50, self.cb_scroll_select_path)
+
+    def stop_scroll_select_path(self):
+        if getattr(self, "scroll_select_path_id", None):
+            zynthian_gui_config.top.after_cancel(self.scroll_select_path_id)
+            self.scroll_select_path_id = None
+
     def cb_scroll_select_path(self):
-        if self.shown:
-            if self.dscroll_select_path():
-                zynthian_gui_config.top.after(1000, self.cb_scroll_select_path)
-                return
-        zynthian_gui_config.top.after(50, self.cb_scroll_select_path)
+        self.scroll_select_path_id = None
+        if not self.shown:
+            return
+        if self.dscroll_select_path():
+            self.scroll_select_path_id = zynthian_gui_config.top.after(1000, self.cb_scroll_select_path)
+        else:
+            self.scroll_select_path_id = zynthian_gui_config.top.after(50, self.cb_scroll_select_path)
 
     def dscroll_select_path(self):
         if self.shown:

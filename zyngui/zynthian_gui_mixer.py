@@ -845,6 +845,8 @@ class zynthian_gui_mixer_strip():
         """ Function to draw the DPM level meter for a mixer strip
         """
 
+        if not self.has_mixer_widgets():
+            return
         dpm = self.chain.zynmixer_proc.zynmixer.dpm[self.chain.zynmixer_proc.mixer_chan]
         self.dpm_a.refresh(dpm.a, dpm.a_hold, dpm.mono)
         self.dpm_b.refresh(dpm.b, dpm.b_hold, dpm.mono)
@@ -856,7 +858,7 @@ class zynthian_gui_mixer_strip():
 
 
     def has_mixer_widgets(self):
-        """True if the strip has its audio mixer widgets (fader, balance, ...). A strip built
+        """True if the strip has its audio mixer widgets (fader, balance, toggle, mute, DPM, ...). A strip built
         while its chain had no mixer processor yet (e.g. while loading a snapshot) has none
         until it is rebuilt."""
         return hasattr(self, "fader_overlay")
@@ -910,6 +912,8 @@ class zynthian_gui_mixer_strip():
         self.canvas.coords(self.clip_progress, self.x, self.gui_mixer.legend_y, x1, self.gui_mixer.legend_y + self.clip_progress_height)
 
     def draw_toggle(self):
+        if not self.has_mixer_widgets():
+            return
         txcolor = self.gui_mixer.button_txcol
         font = self.gui_mixer.font
         text = self.chain.zynmixer_proc.controllers_dict[zynthian_gui_config.mixer_toggle].name
@@ -927,6 +931,8 @@ class zynthian_gui_mixer_strip():
         self.canvas.itemconfig(self.toggle_text, text=text, font=font, fill=txcolor)
 
     def draw_mute(self):
+        if not self.has_mixer_widgets():
+            return
         txcolor = self.gui_mixer.button_txcol
         font = self.gui_mixer.font_icons
         if self.chain.zynmixer_proc.controllers_dict["mute"].value:

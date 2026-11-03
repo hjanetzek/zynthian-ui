@@ -1139,6 +1139,10 @@ class zynthian_gui:
             screen_name = "control"
         else:
             screen_name = "chain_control"
+            if (reset and not force_bank_preset and self.current_screen == "chain_control"
+                    and self.screens["chain_control"].is_reset_state(chain_id)):
+                # Already showing it (e.g. CTRL pressed again): rebuilding it only flickers
+                return
             if reset:
                 # TODO => Refact current_processor code!
                 # Avoid chain_control reset changing current processor:

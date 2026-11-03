@@ -154,7 +154,11 @@ class zynthian_gui_selector_info(zynthian_gui_selector):
                 # If we would have to shrink the font-size to
                 # something unreadable to make it fit, shrink the image instead:
                 icon_size = (side_width // 2 - 2, side_width // 2 - 2)
-            icon = ImageTk.PhotoImage(img.resize(icon_size))
+            # Blended onto the info canvas' background: Tk draws images with transparency on X11
+            # by reading back and blending the background in software, on every redraw
+            img = img.convert("RGBA").resize(icon_size)
+            img = Image.alpha_composite(Image.new("RGBA", img.size, zynthian_gui_config.color_bg), img).convert("RGB")
+            icon = ImageTk.PhotoImage(img)
             if icon_fpath not in self.icons:
                 self.icons[icon_fpath] = [None, None]
             self.icons[icon_fpath][zynthian_gui_config.touch_shown] = icon

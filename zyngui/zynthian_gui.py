@@ -731,8 +731,17 @@ class zynthian_gui:
             if not dummy_show:
                 self.hide_screens(exclude=screen)
             zynsigman.send(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SCREEN, screen=screen)
+            screen_changed = True
+        else:
+            screen_changed = False
 
         self.screen_lock.release()
+
+        # The (touch keypad) LEDs depend on the screen: update them with it, not up to 0.2 s later
+        if screen_changed:
+            for wsleds in (self.wsleds, self.wsleds_v5touch):
+                if wsleds:
+                    wsleds.refresh()
 
     def show_modal(self, screen=None):
         self.show_screen(screen, hmode=zynthian_gui.SCREEN_HMODE_ADD)

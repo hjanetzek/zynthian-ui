@@ -24,6 +24,7 @@
 # ******************************************************************************
 
 import logging
+import threading
 import traceback
 
 # Zynthian specific modules
@@ -68,6 +69,8 @@ class zynthian_wsleds_base:
 
         self.wsled_state_enabled = True
         self.last_wsled_state = ""
+        # update() runs in the status thread and, through refresh(), after screen changes
+        self.update_lock = threading.Lock()
 
     def setup_colors(self):
         # Predefined colors
@@ -220,7 +223,17 @@ class zynthian_wsleds_base:
         if self.metro_mode == 0 or (self.metro_mode == 1 and self.zynseq.playing_sequences == 0):
             self.wsleds[self.beat_led] = self.beat_color
 
-    def update(self):
+    def refresh(self):
+        """Update the LEDs for the current state right away (e.g. after a screen change),
+        without advancing the blink phase: the status thread updates them only every 0.2 s,
+        so the buttons changed visibly after the screen."""
+        self.update(advance=False)
+
+    def update(self, advance=True):
+        with self.update_lock:
+            self._update(advance)
+
+    def _update(self, advance):
         # Ignore refreshes once end() has lighted-off the LEDs, so a late call
         # from the status thread can't light them up again while exiting.
         if self.ended:
@@ -267,7 +280,8 @@ class zynthian_wsleds_base:
                 except Exception as e:
                     logging.error(f"Generating LED state string => {e}")
 
-        self.blink_count += 1
+        if advance:
+            self.blink_count += 1
 
     def reset_last_state(self):
         self.last_wsled_state = ""

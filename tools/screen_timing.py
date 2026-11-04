@@ -5,6 +5,8 @@
 #   show    zynthian's show_screen() (building the screen, Python)
 #   draw    Tk's pending redraws (update_idletasks)
 #   events  the remaining Tk events and callbacks (update)
+#   server  a round trip to the X server (XQueryPointer): returns once it has processed all
+#           requests sent before, i.e. drawn them (XWayland without glamor draws in software)
 # The first round includes one-time work (images loaded on first use).
 
 SCREENS = ["main_menu", "admin", "mixer"]
@@ -27,8 +29,11 @@ for _round in range(ROUNDS):
         _t2 = time.perf_counter()
         _top.update()
         _t3 = time.perf_counter()
+        _top.winfo_pointerxy()
+        _t4 = time.perf_counter()
         _res.append(f"{_round + 1}  {_name:12s} show {1000 * (_t1 - _t0):6.1f} ms  draw {1000 * (_t2 - _t1):6.1f} ms"
-                    f"  events {1000 * (_t3 - _t2):6.1f} ms  total {1000 * (_t3 - _t0):6.1f} ms")
+                    f"  events {1000 * (_t3 - _t2):6.1f} ms  server {1000 * (_t4 - _t3):6.1f} ms"
+                    f"  total {1000 * (_t4 - _t0):6.1f} ms")
 _res.append(f"screen {_top.winfo_width()}x{_top.winfo_height()}, font size {zynthian_gui_config.font_size}")
 with open(OUTPUT, "w") as _f:
     _f.write("\n".join(_res) + "\n")

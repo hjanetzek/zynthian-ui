@@ -265,12 +265,14 @@ class zynthian_gui_engine(zynthian_gui_selector):
             except:
                 pass
         self.engine_cats = list(self.engines_by_cat.keys())
-        self.cat_index = min(self.cat_index, len(self.engine_cats) - 1)
+        # No categories when no engine of this type is available (e.g. their programs not installed)
+        self.cat_index = max(0, min(self.cat_index, len(self.engine_cats) - 1))
         # Fill category list
         self.listbox2.delete(0, tkinter.END)
         for cat in self.engine_cats:
             self.listbox2.insert(tkinter.END, cat)
-        self.listbox2.itemconfig(self.cat_index, {'bg': self.lb2_fg, 'fg': self.lb2_bg})
+        if self.engine_cats:
+            self.listbox2.itemconfig(self.cat_index, {'bg': self.lb2_fg, 'fg': self.lb2_bg})
         # self.engines_by_cat = sorted(self.engines_by_cat.items(), key=lambda kv: "!" if kv[0] is None else kv[0])
 
     def recall_context_index(self):

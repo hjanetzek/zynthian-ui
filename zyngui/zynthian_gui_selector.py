@@ -114,13 +114,15 @@ class zynthian_gui_selector(zynthian_gui_base):
             pady=self.pady,
             sticky="news")
 
-        # Bind listbox events
+        # Bind listbox events: handled by the screen whose list is shown (see host_list)
         self.listbox_push_ts = 0
-        self.listbox.bind("<Button-1>", self.cb_listbox_push)
-        self.listbox.bind("<ButtonRelease-1>", self.cb_listbox_release)
-        self.listbox.bind("<B1-Motion>", self.cb_listbox_motion)
-        self.listbox.bind("<Button-4>", self.cb_listbox_wheel)
-        self.listbox.bind("<Button-5>", self.cb_listbox_wheel)
+        self.list_guest = None
+        for event, handler in (("<Button-1>", "cb_listbox_push"),
+                               ("<ButtonRelease-1>", "cb_listbox_release"),
+                               ("<B1-Motion>", "cb_listbox_motion"),
+                               ("<Button-4>", "cb_listbox_wheel"),
+                               ("<Button-5>", "cb_listbox_wheel")):
+            self.listbox.bind(event, lambda e, handler=handler: getattr(self.list_guest or self, handler)(e))
         # self.listbox.bind('<<ListboxSelect>>', cb_select)
 
         if loading_anim:
@@ -181,6 +183,44 @@ class zynthian_gui_selector(zynthian_gui_base):
         self.set_selector()
         self.set_select_path()
         return True
+
+    # --------------------------------------------------------------------------
+    # Hosting: show another selector's list in this one's widgets
+    # --------------------------------------------------------------------------
+
+    def can_host_list(self, guest):
+        """True if guest's list can be shown in this screen's widgets (see host_list)"""
+        return False
+
+    def host_list(self, guest):
+        """Show guest's list (and what goes with it, see get_list_widgets) in this screen's widgets
+        instead of guest's own: switching between screens that take the same place on the screen
+        then only refills the list. Showing another screen's frame instead shows its empty
+        background for a frame, before Tk draws its contents (flicker).
+        guest: a selector screen, or None to show this screen's own list again."""
+        if self.list_guest:
+            self.list_guest.detach_list()
+        self.list_guest = guest
+        if guest:
+            guest.attach_list(self)
+
+    def get_list_widgets(self):
+        """The widgets a hosted screen draws into"""
+        return {"listbox": self.listbox}
+
+    def set_list_widgets(self, widgets):
+        self.listbox = widgets["listbox"]
+
+    def attach_list(self, host):
+        """Draw into host's widgets; this screen's frame isn't shown while hosted"""
+        self.own_list_widgets = self.get_list_widgets()
+        self.set_list_widgets(host.get_list_widgets())
+        self.hosted = True
+
+    def detach_list(self):
+        if self.hosted:
+            self.set_list_widgets(self.own_list_widgets)
+            self.hosted = False
 
     def show(self):
         super().show()

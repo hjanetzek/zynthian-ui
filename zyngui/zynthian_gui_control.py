@@ -25,6 +25,7 @@
 
 from zynconf import zynthian_paths
 import logging
+import tkinter
 import importlib
 from pathlib import Path
 
@@ -34,6 +35,7 @@ from zyngine.zynthian_signal_manager import zynsigman
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_base import zynthian_gui_base
 from zyngui.zynthian_gui_selector import zynthian_gui_selector
+from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info, create_info_widgets
 from zyngui.zynthian_gui_controller import zynthian_gui_controller
 
 # ------------------------------------------------------------------------------
@@ -61,6 +63,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         self.current_widget = None
         self.widget_zctrl = None
 
+        self.info_widgets = None
         self.screen_info = None
         self.screen_name = None
         self.screen_type = None
@@ -131,6 +134,34 @@ class zynthian_gui_control(zynthian_gui_selector):
             else:
                 zctrl.grid_remove()
         self.update_layout()
+
+    # --------------------------------------------------------------------------
+    # Hosting: chain options, audio/MIDI routing shown in this screen's list (see
+    # zynthian_gui_selector.host_list), with an info pane over the controllers
+    # --------------------------------------------------------------------------
+
+    def can_host_list(self, guest):
+        return (isinstance(guest, zynthian_gui_selector_info) and guest.zsel_hidden
+                and self.layout['columns'] == 2 and self.layout['list_pos'] == (0, 0)
+                and guest.layout['list_pos'] == self.layout['list_pos'])
+
+    def get_list_widgets(self):
+        if self.info_widgets is None:
+            self.info_widgets = create_info_widgets(self.main_frame, self.listbox)
+        return self.info_widgets
+
+    def host_list(self, guest):
+        if guest:
+            self.hide_widgets()
+            info_canvas = self.get_list_widgets()["info_canvas"]
+            info_canvas.configure(height=self.height)
+            info_canvas.grid(row=0, column=self.layout['list_pos'][1] + 1, rowspan=self.layout['rows'],
+                             sticky="news", padx=(2, 2), pady=(2, 2))
+            # Above the controllers (Canvas.tkraise raises canvas items)
+            tkinter.Misc.tkraise(info_canvas)
+        super().host_list(guest)
+        if not guest and self.info_widgets:
+            self.info_widgets["info_canvas"].grid_remove()
 
     def refresh(self):
         self.update_list()
@@ -319,6 +350,9 @@ class zynthian_gui_control(zynthian_gui_selector):
 
     # Display widget and hide other ones
     def display_widget(self, widget_name):
+        if self.list_guest:
+            # Scheduled before another screen's list was shown here
+            return
         # Display widget and hide other ones
         for k, widget in self.widgets.items():
             if k == widget_name:

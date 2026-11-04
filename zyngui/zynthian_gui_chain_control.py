@@ -80,7 +80,7 @@ class zynthian_gui_chain_control(zynthian_gui_base):
         self.chain_canvas.configure(width=_chwidth, height=self.height)
         # Reconfigure subscreen
         self.subscreen_width = self.width - chwidth
-        self.subscreen.configure(width=self.subscreen_width, height=self.height)
+        self.get_subscreen_frame().configure(width=self.subscreen_width, height=self.height)
         # Reconfigure main frame columns
         self.main_frame.columnconfigure(0, minsize=chwidth, weight=int(self.chain_shown))
         self.main_frame.columnconfigure(1, minsize=self.subscreen_width, weight=1)
@@ -190,27 +190,60 @@ class zynthian_gui_chain_control(zynthian_gui_base):
             self.subscreen_name = self.subscreen_key = "control"
             self.subscreen = self.subscreens[self.subscreen_key]
 
+    def get_subscreen_frame(self):
+        """The frame the current subscreen is shown in: its own, or the control screen's
+        if that hosts its list"""
+        if self.subscreen.hosted:
+            return self.subscreens["control"]
+        return self.subscreen
+
     def show_subscreen(self, ssname, proc=None, force=False):
-        old_subscreen_key = self.subscreen_key
         if ssname != self.subscreen_name or force:
+            old_subscreen = self.subscreen
             self.config_subscreen(ssname)
-            self.subscreen.configure(width=self.subscreen_width, height=self.height)
+            if self.subscreen is not old_subscreen:
+                lower_old = self.leave_subscreen(old_subscreen, self.subscreen)
+            else:
+                lower_old = False
+            self.get_subscreen_frame().configure(width=self.subscreen_width, height=self.height)
             self.subscreen.build_view()
             self.subscreen.show()
-            self.subscreen.tkraise()
-            # Avoid flickering: a screen that gets mapped shows its empty background for a frame
-            # before Tk draws its contents. So subscreens stay in the grid once shown, the
-            # current one raised above the others: the old one is hidden (stops its updates)
-            # but put back into the grid, below the new one.
-            if old_subscreen_key != self.subscreen_key:
-                old_subscreen = self.subscreens[old_subscreen_key]
-                old_subscreen.hide()
+            if not self.subscreen.hosted:
+                self.subscreen.tkraise()
+            if lower_old:
                 self.main_frame.grid_main(old_subscreen)
                 old_subscreen.lower(self.subscreen)
         if self.subscreen_key == "control":
             self.subscreen.select_processor(proc)
         elif not self.chain_shown:
             self.show_chain(True)
+
+    def leave_subscreen(self, old, new):
+        """Avoid flickering: a frame that gets mapped or raised shows its empty background
+        for a frame before Tk draws its contents. So the control screen hosts the lists of
+        chain options, audio and MIDI routing: only its list is refilled, the frame stays.
+        Other subscreens stay in the grid once shown, the current one raised above the others:
+        the old one is hidden (stops its updates), and put back into the grid below the new one
+        once that is shown (returns True for that)."""
+        control = self.subscreens["control"]
+        host = new is not control and control.can_host_list(new)
+        lower_old = False
+        if old.hosted:
+            old.hide()
+            if not host:
+                control.host_list(None)
+        elif old is control and host:
+            # Stays visible below the hosted list, but stops its updates
+            control.keep_mapped = True
+            control.hide()
+        else:
+            old.hide()
+            lower_old = True
+        if host:
+            control.host_list(new)
+        elif new is control:
+            control.keep_mapped = False
+        return lower_old
 
     def select_subscreen(self, ssname, proc=None, show_chain=True):
         if ssname == "control":

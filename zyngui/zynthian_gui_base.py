@@ -57,6 +57,10 @@ class zynthian_gui_base(tkinter.Frame):
         tkinter.Frame.__init__(self, self.parent_frame, bg=zynthian_gui_config.color_panel_bg)
         self.grid_propagate(False)
         self.shown = False
+        # Hosted: the screen draws into another screen's widgets (see zynthian_gui_selector.host_list),
+        # its own frame is never shown. keep_mapped: hide() leaves the frame in the grid.
+        self.hosted = False
+        self.keep_mapped = False
         self.sidebar_shown = True
         self.title = ""
         self.tts_title = self.__class__.__name__[13:].replace("_", " ")
@@ -220,20 +224,23 @@ class zynthian_gui_base(tkinter.Frame):
     # Show the view
     def show(self):
         if not self.shown:
-            self.parent_frame.grid_main(self)
+            if not self.hosted:
+                self.parent_frame.grid_main(self)
             self.shown = True
             self.start_scroll_select_path()
             self.refresh_status()
             if self.tts_title and self.zyngui.tts:
                 self.zyngui.tts.announce(f"View: {self.tts_title}", replace=True, interrupt=True)
-        self.main_frame.focus()
+        if not self.hosted:
+            self.main_frame.focus()
 
     # Hide the view
     def hide(self):
         if self.shown:
             if self.param_editor_zctrl:
                 self.disable_param_editor()
-            self.grid_remove()
+            if not (self.hosted or self.keep_mapped):
+                self.grid_remove()
             self.shown = False
             self.stop_scroll_select_path()
 

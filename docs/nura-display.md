@@ -56,24 +56,21 @@ afterwards the kernel can't reach the embedded controller over SPI. Cage enables
 and never switches it off, so it isn't affected. With rotation, blanking and DPMS configured in
 `xorg.conf` (applied in the first modeset) and no display changes afterwards, Xorg ran.
 
-## Setup on the device
+## Setup
 
 XWayland without glamor: wlroots starts the binary named in `WLR_XWAYLAND`. The variable has to
 be set before cage starts, i.e. in tinydm's session environment, not in `/etc/cage-ui/*.sh`
 (those are sourced by the session script, which cage runs after it has started XWayland).
 
-`/usr/local/bin/xwayland-noglamor`:
+The `postmarketos-ui-zynthian` package installs:
 
-```sh
-#!/bin/sh
-exec /usr/bin/Xwayland "$@" -glamor off
-```
+- `/usr/libexec/zynthian/xwayland-noglamor`: runs `/usr/bin/Xwayland "$@" -glamor off`;
+- `/usr/share/tinydm/env-wayland.d/60-zynthian-xwayland.sh`: sets `WLR_XWAYLAND` to the wrapper if
+  the GPU is driven by `panfrost` and the variable isn't set yet. A file in
+  `/etc/tinydm.d/env-wayland.d/` (sourced later) overrides it.
 
-`/etc/tinydm.d/env-wayland.d/90-xwayland-noglamor.sh`:
-
-```sh
-export WLR_XWAYLAND=/usr/local/bin/xwayland-noglamor
-```
+It applies to every Wayland session on the device: an XWayland client using OpenGL (e.g. a JUCE
+app such as Kick) renders in software then.
 
 Check: `ps -o args= -C Xwayland` ends with `-glamor off`.
 
@@ -93,6 +90,5 @@ sudo ln -sf /usr/share/wayland-sessions/cage-ui.desktop /var/lib/tinydm/default-
 - Measure the cost of XWayland without glamor (screen switch times with
   `nura/tools/screen_timing.py`, XWayland CPU while the mixer meters run); before: 25–36 ms per
   screen switch with glamor.
-- Add the XWayland wrapper and session environment to the `postmarketos-ui-zynthian` package.
 - Report the glamor/Panfrost bug to Mesa, and the vblank timeout to the mediatek-drm maintainers.
 - Under X11, zynthian didn't exit on SIGTERM (main thread waiting on a lock); not looked at.

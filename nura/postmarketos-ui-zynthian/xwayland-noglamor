@@ -1,0 +1,5 @@
+#!/bin/sh
+# XWayland without glamor (GPU acceleration), started by wlroots (cage) through WLR_XWAYLAND,
+# see zynthian-xwayland.sh. glamor on Panfrost leaves regions undrawn: black rectangles in Tk
+# widgets (docs/nura-display.md in zynthian-ui).
+exec /usr/bin/Xwayland "$@" -glamor off

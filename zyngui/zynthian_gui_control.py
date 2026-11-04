@@ -322,11 +322,12 @@ class zynthian_gui_control(zynthian_gui_selector):
         # Display widget and hide other ones
         for k, widget in self.widgets.items():
             if k == widget_name:
-                self.listbox.grid_remove()
                 lb_rows = self.layout['rows'] - widget.rows
                 if lb_rows > 0:
-                    self.listbox.grid(rowspan=lb_rows)
-                    self._select_listbox(self.index, see=True)
+                    if self.set_listbox_rows(lb_rows):
+                        self._select_listbox(self.index, see=True)
+                else:
+                    self.listbox.grid_remove()
                 widget.grid(row=self.layout['list_pos'][0] + lb_rows,
                             column=self.layout['list_pos'][1],
                             rowspan=widget.rows, padx=self.padx, sticky="news")
@@ -342,8 +343,17 @@ class zynthian_gui_control(zynthian_gui_selector):
             widget.grid_remove()
             widget.hide()
         self.set_current_widget(None)
-        self.listbox.grid_remove()
-        self.listbox.grid(rowspan=4)
+        self.set_listbox_rows(4)
+
+    def set_listbox_rows(self, rows):
+        """Let the list span rows grid rows. Only if that changes, and without removing it from
+        the grid first: removing and re-adding it on every selection showed the black frame
+        behind it for a moment (flicker). Returns True if the list's rows changed."""
+        info = self.listbox.grid_info()
+        if info and int(info.get("rowspan", 0)) == rows:
+            return False
+        self.listbox.grid(rowspan=rows)
+        return True
 
     def purge_widgets(self):
         """

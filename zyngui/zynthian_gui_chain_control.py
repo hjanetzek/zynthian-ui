@@ -197,9 +197,16 @@ class zynthian_gui_chain_control(zynthian_gui_base):
             self.subscreen.configure(width=self.subscreen_width, height=self.height)
             self.subscreen.build_view()
             self.subscreen.show()
-            # Avoid ugly flickering by hiding the old screen after displaying the new one
+            self.subscreen.tkraise()
+            # Avoid flickering: a screen that gets mapped shows its empty background for a frame
+            # before Tk draws its contents. So subscreens stay in the grid once shown, the
+            # current one raised above the others: the old one is hidden (stops its updates)
+            # but put back into the grid, below the new one.
             if old_subscreen_key != self.subscreen_key:
-                self.subscreens[old_subscreen_key].hide()
+                old_subscreen = self.subscreens[old_subscreen_key]
+                old_subscreen.hide()
+                self.main_frame.grid_main(old_subscreen)
+                old_subscreen.lower(self.subscreen)
         if self.subscreen_key == "control":
             self.subscreen.select_processor(proc)
         elif not self.chain_shown:

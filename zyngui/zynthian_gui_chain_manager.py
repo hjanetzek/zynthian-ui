@@ -788,6 +788,14 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
         if self.zyngui.tts:
             self.zyngui.tts.announce("Move chain")
 
+    def nudge_moving_chain(self, offset):
+        pos = self.chain_manager.nudge_chain(offset)
+        # None if the chain can't move (e.g. the main chain): keep the selection, a None index
+        # broke every later redraw and hide(), so no other screen could be shown anymore
+        if pos is not None:
+            self.selected_node[0] = pos
+            self.build_graph()
+
     def end_moving_chain(self):
         if not self.moving_chain:
             return
@@ -849,8 +857,7 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
             if self.chain_manager.nudge_processor(chain_id, self.moving_proc, NUDGE_LEFT):
                 self.build_graph(self.moving_proc)
         elif self.moving_chain:
-            self.selected_node[0] = self.chain_manager.nudge_chain(-1)
-            self.build_graph()
+            self.nudge_moving_chain(-1)
         else:
             col -= 1
             if col < 0:
@@ -875,8 +882,7 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
             if self.chain_manager.nudge_processor(chain_id, self.moving_proc, NUDGE_RIGHT):
                 self.build_graph(self.moving_proc)
         elif self.moving_chain:
-            self.selected_node[0] = self.chain_manager.nudge_chain(+1)
-            self.build_graph()
+            self.nudge_moving_chain(+1)
         else:
             col += 1
             if col >= len(self.nodes[chain_idx][row]):
@@ -897,8 +903,7 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
                 self.arrow_up()
             return
         if self.moving_chain:
-            self.selected_node[0] = self.chain_manager.nudge_chain(dval)
-            self.build_graph()
+            self.nudge_moving_chain(dval)
             return
 
         chain_idx, row, col = self.selected_node

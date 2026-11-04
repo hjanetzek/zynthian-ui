@@ -85,10 +85,26 @@ sudo systemctl restart tinydm; sleep 3
 sudo ln -sf /usr/share/wayland-sessions/cage-ui.desktop /var/lib/tinydm/default-session.desktop
 ```
 
+## Cost of XWayland without glamor
+
+Measured on the Duet, cage session, 2026-11-04. Screen switches with `nura/tools/screen_timing.py`
+(4 rounds; mean of rounds 2–4, round 1 includes one-time work), total until the X server has
+processed everything (round trip); CPU of one core over 20 s on the mixer screen:
+
+| | glamor (bars) | `-glamor off` |
+|---|---|---|
+| main menu | 28 ms | 41 ms |
+| admin | 28 ms | 43 ms |
+| mixer | 28 ms | 37 ms |
+| chain control | 48 ms | 76 ms |
+| CPU, mixer: zynthian / XWayland / cage | 22 % / 6 % / 2 % | 23 % / 3 % / 4 % |
+
+Without glamor a screen switch takes about 10–30 ms longer (+30–55 %): the time shows up in Tk's
+drawing (`draw`, `events`), which waits for XWayland's replies, while the round trip after it
+stays below 3 ms. Idle CPU doesn't change much: XWayland uses less, cage a bit more (it uploads the
+shared-memory buffers to the GPU). Single runs; expect a few ms of noise.
+
 ## Open
 
-- Measure the cost of XWayland without glamor (screen switch times with
-  `nura/tools/screen_timing.py`, XWayland CPU while the mixer meters run); before: 25–36 ms per
-  screen switch with glamor.
 - Report the glamor/Panfrost bug to Mesa, and the vblank timeout to the mediatek-drm maintainers.
 - Under X11, zynthian didn't exit on SIGTERM (main thread waiting on a lock); not looked at.

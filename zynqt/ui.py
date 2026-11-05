@@ -25,6 +25,7 @@ from zynqt.bridge import SignalBridge
 from zynqt.chain_edit import ChainEdit
 from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
+from zynqt.models.control_xy import ControlXY
 from zynqt.models.launcher import Launcher
 from zynqt.screens.pattern_editor import PatternEditor
 from zynqt.screens.chain_manager import ChainManager
@@ -40,7 +41,8 @@ from zynqt.screens.midi_chain import KeyRangeProcessor, MidiCC
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
-QML_SCREENS = ("mixer", "launcher", "pattern_editor", "chain_manager", "chain_control", "tempo", "alsa_mixer", "audio_player", "midi_key_range")
+QML_SCREENS = ("mixer", "launcher", "pattern_editor", "chain_manager", "chain_control", "tempo", "alsa_mixer", "audio_player",
+               "midi_key_range", "control_xy")
 
 
 class ZynUI(QObject):
@@ -96,6 +98,7 @@ class ZynUI(QObject):
         self.chain_manager_screen = ChainManager(self, self)
         self.launcher = Launcher(self, self)
         self.pattern_editor = PatternEditor(self, self)
+        self.control_xy = ControlXY(self, self)
         # Screens with their own QML and Python object (build when shown, hide when left)
         self.qml_screen_objects = {"launcher": self.launcher,
                                    "pattern_editor": self.pattern_editor,
@@ -104,7 +107,8 @@ class ZynUI(QObject):
                                    "tempo": self.chain_control_screen,
                                    "alsa_mixer": self.chain_control_screen,
                                    "audio_player": self.chain_control_screen,
-                                   "midi_key_range": self.chain_control_screen}
+                                   "midi_key_range": self.chain_control_screen,
+                                   "control_xy": self.control_xy}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
                     ChainOptions, AudioIn, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
                     MidiDevicesOut, ZS3, Admin, MidiRecorder, MidiCC):
@@ -266,6 +270,10 @@ class ZynUI(QObject):
         return self.pattern_editor
 
     @Property(QObject, constant=True)
+    def controlXY(self):
+        return self.control_xy
+
+    @Property(QObject, constant=True)
     def launcherModel(self):
         return self.launcher
 
@@ -314,6 +322,9 @@ class ZynUI(QObject):
             self.chain_control_screen.special_processor = KeyRangeProcessor(chain)
         elif name == "chain_control":
             self.chain_control_screen.special_processor = None
+        elif name == "control_xy" and not self.control_xy.available():
+            self.show_info("Choose the X and Y axis controllers first (long press on a controller).")
+            return
         screen = self.list_screens.get(name) or self.qml_screen_objects.get(name)
         if screen:
             screen.build()

@@ -13,7 +13,7 @@ Window {
                                         alsa_mixer: "Audio Levels", audio_player: "Audio Player",
                                         midi_key_range: "Note Range & Transpose",
                                         chain_manager: "Chain Manager", launcher: "Launcher",
-                                        pattern_editor: "Pattern Editor" })
+                                        pattern_editor: "Pattern Editor", control_xy: "X-Y Touchpad" })
 
     width: 960
     height: 600
@@ -52,7 +52,8 @@ Window {
         currentIndex: zyn.currentList ? 2
                       : (zyn.currentScreen === "mixer" || zyn.currentScreen === "launcher") ? 0
                       : zyn.currentScreen === "chain_manager" ? 3
-                      : zyn.currentScreen === "pattern_editor" ? 4 : 1
+                      : zyn.currentScreen === "pattern_editor" ? 4
+                      : zyn.currentScreen === "control_xy" ? 5 : 1
 
         MixerScreen { shown: screens.currentIndex === 0 }
         ChainControlScreen {}
@@ -70,6 +71,7 @@ Window {
         }
         ChainManagerScreen {}
         PatternEditorScreen {}
+        ControlXYScreen {}
     }
 
     // Info message, as zynthian_gui.show_info

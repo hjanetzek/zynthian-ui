@@ -27,6 +27,7 @@ import pyliblo3 as liblo
 # Zynthian specific modules
 from zyngine import zynthian_controller
 from zyngui import zynthian_gui_config
+from zyngui.zynthian_organelle_data import CLEANLN_FILL, menu_touch_sequence
 from zyngui.zynthian_widget_base import zynthian_widget_base
 from zyngui.zynthian_gui_controller import zynthian_gui_controller
 
@@ -612,15 +613,8 @@ class zynthian_widget_organelle(zynthian_widget_base):
             logging.error(f"Invalid argument for gCleanln: {args}")
             return
 
-        fill_params = {
-            1: [0, 0, 8, 128, 9, 0],
-            2: [0, 0, 20, 128, 9, 0],
-            3: [0, 0, 32, 128, 9, 0],
-            4: [0, 0, 44, 128, 9, 0],
-            5: [0, 0, 54, 128, 10, 0]
-        }
-        if n in fill_params:
-            self.handle_gFillArea(path, fill_params[n])
+        if n in CLEANLN_FILL:
+            self.handle_gFillArea(path, CLEANLN_FILL[n])
         else:
             logging.error(f"gCleanln received an invalid line number: {n}")
 
@@ -828,21 +822,9 @@ class zynthian_widget_organelle(zynthian_widget_base):
         except ValueError:
             return
 
-        diff = target_index - self.current_page_index
-        if diff > 0:
-            for i in range(diff):
-                delay = 50 * i
-                self.after(delay, lambda: liblo.send(self.osc_target, "/enc_down", 1))
-                self.after(delay + 50, lambda: liblo.send(self.osc_target, "/enc_down", 0))
-        elif diff < 0:
-            for i in range(abs(diff)):
-                delay = 50 * i
-                self.after(delay, lambda: liblo.send(self.osc_target, "/enc_up", 1))
-                self.after(delay + 50, lambda: liblo.send(self.osc_target, "/enc_up", 0))
+        for delay, osc_path, value in menu_touch_sequence(self.current_page_index, target_index):
+            self.after(delay, lambda p=osc_path, v=value: liblo.send(self.osc_target, p, v))
         self.current_page_index = target_index
-        total_delay = abs(diff) * 50 + 100
-        self.after(total_delay, lambda: liblo.send(self.osc_target, "/enc_sel", 1))
-        self.after(total_delay + 100, lambda: liblo.send(self.osc_target, "/enc_sel", 0))
 
     def select_page(self, page_index):
         """

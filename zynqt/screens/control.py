@@ -13,6 +13,7 @@ from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
 from zynqt.models.audio_file import AudioFileView
+from zynqt.models.organelle import OrganelleView
 from zynqt.models.widgets import EnvelopeView, FilterView, PluginView, EuclidSeqView
 from zynqt.screens.base import EntryModel, entry, separator
 
@@ -113,6 +114,7 @@ class ChainControl(QObject):
         self.filter_view = FilterView(self)
         self.plugin_view = PluginView(self)
         self.euclid_view = EuclidSeqView(self)
+        self.organelle_view = OrganelleView(self)
         self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
 
@@ -275,6 +277,9 @@ class ChainControl(QObject):
         if plugin == "euclidseq":
             wtype = "euclid"
             self.euclid_view.set_processor(proc)
+        elif plugin == "organelle":
+            wtype = "organelle"
+            self.organelle_view.set_processor(proc)
         elif plugin:
             wtype = "plugin"
             if self.plugin_view.processor is not proc:
@@ -317,6 +322,10 @@ class ChainControl(QObject):
     @Property(QObject, constant=True)
     def euclidView(self):
         return self.euclid_view
+
+    @Property(QObject, constant=True)
+    def organelleView(self):
+        return self.organelle_view
 
     @Slot(int)
     def selectProcessor(self, i):

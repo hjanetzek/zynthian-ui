@@ -27,7 +27,7 @@ class MainMenu(SelectorScreen):
             self.audio_rec_entry(),
             _todo("Audio\nPlayer", "folder_audio.png"),
             self.midi_rec_entry(),
-            _todo("Admin", "settings.png"),
+            entry("Admin", lambda e: ui.show_screen("admin"), icon="settings.png"),
         ])
 
     def audio_rec_entry(self):

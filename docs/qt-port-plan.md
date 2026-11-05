@@ -175,7 +175,8 @@ chains (type, engine, MIDI channel, bank, preset), snapshots, ZS3, tempo, audio 
 settings (all desktop entries except ZynVoice), MIDI devices and their options, recording and
 transport keys, audio and MIDI player, chain manager, moving chains and processors, MIDI CC and note
 range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration's switch actions.
-Not ported yet: ZynVoice, launcher (M3).
+M3 started: the launcher (mixer in launcher mode). Not ported yet: ZynVoice, the launcher's
+phrase menu, pattern editor, arranger, engine widgets (waveform, envelope, ...).
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
 
@@ -198,9 +199,10 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
    audio routing (hardware ports, main output, numbering; see docs/upstream-candidates.md) is
    only patched over so far. Move list logic out of the Tk screens into shared modules where it
    isn't trivial, as for snapshots and MIDI config.
-3. Touch: multitouch on faders, swipe vs. tap in lists, long-press timing, drag sensitivity.
-4. M3: the launcher (PAD key) first, then the audio file widget (waveform: QML `Shape` or a C++
-   Canvas Painter item) and the pattern editor.
+3. Touch (postponed; multitouch faders already work): swipe vs. tap in lists, long-press timing,
+   drag sensitivity.
+4. M3: launcher done (9f3d00c8); next its phrase menu (main strip long press), the pattern
+   editor (dense view: C++ Canvas Painter item or QML), the audio file widget (waveform).
 5. Upstream: split the shared modules into self-contained commits, fix the bugs noted in
    [upstream-candidates.md](upstream-candidates.md), pytest for the shared modules.
 

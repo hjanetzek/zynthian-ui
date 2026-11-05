@@ -27,6 +27,7 @@ from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
 from zynqt.screens.control import ChainControl
 from zynqt.screens.snapshots import Options, Snapshots
+from zynqt.screens.chain_options import ChainOptions
 
 # Screens with their own QML (the others are selector screens, zynqt.screens)
 QML_SCREENS = ("mixer", "chain_control")
@@ -80,7 +81,8 @@ class ZynUI(QObject):
         self.chain_control_screen = ChainControl(self, self)
         # Screens with their own QML and Python object (build when shown, hide when left)
         self.qml_screen_objects = {"chain_control": self.chain_control_screen}
-        for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots):
+        for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
+                    ChainOptions):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""
@@ -628,6 +630,20 @@ class ZynUI(QObject):
         pos = min(cm.get_active_chain_index() + 1, len(cm.chains) - 1)
         self.list_screens["add_chain"].pos = pos
         self.show_screen("add_chain")
+
+    @Slot(int)
+    def openChain(self, chain_id):
+        """Mixer strip tapped: the chain's controllers"""
+        self.chain_control(chain_id)
+
+    @Slot(int)
+    def openChainOptions(self, chain_id):
+        if chain_id >= 0:
+            self.chain_manager.set_active_chain_by_id(chain_id)
+        self.show_screen("chain_options")
+
+    def cuia_chain_options(self, params=None):
+        self.show_screen("chain_options")
 
     def cuia_bank_preset(self, params=None):
         if self.current_processor:

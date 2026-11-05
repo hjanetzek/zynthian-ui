@@ -30,12 +30,18 @@ class Engine(SelectorScreen):
         super().__init__(ui, parent)
         self.engines_by_cat = {}
         self.category_by_type = {}
+        self.show_all = False      # long press: all engines, to enable or disable them
+        self.engine_info_dirty = False
+
+    def build(self):
+        self.show_all = False
+        super().build()
 
     def fill(self):
         proc_type = self.ui.chain_edit.status.get("type", "")
-        self.set_title(f"Engine ({proc_type})")
+        self.set_title(f"Enable engines ({proc_type})" if self.show_all else f"Engine ({proc_type})")
         self.chain_manager.get_engine_info()
-        self.engines_by_cat = self.chain_manager.filtered_engines_by_cat(proc_type)
+        self.engines_by_cat = self.chain_manager.filtered_engines_by_cat(proc_type, all=self.show_all)
         for exclude in ("MI", "MR", "MX"):
             self.engines_by_cat.get("Other", {}).pop(exclude, None)
         cats = list(self.engines_by_cat.keys())
@@ -49,23 +55,55 @@ class Engine(SelectorScreen):
     def _fill_category(self):
         proc_type = self.ui.chain_edit.status.get("type", "")
         entries = []
-        if proc_type in ("MIDI Tool", "Audio Effect"):
+        if proc_type in ("MIDI Tool", "Audio Effect") and not self.show_all:
             entries.append(entry("None", info="No processor (empty chain)", data="None"))
         cats = self.categories
         if cats:
             for code, info in self.engines_by_cat[cats[self.categoryIndex]].items():
                 stars = "★" * int(info.get("QUALITY", 0) or 0)
-                entries.append(entry(info["TITLE"], data=code,
+                title = info["TITLE"]
+                if self.show_all:
+                    title = ("☒ " if info["ENABLED"] else "☐ ") + title
+                entries.append(entry(title, data=code,
                                      info=f"{info['NAME']}\n{stars}\n\n{info.get('DESCR', '')}"))
         if not entries:
             entries.append(entry("No engines available", enabled=False,
-                                 info="No engine of this type is installed or enabled."))
-        self.set_entries(entries, 0)
+                                 info="No engine of this type is installed or enabled.\n"
+                                      "Long press to enable some engines."))
+        self.set_entries(entries, self.index if self.show_all else 0)
+
+    def activate(self, index, t="S"):
+        # Long press (also on "No engines available"): enable or disable engines
+        if t == "B" and not self.show_all:
+            self.show_all = True
+            self.fill()
+            return
+        super().activate(index, t)
+
+    def back(self):
+        if self.show_all:
+            if self.engine_info_dirty:
+                self.chain_manager.save_engine_info()
+                self.engine_info_dirty = False
+            self.show_all = False
+            self.fill()
+            return True
+        return False
 
     def select_action(self, index, t):
         if t != "S":
             return
         code = self.entries[index]["data"]
+        if code is None:
+            return
+        if self.show_all:
+            info = self.chain_manager.engine_info[code]
+            info["ENABLED"] = not info["ENABLED"]
+            if info.get("EDIT", 0) == 0:
+                info["EDIT"] = 1
+            self.engine_info_dirty = True
+            self.fill()
+            return
         status = self.ui.chain_edit.status
         status["engine"] = code
         if "chain_id" not in status:

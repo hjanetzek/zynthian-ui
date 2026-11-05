@@ -19,6 +19,24 @@ Item {
         clip: true
         model: root.cc.processors
 
+        header: Item {
+            width: procs.width
+            height: 60
+            Rectangle {
+                width: parent.width
+                height: 56
+                radius: 3
+                color: Theme.panelHighlight
+                Text {
+                    anchors.centerIn: parent
+                    text: "Chain Options"
+                    color: Theme.text
+                    font.pixelSize: 15
+                }
+                TapHandler { onTapped: zyn.openChainOptions(-1) }
+            }
+        }
+
         delegate: Rectangle {
             required property int index
             required property var modelData

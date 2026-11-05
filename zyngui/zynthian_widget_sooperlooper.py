@@ -34,6 +34,9 @@ from zyngine.zynthian_engine import zynthian_engine
 from zyngine.zynthian_engine_sooperlooper import *
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
+from zyngui.zynthian_sooperlooper_data import (loop_kind, select_loop as sl_select_loop, toggle_mute as sl_toggle_mute,
+                                              add_loop as sl_add_loop, remove_loop as sl_remove_loop,
+                                              press_button as sl_press_button)
 
 
 class zynthian_widget_sooperlooper(zynthian_widget_base.zynthian_widget_base):
@@ -284,12 +287,12 @@ class zynthian_widget_sooperlooper(zynthian_widget_base.zynthian_widget_base):
     def on_loop_click(self, event):
         for loop, slider in enumerate(self.pos_canvas):
             if event.widget == slider['canvas']:
-                liblo.send(self.osc_url, '/set', ('s', 'selected_loop_num'), ('f', loop))
+                sl_select_loop(self.processor, loop)
                 self.click_timer = Timer(1.4, self.on_click_timer)
                 self.click_timer.start()
                 break
             if event.widget == slider['mute']:
-                liblo.send(self.osc_url, '/sl/{}/hit'.format(loop), ('s', 'mute'))
+                sl_toggle_mute(self.processor, loop)
                 break
 
     def on_loop_release(self, event):
@@ -301,19 +304,13 @@ class zynthian_widget_sooperlooper(zynthian_widget_base.zynthian_widget_base):
             self.zyngui.show_confirm(f"Remove loop {self.selected_loop + 1}?", self.remove_loop)
 
     def on_add_click(self, event):
-        liblo.send(self.osc_url, '/loop_add', ('i', 2), ('f', 30), ('i', 0))
+        sl_add_loop(self.processor)
 
     def remove_loop(self, params):
-        liblo.send(self.osc_url, '/loop_del', ('i', self.selected_loop))
+        sl_remove_loop(self.processor, self.selected_loop)
 
     def on_button_release(self, event):
-        btn = event.widget["text"]
-        if btn in ['undo', 'redo']:
-            liblo.send(self.osc_url, '/sl/-3/hit', ('s', btn))
-        else:
-            if self.processor.controllers_dict["selected_loop_cc"].value == 0 and btn in self.processor.engine.SL_LOOP_SEL_PARAM:
-                btn += f":{self.processor.engine.selected_loop}"
-            self.processor.controllers_dict[btn].toggle()
+        sl_press_button(self.processor, event.widget["text"])
 
     def on_slider_wheel(self, event):
         try:
@@ -390,21 +387,8 @@ class zynthian_widget_sooperlooper(zynthian_widget_base.zynthian_widget_base):
                 waiting = self.monitors[waiting_symbol]
             else:
                 waiting = 0
-            if waiting or state in [1, 3]:
-                # Pending states
-                # TODO: Split to pending rec, pending play, etc.
-                bg = '#c90'
-
-            elif state in (SL_STATE_RECORDING, SL_STATE_OVERDUBBING, SL_STATE_MULTIPLYING, SL_STATE_INSERTING, SL_STATE_REPLACING, SL_STATE_DELAYING, SL_STATE_SUBSTITUTING):
-                # Record states
-                bg = self.BUTTON_ASSERTED
-
-            elif state in (SL_STATE_OFF, SL_STATE_MUTED, SL_STATE_PAUSED, SL_STATE_OFF_MUTED):
-                # Disabled / off states
-                bg = '#444'
-                # Play states
-            else:
-                bg = '#090'
+            # Pending, record, off / disabled or play states
+            bg = {"pending": '#c90', "record": self.BUTTON_ASSERTED, "off": '#444', "play": '#090'}[loop_kind(state, waiting)]
             self.pos_canvas[loop]['canvas'].coords(
                 self.pos_canvas[loop]['border'], 2, 2, self.pos_canvas[loop]['canvas'].winfo_width() - 2, self.row_height - 2)
             if loop == self.selected_loop:

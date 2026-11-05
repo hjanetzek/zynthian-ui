@@ -225,14 +225,14 @@ def load_keymap(chain_manager, channel, scale, tonic):
 
 
 def note_events(libseq):
-    """The note events of the selected pattern: list of (step, note, duration, velocity, offset)"""
+    """The note events of the selected pattern: list of event_data (copies)"""
     events = []
     evdata = zynseq.event_data()
     index = 0
     while libseq.getEventDataAt(index, evdata) >= 0:
         index += 1
         if evdata.command == zynseq.MIDI_NOTE_ON:
-            events.append((evdata.position, evdata.val1_start, evdata.duration, evdata.val2_start, evdata.offset))
+            events.append(zynseq.event_data.from_buffer_copy(evdata))
     return events
 
 
@@ -243,3 +243,74 @@ def default_note_evdata(duration=1.0, velocity=100, offset=0.0, stut_speed=0, st
     evdata.set_values(0, offset, duration, 0x90, 0, velocity, 0, 0, stut_speed, stut_velfx, stut_ramp,
                       play_freq, stut_freq, play_chance, stut_chance)
     return evdata
+
+
+# Per-note settings besides velocity and duration (zynthian_gui_pated_notes' edit parameters)
+
+STUT_VFX_OPTIONS = ("FLAT", "FADE-IN", "FADE-OUT")
+STUT_RMP_OPTIONS = ("NONE", "SPEED-UP", "SPEED-DOWN")
+PLAY_FREQ_OPTIONS = ("NEVER", "ALWAYS", "PLAY/2", "SKIP/2", "PLAY/3", "SKIP/3", "PLAY/4", "SKIP/4", "PLAY/5",
+                     "SKIP/5", "PLAY/6", "SKIP/6", "PLAY/7", "SKIP/7", "PLAY/8", "SKIP/8")
+STUT_FREQ_OPTIONS = ("NEVER", "ALWAYS", "STUT/2", "SKIP/2", "STUT/3", "SKIP/3", "STUT/4", "SKIP/4", "STUT/5",
+                     "SKIP/5", "STUT/6", "SKIP/6", "STUT/7", "SKIP/7", "STUT/8", "SKIP/8")
+
+# key: the event_data field and default_note_evdata argument; kind: "percent" (0..1, edited as
+# min..max %), "int" (min..max) or "options" (index into labels); setter: the libseq function
+NOTE_PARAMS = (
+    {"key": "offset", "name": "Offset", "kind": "percent", "min": 0, "max": 99, "setter": "setNoteOffset"},
+    {"key": "stut_speed", "name": "Stutter speed", "kind": "int", "min": 0, "max": 32,
+     "setter": "setNoteStutterSpeed"},
+    {"key": "stut_velfx", "name": "Stutter velocity", "kind": "options", "labels": STUT_VFX_OPTIONS,
+     "setter": "setNoteStutterVelfx"},
+    {"key": "stut_ramp", "name": "Stutter ramp", "kind": "options", "labels": STUT_RMP_OPTIONS,
+     "setter": "setNoteStutterRamp"},
+    {"key": "play_freq", "name": "Play frequency", "kind": "options", "labels": PLAY_FREQ_OPTIONS,
+     "setter": "setNotePlayFreq"},
+    {"key": "play_chance", "name": "Play chance", "kind": "percent", "min": 0, "max": 100,
+     "setter": "setNotePlayChance"},
+    {"key": "stut_freq", "name": "Stutter frequency", "kind": "options", "labels": STUT_FREQ_OPTIONS,
+     "setter": "setNoteStutterFreq"},
+    {"key": "stut_chance", "name": "Stutter chance", "kind": "percent", "min": 0, "max": 100,
+     "setter": "setNoteStutterChance"},
+)
+
+NOTE_PARAM_DEFAULTS = {"offset": 0.0, "stut_speed": 0, "stut_velfx": 0, "stut_ramp": 0, "play_freq": 1,
+                       "play_chance": 1.0, "stut_freq": 1, "stut_chance": 1.0}
+
+
+def note_param_text(param, value):
+    """A NOTE_PARAMS value as shown, e.g. "25%", "4" or "FADE-IN"."""
+    if param["kind"] == "percent":
+        return f"{round(100 * value)}%"
+    if param["kind"] == "options":
+        labels = param["labels"]
+        return labels[value] if 0 <= value < len(labels) else str(value)
+    return str(value)
+
+
+def set_note_param(libseq, step, note, param, value):
+    """Set a NOTE_PARAMS value (stored form: 0..1 for percent) of the note at step"""
+    getattr(libseq, param["setter"])(step, note, value)
+
+
+def note_muted(evdata):
+    """True if the note never plays (drawn faded)"""
+    return evdata.play_freq == 0 or evdata.play_chance == 0
+
+
+def stutter_muted(evdata):
+    return evdata.stut_freq == 0 or evdata.stut_chance == 0
+
+
+def note_label(evdata):
+    """The text on a note: its play frequency or chance, else its stutter's; "" for none"""
+    if evdata.play_freq > 1:
+        return PLAY_FREQ_OPTIONS[evdata.play_freq]
+    if evdata.play_chance < 1.0:
+        return f"{round(100 * evdata.play_chance)}%"
+    if evdata.stut_speed > 0:
+        if evdata.stut_freq > 1:
+            return STUT_FREQ_OPTIONS[evdata.stut_freq]
+        if evdata.stut_chance < 1.0:
+            return f"{round(100 * evdata.stut_chance)}%"
+    return ""

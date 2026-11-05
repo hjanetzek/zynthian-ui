@@ -189,9 +189,18 @@ The plugin packages depend on their data, so `apk add avldrums-lv2` installs a w
 - **TBD: admin menu entry** in zynthian to install (and remove) optional data packages on the
   device (apk, with progress and the download size), then rescan the LV2 plugins
   (`zynthian_lv2.py engines`). Until then: `apk add` over ssh.
-- **Other heavy packages** (installed sizes on the Duet): `zynthian-data` 616 MB (SoundFonts, SFZ
-  instruments, audio files: the biggest, worth a split into a small core and optional sample
-  sets), `zynaddsubfx` 53 MB (its banks), `pd-cyclone` 22 MB, `mod-caps-lv2` 26 MB.
+- **Other heavy packages** (installed sizes on the Duet): `zynaddsubfx` 53 MB (its banks),
+  `pd-cyclone` 22 MB, `mod-caps-lv2` 26 MB, and `zynthian-data` 616 MB:
+- **TBD: split `zynthian-data`** into essential (or too small to matter) and extra data. Measured
+  (MB): `presets/puredata/sampler` 180 (Pd sampler patches with samples), `tts/voices` 140 (ZynVoice
+  voices; TTS is off by default), `files/Neural Models` 113 (NAM/AIDA-X models; those plugins aren't
+  packaged yet), `presets/puredata/synth` 72, `presets/lv2` 70 (plugin presets: essential),
+  `files/Midi` 67 (MIDI files), `aeolus` 44 (Aeolus engine, not packaged), the rest about 30
+  (setBfree, zynseq, snapshots, Organelle abstractions, other presets: essential). Proposal:
+  `zynthian-data` (essential, ~100 MB with the LV2 presets) plus optional `zynthian-data-pd-samples`,
+  `-tts`, `-nam-models`, `-midi`, `-aeolus` (the latter with the Aeolus engine), installable from the
+  admin menu above. Check what zynthian expects to exist (e.g. TTS, the MIDI player's file list)
+  when a part is missing.
 
 ### Open questions
 

@@ -23,13 +23,14 @@
 #
 # ******************************************************************************
 
-import math
 import tkinter
 import logging
 
 # Zynthian specific modules
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
+from zyngui.zynthian_widget_data import (envelope_zctrls, envelope_values, envelope_geometry, envelope_hit,
+                                         envelope_drag)
 
 # ------------------------------------------------------------------------------
 # Zynthian Widget Class for envelope screen type
@@ -73,31 +74,6 @@ class zynthian_widget_envelope(zynthian_widget_base.zynthian_widget_base):
         self.plot_width = self.width - self.m_l - self.m_r
         self.plot_height = self.height - self.m_b - self.m_t
 
-        self.build_curve_table()
-
-    def build_curve_table(self):
-        n = 16 # Curve_steps
-        k = 1.0 # Curve strength
-        if k < 1e-3:
-            self.curve_table = [(i / n, i / n) for i in range(1, n)]
-        else:
-            norm = 1.0 - math.exp(-k)
-            self.curve_table = [(i / n, (1.0 - math.exp(-k * i / n)) / norm) for i in range(1, n)]
-
-    def curve_points(self, x_start, y_start, x_end, y_end):
-        dx = x_end - x_start
-        dy = y_end - y_start
-        min_width = 4
-        if abs(dx) < min_width or dy == 0:
-            return [x_end, y_end]
-        pts = []
-        for t, g in self.curve_table:
-            pts.append(x_start + dx * t)
-            pts.append(y_start + dy * g)
-        pts.append(x_end)
-        pts.append(y_end)
-        return pts
-
     def on_size(self, event):
         if event.width == self.width and event.height == self.height:
             return
@@ -112,146 +88,36 @@ class zynthian_widget_envelope(zynthian_widget_base.zynthian_widget_base):
         self.refresh_gui()
 
     def show(self):
-        zctrls = {}
-        self.zctrls = []
-        for zctrl in self.processor.get_group_zctrls(self.zyngui_control.screen_info[0]):
-            try:
-                zctrls[zctrl.envelope] = zctrl
-            except:
-                pass
-        for symbol in ["delay", "attack", "hold", "decay", "sustain", "fade", "release"]:
-            if symbol in zctrls:
-                self.zctrls.append(zctrls[symbol])
-                if symbol == "fade":
-                    if zctrls[symbol].value_min < 0:
-                        self.fade_polarity = -1
-                    else:
-                        self.fade_polarity = 1
+        group = self.processor.get_group_zctrls(self.zyngui_control.screen_info[0])
+        self.zctrls, self.fade_polarity = envelope_zctrls(group)
         self.dx = self.plot_width // len(self.zctrls)
-        # self.widget_canvas.itemconfig(self.release_line, state="hidden")
-        # self.widget_canvas.itemconfig(self.release_label, state="hidden")
         super().show()
 
     def refresh_gui(self):
-        envelope_values = []
-
-        y_sustain = self.plot_height // 2
-        x_release = self.plot_width
-        rv_fade = None
-        for zctrl in self.zctrls:
-            rv = zctrl.value / zctrl.value_range
-            envelope_values.append(rv)
-            match zctrl.envelope:
-                case "sustain":
-                    y_sustain = self.plot_height - rv * self.dy
-                case "release":
-                    x_release = self.plot_width - rv * self.dx
-                case "fade":
-                    rv_fade = rv
-
-        if rv_fade is None:
-            y_fade = y_sustain
-        else:
-            kf = 1.0 - 0.5 * (self.fade_polarity - 1) + self.fade_polarity * rv_fade
-            y_fade = self.plot_height - kf * (self.plot_height - y_sustain) / 2
-
-        if envelope_values != self.last_envelope_values or self.drag_zctrl:
-            self.last_envelope_values = envelope_values
-            y_sustain += self.m_b
-            y_fade += self.m_b
-            x_release += self.m_l
-            x = x0 = self.m_l
-            y = y0 = self.m_b + self.plot_height
-            x1 = x0 + self.plot_width
-            coords = [x0, y0]
-            self.envelope_click_ranges = []
-            release_pts = None
-
-            for i, zctrl in enumerate(self.zctrls):
-                rv = envelope_values[i]
-                pts = []
-                match zctrl.envelope:
-                    case "release":
-                        x = x1 - rv * self.dx
-                        release_pts = self.curve_points(x, y, x1, y0)
-                        drag_window = [x, y] + release_pts + [x, y0]
-                        self.envelope_click_ranges.append(x)
-                        if coords[-2] == x1:
-                            coords[-2] = x   # Fix fade if it exists
-                    case "sustain":
-                        y = y0 - rv * self.dy
-                        drag_window = [x, y0, x, y, x_release, y_fade, x_release, y0]
-                    case "fade":
-                        y_offset = y + (y0 - y) / 2
-                        drag_window = [x, y, x, y_offset]
-                        self.envelope_click_ranges.append(x + (x_release - x) * 0.75)
-                        x = x_release
-                        y = y_fade
-                        drag_window += [x, y_offset, x, y]
-                    case _:
-                        _x = x
-                        _y = y
-                        x += rv * self.dx
-                        if zctrl.envelope == "attack":
-                            y = y0 - self.dy
-                        elif zctrl.envelope == "decay":
-                            y = y_sustain
-                        if zctrl.envelope in ("attack", "decay"):
-                            pts = self.curve_points(_x, _y, x, y)
-                        drag_window = [_x, _y] + (pts if pts else [x, y]) + [x, y0, _x, y0]
-                        self.envelope_click_ranges.append(x)
-                if pts:
-                    coords += pts
-                else:
-                    coords.append(x)
-                    coords.append(y)
-                if self.drag_zctrl == zctrl:
-                    self.widget_canvas.coords(self.drag_polygon, drag_window)
-
-            x = self.m_l + self.plot_width
-            if release_pts:
-                coords += release_pts
-            else:
-                coords.append(x)
-                coords.append(y0)
-            self.envelope_click_ranges.append(x)
+        values = envelope_values(self.zctrls)
+        if values != self.last_envelope_values or self.drag_zctrl:
+            self.last_envelope_values = values
+            coords, self.envelope_click_ranges, drag_poly = envelope_geometry(
+                self.zctrls, values, self.fade_polarity, self.plot_width, self.plot_height, self.m_l, self.m_b,
+                self.drag_zctrl)
             self.widget_canvas.coords(self.envelope_polygon, coords)
             # Highlight dragged section
-            if self.drag_zctrl:
+            if self.drag_zctrl and drag_poly:
+                self.widget_canvas.coords(self.drag_polygon, drag_poly)
                 self.widget_canvas.itemconfig(self.drag_polygon, state="normal")
 
     def on_canvas_press(self, event):
         self.last_click = event
-
         # Identify the envelope phase clicked
-        for i in range(len(self.envelope_click_ranges) - 1):
-            # Allow selection of last phase, near end of penultimate phase
-            if i == len(self.envelope_click_ranges) - 2:
-                x = self.envelope_click_ranges[i] - (self.envelope_click_ranges[i] - self.envelope_click_ranges[i - 1]) / 4
-            else:
-                x = self.envelope_click_ranges[i] + (self.envelope_click_ranges[i + 1] - self.envelope_click_ranges[i]) / 4
-            if event.x < x:
-                self.drag_zctrl = self.zctrls[i]
-                self.envelope_click_value = self.drag_zctrl.value
-                return
-        self.drag_zctrl = self.zctrls[-1]
+        self.drag_zctrl = envelope_hit(self.zctrls, self.envelope_click_ranges, event.x)
         self.envelope_click_value = self.drag_zctrl.value
 
     def on_canvas_drag(self, event):
         if self.drag_zctrl == None:
             return
-        dx = (event.x - self.last_click.x) / self.dx
-        dy = (event.y - self.last_click.y) / self.dy
-        match self.drag_zctrl.envelope:
-            case "release":
-                dval = - self.drag_zctrl.value_range * dx
-            case "sustain":
-                dval = - self.drag_zctrl.value_range * dy
-            case "fade":
-                dval = - self.fade_polarity * self.drag_zctrl.value_range * dy
-            case _:
-                dval =  self.drag_zctrl.value_range * dx
-        self.drag_zctrl.set_value(self.envelope_click_value + dval)
+        envelope_drag(self.drag_zctrl, self.envelope_click_value, event.x - self.last_click.x,
+                      event.y - self.last_click.y, len(self.zctrls), self.plot_width, self.plot_height,
+                      self.fade_polarity)
 
     def on_canvas_release(self, event):
         self.drag_zctrl = None

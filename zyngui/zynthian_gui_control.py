@@ -36,6 +36,7 @@ from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_base import zynthian_gui_base
 from zyngui.zynthian_gui_selector import zynthian_gui_selector
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info, create_info_widgets
+from zyngui.zynthian_widget_data import screen_type as widget_screen_type
 from zyngui.zynthian_gui_controller import zynthian_gui_controller
 
 # ------------------------------------------------------------------------------
@@ -270,18 +271,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         return False
 
     def get_screen_type(self):
-        self.widget_zctrl = None
-        for zctrl in self.zcontrollers:
-            if hasattr(zctrl, "envelope"):
-                self.screen_type = "envelope"
-                break
-            elif hasattr(zctrl, "filter"):
-                self.screen_type = "filter"
-                break
-            elif zctrl.is_path and zctrl.path_file_types and (set(zctrl.path_file_types) & {"wav", "aiff", "flac", "mp3", "ogg"}):
-                self.screen_type = "audio_file"
-                self.widget_zctrl = zctrl
-                break
+        self.screen_type, self.widget_zctrl = widget_screen_type(self.zcontrollers)
         return self.screen_type
 
     def fill_listbox(self):

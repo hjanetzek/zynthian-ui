@@ -11,7 +11,9 @@ import logging
 from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
 from zyngui import zynthian_audio_file_data as afd
+from zyngui import zynthian_widget_data as wd
 from zynqt.models.audio_file import AudioFileView
+from zynqt.models.widgets import EnvelopeView, FilterView
 from zynqt.screens.base import EntryModel, entry, separator
 
 
@@ -107,7 +109,9 @@ class ChainControl(QObject):
         ui.bridge.processorControllersChanged.connect(self._rebuild_if_shown)
         # Waveform of an audio file processor (audio player, clippy, samplv1), as Tk's widget
         self.audio_view = AudioFileView(ui, self)
-        self._has_waveform = False
+        self.envelope_view = EnvelopeView(self)
+        self.filter_view = FilterView(self)
+        self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
 
     # Shown / hidden (ZynUI)
@@ -116,7 +120,7 @@ class ChainControl(QObject):
         self._build()
         self._shown = True
         self._timer.start()
-        if self._has_waveform:
+        if self._widget_type == "audio_file":
             self.audio_view.start()
 
     def hide(self):
@@ -131,6 +135,10 @@ class ChainControl(QObject):
     def _refresh(self):
         for c in self.controllers:
             c.refresh()
+        if self._widget_type == "envelope":
+            self.envelope_view.refresh()
+        elif self._widget_type == "filter":
+            self.filter_view.refresh()
 
     # Contents
 
@@ -174,7 +182,7 @@ class ChainControl(QObject):
             # No controller page (e.g. no audio levels on this device): empty slots
             for c in self.controllers:
                 c.set_zctrl(None)
-            self._set_waveform(None)
+            self._set_widget(None)
             self.pageChanged.emit()
         else:
             self.setPage(page)
@@ -252,28 +260,43 @@ class ChainControl(QObject):
                 zctrls = []
         for i, c in enumerate(self.controllers):
             c.set_zctrl(zctrls[i] if i < len(zctrls) else None)
-        self._set_waveform(proc if kind != "chain" else None)
+        self._set_widget(proc if kind != "chain" else None, zctrls)
         self.pageChanged.emit()
 
-    def _set_waveform(self, proc):
-        gui = getattr(proc.engine, "custom_gui_fpath", None) if proc else None
-        has = proc is not None and (afd.engine_type(proc) != afd.ENG_NONE
-                                    or bool(gui and gui.endswith("zynthian_widget_audio_file.py")))
-        if has:
-            self.audio_view.set_processor(proc)
+    def _set_widget(self, proc, zctrls=()):
+        """The page's widget, as zynthian_gui_control: from the page's controllers (envelope,
+        filter, audio file path), else the engine's own (audio player, clippy)"""
+        wtype, file_zctrl = wd.screen_type(zctrls) if proc else (None, None)
+        if wtype is None and proc is not None:
+            gui = getattr(proc.engine, "custom_gui_fpath", None)
+            if afd.engine_type(proc) != afd.ENG_NONE or (gui and gui.endswith("zynthian_widget_audio_file.py")):
+                wtype = "audio_file"
+        if wtype in ("envelope", "filter"):
+            group = proc.get_group_zctrls(zctrls[0].group_symbol) if zctrls and zctrls[0] else list(zctrls)
+            (self.envelope_view if wtype == "envelope" else self.filter_view).set_group(group)
+        if wtype == "audio_file":
+            self.audio_view.set_processor(proc, file_zctrl)
             if self._shown:
                 self.audio_view.start()
         else:
             self.audio_view.stop()
-        self._has_waveform = has
+        self._widget_type = wtype or ""
 
-    @Property(bool, notify=pageChanged)
-    def hasWaveform(self):
-        return self._has_waveform
+    @Property(str, notify=pageChanged)
+    def widgetType(self):
+        return self._widget_type
 
     @Property(QObject, constant=True)
     def waveform(self):
         return self.audio_view
+
+    @Property(QObject, constant=True)
+    def envelope(self):
+        return self.envelope_view
+
+    @Property(QObject, constant=True)
+    def filterView(self):
+        return self.filter_view
 
     @Slot(int)
     def selectProcessor(self, i):

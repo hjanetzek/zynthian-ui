@@ -39,6 +39,7 @@ import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
+from zyngui import zynthian_admin_settings
 
 # -------------------------------------------------------------------------------
 # Zynthian Admin GUI Class
@@ -511,7 +512,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         zynautoconnect.resume()
 
     def toggle_dpm(self):
-        zynthian_gui_config.enable_dpm = not zynthian_gui_config.enable_dpm
+        zynthian_admin_settings.toggle_dpm()
         self.update_list()
 
     def visible_chains(self):
@@ -530,29 +531,11 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
                                  self.mixer_toggle_cb)
 
     def toggle_snapshot_mixer_settings(self):
-        if zynthian_gui_config.snapshot_mixer_settings:
-            logging.info("Mixer Settings on Snapshots OFF")
-            zynthian_gui_config.snapshot_mixer_settings = False
-        else:
-            logging.info("Mixer Settings on Snapshots ON")
-            zynthian_gui_config.snapshot_mixer_settings = True
-
-        # Update Config
-        zynconf.save_config({
-            "ZYNTHIAN_UI_SNAPSHOT_MIXER_SETTINGS": str(int(zynthian_gui_config.snapshot_mixer_settings))
-        })
+        zynthian_admin_settings.toggle_snapshot_mixer_settings()
         self.update_list()
 
     def toggle_preset_preload(self):
-        if zynthian_gui_config.preset_preload:
-            logging.info("Preset Preload OFF")
-            zynthian_gui_config.preset_preload = False
-        else:
-            logging.info("Preset Preload ON")
-            zynthian_gui_config.preset_preload = True
-
-        # Save config
-        zynconf.save_config({"ZYNTHIAN_UI_PRESET_PRELOAD": str(int(zynthian_gui_config.preset_preload))})
+        zynthian_admin_settings.toggle_preset_preload()
         self.update_list()
 
     def bluetooth(self):
@@ -639,64 +622,19 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
     # -------------------------------------------------------------------------
 
     def toggle_active_midi_channel(self):
-        if lib_zyncore.get_active_midi_chan():
-            logging.info("Active MIDI channel OFF")
-            zynthian_gui_config.active_midi_channel = False
-        else:
-            logging.info("Active MIDI channel ON")
-            zynthian_gui_config.active_midi_channel = True
-
-        lib_zyncore.set_active_midi_chan(
-            zynthian_gui_config.active_midi_channel)
-
-        # Save config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_ACTIVE_CHANNEL": str(int(zynthian_gui_config.active_midi_channel))
-        })
+        zynthian_admin_settings.toggle_active_midi_channel()
         self.update_list()
 
     def toggle_usbmidi_by_port(self):
-        if zynthian_gui_config.midi_usb_by_port:
-            logging.info("MIDI-USB devices by port OFF")
-            zynthian_gui_config.midi_usb_by_port = False
-        else:
-            logging.info("MIDI-USB devices by port ON")
-            zynthian_gui_config.midi_usb_by_port = True
-
-        zynautoconnect.update_hw_midi_ports(True)
-
-        # Save config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_USB_BY_PORT": str(int(zynthian_gui_config.midi_usb_by_port))
-        })
+        zynthian_admin_settings.toggle_usbmidi_by_port()
         self.update_list()
 
     def toggle_prog_change_zs3(self):
-        if zynthian_gui_config.midi_prog_change_zs3:
-            logging.info("ZS3 Program Change OFF")
-            zynthian_gui_config.midi_prog_change_zs3 = False
-        else:
-            logging.info("ZS3 Program Change ON")
-            zynthian_gui_config.midi_prog_change_zs3 = True
-
-        # Save config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_PROG_CHANGE_ZS3": str(int(zynthian_gui_config.midi_prog_change_zs3))
-        })
+        zynthian_admin_settings.toggle_prog_change_zs3()
         self.update_list()
 
     def toggle_bank_change(self):
-        if zynthian_gui_config.midi_bank_change:
-            logging.info("MIDI Bank Change OFF")
-            zynthian_gui_config.midi_bank_change = False
-        else:
-            logging.info("MIDI Bank Change ON")
-            zynthian_gui_config.midi_bank_change = True
-
-        # Save config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_BANK_CHANGE": str(int(zynthian_gui_config.midi_bank_change))
-        })
+        zynthian_admin_settings.toggle_bank_change()
         self.update_list()
 
     def show_cv_config(self):

@@ -8,8 +8,10 @@ the note at the cursor. The keymap, events and new note defaults are shared with
 
 from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
-from zyngui.zynthian_pated_data import (CHORD_MODES, CHORDS, NOTE_NAMES, STEPS_PER_BEAT, chord_intervals,
-                                        default_note_evdata, load_keymap, note_events, note_name, scale_names)
+from zyngui.zynthian_pated_data import (CHORD_MODES, CHORDS, NOTE_NAMES, NOTE_PARAM_DEFAULTS, NOTE_PARAMS,
+                                        STEPS_PER_BEAT, chord_intervals, default_note_evdata, load_keymap,
+                                        note_events, note_label, note_muted, note_name, note_param_text,
+                                        scale_names, set_note_param, stutter_muted)
 from zynlibs.zynseq import zynseq
 
 
@@ -42,6 +44,7 @@ class PatternEditor(QObject):
         self.cursor = [0, 60]      # step, keymap row
         self.velocity = 100
         self.duration = 1.0
+        self.entry_params = dict(NOTE_PARAM_DEFAULTS)   # the other note-entry values (offset, stutter, ...)
         self.chord_mode = 0         # CHORD_MODES index
         self.chord_type = 0         # CHORDS index (chord mode 1)
         self.chord_tonic = 0        # key of the diatonic chords
@@ -80,7 +83,7 @@ class PatternEditor(QObject):
                                                     self.libseq.getTonic())
         self._events = note_events(self.libseq)
         row_of = {k["note"]: i for i, k in enumerate(self.keymap)}
-        notes = sorted((step, note) for step, note, *_ in self._events if note in row_of)
+        notes = sorted((e.position, e.val1_start) for e in self._events if e.val1_start in row_of)
         if notes:
             # Start at the first note, so the pattern's notes are in view
             self.cursor = [notes[0][0], row_of[notes[0][1]]]
@@ -135,10 +138,14 @@ class PatternEditor(QObject):
 
     @Property("QVariantList", notify=eventsChanged)
     def events(self):
-        """Notes: {step, row, duration, velocity}; notes outside the keymap are left out"""
+        """Notes: {step (with offset), row, duration, velocity, label, muted, stutter (retriggers per
+        step, 0: none), stutterFx (0 flat, 1 fade-in, 2 fade-out), stutterMuted}; notes outside the
+        keymap are left out"""
         row_of = {k["note"]: i for i, k in enumerate(self.keymap)}
-        return [{"step": step, "row": row_of[note], "duration": dur, "velocity": vel}
-                for step, note, dur, vel, _ in self._events if note in row_of]
+        return [{"step": e.position + e.offset, "row": row_of[e.val1_start], "duration": e.duration,
+                 "velocity": e.val2_start, "label": note_label(e), "muted": note_muted(e),
+                 "stutter": e.stut_speed, "stutterFx": e.stut_velfx, "stutterMuted": stutter_muted(e)}
+                for e in self._events if e.val1_start in row_of]
 
     @Property(int, notify=playheadChanged)
     def playhead(self):
@@ -156,7 +163,9 @@ class PatternEditor(QObject):
     def entryText(self):
         chord = "" if not self.chord_mode else (
             f"  {CHORDS[self.chord_type][0]}" if self.chord_mode == 1 else "  Diatonic")
-        return f"Vel {self.velocity}  Dur {self.duration:g}{chord}"
+        extra = "".join(f"  {p['name']} {note_param_text(p, self.entry_params[p['key']])}" for p in NOTE_PARAMS
+                        if self.entry_params[p["key"]] != NOTE_PARAM_DEFAULTS[p["key"]])
+        return f"Vel {self.velocity}  Dur {self.duration:g}{chord}{extra}"
 
     # CC view (zynthian_gui_pated_cc): one CC number, a value (0..127) or none per step
 
@@ -290,14 +299,16 @@ class PatternEditor(QObject):
                     self.libseq.playNote(n, 0, self.channel)   # silence it if sounding
         else:
             for n in notes:
-                self.libseq.addNote(step, n, self.velocity, self.duration, 0.0)
-                self.libseq.setNoteData(step, n, default_note_evdata(self.duration, self.velocity))
+                self.libseq.addNote(step, n, self.velocity, self.duration, self.entry_params["offset"])
+                self.libseq.setNoteData(step, n, default_note_evdata(self.duration, self.velocity,
+                                                                     **self.entry_params))
                 self._play_preview(n, self.velocity)
         self._changed()
 
     @Slot(int, int)
     def editNote(self, step, row):
-        """Note options: velocity, duration, remove"""
+        """Note options: velocity, duration, the per-note settings (offset, stutter, play chance...),
+        remove"""
         note = self._note(row)
         if note is None:
             return
@@ -308,49 +319,96 @@ class PatternEditor(QObject):
             return
         self.cursor = [start, row]
         self.cursorChanged.emit()
-        vel = self.libseq.getNoteVelocity(start, note)
-        dur = self.libseq.getNoteDuration(start, note)
+        self._note_options(start, note)
 
-        def set_velocity(v):
-            self.libseq.savePatternSnapshot()
-            self.libseq.setNoteVelocity(start, note, int(v))
-            self._changed()
+    def _note_options(self, start, note, selected=0):
+        ev = self.zynseq.get_note_data(start, note)
+        if ev is None:
+            return
+        vel, dur = ev.val2_start, ev.duration
+
+        def edited(action, index):
+            # The change, then the options again (with the new value), to change more
+            def run(value):
+                self.libseq.savePatternSnapshot()
+                action(value)
+                self._changed()
+                self._note_options(start, note, index)
+            return run
 
         def set_duration(d):
-            self.libseq.savePatternSnapshot()
-            self.libseq.removeNote(start, note)
-            self.libseq.addNote(start, note, vel, float(d), 0.0)
-            self._changed()
+            # addNote over the note keeps its settings (Pattern::addEvent)
+            self.libseq.addNote(start, note, vel, float(d), ev.offset)
 
         def remove():
             self.libseq.savePatternSnapshot()
             self.libseq.removeNote(start, note)
             self._changed()
 
-        self.ui.show_options(f"Note {note_name(note)} at step {start + 1}", [
-            (f"Velocity ({vel})", lambda: self.ui.edit_value("Velocity", vel, 1, 127, set_velocity), None, None),
-            (f"Duration ({dur:g} steps)", lambda: self.ui.edit_value("Duration (steps)", float(dur), 0.5,
-                                                                     float(self.steps), set_duration, step=0.5,
-                                                                     decimals=1), None, None),
-            ("Remove", remove, None, None),
-        ])
+        opts = [
+            (f"Velocity ({vel})", lambda: self.ui.edit_value(
+                "Velocity", vel, 1, 127, edited(lambda v: self.libseq.setNoteVelocity(start, note, int(v)), 0)),
+             None, None),
+            (f"Duration ({dur:g} steps)", lambda: self.ui.edit_value(
+                "Duration (steps)", float(dur), 0.5, float(self.steps), edited(set_duration, 1), step=0.5, decimals=1),
+             None, None),
+        ]
+        for i, p in enumerate(NOTE_PARAMS):
+            value = getattr(ev, p["key"])
+            apply = edited(lambda v, p=p: set_note_param(self.libseq, start, note, p, v), 2 + i)
+            opts.append((f"{p['name']} ({note_param_text(p, value)})",
+                         lambda p=p, value=value, apply=apply: self._edit_param(p, value, apply), None, None))
+        opts.append(("Remove", remove, None, None))
+        self.ui.show_options(f"Note {note_name(note)} at step {start + 1}", opts, selected)
 
-    def entry_options(self):
+    def _edit_param(self, param, value, apply):
+        """Edit a NOTE_PARAMS value (list of options or value editor); apply(value in stored form)"""
+        if param["kind"] == "options":
+            self._pick(param["name"], list(zip(param["labels"], range(len(param["labels"])))), value, apply)
+        elif param["kind"] == "percent":
+            self.ui.edit_value(f"{param['name']} (%)", round(100 * value), param["min"], param["max"],
+                               lambda v: apply(int(v) / 100))
+        else:
+            self.ui.edit_value(param["name"], value, param["min"], param["max"], lambda v: apply(int(v)))
+
+    def entry_options(self, selected=0):
+        """The values of new notes"""
         def set_velocity(v):
             self.velocity = int(v)
             self.entryChanged.emit()
+            self.entry_options(0)
 
         def set_duration(d):
             self.duration = float(d)
             self.entryChanged.emit()
+            self.entry_options(1)
 
-        self.ui.show_options("New notes", [
+        def setter(key, index):
+            def apply(v):
+                self.entry_params[key] = v
+                self.entryChanged.emit()
+                self.entry_options(index)
+            return apply
+
+        def reset():
+            self.entry_params = dict(NOTE_PARAM_DEFAULTS)
+            self.entryChanged.emit()
+
+        opts = [
             (f"Velocity ({self.velocity})", lambda: self.ui.edit_value("New note velocity", self.velocity, 1, 127,
                                                                        set_velocity), None, None),
             (f"Duration ({self.duration:g} steps)", lambda: self.ui.edit_value(
                 "New note duration (steps)", self.duration, 0.5, 64.0, set_duration, step=0.5, decimals=1),
              None, None),
-        ])
+        ]
+        for i, p in enumerate(NOTE_PARAMS):
+            value = self.entry_params[p["key"]]
+            opts.append((f"{p['name']} ({note_param_text(p, value)})",
+                         lambda p=p, value=value, i=i: self._edit_param(p, value, setter(p["key"], 2 + i)),
+                         None, None))
+        if self.entry_params != NOTE_PARAM_DEFAULTS:
+            opts.append(("Reset settings", reset, None, None))
+        self.ui.show_options("New notes", opts, selected)
 
     # Block selection, copy / cut / paste (zynthian_gui_pated_base block edit)
 
@@ -477,6 +535,13 @@ class PatternEditor(QObject):
                 "Scale", list(zip(scales, range(len(scales)))), scale, self._set_scale), None, None),
             (f"Tonic ({NOTE_NAMES[ls.getTonic() % 12]})", lambda: self._pick(
                 "Tonic", list(zip(NOTE_NAMES, range(12))), ls.getTonic(), self._set_tonic), None, None),
+            (f"Velocity humanization ({round(ls.getHumanVelo())})", lambda: self.ui.edit_value(
+                "Velocity humanization", round(ls.getHumanVelo()), 0, 100, lambda v: ls.setHumanVelo(float(v))),
+             None, None),
+            (f"Note play chance ({round(100 * ls.getPlayChance())}%)", lambda: self.ui.edit_value(
+                "Note play chance (%)", round(100 * ls.getPlayChance()), 0, 100, lambda v: ls.setPlayChance(v / 100)),
+             None, None),
+            (f"Rest-step note ({self._rest_name(ls.getInputRest())})", self._pick_rest, None, None),
             ("Transpose up", lambda: self._transpose(1), None, None),
             ("Transpose down", lambda: self._transpose(-1), None, None),
             ("New note values", self.entry_options, None, None),
@@ -492,6 +557,15 @@ class PatternEditor(QObject):
             opts.append((f"Clear pattern CC{self.cc_num}", lambda: self.ui.confirm(
                 f"Clear CC{self.cc_num} in pattern {self.pattern}?", self._clear_cc), None, None))
         self.ui.show_options("Pattern Editor", opts)
+
+    @staticmethod
+    def _rest_name(note):
+        return note_name(note) if note < 128 else "None"
+
+    def _pick_rest(self):
+        """The note that enters a rest step when recording from MIDI (zynthian_gui_pated_notes)"""
+        choices = [("None", 128)] + [(note_name(n), n) for n in range(128)]
+        self._pick("Rest-step note", choices, self.libseq.getInputRest(), self.libseq.setInputRest)
 
     def _pick_chord_mode(self):
         def apply_mode(mode):

@@ -1,0 +1,96 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# PySide6 for zynthian's Qt Quick UI (docs/qt-port-plan.md): the version of the Qt 6.12 packages
+# built for the Duet (Zrythm's tools/nura/qt6), with only the modules the UI needs. Based on aports'
+# community/pyside6 (6.11.1), which builds all modules against Alpine's Qt 6.11; PySide uses Qt's
+# private API, which is tied to the Qt minor version, so it must match the installed Qt.
+# Changes from aports' recipe:
+# - MODULES limited to Core, Gui, Network, OpenGL, Qml, Quick, QuickControls2, Svg (Qml needs
+#   Network, Quick's bindings use OpenGL)
+# - no LTO and no docs (under pmbootstrap the build runs in qemu), no numpy support
+# - fix-header-install-dir.patch dropped: 6.12's CMake build installs the headers to include/
+# - the Python wrapper scripts and egg-info of setup.py are not installed (not needed to import
+#   PySide6); the shiboken6 generator stays in pyside6-dev
+pkgname=pyside6
+pkgver=6.12.0
+pkgrel=0
+_llvmver=21
+pkgdesc="Qt for Python: Qt 6 APIs in Python (subset for zynthian)"
+url="https://doc.qt.io/qtforpython-6/"
+arch="aarch64 x86_64"
+license="LGPL-3.0-only AND GPL-2.0-only"
+depends_dev="py3-pyside6"
+makedepends="
+	clang$_llvmver-dev
+	clang$_llvmver-extra-tools
+	clang$_llvmver-static
+	cmake
+	llvm$_llvmver-dev
+	llvm$_llvmver-gtest
+	llvm$_llvmver-static
+	python3-dev
+	qt6-qtbase-dev
+	qt6-qtbase-private-dev
+	qt6-qtdeclarative-dev
+	qt6-qtdeclarative-private-dev
+	qt6-qtsvg-dev
+	samurai
+	"
+subpackages="
+	py3-pyside6:pyside
+	py3-shiboken6:pyshiboken
+	$pkgname-dev
+	"
+source="$pkgver-$pkgname.tar.xz::https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-$pkgver-src/pyside-setup-everywhere-src-$pkgver.tar.xz"
+builddir="$srcdir/pyside-setup-everywhere-src-$pkgver"
+options="!check" # tests need a display and the modules left out
+
+_modules="Core;Gui;Network;OpenGL;Qml;Quick;QuickControls2;Svg"
+
+build() {
+	export LLVM_INSTALL_DIR=/usr/lib/llvm$_llvmver
+	CFLAGS="$CFLAGS $(pkg-config --cflags python3-embed)" \
+	CXXFLAGS="$CXXFLAGS -I/usr/lib/llvm$_llvmver/include" \
+	cmake -B build -G Ninja -Wno-dev \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
+		-DCMAKE_SKIP_INSTALL_RPATH=ON \
+		-DBUILD_SHARED_LIBS=True \
+		-DSHIBOKEN_PYTHON_LIBRARIES="$(pkg-config --libs python3-embed)" \
+		-DMODULES="$_modules" \
+		-DNO_QT_TOOLS=yes \
+		-DBUILD_TESTS=OFF
+
+	PYTHONPATH="$PWD/build/sources" \
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+
+	# aports: the installed PySide6Config.cmake has wrong paths to the typesystems and glue code
+	if [ -f build/sources/pyside6/libpyside/PySide6Config.abi3.cmake ]; then
+		install -Dm644 -t "$pkgdir"/usr/lib/cmake/PySide6 \
+			build/sources/pyside6/libpyside/PySide6Config.abi3.cmake
+	fi
+}
+
+pyshiboken() {
+	pkgdesc="Qt for Python: shiboken6 Python module"
+
+	amove usr/lib/libshiboken6*
+	amove usr/lib/python3.*/site-packages/shiboken6
+}
+
+pyside() {
+	pkgdesc="Qt for Python: PySide6 Python module (subset for zynthian)"
+	depends="qt6-qtbase qt6-qtdeclarative qt6-qtsvg py3-shiboken6"
+
+	amove usr/lib/libpyside6*
+	amove usr/lib/python3.*/site-packages/PySide6
+	amove usr/share/PySide6
+}
+
+sha512sums="
+b7d5e494bc31ced40b27d1911ab495fb7337cfda136b1f1543a45e51458adeda21b4a7c3c6a4fbf0109968cd0692d1ad0875cde23cfaf3108077ec7fd13f5d94  6.12.0-pyside6.tar.xz
+"

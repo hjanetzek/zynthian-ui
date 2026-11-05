@@ -29,6 +29,7 @@ from zynqt.screens.control import ChainControl
 from zynqt.screens.snapshots import Options, Snapshots
 from zynqt.screens.chain_options import ChainOptions
 from zynqt.screens.routing import AudioOut, MidiIn, MidiOut
+from zynqt.screens.processor_options import ProcessorOptions
 
 # Screens with their own QML (the others are selector screens, zynqt.screens)
 QML_SCREENS = ("mixer", "chain_control")
@@ -83,7 +84,7 @@ class ZynUI(QObject):
         # Screens with their own QML and Python object (build when shown, hide when left)
         self.qml_screen_objects = {"chain_control": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
-                    ChainOptions, AudioOut, MidiIn, MidiOut):
+                    ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""

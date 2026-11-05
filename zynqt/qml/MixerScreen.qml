@@ -246,7 +246,7 @@ Item {
         height: 36
         color: on ? onColor : Theme.keyBackground
         Text { id: t; anchors.centerIn: parent; color: Theme.text; font.pixelSize: 16 }
-        TapHandler { onTapped: button.tapped() }
+        TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: button.tapped() }
     }
 
     component MoveButton: Rectangle {

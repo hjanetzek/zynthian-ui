@@ -1,0 +1,51 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# GxPlugins.lv2: Guitarix's pedal and amp simulations as separate plugins (URIs
+# http://guitarix.sourceforge.net/plugins/...; zynthian enables 24 of them, recipe
+# install_gxplugins.sh). The release source contains the 43 plugin submodules. Also the two
+# single-plugin projects of the same kind that zynthian enables: GxDistortionPlus
+# (install_gxdistortionplus.sh) and MOD's GxSwitchlessWah (install_gxswitchlesswah.sh).
+# Built as zynthian does (`make mod`: the plugin without its X11 GUI, MOD's TTLs); the modgui
+# images (17 MB) are left out, as nothing on Nura renders them.
+pkgname=gxplugins-lv2
+pkgver=1.0
+pkgrel=1
+_distplus=16f82d94b7aeee63b699c8f1fc4a6dbd0d3865d4
+_wah=5d2fc315c85ac38e90ebe079968d45b805000fd2
+pkgdesc="Guitarix pedal and amp simulation LV2 plugins (GxPlugins)"
+url="https://github.com/brummer10/GxPlugins.lv2"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$pkgver.tar.bz2::https://github.com/brummer10/GxPlugins.lv2/releases/download/v$pkgver/gxplugins_${pkgver}_src.tar.bz2
+	gxdistortionplus-$_distplus.tar.gz::https://github.com/brummer10/GxDistortionPlus.lv2/archive/$_distplus.tar.gz
+	gxswitchlesswah-$_wah.tar.gz::https://github.com/moddevices/GxSwitchlessWah.lv2/archive/$_wah.tar.gz"
+builddir="$srcdir/GxPlugins.lv2"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	# the top-level Makefile builds every *.lv2 directory
+	mv "$srcdir"/GxDistortionPlus.lv2-$_distplus GxDistortionPlus.lv2
+}
+
+build() {
+	# SSE_CFLAGS: the Makefiles pick x86/ARMv7 flags from /proc/cpuinfo (SwitchlessWah always x86)
+	# -include cstdint: int32_t without <cstdint> (GCC 13+); in the environment, as the Makefiles
+	# append to CXXFLAGS
+	CXXFLAGS="$CXXFLAGS -include cstdint" make SSE_CFLAGS= mod
+	CXXFLAGS="$CXXFLAGS -include cstdint" make -C "$srcdir"/GxSwitchlessWah.lv2-$_wah SSE_CFLAGS=
+}
+
+package() {
+	local d
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	for d in */*.lv2/ "$srcdir"/GxSwitchlessWah.lv2-$_wah/GxSwitchlessWah.lv2/; do
+		cp -r "$d" "$pkgdir"/usr/lib/lv2/
+	done
+	rm -rf "$pkgdir"/usr/lib/lv2/*/modgui
+}
+sha512sums="
+590b5cdc662428260b64afa55aaed8632f7b8ab3307a19daff68b59c5de8b07d874408a31c0180f7195bbca06b71e8c907fbbb5db91cdc9e8c7e6519123687bb  gxplugins-lv2-1.0.tar.bz2
+afc1a89780d04f14e7727595afc3839bc0831c8c3da43ea8a5b3024c55cfb1c923adffd5dc46fd36634e16478269611758b0717bf19578907f8a14712d27d1f3  gxdistortionplus-16f82d94b7aeee63b699c8f1fc4a6dbd0d3865d4.tar.gz
+cf83e713e94a5f40c80e8d617098030fe4009a5d5af07e8e7ee4e99ff6feb2be5afaa88335c73b9d1788a5350593d05ac4924f061655827ee4e8735a901d9237  gxswitchlesswah-5d2fc315c85ac38e90ebe079968d45b805000fd2.tar.gz
+"

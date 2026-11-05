@@ -1,0 +1,48 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Guitarix's LV2 plugins (URIs http://guitarix.sourceforge.net/plugins/...; zynthian enables 33 of
+# them, recipe install_guitarix.sh), built as zynthian does: no standalone application, no LV2 GUIs,
+# MOD's TTLs (--mod-lv2), the pre-generated Faust code (--no-faust), no x86 SSE flags. The modgui
+# images (54 MB) are left out, as nothing on Nura renders them.
+pkgname=guitarix-lv2
+pkgver=0.47.0
+pkgrel=1
+pkgdesc="Guitarix amp, cabinet and effect LV2 plugins (no GUIs)"
+url="https://guitarix.org"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="
+	eigen-dev
+	fftw-dev
+	gperf
+	libsigc++-dev
+	libsndfile-dev
+	lv2-dev
+	python3
+	zita-convolver-dev
+	zita-resampler-dev
+	"
+source="https://github.com/brummer10/guitarix/releases/download/V$pkgver/guitarix2-$pkgver.tar.xz"
+builddir="$srcdir/guitarix-$pkgver"
+options="!check" # no tests
+
+build() {
+	python3 ./waf configure \
+		--prefix=/usr \
+		--lv2dir=/usr/lib/lv2 \
+		--no-standalone \
+		--no-lv2-gui \
+		--mod-lv2 \
+		--no-faust \
+		--disable-sse \
+		--no-desktop-update \
+		--no-font-cache-update
+	python3 ./waf build -j${JOBS:-2}
+}
+
+package() {
+	python3 ./waf install --destdir="$pkgdir"
+	rm -rf "$pkgdir"/usr/lib/lv2/*/modgui
+}
+sha512sums="
+6726bfc5e3b71b195e7117ba56f56164a119c6e34934d50131c186c6c4fd0400c97d51acae22f645fc9dff91f16312a55d38c68e3609c0f21d3c3e6db8a09524  guitarix2-0.47.0.tar.xz
+"

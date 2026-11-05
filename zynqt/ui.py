@@ -31,8 +31,9 @@ from zynqt.screens.chain_options import ChainOptions
 from zynqt.screens.routing import AudioOut, MidiDevicesIn, MidiDevicesOut, MidiIn, MidiOut
 from zynqt.screens.processor_options import ProcessorOptions
 
-# Screens with their own QML (the others are selector screens, zynqt.screens)
-QML_SCREENS = ("mixer", "chain_control")
+# Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
+# alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
+QML_SCREENS = ("mixer", "chain_control", "tempo", "alsa_mixer")
 
 
 class ZynUI(QObject):
@@ -82,7 +83,9 @@ class ZynUI(QObject):
         self.list_screens = {}
         self.chain_control_screen = ChainControl(self, self)
         # Screens with their own QML and Python object (build when shown, hide when left)
-        self.qml_screen_objects = {"chain_control": self.chain_control_screen}
+        self.qml_screen_objects = {"chain_control": self.chain_control_screen,
+                                   "tempo": self.chain_control_screen,
+                                   "alsa_mixer": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
                     ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
                     MidiDevicesOut):
@@ -230,11 +233,22 @@ class ZynUI(QObject):
     def showScreen(self, name):
         self.show_screen(name)
 
-    def _set_current_screen(self, name):
+    def _set_current_screen(self, name, params=None):
         """Switch to name: hide the old screen object, build the new one"""
         old = self.qml_screen_objects.get(self.current_screen)
         if old and name != self.current_screen:
             old.hide()
+        if name in ("tempo", "alsa_mixer"):
+            # As zynthian_gui.show_screen: the control screen with a processor without chain
+            proc = (self.state_manager.tempo_processor if name == "tempo"
+                    else self.state_manager.alsa_mixer_processor)
+            if proc is None:
+                self.show_info(f"No {name} processor.")
+                return
+            proc.refresh_controllers(params)
+            self.chain_control_screen.special_processor = proc
+        elif name == "chain_control":
+            self.chain_control_screen.special_processor = None
         screen = self.list_screens.get(name) or self.qml_screen_objects.get(name)
         if screen:
             screen.build()
@@ -242,7 +256,7 @@ class ZynUI(QObject):
             self.current_screen = name
             self.currentScreenChanged.emit()
 
-    def show_screen(self, name, history=True):
+    def show_screen(self, name, history=True, params=None):
         if name not in QML_SCREENS and name not in self.list_screens:
             logging.warning(f"Qt UI has no screen '{name}' (yet)")
             self.show_info(f"'{name}' is not in the Qt UI yet.")
@@ -250,7 +264,7 @@ class ZynUI(QObject):
         if history and name != self.current_screen:
             self.screen_history.append(self.current_screen)
             del self.screen_history[:-20]
-        self._set_current_screen(name)
+        self._set_current_screen(name, params)
 
     def replace_screen(self, name):
         """Show name instead of the current screen (BACK skips the current one)"""
@@ -587,6 +601,31 @@ class ZynUI(QObject):
 
     def cuia_screen_snapshot(self, params=None):
         self.show_screen("snapshot")
+
+    # Tempo, as zynthian_gui
+
+    def cuia_tempo(self, params=None):
+        self.state_manager.zynseq.tap_tempo()
+        if self.current_screen != "tempo":
+            self.show_screen("tempo")
+
+    def cuia_tap_tempo(self, params=None):
+        self.state_manager.zynseq.tap_tempo()
+
+    def cuia_set_tempo(self, params=None):
+        if params:
+            self.state_manager.zynseq.set_tempo(params[0])
+
+    def cuia_tempo_up(self, params=None):
+        zs = self.state_manager.zynseq
+        zs.set_tempo(zs.get_tempo() + (params[0] if params else 1))
+
+    def cuia_tempo_down(self, params=None):
+        zs = self.state_manager.zynseq
+        zs.set_tempo(zs.get_tempo() - (params[0] if params else 1))
+
+    def cuia_screen_alsa_mixer(self, params=None):
+        self.show_screen("alsa_mixer", params=params)
 
     def cuia_screen_audio_mixer(self, params=None):
         self.show_screen_reset("mixer")

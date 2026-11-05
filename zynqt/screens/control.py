@@ -98,6 +98,8 @@ class ChainControl(QObject):
         self._processors = []
         self.controllers = [ControllerProxy(i, self) for i in range(4)]
         self._shown = False
+        # A processor without chain (tempo, ALSA mixer), shown instead of the active chain
+        self.special_processor = None
         self._timer = QTimer(self, interval=50)
         self._timer.timeout.connect(self._refresh)
         ui.bridge.processorControllersChanged.connect(self._rebuild_if_shown)
@@ -125,15 +127,19 @@ class ChainControl(QObject):
     # Contents
 
     def _build(self):
-        chain = self.chain_manager.get_active_chain()
-        processors = chain.get_processors() if chain else []
+        if self.special_processor:
+            chain = None
+            processors = [self.special_processor]
+            curproc = self.special_processor
+        else:
+            chain = self.chain_manager.get_active_chain()
+            processors = chain.get_processors() if chain else []
+            curproc = self.ui.current_processor
+            if curproc not in processors:
+                curproc = chain.current_processor if chain else None
+                self.ui.set_current_processor(curproc)
         self._processors = processors
         self.processorsChanged.emit()
-
-        curproc = self.ui.current_processor
-        if curproc not in processors:
-            curproc = chain.current_processor if chain else None
-            self.ui.set_current_processor(curproc)
 
         # Pages as zynthian_gui_control.fill_list: chain controllers, then each processor's
         entries = []
@@ -154,19 +160,29 @@ class ChainControl(QObject):
                 entries.append(entry(title, data=("proc", proc, j)))
         self.pages.set_entries(entries)
         if page is None:
-            page = next((i for i, e in enumerate(entries) if not e["separator"]), 0)
+            page = next((i for i, e in enumerate(entries) if not e["separator"]), None)
         self._page = -1
-        self.setPage(page)
+        if page is None:
+            # No controller page (e.g. no audio levels on this device): empty slots
+            for c in self.controllers:
+                c.set_zctrl(None)
+            self.pageChanged.emit()
+        else:
+            self.setPage(page)
+
+    @Property(bool, notify=processorsChanged)
+    def isChain(self):
+        return self.special_processor is None
 
     @Property(bool, notify=processorsChanged)
     def isMidi(self):
         chain = self.chain_manager.get_active_chain()
-        return bool(chain and chain.is_midi())
+        return bool(self.special_processor is None and chain and chain.is_midi())
 
     @Property(bool, notify=processorsChanged)
     def isAudio(self):
         chain = self.chain_manager.get_active_chain()
-        return bool(chain and chain.is_audio())
+        return bool(self.special_processor is None and chain and chain.is_audio())
 
     @Property("QVariantList", notify=processorsChanged)
     def processors(self):
@@ -208,7 +224,7 @@ class ChainControl(QObject):
         if kind == "chain":
             zctrls = arg
         else:
-            if proc != self.ui.current_processor:
+            if proc != self.ui.current_processor and not self.special_processor:
                 self.ui.set_current_processor(proc)
                 self.processorsChanged.emit()
             proc.set_current_screen_index(arg)

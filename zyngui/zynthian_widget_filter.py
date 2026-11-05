@@ -28,6 +28,8 @@ import logging
 
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
+from zyngui.zynthian_widget_data import (filter_zctrls, filter_values, filter_curve, filter_drag, FILTER_DB_MIN,
+                                         FILTER_DB_MAX, FILTER_DB_TICKS)
 
 
 class zynthian_widget_filter(zynthian_widget_base.zynthian_widget_base):
@@ -72,10 +74,10 @@ class zynthian_widget_filter(zynthian_widget_base.zynthian_widget_base):
         #self.db_ticks = [24, 12, 0, -24, -48]
 
         # Vertical Scale Configuration (-24 to +18 dB)
-        self.db_min = -32
-        self.db_max = 16
+        self.db_min = FILTER_DB_MIN
+        self.db_max = FILTER_DB_MAX
         self.db_range = self.db_max - self.db_min
-        self.db_ticks = [16, 8, 0, -8, -16, -24, -32]
+        self.db_ticks = FILTER_DB_TICKS
 
         # Margins
         #self.m_l, self.m_r, self.m_t, self.m_b = 45, 10, 20, 35
@@ -92,14 +94,11 @@ class zynthian_widget_filter(zynthian_widget_base.zynthian_widget_base):
         self.refresh_gui(True)
 
     def show(self):
-        for zctrl in self.processor.get_group_zctrls(self.zyngui_control.screen_info[0]):
-            try:
-                if zctrl.filter == "cutoffFrequency":
-                    self.cutoff_param = zctrl
-                elif zctrl.filter == "resonance":
-                    self.resonance_param = zctrl
-            except:
-                pass
+        cutoff, resonance = filter_zctrls(self.processor.get_group_zctrls(self.zyngui_control.screen_info[0]))
+        if cutoff:
+            self.cutoff_param = cutoff
+        if resonance:
+            self.resonance_param = resonance
         super().show()
 
     """
@@ -201,57 +200,14 @@ class zynthian_widget_filter(zynthian_widget_base.zynthian_widget_base):
         """
 
     def refresh_gui(self, force=False):
-        # 1. Normalize for math consistency across engines
-        norm_cutoff = (self.cutoff_param.value - self.cutoff_param.value_min) / self.cutoff_param.value_range if self.cutoff_param else 0.5
-        norm_res = (self.resonance_param.value - self.resonance_param.value_min) / self.resonance_param.value_range if self.resonance_param else 0.0
-        filter_values = [norm_cutoff, norm_res]
-        if not (force and self.is_dragging) and filter_values == self.last_filter_values:
+        filter_vals = list(filter_values(self.cutoff_param, self.resonance_param))
+        if not (force and self.is_dragging) and filter_vals == self.last_filter_values:
             return
-        self.last_filter_values = filter_values
-
-        # 2. Precalculate some geometric values
-        maxy = self.height - self.m_b
-        gw = self.width - self.m_l - self.m_r
-        gh = maxy - self.m_t
-        if gw < 10:
-            return
-
-        # 3. SMOOTH CURVE: Calculate point for every horizontal pixel
-        closed = False
-        coords = [self.m_l, maxy]
-        display_cutoff = 20.0 * (20000.0 / 20.0) ** norm_cutoff
-        for px_offset in range(gw + 1):
-            log_pos = px_offset / gw
-            freq = 20.0 * (20000.0 / 20.0) ** log_pos
-
-            f_ratio = freq / max(1.0, display_cutoff)
-            resp = 1.0 / math.sqrt(1.0 + math.pow(f_ratio, 8))
-            db_val = 20.0 * math.log10(resp + 1e-10)  # Base is ~ -3dB at cutoff
-
-            # Apply Resonance (Updated to 18.0 for a ~15dB total peak)
-            if norm_res > 0:
-                peak = math.exp(-pow(math.log(f_ratio + 1e-10), 2) / 0.05)
-                #db_val += (norm_res * 18.0 * peak)
-                db_val += (norm_res * 12.0 * peak)
-
-            px = self.m_l + px_offset
-            coords.append(px)
-            py = self.m_t + int(gh * (1.0 - (db_val - self.db_min) / self.db_range))
-            if py < maxy:
-                coords.append(max(self.m_t, py))
-            else:
-                coords.append(max(self.m_t, maxy))
-                closed = True
-                break
-
-        # 4. Close polygon when slope cross 0 beyond display area
-        if not closed:
-            coords.append(self.width - self.m_r)
-            coords.append(maxy)
-
-        #if not self.bg_image:
-        #    self.draw_grid()
-        self.widget_canvas.coords(self.filter_poly, coords)
+        self.last_filter_values = filter_vals
+        coords = filter_curve(filter_vals[0], filter_vals[1], self.width, self.height, self.m_l, self.m_r, self.m_t,
+                              self.m_b)
+        if coords:
+            self.widget_canvas.coords(self.filter_poly, coords)
 
     def on_canvas_press(self, event):
         self.last_click = event
@@ -268,13 +224,7 @@ class zynthian_widget_filter(zynthian_widget_base.zynthian_widget_base):
         dx = (event.x - self.last_click.x) / self.width
         dy = (event.y - self.last_click.y) / self.height
 
-        if self.cutoff_param:
-            new_norm_x = max(0.0, min(1.0, self.click_cutoff_val + dx))
-            self.cutoff_param.set_value(self.cutoff_param.value_min + (new_norm_x * self.cutoff_param.value_range))
-
-        if self.resonance_param:
-            new_norm_y = max(0.0, min(1.0, self.click_res_val - dy)) # Drag up to increase
-            self.resonance_param.set_value(self.resonance_param.value_min + (new_norm_y * self.resonance_param.value_range))
+        filter_drag(self.cutoff_param, self.resonance_param, self.click_cutoff_val, self.click_res_val, dx, dy)
 
     def on_canvas_release(self, event):
         self.is_dragging = False

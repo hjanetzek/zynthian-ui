@@ -172,9 +172,11 @@ with the Qt UI on the Duet, by touch.
 **Status (2026-11-05).** On the desktop and the Duet (as a native Wayland client in labwc):
 mixer, chain control (with sidebar: chain options, MIDI/audio routing, processor options), adding
 chains (type, engine, MIDI channel, bank, preset), snapshots, ZS3, tempo, audio levels, admin
-settings, MIDI devices, recording and transport keys, on-screen keyboard, the V5 keypad with the
-wiring configuration's switch actions. Not ported yet: players' file lists, chain manager, moving
-chains/processors, remaining admin entries, MIDI device options, MIDI CC / note range, launcher.
+settings (all desktop entries except ZynVoice), MIDI devices and their options, recording and
+transport keys, audio and MIDI player, moving chains and processors, MIDI CC and note
+range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration's switch actions.
+Not ported yet: controller drivers in the MIDI device options, chain manager view, ZynVoice,
+launcher.
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
 
@@ -193,10 +195,9 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
 **Next steps** (2026-11-05):
 
 1. Qt UI as the Duet's kiosk (`kiosk-session zynthian`, see nura/README.md) and everyday use.
-2. Remaining M2 lists: audio and MIDI player file lists, chain manager and moving chains and
-   processors, MIDI CC and note range/transpose, MIDI device options, the remaining admin
-   entries (PFL output, hotplug audio, visible chains, ...). Move list logic out of the Tk
-   screens into shared modules where it isn't trivial, as for snapshots and MIDI config.
+2. Remaining M2 gaps: controller drivers (ctrldev) in the MIDI device options; ZynVoice (needs a
+   TTS engine on the device). Move list logic out of the Tk screens into shared modules where it
+   isn't trivial, as for snapshots and MIDI config.
 3. Touch: multitouch on faders, swipe vs. tap in lists, long-press timing, drag sensitivity.
 4. M3: the launcher (PAD key) first, then the audio file widget (waveform: QML `Shape` or a C++
    Canvas Painter item) and the pattern editor.

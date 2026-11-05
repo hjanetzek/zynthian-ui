@@ -39,6 +39,7 @@ from zyngui import zynthian_gui_config
 from zyngui.multitouch import MultitouchTypes
 from zyngui.zynthian_gui_pated_base import *
 from zyngui.zynthian_gui_base import zynthian_gui_base
+from zyngui.zynthian_pated_data import scale_names, get_custom_keymap, load_keymap, default_note_evdata
 
 # ------------------------------------------------------------------------------
 
@@ -465,127 +466,18 @@ class zynthian_gui_pated_notes(zynthian_gui_pated_base):
     # Function to get list of scales
     # returns: List of available scales
     def get_scales(self):
-        # Load scales
-        data = []
-        try:
-            with open(CONFIG_ROOT + "/scales.json") as json_file:
-                data = json.load(json_file)
-        except:
-            logging.warning("Unable to open scales.json")
-        res = []
-        # Look for a custom keymap, defaults to chromatic
-        custom_keymap = self.get_custom_keymap()
-        if custom_keymap:
-            res.append(f"Custom - {custom_keymap[0]}")
-        else:
-            res.append(f"Custom - None")
-        for scale in data:
-            res.append(scale['name'])
-        return res
+        return scale_names(self.zyngui.chain_manager, self.channel)
 
     # Search for a custom map and return a tuple with [map_name, filepath / engine]
     def get_custom_keymap(self):
-        synth_proc = self.zyngui.chain_manager.get_synth_processor(self.channel)
-        if synth_proc:
-            # Ask the synth processor for a keymap
-            try:
-                keymap_name = synth_proc.get_keymap_name()
-            except:
-                keymap_name = None
-            if keymap_name:
-                return [keymap_name, synth_proc]
-            # else, try to find a midnam file
-            else:
-                map_name = None
-                preset_path = synth_proc.get_presetpath()
-                try:
-                    with open(CONFIG_ROOT + "/keymaps.json") as json_file:
-                        data = json.load(json_file)
-                        for pat in data:
-                            if pat in preset_path:
-                                map_name = data[pat]
-                                break
-                    if map_name:
-                        keymap_fpath = CONFIG_ROOT + f"/{map_name}.midnam"
-                        if os.path.isfile(keymap_fpath):
-                            return [map_name, keymap_fpath]
-                        else:
-                            logging.warning(f"Keymap file {keymap_fpath} doesn't exist.")
-                except:
-                    logging.warning("Unable to load keymaps.json")
-        else:
-            logging.info(f"MIDI channel {self.channel} has not synth processors.")
+        return get_custom_keymap(self.zyngui.chain_manager, self.channel)
 
     # Function to populate keymap array
     # returns Name of scale / map
     def load_keymap(self):
-        self.keymap = []
-
-        scale = self.zynseq.libseq.getScale()
-        tonic = self.zynseq.libseq.getTonic()
-
-        # Try to load custom keymap
-        if scale == 0:
-            map_info = self.get_custom_keymap()
-            if map_info:
-                map_name = map_info[0]
-                # map_info[1] is the filename of a midnam file
-                if isinstance(map_info[1], str) and map_info[1].endswith(".midnam"):
-                    keymap_fpath = map_info[1]
-                    logging.info(f"Loading keymap {map_name} for MIDI channel {self.channel}...")
-                    try:
-                        xml = minidom.parse(keymap_fpath)
-                        notes = xml.getElementsByTagName('Note')
-                        for note in notes:
-                            try:
-                                colour = note.attributes['Colour'].value
-                            except:
-                                colour = "white"
-                            self.keymap.append({'note': int(note.attributes['Number'].value),
-                                                'name': note.attributes['Name'].value,
-                                                'colour': colour})
-                        return map_name
-                    except Exception as e:
-                        logging.error(f"Can't load '{keymap_fpath}' => {e}")
-                # map[1] is an engine to ask for a custom keymap
-                else:
-                    try:
-                        self.keymap = map_info[1].get_keymap()
-                        return map_name
-                    except:
-                        pass
-
-        # Not custom map loaded => Setup a scale keymap
-
-        # Setup specific scale
-        if scale > 1:
-            try:
-                with open(CONFIG_ROOT + "/scales.json") as json_file:
-                    data = json.load(json_file)
-                if scale <= len(data):
-                    scale -= 1  # Offset by -1 because the 0 is used for custom keymap
-                    for octave in range(0, 9):
-                        for offset in data[scale]['scale']:
-                            note = tonic + offset + octave * 12
-                            if note > 127:
-                                break
-                            self.keymap.append({"note": note, "name": "{}{}".format(NOTE_NAMES[note % 12], note // 12 - 1)})
-                    return data[scale]['name']
-            except Exception as e:
-                logging.error(f"Can't load 'scales.json' => {e}")
-
-        # Setup chromatic scale
-        for note in range(0, 128):
-            new_entry = {"note": note}
-            key = note % 12
-            if key in (1, 3, 6, 8, 10):  # Black notes
-                new_entry.update({"colour": "black"})
-            else:
-                new_entry.update({"colour": "white"})
-            if key == 0:  # 'C'
-                new_entry.update({"name": "C{}".format(note // 12 - 1)})
-            self.keymap.append(new_entry)
-        return "Chromatic"
+        name, self.keymap = load_keymap(self.zyngui.chain_manager, self.channel,
+                                        self.zynseq.libseq.getScale(), self.zynseq.libseq.getTonic())
+        return name
 
     # -------------------------------------------------------------------------
     # Touch event management
@@ -1400,11 +1292,9 @@ class zynthian_gui_pated_notes(zynthian_gui_pated_base):
 
 
     def get_default_note_evdata(self):
-        evdata = zynseq.event_data()
-        evdata.set_values(0, self.offset, self.duration, 0x90, 0, self.velocity, 0, 0,
-                          self.stut_speed, self.stut_velfx, self.stut_ramp,
-                          self.play_freq, self.stut_freq, self.play_chance, self.stut_chance)
-        return evdata
+        return default_note_evdata(self.duration, self.velocity, self.offset, self.stut_speed, self.stut_velfx,
+                                   self.stut_ramp, self.play_freq, self.stut_freq, self.play_chance,
+                                   self.stut_chance)
 
     # Function to add an event
     # step: step number (column)

@@ -43,6 +43,7 @@ from zynlibs.zynseq import zynseq
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
+from zyngui.zynthian_audio_file_data import engine_type, file_zctrl, clippy_info, clippy_values, engine_view
 
 
 
@@ -616,33 +617,14 @@ class zynthian_widget_audio_file(zynthian_widget_base.zynthian_widget_base):
 
     def set_processor(self, processor):
         super().set_processor(processor)
-        if self.zyngui_control.widget_zctrl:
-            self.zctrl = self.zyngui_control.widget_zctrl
-        else:
-            try:
-                note = self.processor.engine.selected_phrase + 1
-                self.zctrl = self.processor.controllers_dict[f"file {note}"]
-            except:
-                self.zctrl = None
-                for zctrl in self.processor.controllers_dict.values():
-                    if zctrl.is_path:
-                        self.zctrl = zctrl
-                        break
+        self.zctrl = file_zctrl(self.processor, self.zyngui_control.widget_zctrl)
         # Determine type of engine
-        self.eng_type = self.ENG_NONE
+        self.eng_type = engine_type(self.processor)
         self.clip_info = None
-        if self.processor:
-            if self.processor.eng_code == "CL":
-                self.eng_type = self.ENG_CLIPPY
-                self.clip_info = self.get_clippy_info()
-            elif self.processor.eng_code == "AP":
-                self.processor.engine.set_monitored_processor(self.processor)
-                if self.processor.id < 0:
-                    self.eng_type = self.ENG_GLOBAL_AP
-                else:
-                    self.eng_type = self.ENG_CHAIN_AP
-            elif self.processor.eng_code == "JV/samplv1":
-                self.eng_type = self.ENG_SAMPLV1
+        if self.eng_type == self.ENG_CLIPPY:
+            self.clip_info = self.get_clippy_info()
+        elif self.eng_type in (self.ENG_GLOBAL_AP, self.ENG_CHAIN_AP):
+            self.processor.engine.set_monitored_processor(self.processor)
 
     def show(self):
         #self.loading = False
@@ -840,82 +822,14 @@ class zynthian_widget_audio_file(zynthian_widget_base.zynthian_widget_base):
             return
 
         # Get parameters from engine ...
-        zoom = offset = crop_start = crop_end = loop_markers = loop_start = loop_end = warp = beats = gain = vzoom = cursor_pos = None
-        match self.eng_type:
-            # Clippy =>
-            case self.ENG_CLIPPY:
-                loop_markers = False
-                if "zoom" in self.monitors:
-                    zoom = self.monitors["zoom"]
-                if "offset" in self.monitors:
-                    offset = self.monitors["offset"]
-                if "crop_start" in self.monitors:
-                    crop_start = self.monitors["crop_start"]
-                if "crop_end" in self.monitors:
-                    crop_end = self.monitors["crop_end"]
-                if "warp" in self.monitors:
-                    warp = self.monitors["warp"]
-                if "beats" in self.monitors:
-                    beats = self.monitors["beats"]
-                if "gain" in self.monitors:
-                    gain = self.monitors["gain"]
-                    vzoom = pow(1.26, gain)       # Calculate vzoom from gain in dB
-                if self.frames and self.clip_info:
-                    clip_state = self.zyngui.state_manager.zynseq.libseq.getPlayState(self.clip_info[0], self.clip_info[1], self.clip_info[2])
-                    if clip_state == 1:
-                        cursor_pos = self.zyngui.state_manager.zynseq.progress[self.zctrl.processor.midi_chan] / 100.0
-                        try:
-                            cursor_frame = self.crop_start + int(cursor_pos * (self.crop_end - self.crop_start))
-                            offset = cursor_frame - self.frames // (self.zoom * 2)
-                        except Exception as e:
-                            pass
-                    else:
-                        cursor_pos = 0.0
-            # AudioPlayer =>
-            case self.ENG_GLOBAL_AP | self.ENG_CHAIN_AP:
-                if self.samplerate:
-                    loop_markers = False
-                    zoom = self.processor.controllers_dict['zoom'].value
-                    offset = int(self.samplerate * self.processor.controllers_dict['offset'].value)
-                    crop_start = self.processor.controllers_dict['crop start'].value
-                    crop_end = self.processor.controllers_dict['crop end'].value
-                    beats = 0
-                    gain = self.processor.controllers_dict['gain'].value    # Linear gain
-                    vzoom = gain * self.processor.controllers_dict['v-zoom'].value
-                    dur = crop_end - crop_start
-                    if dur > 0:
-                        pos = self.processor.controllers_dict['position'].value
-                        cursor_pos = (pos - crop_start) / dur
-                    else:
-                        cursor_pos = 0
-                    crop_start = int(self.samplerate * crop_start)
-                    crop_end = int(self.samplerate * crop_end)
-                    if self.monitors["update_cue"]:
-                        self.update_markers = True
-                        self.monitors["update_cue"] = False
-            # samplv1 =>
-            case self.ENG_SAMPLV1:
-                zoom = 1
-                offset = 0
-                beats = 0
-                crop_enabled = self.processor.controllers_dict['GEN1_OFFSET'].value
-                if crop_enabled:
-                    crop_start = int(self.frames * self.processor.controllers_dict['GEN1_OFFSET_1'].value)
-                    crop_end = int(self.frames * self.processor.controllers_dict['GEN1_OFFSET_2'].value)
-                else:
-                    crop_start = 0
-                    crop_end = self.frames
-                loop_markers = self.processor.controllers_dict['GEN1_LOOP'].value
-                if loop_markers:
-                    loop_start = int(self.frames * self.processor.controllers_dict['GEN1_LOOP_1'].value)
-                    loop_end = int(self.frames * self.processor.controllers_dict['GEN1_LOOP_2'].value)
-                vzoom = 2.0 * self.processor.controllers_dict['OUT1_VOLUME'].value
-
-            # Others =>
-            case _:
-                zoom = 1
-                offset = 0
-                beats = 0
+        v = engine_view(self.eng_type, self.processor, self.monitors, self.zyngui.state_manager.zynseq,
+                        self.samplerate, self.frames, self.zoom, self.crop_start, self.crop_end, self.clip_info,
+                        self.zctrl)
+        zoom, offset, crop_start, crop_end = v["zoom"], v["offset"], v["crop_start"], v["crop_end"]
+        loop_markers, loop_start, loop_end = v["loop_markers"], v["loop_start"], v["loop_end"]
+        warp, beats, gain, vzoom, cursor_pos = v["warp"], v["beats"], v["gain"], v["vzoom"], v["cursor_pos"]
+        if v["update_cue"]:
+            self.update_markers = True
 
         # Process parameter changes
         if zoom is not None and zoom != self.zoom:
@@ -1102,33 +1016,18 @@ class zynthian_widget_audio_file(zynthian_widget_base.zynthian_widget_base):
     # -------------------------------------------------------------------------
 
     def get_clippy_info(self):
-        if self.processor.eng_code == "CL":
-            midi_chan = self.processor.midi_chan
-            scene = self.zyngui.state_manager.zynseq.scene
-            try:
-                symparts = self.zctrl.symbol.split(" ")
-                #symbol = symparts[0]  # should be "file"!
-                note = int(symparts[1])
-                phrase = note - 1
-            except Exception as e:
-                logging.error(f"Can't determine clippy sample index for '{self.zctrl.symbol}' => {e}")
-                return None
-            return (scene, phrase, midi_chan)
-        else:
-            return None
+        return clippy_info(self.processor, self.zctrl, self.zyngui.state_manager.zynseq)
 
     def get_clippy_values(self):
         if self.clip_info:
             try:
-                zctrls = self.processor.controllers_dict
-                note = self.clip_info[1] + 1
-                self.zoom = zctrls[f"zoom {note}"].value
-                self.crop_start = zctrls[f"crop_start {note}"].value
-                self.crop_end = zctrls[f"crop_end {note}"].value
-                self.warp = zctrls[f"warp {note}"].value
-                self.beats = zctrls[f"beats {note}"].value
-                self.gain = zctrls[f"gain {note}"].value
-                self.processor.engine.reset_monitors()
+                values = clippy_values(self.processor, self.clip_info)
+                self.zoom = values["zoom"]
+                self.crop_start = values["crop_start"]
+                self.crop_end = values["crop_end"]
+                self.warp = values["warp"]
+                self.beats = values["beats"]
+                self.gain = values["gain"]
                 self.update_markers = True
             except Exception as e:
                 logging.error(f"Can't get clip audio values for clip {self.clip_info} => {e}")

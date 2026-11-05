@@ -12,7 +12,7 @@ Window {
     readonly property var qmlTitles: ({ mixer: "Mixer", chain_control: "Chain", tempo: "Tempo",
                                         alsa_mixer: "Audio Levels", audio_player: "Audio Player",
                                         midi_key_range: "Note Range & Transpose",
-                                        chain_manager: "Chain Manager" })
+                                        chain_manager: "Chain Manager", launcher: "Launcher" })
 
     width: 960
     height: 600
@@ -49,7 +49,8 @@ Window {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: keypad.keyHeight
         currentIndex: zyn.currentList ? 2
-                      : zyn.currentScreen === "mixer" ? 0 : zyn.currentScreen === "chain_manager" ? 3 : 1
+                      : (zyn.currentScreen === "mixer" || zyn.currentScreen === "launcher") ? 0
+                      : zyn.currentScreen === "chain_manager" ? 3 : 1
 
         MixerScreen { shown: screens.currentIndex === 0 }
         ChainControlScreen {}

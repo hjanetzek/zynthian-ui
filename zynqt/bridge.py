@@ -22,6 +22,11 @@ class SignalBridge(QObject):
     snapshotLoaded = Signal()
     processorControllersChanged = Signal()
     recorderStateChanged = Signal()
+    # Sequencer (launcher): play state of the sequence of channel chan (32: phrase) in phrase;
+    # the whole state (sequences added, removed, renamed, ...); the selected phrase
+    seqPlayStateChanged = Signal(int, int)
+    seqStateChanged = Signal()
+    seqPhraseSelected = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -38,6 +43,9 @@ class SignalBridge(QObject):
         self._register(zynsigman.S_AUDIO_RECORDER, zynsigman.SS_AUDIO_RECORDER_STATE, self._cb_recorder)
         self._register(zynsigman.S_STATE_MAN, zynsigman.SS_MIDI_RECORDER_STATE, self._cb_recorder)
         self._register(zynsigman.S_STATE_MAN, zynsigman.SS_MIDI_PLAYER_STATE, self._cb_recorder)
+        self._register(zynsigman.S_STEPSEQ, zynsigman.SS_SEQ_PLAY_STATE, self._cb_seq_play_state)
+        self._register(zynsigman.S_STEPSEQ, zynsigman.SS_SEQ_STATE, self._cb_seq_state)
+        self._register(zynsigman.S_STEPSEQ, zynsigman.SS_SEQ_SELECT_PHRASE, self._cb_seq_phrase)
 
     def _register(self, signal, subsignal, callback):
         zynsigman.register(signal, subsignal, callback)
@@ -70,3 +78,12 @@ class SignalBridge(QObject):
 
     def _cb_recorder(self, **kwargs):
         self.recorderStateChanged.emit()
+
+    def _cb_seq_play_state(self, phrase=0, chan=0, **kwargs):
+        self.seqPlayStateChanged.emit(int(phrase), int(chan))
+
+    def _cb_seq_state(self, **kwargs):
+        self.seqStateChanged.emit()
+
+    def _cb_seq_phrase(self, phrase=0, **kwargs):
+        self.seqPhraseSelected.emit(int(phrase))

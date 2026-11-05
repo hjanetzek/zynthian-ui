@@ -49,7 +49,7 @@ these commits they come together with the Qt UI; each would need its own commit.
 | [cabcd66e](https://github.com/hjanetzek/zynthian-ui/commit/cabcd66e) | split | `zyngui/zynthian_organelle_data.py`: the Organelle widget's OSC drawing messages as operations, a display list, the line-clearing table, the menu touch's encoder sequence; `zynthian_widget_organelle` uses the latter two. |
 | [5bce848a](https://github.com/hjanetzek/zynthian-ui/commit/5bce848a) | split | `zyngui/zynthian_sooperlooper_data.py`: SooperLooper widget loop rows, colour classes, lit button and actions; `zynthian_widget_sooperlooper` uses the actions and the colour class. |
 | [7e346eb3](https://github.com/hjanetzek/zynthian-ui/commit/7e346eb3) | split | `zyngui/zynthian_midi_recorder_data.py`: the MIDI recorder's file list, moved unchanged; `zynthian_gui_midi_recorder` calls it. |
-| [3d2ef140](https://github.com/hjanetzek/zynthian-ui/commit/3d2ef140) | split | `zyngui/zynthian_midi_config_data.py`, `zynthian_audio_out_data.py`: list building and route/service actions of `zynthian_gui_midi_config` and `zynthian_gui_audio_out`, moved unchanged; the Tk screens call them. |
+| [3d2ef140](https://github.com/hjanetzek/zynthian-ui/commit/3d2ef140) | split | `zyngui/zynthian_midi_config_data.py`, `zynthian_audio_out_data.py`: list building and route/service actions of `zynthian_gui_midi_config` and `zynthian_gui_audio_out`, moved unchanged; the Tk screens call them. **Fold [2e8afe69](https://github.com/hjanetzek/zynthian-ui/commit/2e8afe69) into it**: the move made the MIDI output routing loop reuse `chain` (the configured chain) as loop variable, so the list never showed other chains. |
 
 ## Noticed, not fixed yet
 

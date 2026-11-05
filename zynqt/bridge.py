@@ -37,6 +37,7 @@ class SignalBridge(QObject):
                        self._cb_ctrl_screens)
         self._register(zynsigman.S_AUDIO_RECORDER, zynsigman.SS_AUDIO_RECORDER_STATE, self._cb_recorder)
         self._register(zynsigman.S_STATE_MAN, zynsigman.SS_MIDI_RECORDER_STATE, self._cb_recorder)
+        self._register(zynsigman.S_STATE_MAN, zynsigman.SS_MIDI_PLAYER_STATE, self._cb_recorder)
 
     def _register(self, signal, subsignal, callback):
         zynsigman.register(signal, subsignal, callback)

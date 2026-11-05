@@ -16,6 +16,7 @@ device.
 |---|---|---|
 | `zyncoder/` | `--src` zyncoder checkout (`nura` branch) | `libzyncore.so` (MIDI router, controllers) in `/usr/lib/zynthian`, its Python module. Built with the wiringPi stand-in: no GPIO or I2C |
 | `zynthian-ui/` | `--src` this checkout | UI and engine manager in `/usr/share/zynthian/zynthian-ui`, the zynlibs in `/usr/lib/zynthian`, `/usr/bin/zynthian`, bundled Python packages in `/usr/share/zynthian/python` |
+| `zynthian-jalv/` | upstream tarball (zynthian/jalv, branch `asyncli`) or `--src` checkout | zynthian's jalv, which the LV2 engine needs (Alpine's jalv makes LV2 chains hang while loading), as `/usr/lib/zynthian/bin/jalv` beside Alpine's; `zynthian_desktop_env.sh` puts it first on PATH |
 | `zynthian-data/` | upstream tarballs | `zynthian-data` (presets, soundfonts, snapshots, ~715 MB), subpackages `zynthian-help` and `zynthian-sys-config` (configuration templates) |
 | `postmarketos-ui-zynthian/` | this directory | Kiosk UI: cage + zynthian + pipewire-jack + the engines Alpine packages; `/etc/cage-ui/zynthian.sh` waits for PipeWire, forces a 256-frame quantum and makes zynthian fill the screen; a `tinydm.service` drop-in raises the real-time limit; on Panfrost GPUs XWayland runs without glamor (`/usr/share/tinydm/env-wayland.d/60-zynthian-xwayland.sh`, see [docs/nura-display.md](../docs/nura-display.md)) |
 | `deploy.sh` | | Builds packages (`zynthian-ui` and `zyncoder` from their checkouts) and installs them on a running device over SSH (`pmbootstrap sideload`) |

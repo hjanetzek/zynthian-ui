@@ -50,6 +50,7 @@ class KeyRangeProcessor:
 
     type = "MIDI"
     id = -10
+    eng_code = ""     # no engine (widget selection asks)
 
     class _Engine:
         name = "Note Range & Transpose"

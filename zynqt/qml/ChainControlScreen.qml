@@ -25,7 +25,7 @@ Item {
             width: procs.width
             bottomPadding: 4
             spacing: 4
-            SideButton { text: "Chain Options"; screen: "chain_options" }
+            SideButton { text: "Chain Options"; screen: "chain_options"; visible: root.cc.isChain }
             SideButton { text: "MIDI Input"; screen: "midi_in"; visible: root.cc.isMidi }
         }
         footer: Column {

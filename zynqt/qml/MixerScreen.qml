@@ -109,6 +109,18 @@ Item {
             font.pixelSize: 12
         }
 
+        // Strip header (number and name): tap opens the chain's controllers, long press its options
+        Item {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: nameText.bottom
+            TapHandler {
+                onTapped: zyn.openChain(strip.chainId)
+                onLongPressed: zyn.openChainOptions(strip.chainId)
+            }
+        }
+
         // Balance: a bar from the centre
         Item {
             id: balanceBar

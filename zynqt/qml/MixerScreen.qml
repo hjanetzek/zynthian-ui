@@ -55,6 +55,19 @@ Item {
         }
     }
 
+    // Moving the active chain (chain options: Move chain)
+    Row {
+        anchors.horizontalCenter: strips.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 90
+        spacing: 12
+        visible: zyn.movingChain
+        z: 10
+        MoveButton { text: "\u25c0"; onTapped: zyn.moveChain(-1) }
+        MoveButton { text: "Done"; width: 140; onTapped: zyn.endMoveChain() }
+        MoveButton { text: "\u25b6"; onTapped: zyn.moveChain(1) }
+    }
+
     Text {
         anchors.centerIn: strips
         visible: mixerStrips.count === 0
@@ -76,11 +89,15 @@ Item {
         required property bool mute
         required property bool solo
         required property int meterIndex
+        required property bool active
         property var lv: []   // levels of all strips (MixerMeters.levels)
         property var stripModel
         property bool isMain: false
 
         color: Theme.panel
+        // The active chain; red while it is being moved
+        border.color: active ? (zyn.movingChain ? Theme.select : Theme.text) : "transparent"
+        border.width: active ? 2 : 0
 
         Text {
             id: title
@@ -230,5 +247,25 @@ Item {
         color: on ? onColor : Theme.keyBackground
         Text { id: t; anchors.centerIn: parent; color: Theme.text; font.pixelSize: 16 }
         TapHandler { onTapped: button.tapped() }
+    }
+
+    component MoveButton: Rectangle {
+        id: moveButton
+        property alias text: moveLabel.text
+        signal tapped
+        width: 90
+        height: 60
+        radius: 4
+        color: moveTap.pressed ? Theme.keyText : "#e0202830"
+        border.color: Theme.select
+        border.width: 2
+        Text {
+            id: moveLabel
+            anchors.centerIn: parent
+            color: Theme.text
+            font.pixelSize: 24
+            font.family: Theme.fontFamily
+        }
+        TapHandler { id: moveTap; onTapped: moveButton.tapped() }
     }
 }

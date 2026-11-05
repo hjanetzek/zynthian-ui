@@ -48,6 +48,7 @@ class ZynUI(QObject):
     infoChanged = Signal()
     confirmChanged = Signal()
     keyboardChanged = Signal()
+    movingChainChanged = Signal()
     # SEL pressed while the keyboard is shown: QML answers with keyboardAccept(text)
     keyboardSubmit = Signal()
     # Navigation for the current screen: "up", "down", "left", "right", "select", "select_bold"
@@ -103,6 +104,7 @@ class ZynUI(QObject):
         self._keyboard_title = ""
         self._keyboard_text = ""
         self._keyboard_action = None
+        self._moving_chain = False
         self._backgroundDone.connect(lambda done, result: done(result))
 
         self._cuiaRequested.connect(self._run_cuia)
@@ -254,6 +256,8 @@ class ZynUI(QObject):
     def _set_current_screen(self, name, params=None):
         """Switch to name: hide the old screen object, build the new one"""
         self.switch_t0 = monotonic()   # for ZYNTHIAN_QT_TIMING (zynthian_qt_main)
+        if name != "mixer":
+            self.endMoveChain()
         old = self.qml_screen_objects.get(self.current_screen)
         if old and name != self.current_screen:
             old.hide()
@@ -301,8 +305,33 @@ class ZynUI(QObject):
     def purge_history(self, name):
         self.screen_history = [n for n in self.screen_history if n != name]
 
+    # Moving the active chain in the mixer (zynthian_gui_chain_manager's move mode)
+
+    @Property(bool, notify=movingChainChanged)
+    def movingChain(self):
+        return self._moving_chain
+
+    def start_move_chain(self):
+        self.show_screen("mixer")
+        self._moving_chain = True
+        self.movingChainChanged.emit()
+
+    @Slot(int)
+    def moveChain(self, step):
+        if self._moving_chain and self.chain_manager.nudge_chain(step) is None:
+            self.show_info("This chain can't be moved.")
+
+    @Slot()
+    def endMoveChain(self):
+        if self._moving_chain:
+            self._moving_chain = False
+            self.movingChainChanged.emit()
+
     @Slot()
     def back(self):
+        if self._moving_chain:
+            self.endMoveChain()
+            return
         if self._keyboard_action:
             self.keyboardCancel()
             return
@@ -318,6 +347,14 @@ class ZynUI(QObject):
     def _navigate(self, what):
         """Arrows and SELECT: the keyboard, the confirm dialog, the selector screen shown, or the
         QML screen"""
+        if self._moving_chain:
+            if what in ("left", "up"):
+                self.moveChain(-1)
+            elif what in ("right", "down"):
+                self.moveChain(1)
+            elif what in ("select", "select_bold"):
+                self.endMoveChain()
+            return
         if self._keyboard_action:
             if what == "select":
                 self.keyboardSubmit.emit()

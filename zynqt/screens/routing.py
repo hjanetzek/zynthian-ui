@@ -62,3 +62,32 @@ class MidiIn(MidiRouting):
 class MidiOut(MidiRouting):
     name = "midi_out"
     midi_input = False
+
+
+class MidiDevices(SelectorScreen):
+    """MIDI devices and services (zynthian_gui_midi_config without a chain): the main menu's
+    MIDI Input and MIDI Output. Services can be switched on and off; device options are not
+    ported yet."""
+
+    midi_input = True
+
+    def fill(self):
+        self.set_title(f"MIDI {'Input' if self.midi_input else 'Output'} Devices")
+        self.set_entries(list_data_entries(midi_config_list(self.state_manager, None, self.midi_input)))
+
+    def select_action(self, index, t):
+        what = midi_config_action(self.state_manager, None, self.midi_input, self.entries[index]["data"])
+        if what:
+            self.ui.show_info(NOT_PORTED)
+        else:
+            self.fill()
+
+
+class MidiDevicesIn(MidiDevices):
+    name = "midi_devices_in"
+    midi_input = True
+
+
+class MidiDevicesOut(MidiDevices):
+    name = "midi_devices_out"
+    midi_input = False

@@ -28,7 +28,7 @@ from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
 from zynqt.screens.control import ChainControl
 from zynqt.screens.snapshots import Options, Snapshots
 from zynqt.screens.chain_options import ChainOptions
-from zynqt.screens.routing import AudioOut, MidiIn, MidiOut
+from zynqt.screens.routing import AudioOut, MidiDevicesIn, MidiDevicesOut, MidiIn, MidiOut
 from zynqt.screens.processor_options import ProcessorOptions
 
 # Screens with their own QML (the others are selector screens, zynqt.screens)
@@ -84,7 +84,8 @@ class ZynUI(QObject):
         # Screens with their own QML and Python object (build when shown, hide when left)
         self.qml_screen_objects = {"chain_control": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
-                    ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions):
+                    ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
+                    MidiDevicesOut):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""
@@ -98,6 +99,7 @@ class ZynUI(QObject):
         self._backgroundDone.connect(lambda done, result: done(result))
 
         self._cuiaRequested.connect(self._run_cuia)
+        self.bridge.recorderStateChanged.connect(self._recorder_state_changed)
         self._startFinished.connect(self._start_finished)
         self._status_timer = QTimer(self, interval=200)
         self._status_timer.timeout.connect(self._poll_status)
@@ -203,6 +205,7 @@ class ZynUI(QObject):
             self._busy_message = message
             self.busyChanged.emit()
         status = {"xrun": bool(sm.status_xrun), "cpuLoad": int(sm.status_cpu_load or 0),
+                  "audioRecorder": bool(sm.audio_recorder.status),
                   "midi": bool(sm.status_midi), "midiRecorder": bool(sm.status_midi_recorder),
                   "audioPlayer": bool(sm.status_audio_player),
                   "overtemp": bool(sm.status_overtemp)}
@@ -672,6 +675,66 @@ class ZynUI(QObject):
     def cuia_bank_preset(self, params=None):
         if self.current_processor:
             self.show_screen("preset" if self.current_screen == "bank" else "bank")
+
+    def _recorder_state_changed(self):
+        if self.current_screen == "main_menu":
+            self.list_screens["main_menu"].fill()
+
+    # Transport and recorders, as zynthian_gui (ALT: MIDI instead of audio)
+
+    def cuia_start_audio_record(self, params=None):
+        self.state_manager.audio_recorder.start_recording()
+
+    def cuia_stop_audio_record(self, params=None):
+        self.state_manager.audio_recorder.stop_recording()
+
+    def cuia_toggle_audio_record(self, params=None):
+        self.state_manager.audio_recorder.toggle_recording()
+
+    def cuia_start_audio_play(self, params=None):
+        self.state_manager.start_audio_player()
+
+    def cuia_stop_audio_play(self, params=None):
+        self.state_manager.stop_audio_player(reset_pos=True)
+
+    def cuia_toggle_audio_play(self, params=None):
+        self.state_manager.toggle_audio_player()
+
+    def cuia_start_midi_record(self, params=None):
+        self.state_manager.start_midi_record()
+
+    def cuia_stop_midi_record(self, params=None):
+        self.state_manager.stop_midi_record()
+
+    def cuia_toggle_midi_record(self, params=None):
+        self.state_manager.toggle_midi_record()
+
+    def cuia_start_midi_play(self, params=None):
+        self.state_manager.start_midi_playback()
+
+    def cuia_stop_midi_play(self, params=None):
+        self.state_manager.stop_midi_playback()
+
+    def cuia_toggle_midi_play(self, params=None):
+        self.state_manager.toggle_midi_playback()
+
+    def cuia_toggle_record(self, params=None):
+        if self.alt_mode:
+            self.cuia_toggle_midi_record()
+        else:
+            self.cuia_toggle_audio_record()
+
+    def cuia_stop(self, params=None):
+        if self.alt_mode:
+            self.cuia_stop_midi_play()
+        else:
+            self.cuia_stop_audio_play()
+
+    def cuia_toggle_play(self, params=None):
+        if self.alt_mode:
+            self.cuia_toggle_midi_play()
+        else:
+            self.cuia_toggle_audio_play()
 
     def cuia_toggle_alt_mode(self, params=None):
         self.alt_mode = not self.alt_mode

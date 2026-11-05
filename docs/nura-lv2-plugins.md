@@ -163,5 +163,10 @@ once (zynthian's `zynthian_lv2.test_lv2_plugin`, or jalv) to catch missing symbo
   unpacked into `~/Documents/Pd/externals`, and `~/.pdsettings` adding each library folder to
   pd's search path (`npath: 5`, `path1: ~/Documents/Pd/externals/cyclone`, …), since the patches
   only declare the `/usr/lib/pd/extra` folders. Checked with EuclidSeq6: no "couldn't create".
+  Some Organelle patches also use `abl_link~` (Ableton Link; deken has a Linux-amd64 build,
+  not installed yet) and zynthian's own `clocker`, `clockfill`, `midiclocker`, which exist
+  only as prebuilt arm64 glibc binaries in `zynthian-data/puredata/pd-externals-arm64`: no
+  x86_64 build, and on musl (Nura) they won't load either; their sources are needed. Without
+  them those patches run but lose Link/MIDI clock sync.
 - **CPU:** some plugins are too heavy for the Duet's A73 cores at a 256-frame quantum (neural amp
   models, Surge XT with many voices); enable them, but expect limits.

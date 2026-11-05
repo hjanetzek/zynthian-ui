@@ -1,5 +1,5 @@
 // Mixer: one strip per chain (mixerStrips), the main mixbus on the right (mainStrip). Faders by
-// drag (several at once with multitouch), mute and solo by tap. Meters run while it is shown.
+// drag (several at once with multitouch), mute and the toggle control (admin) by tap. Meters run while it is shown.
 import QtQuick
 
 Item {
@@ -9,7 +9,10 @@ Item {
     // The meters' levels, read once per update: every read of a Python list property converts it
     readonly property var stripLevels: mixerMeters.levels
     readonly property var mainLevels: mainMeters.levels
-    readonly property int stripWidth: Math.max(40, Math.min(72, (width - 4) / Math.max(1, mixerStrips.count + 1) - 2))
+    // Admin "Visible Chains": the strips that fit (the others by flicking); 0: all, up to 72 px wide
+    readonly property int stripWidth: zyn.visibleChains > 0
+        ? Math.max(40, (width - 4) / (zyn.visibleChains + 1) - 2)
+        : Math.max(40, Math.min(72, (width - 4) / Math.max(1, mixerStrips.count + 1) - 2))
 
     Binding { target: mixerMeters; property: "active"; value: root.shown }
     Binding { target: mainMeters; property: "active"; value: root.shown }
@@ -87,7 +90,8 @@ Item {
         required property real level
         required property real balance
         required property bool mute
-        required property bool solo
+        required property bool toggle
+        required property string toggleLabel
         required property int meterIndex
         required property bool active
         property var lv: []   // levels of all strips (MixerMeters.levels)
@@ -229,9 +233,10 @@ Item {
                 onTapped: strip.stripModel.toggleMute(strip.index)
             }
             StripButton {
-                visible: !strip.isMain
-                text: "S"; on: strip.solo; onColor: Theme.solo
-                onTapped: strip.stripModel.toggleSolo(strip.index)
+                // Admin "Mixer Toggle Control" (record by default); the main strip has no solo
+                visible: strip.toggleLabel !== "" && !(strip.isMain && strip.toggleLabel === "S")
+                text: strip.toggleLabel; on: strip.toggle; onColor: Theme.solo
+                onTapped: strip.stripModel.toggleControl(strip.index)
             }
         }
     }

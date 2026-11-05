@@ -6,7 +6,7 @@ import os
 from os.path import isdir, isfile
 
 from zyngine.zynthian_snapshot_files import zynthian_snapshot_files
-from zynqt.screens.base import SelectorScreen, entry
+from zynqt.screens.base import SelectorScreen, entry, separator
 from zynqt.screens.chain_screens import list_data_entries
 
 
@@ -19,16 +19,19 @@ class Options(SelectorScreen):
         super().__init__(ui, parent)
         self._options_title = ""
         self._options = []
+        self._options_selected = 0
 
-    def config(self, title, options):
-        """options: list of (label, action, info, icon); the screen closes before the action runs"""
+    def config(self, title, options, selected=0):
+        """options: list of (label, action, info, icon), action None for a heading; the screen closes
+        before the action runs"""
         self._options_title = title
         self._options = options
+        self._options_selected = selected
 
     def fill(self):
         self.set_title(self._options_title)
-        self.set_entries([entry(label, action, info=info, icon=icon)
-                          for label, action, info, icon in self._options], 0)
+        self.set_entries([entry(label, action, info=info or "", icon=icon or "") if action else separator(label)
+                          for label, action, info, icon in self._options], self._options_selected)
 
     def select_action(self, index, t):
         if t != "S":

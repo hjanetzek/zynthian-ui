@@ -3,6 +3,8 @@ _preset)"""
 
 import logging
 
+import zynautoconnect
+
 from zyngui import zynthian_gui_config
 from zynqt.screens.base import SelectorScreen, entry, separator
 
@@ -115,17 +117,26 @@ class Engine(SelectorScreen):
 
 
 class MidiChannel(SelectorScreen):
+    """MIDI channel of a new chain (mode "ADD") or of the active chain ("SET")"""
+
     name = "midi_chan"
+
+    def __init__(self, ui, parent=None):
+        super().__init__(ui, parent)
+        self.mode = "ADD"
 
     def fill(self):
         self.set_title("MIDI Channel")
         cm = self.chain_manager
-        try:
-            current = cm.get_next_free_midi_chan(0)
-        except Exception as e:
-            logging.warning(e)
-            current = 0
-        entries = [entry("ALL MIDI CHANNELS", data=0xffff,
+        if self.mode == "SET":
+            current = cm.get_active_chain().midi_chan
+        else:
+            try:
+                current = cm.get_next_free_midi_chan(0)
+            except Exception as e:
+                logging.warning(e)
+                current = 0
+        entries = [entry(("\u2612 " if current == 0xffff else "") + "ALL MIDI CHANNELS", data=0xffff,
                          info="Multitimbral or unfiltered control of the engine.")]
         index = 0
         for chan in range(16):
@@ -140,8 +151,15 @@ class MidiChannel(SelectorScreen):
         self.set_entries(entries, index)
 
     def select_action(self, index, t):
-        if t == "S":
-            self.ui.chain_edit.status["midi_chan"] = self.entries[index]["data"]
+        if t != "S":
+            return
+        chan = self.entries[index]["data"]
+        if self.mode == "SET":
+            self.chain_manager.set_midi_chan(self.chain_manager.active_chain.chain_id, chan)
+            zynautoconnect.request_midi_connect(True)
+            self.ui.back()
+        else:
+            self.ui.chain_edit.status["midi_chan"] = chan
             self.ui.modify_chain()
 
 

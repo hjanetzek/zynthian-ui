@@ -595,7 +595,21 @@ class ZynUI(QObject):
         self.back()
 
     def cuia_select(self, params=None):
-        self._navigate("select")
+        """Select entry params[0] of the shown list (as zynthian_gui: an index, no action)"""
+        screen = self.list_screens.get(self.current_screen)
+        if screen and params:
+            try:
+                screen.setIndex(int(params[0]))
+            except (TypeError, ValueError):
+                pass
+
+    def cuia_select_action(self, params=None):
+        """The SEL key: params[0] "S" (short, default) or "B" (bold)"""
+        t = str(params[0]).upper() if params else "S"
+        self._navigate("select_bold" if t in ("B", "L") else "select")
+
+    def cuia_bold_select_action(self, params=None):
+        self._navigate("select_bold")
 
     def cuia_arrow_up(self, params=None):
         self._navigate("up")

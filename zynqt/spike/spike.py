@@ -2,10 +2,11 @@
 """M0 spike for the Qt Quick port (docs/qt-port-plan.md): a mock mixer, a long list and the V5
 touch keypad, without zynthian's backend. Measures what the Duet does with PySide6 + Qt Quick.
 
-    python3 zynqt/spike/spike.py [--fullscreen] [--bench SECONDS]
+    python3 zynqt/spike/spike.py [--fullscreen] [--bench SECONDS] [--meter-hz HZ] [--no-switch]
 
 --bench: switch between the screens every second and log, per switch, the time from the switch
 to the next frame on screen; every 5 s the frame rate and the Python time spent per meter update.
+--meter-hz: meter update rate (default 60, 0: no meter updates); --no-switch: stay on the mixer.
 The output goes to stdout. Meter levels come from Python at 60 Hz, as zynmixer's DPM data would.
 """
 
@@ -32,16 +33,18 @@ class Meters(QObject):
 
     levelsChanged = Signal()
 
-    def __init__(self, count):
+    def __init__(self, count, hz=METER_HZ):
         super().__init__()
         self._levels = [0.0] * (2 * count)
         self._phase = [random.random() * math.tau for _ in range(2 * count)]
         self._t0 = time.monotonic()
         self.update_seconds = 0.0
+        self.emit_seconds = 0.0
         self.updates = 0
-        self._timer = QTimer(self, interval=round(1000 / METER_HZ), timerType=Qt.PreciseTimer)
+        self._timer = QTimer(self, interval=round(1000 / hz) if hz else 1000, timerType=Qt.PreciseTimer)
         self._timer.timeout.connect(self._update)
-        self._timer.start()
+        if hz:
+            self._timer.start()
 
     @Property("QVariantList", notify=levelsChanged)
     def levels(self):
@@ -52,8 +55,10 @@ class Meters(QObject):
         t = time.monotonic() - self._t0
         self._levels = [max(0.0, min(1.0, 0.55 + 0.4 * math.sin(1.7 * t + p) * math.sin(0.3 * t + 2 * p)
                                      + random.uniform(-0.05, 0.05))) for p in self._phase]
+        t1 = time.perf_counter()
         self.levelsChanged.emit()
         self.update_seconds += time.perf_counter() - t0
+        self.emit_seconds += time.perf_counter() - t1
         self.updates += 1
 
 
@@ -130,7 +135,7 @@ class Bench(QObject):
 
     screenRequested = Signal(int)
 
-    def __init__(self, window, meters, seconds):
+    def __init__(self, window, meters, seconds, switch=True):
         super().__init__()
         self._window = window
         self._meters = meters
@@ -144,6 +149,7 @@ class Bench(QObject):
         self._switch_timer = QTimer(self, interval=1000)
         self._switch_timer.timeout.connect(self._switch)
         self._switch_timer.start()
+        self._do_switch = switch
         self._report_timer = QTimer(self, interval=5000)
         self._report_timer.timeout.connect(self._report)
         self._report_timer.start()
@@ -160,6 +166,8 @@ class Bench(QObject):
             self._report()
             QGuiApplication.quit()
             return
+        if not self._do_switch:
+            return
         self._screen = (self._screen + 1) % 2
         self._switch_t0 = time.perf_counter()
         self.screenRequested.emit(self._screen)
@@ -170,12 +178,15 @@ class Bench(QObject):
         self._last_report = now
         m = self._meters
         per_update = 1000 * m.update_seconds / m.updates if m.updates else 0
+        per_emit = 1000 * m.emit_seconds / m.updates if m.updates else 0
         switches = " ".join(f"{1000 * s:.0f}" for s in self._switch_times)
-        print(f"fps {self._frames / dt:5.1f}  meter update {per_update:.2f} ms (Python)  "
+        print(f"fps {self._frames / dt:5.1f}  meter update {per_update:.2f} ms (Python), "
+              f"of which QML bindings {per_emit:.2f} ms  "
               f"switch to frame [ms]: {switches}", flush=True)
         self._frames = 0
         self._switch_times = []
         m.update_seconds = 0.0
+        m.emit_seconds = 0.0
         m.updates = 0
 
 
@@ -183,11 +194,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--fullscreen", action="store_true")
     parser.add_argument("--bench", type=float, metavar="SECONDS")
+    parser.add_argument("--meter-hz", type=float, default=METER_HZ)
+    parser.add_argument("--no-switch", action="store_true")
     args = parser.parse_args()
 
     t_start = time.perf_counter()
     app = QGuiApplication(sys.argv)
-    meters = Meters(NUM_STRIPS)
+    meters = Meters(NUM_STRIPS, args.meter_hz)
     strips = StripModel(NUM_STRIPS)
     items = ListModel(LIST_ITEMS)
 
@@ -209,7 +222,7 @@ def main():
     window.frameSwapped.connect(first_frame)
 
     if args.bench:
-        bench = Bench(window, meters, args.bench)
+        bench = Bench(window, meters, args.bench, switch=not args.no_switch)
         bench.screenRequested.connect(lambda i: window.setProperty("currentScreen", i))
     return app.exec()
 

@@ -7,6 +7,7 @@ Window {
     id: root
 
     property int currentScreen: 0
+    readonly property var masterLevels: meters.levels
 
     width: 960
     height: 600
@@ -64,7 +65,7 @@ Window {
                     color: Theme.panel
                     Rectangle {
                         height: parent.height
-                        width: parent.width * (meters.levels[parent.index] || 0)
+                        width: parent.width * (root.masterLevels[parent.index] || 0)
                         color: Theme.meterLow
                     }
                 }

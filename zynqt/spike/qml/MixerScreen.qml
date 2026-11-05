@@ -3,6 +3,11 @@
 import QtQuick
 
 Rectangle {
+    id: screen
+
+    // Read the levels once per update: every read of meters.levels converts the Python list
+    readonly property var levels: meters.levels
+
     color: Theme.background
 
     ListView {
@@ -61,8 +66,8 @@ Rectangle {
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     spacing: 2
-                    Meter { height: parent.height; value: meters.levels[2 * strip.index] || 0 }
-                    Meter { height: parent.height; value: meters.levels[2 * strip.index + 1] || 0 }
+                    Meter { height: parent.height; value: screen.levels[2 * strip.index] || 0 }
+                    Meter { height: parent.height; value: screen.levels[2 * strip.index + 1] || 0 }
                 }
 
                 Rectangle {   // fader knob

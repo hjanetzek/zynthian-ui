@@ -29,6 +29,7 @@ import logging
 # Zynthian specific modules
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
+from zyngui.zynthian_widget_data import tuner_color, tuner_state
 
 # ------------------------------------------------------------------------------
 # Zynthian Widget Class for "x42 Instrument Tuner"
@@ -113,46 +114,19 @@ class zynthian_widget_tunaone(zynthian_widget_base.zynthian_widget_base):
         self.widget_canvas.grid(row=0, column=0, sticky='news')
 
     def calc_monitor_color(self, cent):
-        try:
-            acent = abs(cent)
-            if acent > 25:
-                cr = 255
-                cg = 0
-                cb = 0
-            elif acent > 10:
-                cr = 255
-                cg = int((25 - acent) * 255 / 15)
-                cb = 0
-            else:
-                cr = int(acent * 255 / 40)
-                cg = 255
-                cb = 0
-            color = "#%02x%02x%02x" % (cr, cg, cb)
-        except:
-            color = "#00FF00"
-        return color
+        return tuner_color(cent)
 
     def refresh_gui(self):
         # It should receive: rms, freq_out, octave, note, cent, accuracy
         if 'freq_out' not in self.monitors:
             return
-
-        # for k,v in self.monitors.items():
-        # logging.debug("MONITOR {} = {}".format(k,v))
-
-        # if monitors['rms']>-50.0 and monitors['accuracy']>0.0:
-        if self.monitors['rms'] > -50.0:
+        state = tuner_state(self.monitors)
+        if state:
+            note_name, cent, mcolor = state
             try:
-                note_name = "{}{}".format(
-                    self.note_names[int(self.monitors["note"])], int(self.monitors["octave"]))
-            except:
-                note_name = "??"
-            try:
-                x = int(self.x0 + self.cent_dx * self.monitors['cent'])
+                x = int(self.x0 + self.cent_dx * cent)
             except:
                 x = self.x0
-
-            mcolor = self.calc_monitor_color(self.monitors['cent'])
             try:
                 self.widget_canvas.itemconfigure(
                     self.note_label, text=note_name, state=tkinter.NORMAL, fill=mcolor)
@@ -165,7 +139,6 @@ class zynthian_widget_tunaone(zynthian_widget_base.zynthian_widget_base):
                                           self.y0 - self.bar_height)
             except Exception as e:
                 logging.error(e)
-
         else:
             self.widget_canvas.itemconfigure(
                 self.cents_bar, state=tkinter.HIDDEN)

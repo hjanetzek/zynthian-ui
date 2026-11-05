@@ -30,6 +30,7 @@ from zynqt.screens.snapshots import Options, Snapshots
 from zynqt.screens.chain_options import ChainOptions
 from zynqt.screens.routing import AudioOut, MidiDevicesIn, MidiDevicesOut, MidiIn, MidiOut
 from zynqt.screens.processor_options import ProcessorOptions
+from zynqt.screens.zs3 import ZS3
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
@@ -88,7 +89,7 @@ class ZynUI(QObject):
                                    "alsa_mixer": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
                     ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
-                    MidiDevicesOut):
+                    MidiDevicesOut, ZS3):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""
@@ -598,6 +599,23 @@ class ZynUI(QObject):
     def cuia_show_screen(self, params):
         if params:
             self.showScreen(str(params[0]))
+
+    def cuia_screen_zs3(self, params=None):
+        self.show_screen("zs3")
+
+    def cuia_zs3_save(self, params=None):
+        if params:
+            if isinstance(params[0], int):
+                self.state_manager.save_zs3_by_index(params[0])
+            else:
+                self.state_manager.save_zs3(params[0])
+
+    def cuia_zs3_load(self, params=None):
+        if params:
+            if isinstance(params[0], int):
+                self.state_manager.load_zs3_by_index(params[0])
+            else:
+                self.state_manager.load_zs3(params[0])
 
     def cuia_screen_snapshot(self, params=None):
         self.show_screen("snapshot")

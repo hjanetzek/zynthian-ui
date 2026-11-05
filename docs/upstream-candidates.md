@@ -28,6 +28,7 @@ these commits they come together with the Qt UI; each would need its own commit.
 | [8f267cac](https://github.com/hjanetzek/zynthian-ui/commit/8f267cac) | split | `zynthian_gui_config.init_zyncore()`: zyncore, control I/O and MIDI set-up as a function instead of code in the Tk-only block; the Tk path calls it at the same place. |
 | [4da7bc9f](https://github.com/hjanetzek/zynthian-ui/commit/4da7bc9f) | split | `zyngine/zynthian_snapshot_files.py`: the snapshot screen's file logic (banks, names, MIDI program numbers, bank and snapshot lists); `zynthian_gui_snapshot` uses it. |
 | [7f17ec36](https://github.com/hjanetzek/zynthian-ui/commit/7f17ec36) | split | `zyngui/zynthian_admin_settings.py`: the admin menu's simple toggles (program change mode, bank change, active MIDI channel, USB MIDI by port, audio levels on snapshots, peak meters, preset preload), moved unchanged; `zynthian_gui_admin` calls them. |
+| [7e346eb3](https://github.com/hjanetzek/zynthian-ui/commit/7e346eb3) | split | `zyngui/zynthian_midi_recorder_data.py`: the MIDI recorder's file list, moved unchanged; `zynthian_gui_midi_recorder` calls it. |
 | [3d2ef140](https://github.com/hjanetzek/zynthian-ui/commit/3d2ef140) | split | `zyngui/zynthian_midi_config_data.py`, `zynthian_audio_out_data.py`: list building and route/service actions of `zynthian_gui_midi_config` and `zynthian_gui_audio_out`, moved unchanged; the Tk screens call them. |
 
 ## Noticed, not fixed yet

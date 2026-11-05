@@ -24,7 +24,8 @@ Rectangle {
         text: root.active ? root.ctrl.bindText : ""
         color: {
             const k = root.active ? root.ctrl.bindKind : ""
-            return k === "learnGlobal" || k === "abs" ? "#f0f000"
+            return k === "xy" ? "#ff9000"
+                 : k === "learnGlobal" || k === "abs" ? "#f0f000"
                  : k === "learn" ? "#00c000"
                  : k === "chain" && text.indexOf("#") >= 0 ? "#00c000" : Theme.textOff
         }

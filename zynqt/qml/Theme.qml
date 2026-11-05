@@ -8,6 +8,7 @@ QtObject {
     readonly property color panelHighlight: "#2a323d"
     readonly property color text: "#ffffff"
     readonly property color textOff: "#e0e0e0"
+    readonly property color disabled: "#808080"
     readonly property color select: "#ff0000"
     readonly property color keyBackground: "#1e2631"
     readonly property color keyText: "#2b7fff"

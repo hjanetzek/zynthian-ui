@@ -22,11 +22,12 @@ class MainMenu(SelectorScreen):
             entry("Clean", lambda e: self.clean_menu(), icon="delete.png"),
             entry("MIDI\nInput", lambda e: ui.show_screen("midi_devices_in"), icon="midi_input.png"),
             entry("MIDI\nOutput", lambda e: ui.show_screen("midi_devices_out"), icon="midi_output.png"),
-            _todo("Tempo", "metronome.png"),
+            entry("Tempo", lambda e: ui.show_screen("tempo"), icon="metronome.png"),
             entry("ZS3s", lambda e: ui.show_screen("zs3"), icon="zs3.png"),
             self.audio_rec_entry(),
             entry("Audio\nPlayer", lambda e: ui.show_screen("audio_player"), icon="folder_audio.png"),
             self.midi_rec_entry(),
+            entry("MIDI\nPlayer", lambda e: ui.show_screen("midi_recorder"), icon="folder_midi.png"),
             entry("Admin", lambda e: ui.show_screen("admin"), icon="settings.png"),
         ])
 

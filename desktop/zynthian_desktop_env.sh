@@ -9,6 +9,8 @@
 # this zynthian-ui checkout, as cloned by hand:
 #
 #   <ZYNTHIAN_DIR>/zynthian-ui, zynthian-sys, zynthian-data, zynthian-help, zyncoder
+#   <ZYNTHIAN_DIR>/jalv: zynthian's jalv (github.com/zynthian/jalv, branch asyncli), which
+#   the LV2 engine needs; setup_desktop.sh builds it into ZYNTHIAN_SW_DIR
 #
 # A package sets ZYNTHIAN_DIR (e.g. /usr/share/zynthian) instead.
 # Everything that zynthian writes goes to the XDG directories of the user.
@@ -25,6 +27,7 @@ export ZYNTHIAN_SYS_DIR="${ZYNTHIAN_SYS_DIR:-$ZYNTHIAN_DIR/zynthian-sys}"
 export ZYNTHIAN_DATA_DIR="${ZYNTHIAN_DATA_DIR:-$ZYNTHIAN_DIR/zynthian-data}"
 export ZYNTHIAN_HELP_DIR="${ZYNTHIAN_HELP_DIR:-$ZYNTHIAN_DIR/zynthian-help}"
 export ZYNTHIAN_ZYNCODER_DIR="${ZYNTHIAN_ZYNCODER_DIR:-$ZYNTHIAN_DIR/zyncoder}"
+export ZYNTHIAN_JALV_SRC_DIR="${ZYNTHIAN_JALV_SRC_DIR:-$ZYNTHIAN_DIR/jalv}"
 export ZYNTHIAN_RECIPE_DIR="${ZYNTHIAN_RECIPE_DIR:-$ZYNTHIAN_SYS_DIR/scripts/recipes}"
 
 _zd_config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -37,6 +40,12 @@ export ZYNTHIAN_LV2_DIR="${ZYNTHIAN_LV2_DIR:-$ZYNTHIAN_PLUGINS_DIR/lv2}"
 export ZYNTHIAN_SW_DIR="${ZYNTHIAN_SW_DIR:-$_zd_data_home/zynthian/sw}"
 export ZYNTHIAN_PLUGINS_SRC_DIR="${ZYNTHIAN_PLUGINS_SRC_DIR:-$ZYNTHIAN_SW_DIR/plugins}"
 export ZYNTHIAN_VENV_DIR="${ZYNTHIAN_VENV_DIR:-$_zd_data_home/zynthian/venv}"
+# Programs built by setup_desktop.sh (zynthian's jalv) before the system's: the jalv
+# engine talks to the asyncli fork's command line, a distribution's jalv makes it hang
+case ":$PATH:" in
+	*":$ZYNTHIAN_SW_DIR/bin:"*) ;;
+	*) export PATH="$ZYNTHIAN_SW_DIR/bin:$PATH" ;;
+esac
 # Removable media, as mounted by udisks
 export ZYNTHIAN_EX_DATA_DIR="${ZYNTHIAN_EX_DATA_DIR:-/run/media/$USER}"
 

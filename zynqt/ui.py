@@ -32,6 +32,7 @@ from zynqt.screens.routing import AudioOut, MidiDevicesIn, MidiDevicesOut, MidiI
 from zynqt.screens.processor_options import ProcessorOptions
 from zynqt.screens.zs3 import ZS3
 from zynqt.screens.admin import Admin
+from zynqt.screens.midi_recorder import MidiRecorder
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
@@ -91,7 +92,7 @@ class ZynUI(QObject):
                                    "audio_player": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
                     ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
-                    MidiDevicesOut, ZS3, Admin):
+                    MidiDevicesOut, ZS3, Admin, MidiRecorder):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""
@@ -672,6 +673,9 @@ class ZynUI(QObject):
 
     cuia_audio_file_list = cuia_screen_audio_player
 
+    def cuia_screen_midi_recorder(self, params=None):
+        self.show_screen("midi_recorder")
+
     def cuia_screen_alsa_mixer(self, params=None):
         self.show_screen("alsa_mixer", params=params)
 
@@ -774,8 +778,8 @@ class ZynUI(QObject):
             self.show_screen("preset" if self.current_screen == "bank" else "bank")
 
     def _recorder_state_changed(self):
-        if self.current_screen == "main_menu":
-            self.list_screens["main_menu"].fill()
+        if self.current_screen in ("main_menu", "midi_recorder"):
+            self.list_screens[self.current_screen].fill()
 
     # Transport and recorders, as zynthian_gui (ALT: MIDI instead of audio)
 

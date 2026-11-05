@@ -40,7 +40,8 @@ from zyngui.multitouch import MultitouchTypes
 from zyngui.zynthian_gui_pated_base import *
 from zyngui.zynthian_gui_base import zynthian_gui_base
 from zyngui.zynthian_pated_data import (scale_names, get_custom_keymap, load_keymap, default_note_evdata,
-                                        SCALES, CHORD_MODES, CHORDS, diatonic_chord)
+                                        SCALES, CHORD_MODES, CHORDS, diatonic_chord, STUT_VFX_OPTIONS,
+                                        STUT_RMP_OPTIONS, PLAY_FREQ_OPTIONS, STUT_FREQ_OPTIONS, note_label)
 
 # ------------------------------------------------------------------------------
 
@@ -61,53 +62,6 @@ EDIT_PARAM_STUT_FREQ = 8    # Edit note stutter frequency
 EDIT_PARAM_STUT_CHANCE = 9  # Edit note stutter chance
 EDIT_PARAM_LAST = 9         # Index of last parameter
 EDIT_PARAM_LAST_MULTI = 1   # Index of last multi-edit parameter
-
-STUT_VFX_OPTIONS = (
-    "FLAT",
-    "FADE-IN",
-    "FADE-OUT"
-)
-STUT_RMP_OPTIONS = (
-    "NONE",
-    "SPEED-UP",
-    "SPEED-DOWN"
-)
-PLAY_FREQ_OPTIONS = (
-    "NEVER",
-    "ALWAYS",
-    "PLAY/2",
-    "SKIP/2",
-    "PLAY/3",
-    "SKIP/3",
-    "PLAY/4",
-    "SKIP/4",
-    "PLAY/5",
-    "SKIP/5",
-    "PLAY/6",
-    "SKIP/6",
-    "PLAY/7",
-    "SKIP/7",
-    "PLAY/8",
-    "SKIP/8"
-)
-STUT_FREQ_OPTIONS = (
-    "NEVER",
-    "ALWAYS",
-    "STUT/2",
-    "SKIP/2",
-    "STUT/3",
-    "SKIP/3",
-    "STUT/4",
-    "SKIP/4",
-    "STUT/5",
-    "SKIP/5",
-    "STUT/6",
-    "SKIP/6",
-    "STUT/7",
-    "SKIP/7",
-    "STUT/8",
-    "SKIP/8"
-)
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 NOTE_PRONOUNCE = ["C", "C Sharp", "D", "D Sharp", "E", "F", "F Sharp", "G", "G Sharp", "A", "A Sharp", "B"]
@@ -832,16 +786,7 @@ class zynthian_gui_pated_notes(zynthian_gui_pated_base):
             label_anchor = tkinter.CENTER
             label_x = (coord[0] + coord[2]) // 2
 
-        label_txt = None
-        if evdata.play_freq > 1:
-            label_txt = PLAY_FREQ_OPTIONS[evdata.play_freq]
-        elif evdata.play_chance < 1.0:
-            label_txt = f"{round(100 * evdata.play_chance)}%"
-        elif evdata.stut_speed > 0:
-            if evdata.stut_freq > 1:
-                label_txt = STUT_FREQ_OPTIONS[evdata.stut_freq]
-            elif evdata.stut_chance < 1.0:
-                label_txt = f"{round(100 * evdata.stut_chance)}%"
+        label_txt = note_label(evdata)
         if label_txt:
             label_y = (coord[1] + coord[3]) // 2
             self.grid_canvas.create_text(label_x, label_y,

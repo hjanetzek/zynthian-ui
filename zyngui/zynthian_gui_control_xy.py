@@ -23,7 +23,6 @@
 #
 # ******************************************************************************
 
-import math
 import tkinter
 import logging
 from datetime import datetime
@@ -32,6 +31,7 @@ import tkinter.font as tkfont
 
 # Zynthian specific modules
 from zyngui import zynthian_gui_config
+from zyngui.zynthian_control_xy_data import value_fraction, fraction_value
 from zyngui.zynthian_gui_fullscreen_modal import zynthian_gui_fullscreen_modal
 
 # ------------------------------------------------------------------------------
@@ -146,63 +146,34 @@ class zynthian_gui_control_xy(zynthian_gui_fullscreen_modal):
             self.refresh()
 
     def get_controller_values(self):
-        if self.zyngui.state_manager.zctrl_x.value != self.xvalue:
-            self.xvalue = self.zyngui.state_manager.zctrl_x.value
-            if self.zyngui.state_manager.zctrl_x.value_range == 0:
-                self.x = 0
-            elif self.zyngui.state_manager.zctrl_x.is_logarithmic:
-                self.x = int(self.width * math.log10((9 * self.zyngui.state_manager.zctrl_x.value - (10 * self.zyngui.state_manager.zctrl_x.value_min -
-                             self.zyngui.state_manager.zctrl_x.value_max)) / self.zyngui.state_manager.zctrl_x.value_range))
-            else:
-                self.x = int(self.width * (self.xvalue - self.zyngui.state_manager.zctrl_x.value_min) /
-                             self.zyngui.state_manager.zctrl_x.value_range)
+        zctrl_x = self.zyngui.state_manager.zctrl_x
+        zctrl_y = self.zyngui.state_manager.zctrl_y
+        if zctrl_x.value != self.xvalue:
+            self.xvalue = zctrl_x.value
+            self.x = self.x0 + int(self.width * value_fraction(zctrl_x))
             self.canvas.coords(self.vline, self.x, self.y0, self.x, self.y1)
-
-        if self.zyngui.state_manager.zctrl_y.value != self.yvalue:
-            self.yvalue = self.zyngui.state_manager.zctrl_y.value
-            if self.zyngui.state_manager.zctrl_y.value_range == 0:
-                self.y = 0
-            elif self.zyngui.state_manager.zctrl_y.is_logarithmic:
-                self.y = int(self.width * math.log10((9 * self.zyngui.state_manager.zctrl_y.value - (10 * self.zyngui.state_manager.zctrl_y.value_min -
-                             self.zyngui.state_manager.zctrl_y.value_max)) / self.zyngui.state_manager.zctrl_y.value_range))
-            else:
-                self.y = int(self.height * (self.yvalue - self.zyngui.state_manager.zctrl_y.value_min) /
-                             self.zyngui.state_manager.zctrl_y.value_range)
+        if zctrl_y.value != self.yvalue:
+            self.yvalue = zctrl_y.value
+            self.y = self.y0 + int(self.height * value_fraction(zctrl_y))
             self.canvas.coords(self.hline, self.x0, self.y, self.x1, self.y)
 
     def refresh(self):
         self.canvas.coords(self.hline, self.x0, self.y, self.x1, self.y)
         self.canvas.coords(self.vline, self.x, self.y0, self.x, self.y1)
 
-        if self.zyngui.state_manager.zctrl_x.is_logarithmic:
-            xv = (math.pow(10, (self.x - self.x0) / self.width) * self.zyngui.state_manager.zctrl_x.value_range + (10 *
-                  self.zyngui.state_manager.zctrl_x.value_min - self.zyngui.state_manager.zctrl_x.value_max)) / 9
-        else:
-            xv = self.zyngui.state_manager.zctrl_x.value_min + (self.x - self.x0) * \
-                self.zyngui.state_manager.zctrl_x.value_range / self.width
-
-        if self.zyngui.state_manager.zctrl_x.is_integer:
-            xv = int(xv)
-
+        zctrl_x = self.zyngui.state_manager.zctrl_x
+        xv = fraction_value(zctrl_x, (self.x - self.x0) / self.width)
         if xv != self.xvalue:
             self.xvalue = xv
-            self.zyngui.state_manager.zctrl_x.set_value(self.xvalue, True)
-            self.canvas.itemconfig(self.text_x, text=f"{self.zyngui.state_manager.zctrl_x.name}: {self.xvalue:.3f}")
+            zctrl_x.set_value(self.xvalue, True)
+            self.canvas.itemconfig(self.text_x, text=f"{zctrl_x.name}: {self.xvalue:.3f}")
 
-        if self.zyngui.state_manager.zctrl_y.is_logarithmic:
-            yv = (math.pow(10, (self.y - self.y0) / self.height) * self.zyngui.state_manager.zctrl_y.value_range + (10 *
-                  self.zyngui.state_manager.zctrl_y.value_min - self.zyngui.state_manager.zctrl_y.value_max)) / 9
-        else:
-            yv = self.zyngui.state_manager.zctrl_y.value_min + (self.y - self.y0) * \
-                self.zyngui.state_manager.zctrl_y.value_range / self.height
-
-        if self.zyngui.state_manager.zctrl_y.is_integer:
-            yv = int(yv)
-
+        zctrl_y = self.zyngui.state_manager.zctrl_y
+        yv = fraction_value(zctrl_y, (self.y - self.y0) / self.height)
         if yv != self.yvalue:
             self.yvalue = yv
-            self.zyngui.state_manager.zctrl_y.set_value(self.yvalue, True)
-            self.canvas.itemconfig(self.text_y, text=f"{self.zyngui.state_manager.zctrl_y.name}: {self.yvalue:.3f}")
+            zctrl_y.set_value(self.yvalue, True)
+            self.canvas.itemconfig(self.text_y, text=f"{zctrl_y.name}: {self.yvalue:.3f}")
 
     def cb_canvas(self, event):
         # logging.debug("XY controller => %s, %s" % (event.x, event.y))

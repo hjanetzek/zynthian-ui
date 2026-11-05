@@ -176,9 +176,9 @@ settings (all desktop entries except ZynVoice), MIDI devices and their options, 
 transport keys, audio and MIDI player, chain manager, moving chains and processors, MIDI CC and note
 range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration's switch actions.
 M3 started: the launcher (mixer in launcher mode) with its phrase menu, the pattern editor
-(notes, CC view, chord entry; QML items), the waveform view of audio file processors (QML Shape).
-Not ported yet: ZynVoice, the pattern editor's finer note parameters (stutter, chance, offset), SMF
-import/export. All engine widgets are ported (SooperLooper for its current engine; better as the LV2
+(notes with their settings: offset, stutter, play/stutter frequency and chance; CC view, chord
+entry; QML items, smooth on the Duet), the waveform view of audio file processors (QML Shape).
+Not ported yet: ZynVoice, SMF import/export. All engine widgets are ported (SooperLooper for its current engine; better as the LV2
 plugin, see nura-lv2-plugins.md).
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
@@ -208,7 +208,8 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
    items: measure on the Duet before deciding on a C++ item), CC view and chords (3a6778ac).
    Waveform view (9e603dc5), envelope and filter (786a9315), plugin widgets. Next:
    Euclidean sequencer (af8f6395), Organelle and SooperLooper widgets done; pattern editor block
-   selection/copy/cut/paste (bf7af4d3). The arranger is not ported: upstream has it switched off
+   selection/copy/cut/paste (bf7af4d3), per-note settings (6e811e2b); launcher pads kept
+   instantiated (41c97752: creating them made the switch slow). The arranger is not ported: upstream has it switched off
    (zynthian_gui.py creates no arranger screen; zynseq: "until arranger is reinstated").
 5. Upstream: split the shared modules into self-contained commits, fix the bugs noted in
    [upstream-candidates.md](upstream-candidates.md), pytest for the shared modules.

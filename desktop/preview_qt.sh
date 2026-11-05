@@ -61,7 +61,7 @@ XDG_RUNTIME_DIR=$tmp WAYLAND_DISPLAY=wayland-0 wlr-randr --output "$output" --cu
 
 # zynthian: Wayland display of the headless labwc, everything else from the user's session
 env WAYLAND_DISPLAY="$tmp/wayland-0" XDG_RUNTIME_DIR="$pw_runtime" QT_QPA_PLATFORM=wayland \
-	QT_WAYLAND_DISABLE_WINDOWDECORATION=1 ZYNTHIAN_UI=qt ZYNTHIAN_FULLSCREEN=1 \
+	QT_WAYLAND_DISABLE_WINDOWDECORATION=1 ZYNTHIAN_UI=qt ZYNTHIAN_FULLSCREEN=1 ZYNTHIAN_QT_TIMING=1 \
 	"$here/zynthian_desktop.sh" > /tmp/zynthian-qt.log 2>&1 &
 zyn_pid=$!
 

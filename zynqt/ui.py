@@ -236,6 +236,11 @@ class ZynUI(QObject):
         """The selector screen shown (None for screens with their own QML)"""
         return self.list_screens.get(self.current_screen)
 
+    @Property("QVariantList", constant=True)
+    def listScreenObjects(self):
+        """All selector screens: QML keeps one view per screen, so switching doesn't recreate them"""
+        return list(self.list_screens.values())
+
     @Property(QObject, constant=True)
     def chainControl(self):
         return self.chain_control_screen
@@ -246,6 +251,7 @@ class ZynUI(QObject):
 
     def _set_current_screen(self, name, params=None):
         """Switch to name: hide the old screen object, build the new one"""
+        self.switch_t0 = monotonic()   # for ZYNTHIAN_QT_TIMING (zynthian_qt_main)
         old = self.qml_screen_objects.get(self.current_screen)
         if old and name != self.current_screen:
             old.hide()
@@ -263,6 +269,7 @@ class ZynUI(QObject):
         screen = self.list_screens.get(name) or self.qml_screen_objects.get(name)
         if screen:
             screen.build()
+        self.switch_build_ms = 1000 * (monotonic() - self.switch_t0)
         if name != self.current_screen:
             self.current_screen = name
             self.currentScreenChanged.emit()

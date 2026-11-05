@@ -26,12 +26,12 @@ def db_to_fraction(db):
 
 class MixerModel(QAbstractListModel):
     ChainIdRole, NameRole, MidiChanRole, LevelRole, BalanceRole, MuteRole, SoloRole, RecordRole, \
-        IsMixbusRole, MeterIndexRole = range(Qt.UserRole + 1, Qt.UserRole + 11)
+        IsMixbusRole, MeterIndexRole, ActiveRole = range(Qt.UserRole + 1, Qt.UserRole + 12)
 
     _ROLE_NAMES = {ChainIdRole: b"chainId", NameRole: b"name", MidiChanRole: b"midiChan",
                    LevelRole: b"level", BalanceRole: b"balance", MuteRole: b"mute",
                    SoloRole: b"solo", RecordRole: b"record", IsMixbusRole: b"isMixbus",
-                   MeterIndexRole: b"meterIndex"}
+                   MeterIndexRole: b"meterIndex", ActiveRole: b"active"}
     _SYMBOL_ROLES = {"level": LevelRole, "balance": BalanceRole, "mute": MuteRole,
                      "solo": SoloRole, "record": RecordRole}
 
@@ -45,6 +45,7 @@ class MixerModel(QAbstractListModel):
         bridge.chainsChanged.connect(self.reload)
         bridge.snapshotLoaded.connect(self.reload)
         bridge.mixerValueChanged.connect(self._mixer_value)
+        bridge.activeChainChanged.connect(self._active_chain)
         self.reload()
 
     # Rows
@@ -100,6 +101,9 @@ class MixerModel(QAbstractListModel):
             return bool(chain.zynmixer_proc and chain.zynmixer_proc.eng_code == "MR")
         if role == self.MeterIndexRole:
             return index.row()
+        if role == self.ActiveRole:
+            active = self.chain_manager.active_chain
+            return bool(active and active.chain_id == chain.chain_id)
         for symbol, r in self._SYMBOL_ROLES.items():
             if role == r:
                 zctrl = self._controller(chain, symbol)
@@ -115,6 +119,11 @@ class MixerModel(QAbstractListModel):
             if proc and proc.mixer_chan == chan and (proc.eng_code == "MR") == mixbus:
                 return row
         return None
+
+    @Slot()
+    def _active_chain(self):
+        if self.chain_ids:
+            self.dataChanged.emit(self.index(0), self.index(len(self.chain_ids) - 1), [self.ActiveRole])
 
     @Slot(bool, int, str, float)
     def _mixer_value(self, mixbus, chan, symbol, value):

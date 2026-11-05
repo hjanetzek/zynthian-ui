@@ -111,6 +111,7 @@ Item {
             width: Math.min(parent.width - 12, 160)
             height: source != "" ? width : 0
             fillMode: Image.PreserveAspectFit
+            asynchronous: true
             source: root.screen ? root.screen.currentIcon : ""
         }
         Text {
@@ -167,6 +168,7 @@ Item {
                     source: tile.icon
                     sourceSize.width: width
                     sourceSize.height: height
+                    asynchronous: true
                 }
                 Text {
                     anchors.top: tileIcon.bottom

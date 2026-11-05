@@ -50,9 +50,23 @@ class EntryModel(QAbstractListModel):
         super().__init__(parent)
         self.entries = []
 
+    @staticmethod
+    def _shown_fields(e):
+        return (e["title"], e["info"], e["icon"], e["separator"], e["enabled"])
+
     def set_entries(self, entries):
+        entries = list(entries)
+        if len(entries) == len(self.entries):
+            # Same number of entries: update in place, so the views keep their delegates (a reset
+            # recreates them all, with their images: ~200 ms for the main menu grid on the Duet)
+            changed = [i for i, (a, b) in enumerate(zip(self.entries, entries))
+                       if self._shown_fields(a) != self._shown_fields(b)]
+            self.entries = entries
+            for i in changed:
+                self.dataChanged.emit(self.index(i), self.index(i))
+            return
         self.beginResetModel()
-        self.entries = list(entries)
+        self.entries = entries
         self.endResetModel()
         self.countChanged.emit()
 

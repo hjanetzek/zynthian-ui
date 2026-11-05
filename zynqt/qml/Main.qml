@@ -49,7 +49,18 @@ Window {
 
         MixerScreen { shown: screens.currentIndex === 0 }
         ChainControlScreen {}
-        SelectorScreen { screen: zyn.currentList }
+        // One view per selector screen, kept: switching only changes which one is visible
+        Item {
+            Repeater {
+                model: zyn.listScreenObjects
+                SelectorScreen {
+                    required property var modelData
+                    anchors.fill: parent
+                    screen: modelData
+                    visible: modelData === zyn.currentList
+                }
+            }
+        }
     }
 
     // Info message, as zynthian_gui.show_info

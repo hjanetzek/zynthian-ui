@@ -1,13 +1,15 @@
 #!/bin/sh
 # Build Nura packages and install them on a running device over SSH.
 #
-# Usage: deploy.sh [-c CONFIG] [-H HOST] [-u USER] [-a ARCH] [-z ZYNCODER] [-k] [-n] [-S] [-r] [-d] PACKAGE...
+# Usage: deploy.sh [-c CONFIG] [-H HOST] [-u USER] [-a ARCH] [-z ZYNCODER] [-j JALV] [-k] [-n] [-S] [-r] [-d] PACKAGE...
 #   -c CONFIG    pmbootstrap config (default: ~/.config/pmbootstrap-zynthian.cfg)
 #   -H HOST      device address (default: <hostname from the config>.local, via avahi)
 #   -u USER      SSH user on the device (default: user from the config)
 #   -a ARCH      package architecture (default: aarch64)
 #   -z ZYNCODER  zyncoder checkout for the zyncoder package (default: ../zyncoder next to
 #                this zynthian-ui checkout)
+#   -j JALV      zynthian's jalv checkout for the zynthian-jalv package (default: ../jalv next
+#                to this zynthian-ui checkout; without it, the APKBUILD's pinned tarball)
 #   -k           install this work dir's package signing key on the device if needed (a device
 #                whose image was built with another work dir rejects the packages: "UNTRUSTED
 #                signature")
@@ -22,8 +24,10 @@
 #   deploy.sh zyncoder zynthian-ui           # both checkouts
 #   deploy.sh postmarketos-ui-zynthian       # the kiosk package
 #
-# zynthian-ui is built from this checkout and zyncoder from its checkout (pmbootstrap build
-# --src); other packages from their APKBUILDs. A subpackage (-dbg, zynthian-help, ...) is built
+# zynthian-ui is built from this checkout, zyncoder and zynthian-jalv from their checkouts
+# (pmbootstrap build --src); other packages from their APKBUILDs. With zynthian-ui, its new
+# dependency zynthian-jalv is built and installed too when no package of it exists for ARCH
+# yet. A subpackage (-dbg, zynthian-help, ...) is built
 # with its main package. Installing uses "pmbootstrap sideload": it copies the newest version of
 # each package and runs "sudo apk add" on the device.
 set -eu
@@ -31,6 +35,7 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 checkout=$(cd "$here/.." && pwd)
 zyncoder=$(cd "$checkout/.." && pwd)/zyncoder
+jalv=$(cd "$checkout/.." && pwd)/jalv
 cfg=$HOME/.config/pmbootstrap-zynthian.cfg
 host=
 user=
@@ -43,13 +48,14 @@ installkey=
 
 usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0}"; }
 
-while getopts c:H:u:a:z:knSrdh opt; do
+while getopts c:H:u:a:z:j:knSrdh opt; do
 	case $opt in
 		c) cfg=$OPTARG ;;
 		H) host=$OPTARG ;;
 		u) user=$OPTARG ;;
 		a) arch=$OPTARG ;;
 		z) zyncoder=$OPTARG ;;
+		j) jalv=$OPTARG ;;
 		k) installkey=--install-key ;;
 		n) build=0 ;;
 		S) lax= ;;
@@ -89,9 +95,19 @@ if [ "$build" = 1 ]; then
 		case " $mains " in *" $main "*) ;; *) mains="$mains $main" ;; esac
 	done
 	# Dependencies first: with --src, pmbootstrap doesn't build missing dependencies
-	# (zynthian-ui needs zyncoder and zynthian-data, the kiosk needs zynthian-ui).
+	# (zynthian-ui needs zyncoder, zynthian-jalv and zynthian-data, the kiosk needs zynthian-ui).
+	# zynthian-jalv comes along with zynthian-ui if no package of it is built for ARCH yet.
+	case " $mains " in
+		*" zynthian-ui "*)
+			case " $mains " in *" zynthian-jalv "*) ;; *)
+				workdir=$(cfgval work)
+				[ -n "$workdir" ] || workdir=$HOME/.local/var/pmbootstrap
+				ls "$workdir"/packages/edge/"$arch"/zynthian-jalv-*.apk >/dev/null 2>&1 ||
+					{ mains="$mains zynthian-jalv"; set -- "$@" zynthian-jalv; } ;;
+			esac ;;
+	esac
 	ordered=
-	for main in zyncoder zynthian-data zynthian-ui postmarketos-ui-zynthian; do
+	for main in zyncoder zynthian-jalv zynthian-data zynthian-ui postmarketos-ui-zynthian; do
 		case " $mains " in *" $main "*) ordered="$ordered $main" ;; esac
 	done
 	for main in $mains; do
@@ -103,6 +119,14 @@ if [ "$build" = 1 ]; then
 			zynthian-ui) pmb build $lax --arch "$arch" --src="$checkout" zynthian-ui ;;
 			# shellcheck disable=SC2086
 			zyncoder) pmb build $lax --arch "$arch" --src="$zyncoder" zyncoder ;;
+			zynthian-jalv)
+				if [ -d "$jalv" ]; then
+					# shellcheck disable=SC2086
+					pmb build $lax --arch "$arch" --src="$jalv" zynthian-jalv
+				else
+					# shellcheck disable=SC2086
+					pmb build $lax --arch "$arch" zynthian-jalv
+				fi ;;
 			# Also noarch packages for the device's architecture: otherwise pmbootstrap builds
 			# them for the host and pulls in host builds of their dependencies.
 			# shellcheck disable=SC2086

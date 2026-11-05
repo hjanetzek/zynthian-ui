@@ -20,15 +20,27 @@ class MainMenu(SelectorScreen):
             _todo("Chain\nManager", "chain_manager.png"),
             entry("Snapshots", lambda e: ui.show_screen("snapshot"), icon="snapshot.png"),
             entry("Clean", lambda e: self.clean_menu(), icon="delete.png"),
-            _todo("MIDI\nInput", "midi_input.png"),
-            _todo("MIDI\nOutput", "midi_output.png"),
+            entry("MIDI\nInput", lambda e: ui.show_screen("midi_devices_in"), icon="midi_input.png"),
+            entry("MIDI\nOutput", lambda e: ui.show_screen("midi_devices_out"), icon="midi_output.png"),
             _todo("Tempo", "metronome.png"),
             _todo("ZS3s", "zs3.png"),
-            _todo("Audio\nRecorder", "rec_audio.png"),
+            self.audio_rec_entry(),
             _todo("Audio\nPlayer", "folder_audio.png"),
-            _todo("MIDI\nRecorder", "rec_midi.png"),
+            self.midi_rec_entry(),
             _todo("Admin", "settings.png"),
         ])
+
+    def audio_rec_entry(self):
+        rec = bool(self.state_manager.audio_recorder.status)
+        return entry("Stop Audio\nRecording" if rec else "Start Audio\nRecording",
+                     lambda e: self.ui.cuia_toggle_audio_record(),
+                     icon="audio_recording.png" if rec else "audio_recorder.png")
+
+    def midi_rec_entry(self):
+        rec = bool(self.state_manager.status_midi_recorder)
+        return entry("Stop MIDI\nRecording" if rec else "Start MIDI\nRecording",
+                     lambda e: self.ui.cuia_toggle_midi_record(),
+                     icon="midi_recording.png" if rec else "midi_recorder.png")
 
     def clean_menu(self):
         def clean_chains():

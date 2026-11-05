@@ -37,7 +37,9 @@ class ProcessorOptions(SelectorScreen):
                            lambda x: self.toggle_bypass(), info="Bypass this processor.", icon="bypass.png"))
         if p.type not in ("MIDI Synth", "Audio Generator") and p.chain is not None \
                 and p.chain.get_processor_count(p.type) > 1:
-            e.append(entry("Move", icon="move_up_down.png", enabled=False, info=NOT_PORTED))
+            e.append(entry("Move", lambda x: self.ui.start_move_processor(p), icon="move_up_down.png",
+                           info="Move this processor within the chain: arrows (left/right along the chain, "
+                                "up/down serial/parallel), SELECT or Done to finish."))
         if p.eng_code not in ("MI", "MR"):
             if (p.type != "MIDI Synth" or p.engine.get_options()["replace"]) and p.eng_code != "CL":
                 e.append(entry(f"Replace {p.name}", lambda x: self.replace(), icon="replace_processor.png",

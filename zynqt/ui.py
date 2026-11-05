@@ -50,6 +50,7 @@ class ZynUI(QObject):
     confirmChanged = Signal()
     keyboardChanged = Signal()
     movingChainChanged = Signal()
+    movingProcessorChanged = Signal()
     # SEL pressed while the keyboard is shown: QML answers with keyboardAccept(text)
     keyboardSubmit = Signal()
     # Navigation for the current screen: "up", "down", "left", "right", "select", "select_bold"
@@ -107,6 +108,7 @@ class ZynUI(QObject):
         self._keyboard_text = ""
         self._keyboard_action = None
         self._moving_chain = False
+        self._moving_processor = None
         self._backgroundDone.connect(lambda done, result: done(result))
 
         self._cuiaRequested.connect(self._run_cuia)
@@ -260,6 +262,8 @@ class ZynUI(QObject):
         self.switch_t0 = monotonic()   # for ZYNTHIAN_QT_TIMING (zynthian_qt_main)
         if name != "mixer":
             self.endMoveChain()
+        if name != "chain_control":
+            self.endMoveProcessor()
         old = self.qml_screen_objects.get(self.current_screen)
         if old and name != self.current_screen:
             old.hide()
@@ -336,8 +340,40 @@ class ZynUI(QObject):
             self._moving_chain = False
             self.movingChainChanged.emit()
 
+    # Moving a processor within its chain (zynthian_gui_chain_manager's processor move mode)
+
+    @Property(bool, notify=movingProcessorChanged)
+    def movingProcessor(self):
+        return self._moving_processor is not None
+
+    def start_move_processor(self, processor):
+        self.chain_control(processor.chain.chain_id, processor)
+        self._moving_processor = processor
+        self.movingProcessorChanged.emit()
+
+    @Slot(str)
+    def moveProcessor(self, direction):
+        from zyngine.zynthian_chain_manager import NUDGE_UP, NUDGE_DOWN, NUDGE_LEFT, NUDGE_RIGHT
+        p = self._moving_processor
+        if p is None or p.chain is None:
+            return
+        d = {"up": NUDGE_UP, "down": NUDGE_DOWN, "left": NUDGE_LEFT, "right": NUDGE_RIGHT}[direction]
+        if self.chain_manager.nudge_processor(p.chain.chain_id, p, d):
+            self.chain_control_screen.build()
+        else:
+            self.show_info("Can't move it further.")
+
+    @Slot()
+    def endMoveProcessor(self):
+        if self._moving_processor is not None:
+            self._moving_processor = None
+            self.movingProcessorChanged.emit()
+
     @Slot()
     def back(self):
+        if self._moving_processor is not None:
+            self.endMoveProcessor()
+            return
         if self._moving_chain:
             self.endMoveChain()
             return
@@ -356,6 +392,12 @@ class ZynUI(QObject):
     def _navigate(self, what):
         """Arrows and SELECT: the keyboard, the confirm dialog, the selector screen shown, or the
         QML screen"""
+        if self._moving_processor is not None:
+            if what in ("up", "down", "left", "right"):
+                self.moveProcessor(what)
+            elif what in ("select", "select_bold"):
+                self.endMoveProcessor()
+            return
         if self._moving_chain:
             if what in ("left", "up"):
                 self.moveChain(-1)

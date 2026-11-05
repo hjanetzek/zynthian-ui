@@ -182,6 +182,41 @@ Item {
         }
     }
 
+    // MIDI learn in progress: what to do, and a button to stop (as BACK)
+    Rectangle {
+        anchors.horizontalCenter: pages.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 20
+        width: Math.min(pages.width - 16, learnLabel.implicitWidth + stopLearn.width + 48)
+        height: 64
+        radius: 6
+        z: 10
+        visible: root.cc.learnText !== ""
+        color: Theme.keyBackground
+        border.color: "#f0f000"
+        border.width: 2
+        Text {
+            id: learnLabel
+            anchors.left: parent.left
+            anchors.right: stopLearn.left
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: 16
+            text: root.cc.learnText
+            color: Theme.text
+            wrapMode: Text.WordWrap
+            font.pixelSize: 18
+        }
+        MoveKey {
+            id: stopLearn
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.rightMargin: 8
+            text: "Stop"
+            height: 48
+            onTapped: root.cc.stopLearn()
+        }
+    }
+
     // Moving the current processor (processor options: Move)
     Grid {
         anchors.horizontalCenter: pages.horizontalCenter

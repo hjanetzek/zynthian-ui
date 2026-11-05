@@ -49,6 +49,10 @@ Item {
             width: 230
             onTapped: root.pe.ccMode ? root.pe.pickCc() : root.pe.entryOptions()
         }
+        ToolButton { text: "Select"; width: 90; on: root.pe.selectMode; onTapped: root.pe.toggleSelectMode() }
+        ToolButton { text: "Copy"; width: 80; visible: root.pe.selectMode; onTapped: root.pe.copyBlock(false) }
+        ToolButton { text: "Cut"; width: 70; visible: root.pe.selectMode; onTapped: root.pe.copyBlock(true) }
+        ToolButton { text: "Del"; width: 70; visible: root.pe.selectMode; onTapped: root.pe.deleteBlock() }
         ToolButton { text: "Menu"; onTapped: root.pe.menu() }
         Text {
             anchors.verticalCenter: parent.verticalCenter
@@ -124,6 +128,7 @@ Item {
         contentWidth: root.steps * root.stepWidth
         contentHeight: root.nRows * root.rowHeight
         clip: true
+        interactive: !root.pe.selectMode   // select mode: drags select a block
         boundsBehavior: Flickable.StopAtBounds
 
         Item {
@@ -171,6 +176,30 @@ Item {
                     border.width: 1
                 }
             }
+            // Selected block
+            Rectangle {
+                readonly property var b: root.pe.block
+                visible: b.length === 4
+                x: (b[0] || 0) * root.stepWidth
+                y: root.rowY(b[3] || 0)
+                width: ((b[2] || 0) - (b[0] || 0) + 1) * root.stepWidth
+                height: ((b[3] || 0) - (b[1] || 0) + 1) * root.rowHeight
+                color: "#305a9ef0"
+                border.color: "#5a9ef0"
+                border.width: 2
+            }
+            // Select mode: drag marks a block
+            DragHandler {
+                enabled: root.pe.selectMode
+                target: null
+                dragThreshold: 4
+                property var start: null
+                onActiveChanged: if (active) start = [Math.floor(centroid.pressPosition.x / root.stepWidth),
+                                                      root.nRows - 1 - Math.floor(centroid.pressPosition.y / root.rowHeight)]
+                onCentroidChanged: if (active && start) root.pe.selectBlock(start[0], start[1],
+                                            Math.floor(centroid.position.x / root.stepWidth),
+                                            root.nRows - 1 - Math.floor(centroid.position.y / root.rowHeight))
+            }
             // Cursor
             Rectangle {
                 x: root.cursor[0] * root.stepWidth
@@ -188,7 +217,10 @@ Item {
                 }
                 onTapped: (eventPoint) => {
                     const c = cell(eventPoint.position)
-                    root.pe.toggleNote(c[0], c[1])
+                    if (root.pe.selectMode && root.pe.hasCopy)
+                        root.pe.pasteAt(c[0], c[1])
+                    else if (!root.pe.selectMode)
+                        root.pe.toggleNote(c[0], c[1])
                 }
                 onLongPressed: {
                     const c = cell(point.position)

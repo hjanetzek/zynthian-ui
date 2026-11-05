@@ -6,8 +6,10 @@ import QtQuick.Layouts
 Window {
     id: root
 
-    readonly property var qmlScreens: ["mixer", "chain_control"]
-    readonly property var qmlTitles: ({ mixer: "Mixer", chain_control: "Chain" })
+    // Screens with their own QML; tempo and alsa_mixer are chain control with a special processor
+    readonly property var qmlScreens: ["mixer", "chain_control", "tempo", "alsa_mixer"]
+    readonly property var qmlTitles: ({ mixer: "Mixer", chain_control: "Chain", tempo: "Tempo",
+                                        alsa_mixer: "Audio Levels" })
 
     width: 960
     height: 600
@@ -43,7 +45,7 @@ Window {
         anchors.top: topBar.bottom
         anchors.bottom: parent.bottom
         anchors.bottomMargin: keypad.keyHeight
-        currentIndex: zyn.currentList ? 2 : Math.max(0, root.qmlScreens.indexOf(zyn.currentScreen))
+        currentIndex: zyn.currentList ? 2 : (zyn.currentScreen === "mixer" ? 0 : 1)
 
         MixerScreen { shown: screens.currentIndex === 0 }
         ChainControlScreen {}

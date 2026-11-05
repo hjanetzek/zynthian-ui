@@ -26,6 +26,7 @@ these commits they come together with the Qt UI; each would need its own commit.
 |---|---|---|
 | [8f267cac](https://github.com/hjanetzek/zynthian-ui/commit/8f267cac) | split | `zynthian_gui_config.init_zyncore()`: zyncore, control I/O and MIDI set-up as a function instead of code in the Tk-only block; the Tk path calls it at the same place. |
 | [4da7bc9f](https://github.com/hjanetzek/zynthian-ui/commit/4da7bc9f) | split | `zyngine/zynthian_snapshot_files.py`: the snapshot screen's file logic (banks, names, MIDI program numbers, bank and snapshot lists); `zynthian_gui_snapshot` uses it. |
+| [7f17ec36](https://github.com/hjanetzek/zynthian-ui/commit/7f17ec36) | split | `zyngui/zynthian_admin_settings.py`: the admin menu's simple toggles (program change mode, bank change, active MIDI channel, USB MIDI by port, audio levels on snapshots, peak meters, preset preload), moved unchanged; `zynthian_gui_admin` calls them. |
 | [3d2ef140](https://github.com/hjanetzek/zynthian-ui/commit/3d2ef140) | split | `zyngui/zynthian_midi_config_data.py`, `zynthian_audio_out_data.py`: list building and route/service actions of `zynthian_gui_midi_config` and `zynthian_gui_audio_out`, moved unchanged; the Tk screens call them. |
 
 ## Noticed, not fixed yet
@@ -39,4 +40,5 @@ these commits they come together with the Qt UI; each would need its own commit.
 | `zyngui/zynthian_gui.py`, `cuia_select()` | open | `SELECT` without a parameter raises `IndexError` in the CUIA thread (logged on every such OSC message). |
 | `zyngine/ctrldev/examples/zynthian_ctrldev_midiproc_notes_filter.py:67` | open | Syntax error (`filter_enabled =`): `compileall` over `zyngine` fails. |
 | `zyngui/zynthian_midi_config_data.py` (from `zynthian_gui_midi_config`) | open | Network MIDI services are only offered if their binaries are in `/usr/local/bin` (jacknetumpd, jackrtpmidid, qmidinet), as with jack_capture. |
+| `zyngui/zynthian_gui.py`, exit on SIGTERM | open (the Qt UI saves it) | The last state is only saved by the admin's Exit/power actions and "Clean", not when zynthian is stopped with SIGTERM (systemd, a kiosk session ending): changes since then are lost although the next start restores the last state. |
 | PipeWire, at exit | open | Rarely an abort at exit, after the mixers shut down: `'source->loop == &impl->loop' failed at spa/plugins/support/loop.c:189 remove_from_poll()` (seen once in ~10 runs). |

@@ -173,9 +173,9 @@ with the Qt UI on the Duet, by touch.
 mixer, chain control (with sidebar: chain options, MIDI/audio routing, processor options), adding
 chains (type, engine, MIDI channel, bank, preset), snapshots, ZS3, tempo, audio levels, admin
 settings (all desktop entries except ZynVoice), MIDI devices and their options, recording and
-transport keys, audio and MIDI player, moving chains and processors, MIDI CC and note
+transport keys, audio and MIDI player, chain manager, moving chains and processors, MIDI CC and note
 range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration's switch actions.
-Not ported yet: controller drivers in the MIDI device options, chain manager view, ZynVoice,
+Not ported yet: controller drivers in the MIDI device options, audio input routing, ZynVoice,
 launcher.
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:

@@ -85,14 +85,19 @@ class ControllerProxy(QObject):
 
     def _binding(self):
         """(text, kind) shown for the MIDI binding (zynthian_gui_controller.set_midi_bind): kind
-        "learn" / "learnGlobal" (learning it, or any while learning without one chosen), "abs",
-        "chain", "zynstep" or "" (none)"""
+        "learn" / "learnGlobal" (learning it, or any while learning without one chosen), "xy"
+        (an X-Y touchpad axis), "abs", "chain", "zynstep" or "" (none)"""
         z = self.zctrl
         if z is None or z.is_path:
             return "", ""
         c = self.control
-        if c.midi_learning and (c.learn_preselect or z == c.ui.state_manager.get_midi_learn_zctrl()):
+        sm = c.ui.state_manager
+        if c.midi_learning and (c.learn_preselect or z == sm.get_midi_learn_zctrl()):
             return "??#??", "learnGlobal" if c.midi_learning == MIDI_LEARNING_GLOBAL else "learn"
+        if z == sm.zctrl_x:
+            return "X", "xy"
+        if z == sm.zctrl_y:
+            return "Y", "xy"
         return binding(c.chain_manager, z) or ("", "")
 
     @Property(str, notify=changed)

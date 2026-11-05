@@ -180,6 +180,13 @@ class ChainControl(QObject):
         return bool(self.special_processor is None and chain and chain.is_midi())
 
     @Property(bool, notify=processorsChanged)
+    def hasAudioIn(self):
+        """Audio input routing (as the Tk sidebar: chains with audio thru, not the main chain)"""
+        chain = self.chain_manager.get_active_chain()
+        return bool(self.special_processor is None and chain and chain.audio_thru and chain.zynmixer_proc
+                    and chain.zynmixer_proc.eng_code != "MR")
+
+    @Property(bool, notify=processorsChanged)
     def isAudio(self):
         chain = self.chain_manager.get_active_chain()
         return bool(self.special_processor is None and chain and chain.is_audio())

@@ -164,7 +164,9 @@ class PluginView(QObject):
         zero (0 dB line or -1), editable (EQ: drag sets the band's gain);
     tuner: note, cents (-50..50), color, or note "" without signal;
     text: lines (title, text) pairs (NAM model, chord analyzer);
-    aidax: meters (in, out levels 0..1) and lines.
+    aidax: meters (in, out levels 0..1) and lines;
+    tempo: big (BPM text), tap on it taps the tempo;
+    radio: lines (title, info, bitrate, codec / channels) and artwork (image path).
     """
     changed = Signal()
 
@@ -217,6 +219,17 @@ class PluginView(QObject):
                         self.levels[i] = wd.meter_fall(self.levels[i], monitors[key])
                 data.update(kind="aidax", meters=[min(1.0, v) for v in self.levels],
                             lines=[["Model", self._file(proc, "json")], ["Cabinet", self._file(proc, "cabinet")]])
+            case "tempo":
+                try:
+                    tempo = self.processor.engine.state_manager.zynseq.get_tempo()
+                except Exception:
+                    tempo = 0
+                data.update(kind="tempo", big=f"{tempo:.1f} BPM")
+            case "inet_radio":
+                m = monitors
+                data.update(kind="radio", artwork=m.get("artwork") or "",
+                            lines=[["", m.get("title") or ""], ["", m.get("info") or ""],
+                                   ["", " ".join(str(m.get(k) or "") for k in ("bitrate", "codec", "channels")).strip()]])
         if data != self._data:
             self._data = data
             self.changed.emit()
@@ -231,6 +244,15 @@ class PluginView(QObject):
     @Property("QVariantMap", notify=changed)
     def data(self):
         return self._data
+
+    @Slot()
+    def tap(self):
+        """Tempo widget: tap tempo"""
+        if self.name == "tempo":
+            try:
+                self.processor.engine.state_manager.zynseq.tap_tempo()
+            except Exception:
+                pass
 
     @Slot(int, float)
     def dragBand(self, band, height_fraction):

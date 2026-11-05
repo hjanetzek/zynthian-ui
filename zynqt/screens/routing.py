@@ -48,6 +48,8 @@ class MidiRouting(SelectorScreen):
         what = midi_config_action(self.state_manager, chain, self.midi_input, self.entries[index]["data"])
         if what == "midi_chan":
             self.ui.set_midi_channel()
+        elif what in ("midi_cc", "midi_key_range"):
+            self.ui.show_screen(what)
         elif what:
             self.ui.show_info(NOT_PORTED)
         else:

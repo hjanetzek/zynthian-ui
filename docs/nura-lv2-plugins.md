@@ -141,5 +141,13 @@ once (zynthian's `zynthian_lv2.test_lv2_plugin`, or jalv) to catch missing symbo
   `mda.lv2` bundles; the MOD fork's needs another bundle name or a conflict).
 - **Licences:** most are GPL/LGPL/ISC; check the few with unclear terms before adding them to an
   image.
+- **SooperLooper:** zynthian runs SooperLooper as its own engine (`zynthian_engine_sooperlooper`:
+  the `sooperlooper` binary, controlled over OSC, with the `zynthian_widget_sooperlooper` widget),
+  not as a plugin. Better to make it work with the SooperLooper LV2 version
+  (`sooperlooper.lv2`, AUR `sooperlooper.lv2-git`) through the jalv engine: one fewer separate
+  program and OSC link, chains and snapshots like any other plugin, and no wxWidgets-era
+  package to build for Nura. Needs a look at what the engine and widget use (loop state,
+  positions, multiple loops) and whether the LV2 version exposes it as ports. The widget's port
+  to the Qt UI is postponed until then.
 - **CPU:** some plugins are too heavy for the Duet's A73 cores at a 256-frame quantum (neural amp
   models, Surge XT with many voices); enable them, but expect limits.

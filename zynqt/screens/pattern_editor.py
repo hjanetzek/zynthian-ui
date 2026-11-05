@@ -22,6 +22,7 @@ class PatternEditor(QObject):
     cursorChanged = Signal()
     entryChanged = Signal()         # note-entry values (velocity, duration)
     ccChanged = Signal()            # CC view: mode, CC number, values
+    blockChanged = Signal()         # select mode, selected block, copied buffer
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -47,6 +48,9 @@ class PatternEditor(QObject):
         self.cc_mode = False        # CC view instead of the notes
         self.cc_num = 64
         self.cc_cursor = 0          # step
+        self.select_mode = False    # touch selects a block instead of adding notes
+        self._block = None           # selected block: [step1, row1, step2, row2] (inclusive)
+        self.copied = None          # copied block (its [step1, row1, step2, row2]); taps paste it
         self._timer = QTimer(self, interval=40)
         self._timer.timeout.connect(self._poll)
 
@@ -347,6 +351,83 @@ class PatternEditor(QObject):
                 "New note duration (steps)", self.duration, 0.5, 64.0, set_duration, step=0.5, decimals=1),
              None, None),
         ])
+
+    # Block selection, copy / cut / paste (zynthian_gui_pated_base block edit)
+
+    @Property(bool, notify=blockChanged)
+    def selectMode(self):
+        return self.select_mode
+
+    @Property("QVariantList", notify=blockChanged)
+    def block(self):
+        return list(self._block) if self._block else []
+
+    @Property(bool, notify=blockChanged)
+    def hasCopy(self):
+        return self.copied is not None
+
+    @Slot()
+    def toggleSelectMode(self):
+        self.select_mode = not self.select_mode
+        if not self.select_mode:
+            self._block = None
+            self.copied = None
+        self.blockChanged.emit()
+
+    @Slot(int, int, int, int)
+    def selectBlock(self, step1, row1, step2, row2):
+        """Select the cells between two corners (any order)"""
+        n_rows = len(self.keymap)
+        s1, s2 = sorted((max(0, min(self.steps - 1, step1)), max(0, min(self.steps - 1, step2))))
+        r1, r2 = sorted((max(0, min(n_rows - 1, row1)), max(0, min(n_rows - 1, row2))))
+        self._block = [s1, r1, s2, r2]
+        self.blockChanged.emit()
+
+    def _block_notes(self, block):
+        notes = [self.keymap[r]["note"] for r in range(block[1], block[3] + 1)]
+        return min(notes), max(notes)
+
+    @Slot(bool)
+    def copyBlock(self, cut):
+        """Copy (or cut) the selected block's notes into the pattern buffer; then taps paste it"""
+        if not self._block:
+            return
+        note1, note2 = self._block_notes(self._block)
+        if cut:
+            self.libseq.savePatternSnapshot()
+        n = self.libseq.copyPatternBuffer(self.pattern, self._block[0], self._block[2], note1, note2, cut)
+        if cut:
+            self._changed()
+        if n:
+            self.copied = list(self._block)
+            self.ui.show_info(f"{'Cut' if cut else 'Copied'} {n} notes: tap where to paste")
+        else:
+            self.copied = None
+            self.ui.show_info("No notes in the selection")
+        self.blockChanged.emit()
+
+    @Slot()
+    def deleteBlock(self):
+        """Remove the selected block's notes (a cut without keeping the copy)"""
+        if self._block:
+            note1, note2 = self._block_notes(self._block)
+            self.libseq.savePatternSnapshot()
+            self.libseq.copyPatternBuffer(self.pattern, self._block[0], self._block[2], note1, note2, True)
+            self._changed()
+            self._block = None
+            self.blockChanged.emit()
+
+    @Slot(int, int)
+    def pasteAt(self, step, row):
+        """Paste the copied block with its first step and lowest row at (step, row)"""
+        if not self.copied or not 0 <= row < len(self.keymap):
+            return
+        src_note = self._block_notes(self.copied)[0]
+        dnote = self.keymap[row]["note"] - src_note
+        dstep = step - self.copied[0]
+        self.libseq.savePatternSnapshot()
+        self.libseq.pastePatternBuffer(self.pattern, dstep, 0.0, max(-127, min(127, dnote)), False)
+        self._changed()
 
     @Slot()
     def entryOptions(self):

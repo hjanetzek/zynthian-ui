@@ -123,6 +123,12 @@ class zynthian_engine_puredata(zynthian_engine):
             self.base_command = f"pd -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1"
         else:
             self.base_command = f"pd -nogui -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1"
+        # Patches declare zynthian's Organelle abstractions by their ZynthianOS path
+        # (/zynthian/zynthian-data/puredata/organelle); where the data is elsewhere (desktop,
+        # distribution packages), add this system's directory to pd's search path
+        organelle_dir = f"{zynthian_paths.data_dir}/puredata/organelle"
+        if organelle_dir != "/zynthian/zynthian-data/puredata/organelle" and os.path.isdir(organelle_dir):
+            self.base_command += f" -path \"{organelle_dir}\""
 
         self.reset()
 

@@ -1,0 +1,36 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# ZynAddSubFX for zynthian's ZY engine, which runs it without GUI ("zynaddsubfx -O jack-multi -I jack
+# -P <osc port> -a") and controls it over OSC. Not packaged by Alpine. The release tarball
+# includes the rtosc submodule and the banks; the banks go to /usr/share/zynaddsubfx/banks, where
+# zynthian-data's zynbanks symlink points.
+pkgname=zynaddsubfx
+pkgver=3.0.6
+pkgrel=0
+pkgdesc="ZynAddSubFX software synthesizer (no GUI)"
+url="https://zynaddsubfx.sourceforge.io"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="cmake samurai fftw-dev mxml-dev liblo-dev zlib-dev jack-dev alsa-lib-dev linux-headers"
+subpackages="$pkgname-doc"
+source="https://downloads.sourceforge.net/project/zynaddsubfx/zynaddsubfx/$pkgver/zynaddsubfx-$pkgver.tar.bz2"
+options="!check" # tests need the GUI-less build's test targets, not built
+
+build() {
+	# Headers use uint8_t etc. without <cstdint>, which GCC 13+ no longer includes indirectly
+	CXXFLAGS="$CXXFLAGS -include cstdint" \
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=None \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DGuiModule=off \
+		-DDemoMode=off \
+		-DCompileTests=off \
+		-DCMAKE_POLICY_VERSION_MINIMUM=3.5
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+}
+sha512sums="
+86311f00d97e20c7eb22a46c99736c56765ed9737e728ef380a324e4a92c731086ed74f5d7bfeae104b690ab1ee1b40bfb8f240bc4c46f8afd47308ec48cbcea  zynaddsubfx-3.0.6.tar.bz2
+"

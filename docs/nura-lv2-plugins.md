@@ -32,7 +32,7 @@ cd /usr/share/zynthian/zynthian-ui/zyngine && python3 ./zynthian_lv2.py engines
 with zynthian's environment (`ZYNTHIAN_DIR`, `ZYNTHIAN_LIB_DIR`, `PYTHONPATH` as in
 `/usr/bin/zynthian`, then `desktop/zynthian_desktop_env.sh`), then restart the session.
 
-## Installed: 144 of 313
+## Installed: 146 of 313
 
 All pulled in by the meta package `zynthian-lv2-plugins` (`nura/lv2/`), which
 `postmarketos-ui-zynthian` depends on. From Alpine:
@@ -63,6 +63,7 @@ Packaged in `nura/lv2/` (phase 1, built and tested on the Duet):
 | `shiro-lv2` | 3 | built against a newer DPF, modgui off |
 | `artyfx-lv2` | 2 | without GUI and SSE |
 | `abgate-lv2`, `bolliedelay-lv2`, `ykchorus-lv2` | 3 | DSP only |
+| `setbfree` (`nura/engines/`) | 2 | x42 Whirl (b_whirl); also zynthian's setBfree engine |
 
 Before 2026-11-05 the kiosk package depended on `calf` instead of `calf-lv2` (Alpine puts the LV2
 plugins in a subpackage): none of the Calf plugins were installed. Fixed in `abd64c11`.
@@ -71,7 +72,7 @@ Available in Alpine but **not** in zynthian's defaults (all disabled there): `ls
 (0 of 194 enabled), `airwindows-lv2` (0 of 187), `noise-repellent`, `bankstown-lv2`. Not
 installed.
 
-## Missing: 169
+## Missing: 167
 
 None of these are packaged in Alpine. Source: how ZynthianOS gets them (Debian/KXStudio package
 from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a prebuilt binary).
@@ -81,7 +82,7 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | Guitarix + GxPlugins | 59 | effects (amps, pedals) | recipes `install_guitarix.sh` (`--mod-lv2 --no-standalone`), `install_gxplugins.sh`; Debian `gxplugins` | waf; make | largest group; Guitarix needs Boost, glibmm, fftw, lilv, zita-convolver/resampler |
 | FluidPlug | 19 | instruments (SF2 sound sets) | recipe `install_fluidplug.sh` (fork `zynthian/FluidPlug`) | make, downloads the SF2s | data-heavy (soundfonts); needs fluidsynth |
 | DPF-Plugins | 7 | effects, synths (3 Band EQ, MVerb, Ping Pong Pan, Kars, Nekobi, Ma*) | Debian `dpf-plugins`, recipe `install_dpf_plugins.sh` | make (DPF) | build without UIs |
-| x42 extras | 7 | drumkits (5), Whirl (2) | recipes `install_avldrums.sh` (x42 binaries), `install_setbfree.sh` | make | avldrums: large sample data; setBfree is also a zynthian engine |
+| x42 extras | 5 | AVL drumkits | recipe `install_avldrums.sh` (x42 binaries) | make | large sample data (Whirl: done, with `setbfree`) |
 | DISTRHO-Ports (JUCE) | 6 | TAL effects, Vex | Debian `distrho-plugin-ports-lv2`, recipe `install_distrho_ports.sh` | meson, JUCE (legacy) | long build |
 | EQ10Q | 8 | EQs, compressors | Debian `eq10q`, recipe `install_eq10q.sh` | cmake | GUI (gtkmm) to switch off |
 | Dusk Audio | 6 | effects, synth | prebuilt only (`install_dusk_*_prebuilt.sh`) | JUCE | sources to check; prebuilt glibc binaries can't run on musl |
@@ -237,5 +238,10 @@ Problems found, and how the packages handle them:
   directory to the search path when zynthian-data is not in the ZynthianOS location (like the
   Organelle path). Pd's settings for the desktop (deken externals in `~/Documents/Pd/externals`)
   are described above.
+- **Engines (2026-11-05):** `nura/engines/zynaddsubfx` (3.0.6, release tarball with rtosc and the
+  banks, no GUI; GCC 13+ needs `-include cstdint`, OSS headers from `linux-headers`; banks in
+  `/usr/share/zynaddsubfx/banks`, where zynthian-data's `zynbanks` symlink points) and
+  `nura/engines/setbfree` (0.8.17, no UI, without the x86 flags; its LV2 plugins too), both
+  dependencies of `postmarketos-ui-zynthian`: zynthian's ZY and BF engines are available on Nura.
 - **CPU:** some plugins are too heavy for the Duet's A73 cores at a 256-frame quantum (neural amp
   models, Surge XT with many voices); enable them, but expect limits.

@@ -1,0 +1,33 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# setBfree tonewheel organ for zynthian's BF engine (runs "setBfree" with zynthian-data/setbfree's
+# configuration), plus its LV2 plugins: b_whirl (x42 Whirl rotary speaker, enabled by default in
+# zynthian), b_synth, b_overdrive, b_reverb. Without the OpenGL UI (setBfreeUI) and the x86 flags
+# (zynthian-sys recipe install_setbfree.sh).
+pkgname=setbfree
+pkgver=0.8.17
+pkgrel=0
+pkgdesc="setBfree tonewheel organ (JACK and LV2, no GUI)"
+url="https://setbfree.org"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="jack-dev alsa-lib-dev lv2-dev"
+source="$pkgname-$pkgver.tar.gz::https://github.com/pantherb/setBfree/archive/v$pkgver.tar.gz"
+builddir="$srcdir/setBfree-$pkgver"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	sed -i 's/-msse -msse2 -mfpmath=sse//g' common.mak
+}
+
+build() {
+	# Without ftgl/OpenGL the UI (setBfreeUI, b_synthUI) isn't built
+	make PREFIX=/usr
+}
+
+package() {
+	make install PREFIX=/usr DESTDIR="$pkgdir" lv2dir=/usr/lib/lv2
+}
+sha512sums="
+698339b47ca3eb3d8c2e41a9b0e90fbfebb2091f60789b6c59193d0cdf81e65c3efd897b48a16bf5ac77918c0b4d143195ecf21409fe1439b830f6a4a78b729e  setbfree-0.8.17.tar.gz
+"

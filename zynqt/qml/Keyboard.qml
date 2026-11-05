@@ -13,7 +13,7 @@ Rectangle {
 
     onVisibleChanged: if (visible) { field.text = zyn.keyboardText; field.selectAll(); field.forceActiveFocus() }
 
-    TapHandler {}   // modal
+    MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }   // modal: keeps touches from the screen below
 
     Connections {
         target: zyn
@@ -97,6 +97,6 @@ Rectangle {
             font.pixelSize: 22
             font.family: Theme.fontFamily
         }
-        TapHandler { id: tap; onTapped: key.tapped() }
+        TapHandler { id: tap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: key.tapped() }
     }
 }

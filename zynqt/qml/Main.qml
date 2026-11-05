@@ -46,7 +46,7 @@ Window {
         currentIndex: zyn.currentList ? 2 : Math.max(0, root.qmlScreens.indexOf(zyn.currentScreen))
 
         MixerScreen { shown: screens.currentIndex === 0 }
-        PlaceholderScreen { text: "Chain control: not ported yet" }
+        ChainControlScreen {}
         SelectorScreen { screen: zyn.currentList }
     }
 

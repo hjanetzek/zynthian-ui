@@ -84,7 +84,12 @@ cd "$ZYNTHIAN_UI_DIR"
 error_counter=0
 while true; do
 	load_config_env
-	python3 ./zynthian_main.py
+	# ZYNTHIAN_UI=qt: the Qt Quick UI (docs/qt-port-plan.md) instead of the Tk UI
+	if [ "$ZYNTHIAN_UI" == "qt" ]; then
+		python3 ./zynthian_qt_main.py
+	else
+		python3 ./zynthian_main.py
+	fi
 	status=$?
 	echo "zynthian exit status: $status"
 

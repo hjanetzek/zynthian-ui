@@ -767,6 +767,54 @@ for i, value in enumerate(LAUNCHER_COLOUR):
 # X11 Related Stuff
 # ------------------------------------------------------------------------------
 
+def init_zyncore():
+    """Initialise the zyncore library, the control I/O (switches, encoders, ...) and the MIDI
+    configuration. Called at start by the UI (zynthian_main.py, zynqt)."""
+    global lib_zyncore, num_zynswitches, last_zynswitch_index, num_zynpots
+
+    # ------------------------------------------------------------------------------
+    # Initialize ZynCore low-level library
+    # ------------------------------------------------------------------------------
+
+    from zyncoder.zyncore import lib_zyncore_init
+
+    # ------------------------------------------------------------------------------
+    # Initialize and config control I/O subsystem: switches, analog I/O, ...
+    # ------------------------------------------------------------------------------
+    try:
+        lib_zyncore = lib_zyncore_init()
+    except Exception as e:
+        logging.error(f"lib_zyncore: {e.args[0]} ({e.args[1]})")
+        exit(200 + e.args[1])
+
+    try:
+        num_zynswitches = lib_zyncore.get_num_zynswitches()
+        last_zynswitch_index = lib_zyncore.get_last_zynswitch_index()
+        num_zynpots = lib_zyncore.get_num_zynpots()
+    except Exception as e:
+        logging.warning(f"Can't init control I/O subsytem: {e}")
+        num_zynswitches = 0
+        last_zynswitch_index = -1
+        num_zynpots = 0
+        #exit(200)
+
+    config_zynswitch_timing()
+    config_custom_switches()
+    config_zynpot2switch()
+    config_zynaptik()
+    config_zyntof()
+
+    # ------------------------------------------------------------------------------
+    # Load MIDI config
+    # ------------------------------------------------------------------------------
+
+    try:
+        set_midi_config()
+        set_mmc_config()
+    except Exception as e:
+        logging.error("ERROR configuring MIDI: {}".format(e))
+
+
 if "zynthian_main.py" in sys.argv[0]:
     import tkinter
     from PIL import Image, ImageTk
@@ -963,47 +1011,7 @@ if "zynthian_main.py" in sys.argv[0]:
     except Exception as e:
         logging.error("ERROR initializing Tkinter graphic framework => {}".format(e))
 
-    # ------------------------------------------------------------------------------
-    # Initialize ZynCore low-level library
-    # ------------------------------------------------------------------------------
-
-    from zyncoder.zyncore import lib_zyncore_init
-
-    # ------------------------------------------------------------------------------
-    # Initialize and config control I/O subsystem: switches, analog I/O, ...
-    # ------------------------------------------------------------------------------
-    try:
-        lib_zyncore = lib_zyncore_init()
-    except Exception as e:
-        logging.error(f"lib_zyncore: {e.args[0]} ({e.args[1]})")
-        exit(200 + e.args[1])
-
-    try:
-        num_zynswitches = lib_zyncore.get_num_zynswitches()
-        last_zynswitch_index = lib_zyncore.get_last_zynswitch_index()
-        num_zynpots = lib_zyncore.get_num_zynpots()
-    except Exception as e:
-        logging.warning(f"Can't init control I/O subsytem: {e}")
-        num_zynswitches = 0
-        last_zynswitch_index = -1
-        num_zynpots = 0
-        #exit(200)
-
-    config_zynswitch_timing()
-    config_custom_switches()
-    config_zynpot2switch()
-    config_zynaptik()
-    config_zyntof()
-
-    # ------------------------------------------------------------------------------
-    # Load MIDI config
-    # ------------------------------------------------------------------------------
-
-    try:
-        set_midi_config()
-        set_mmc_config()
-    except Exception as e:
-        logging.error("ERROR configuring MIDI: {}".format(e))
+    init_zyncore()
 
 # ------------------------------------------------------------------------------
 # Zynthian GUI object

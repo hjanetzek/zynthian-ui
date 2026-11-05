@@ -10,6 +10,8 @@ import logging
 
 from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
+from zyngui import zynthian_audio_file_data as afd
+from zynqt.models.audio_file import AudioFileView
 from zynqt.screens.base import EntryModel, entry, separator
 
 
@@ -103,6 +105,9 @@ class ChainControl(QObject):
         self._timer = QTimer(self, interval=50)
         self._timer.timeout.connect(self._refresh)
         ui.bridge.processorControllersChanged.connect(self._rebuild_if_shown)
+        # Waveform of an audio file processor (audio player, clippy, samplv1), as Tk's widget
+        self.audio_view = AudioFileView(ui, self)
+        self._has_waveform = False
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
 
     # Shown / hidden (ZynUI)
@@ -111,10 +116,13 @@ class ChainControl(QObject):
         self._build()
         self._shown = True
         self._timer.start()
+        if self._has_waveform:
+            self.audio_view.start()
 
     def hide(self):
         self._shown = False
         self._timer.stop()
+        self.audio_view.stop()
 
     def _rebuild_if_shown(self):
         if self._shown:
@@ -166,6 +174,7 @@ class ChainControl(QObject):
             # No controller page (e.g. no audio levels on this device): empty slots
             for c in self.controllers:
                 c.set_zctrl(None)
+            self._set_waveform(None)
             self.pageChanged.emit()
         else:
             self.setPage(page)
@@ -243,7 +252,28 @@ class ChainControl(QObject):
                 zctrls = []
         for i, c in enumerate(self.controllers):
             c.set_zctrl(zctrls[i] if i < len(zctrls) else None)
+        self._set_waveform(proc if kind != "chain" else None)
         self.pageChanged.emit()
+
+    def _set_waveform(self, proc):
+        gui = getattr(proc.engine, "custom_gui_fpath", None) if proc else None
+        has = proc is not None and (afd.engine_type(proc) != afd.ENG_NONE
+                                    or bool(gui and gui.endswith("zynthian_widget_audio_file.py")))
+        if has:
+            self.audio_view.set_processor(proc)
+            if self._shown:
+                self.audio_view.start()
+        else:
+            self.audio_view.stop()
+        self._has_waveform = has
+
+    @Property(bool, notify=pageChanged)
+    def hasWaveform(self):
+        return self._has_waveform
+
+    @Property(QObject, constant=True)
+    def waveform(self):
+        return self.audio_view
 
     @Slot(int)
     def selectProcessor(self, i):

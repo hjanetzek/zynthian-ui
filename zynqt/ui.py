@@ -25,6 +25,7 @@ from zynqt.bridge import SignalBridge
 from zynqt.chain_edit import ChainEdit
 from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
+from zynqt.screens.chain_manager import ChainManager
 from zynqt.screens.control import ChainControl
 from zynqt.screens.snapshots import Options, Snapshots
 from zynqt.screens.chain_options import ChainOptions
@@ -37,7 +38,7 @@ from zynqt.screens.midi_chain import KeyRangeProcessor, MidiCC
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
-QML_SCREENS = ("mixer", "chain_control", "tempo", "alsa_mixer", "audio_player", "midi_key_range")
+QML_SCREENS = ("mixer", "chain_manager", "chain_control", "tempo", "alsa_mixer", "audio_player", "midi_key_range")
 
 
 class ZynUI(QObject):
@@ -89,8 +90,10 @@ class ZynUI(QObject):
         self.chain_edit = ChainEdit(self.state_manager)
         self.list_screens = {}
         self.chain_control_screen = ChainControl(self, self)
+        self.chain_manager_screen = ChainManager(self, self)
         # Screens with their own QML and Python object (build when shown, hide when left)
-        self.qml_screen_objects = {"chain_control": self.chain_control_screen,
+        self.qml_screen_objects = {"chain_manager": self.chain_manager_screen,
+                                   "chain_control": self.chain_control_screen,
                                    "tempo": self.chain_control_screen,
                                    "alsa_mixer": self.chain_control_screen,
                                    "audio_player": self.chain_control_screen,
@@ -251,6 +254,10 @@ class ZynUI(QObject):
         return list(self.list_screens.values())
 
     @Property(QObject, constant=True)
+    def chainManager(self):
+        return self.chain_manager_screen
+
+    @Property(QObject, constant=True)
     def chainControl(self):
         return self.chain_control_screen
 
@@ -261,9 +268,10 @@ class ZynUI(QObject):
     def _set_current_screen(self, name, params=None):
         """Switch to name: hide the old screen object, build the new one"""
         self.switch_t0 = monotonic()   # for ZYNTHIAN_QT_TIMING (zynthian_qt_main)
-        if name != "mixer":
+        if name != self.current_screen:
+            # Move modes belong to the screen they were started in (mixer, chain control, chain
+            # manager)
             self.endMoveChain()
-        if name != "chain_control":
             self.endMoveProcessor()
         old = self.qml_screen_objects.get(self.current_screen)
         if old and name != self.current_screen:
@@ -335,8 +343,10 @@ class ZynUI(QObject):
     def movingChain(self):
         return self._moving_chain
 
-    def start_move_chain(self):
-        self.show_screen("mixer")
+    def start_move_chain(self, stay=False):
+        """Move the active chain: in the mixer, or in the screen shown (stay: chain manager)"""
+        if not stay:
+            self.show_screen("mixer")
         self._moving_chain = True
         self.movingChainChanged.emit()
 
@@ -357,8 +367,10 @@ class ZynUI(QObject):
     def movingProcessor(self):
         return self._moving_processor is not None
 
-    def start_move_processor(self, processor):
-        self.chain_control(processor.chain.chain_id, processor)
+    def start_move_processor(self, processor, stay=False):
+        """Move processor: in chain control, or in the screen shown (stay: chain manager)"""
+        if not stay:
+            self.chain_control(processor.chain.chain_id, processor)
         self._moving_processor = processor
         self.movingProcessorChanged.emit()
 
@@ -370,7 +382,10 @@ class ZynUI(QObject):
             return
         d = {"up": NUDGE_UP, "down": NUDGE_DOWN, "left": NUDGE_LEFT, "right": NUDGE_RIGHT}[direction]
         if self.chain_manager.nudge_processor(p.chain.chain_id, p, d):
-            self.chain_control_screen.build()
+            if self.current_screen == "chain_manager":
+                self.chain_manager_screen.moved()
+            else:
+                self.chain_control_screen.build()
         else:
             self.show_info("Can't move it further.")
 
@@ -783,6 +798,9 @@ class ZynUI(QObject):
 
     def cuia_screen_mixer(self, params=None):
         self.showScreen("mixer")
+
+    def cuia_screen_chain_manager(self, params=None):
+        self.showScreen("chain_manager")
 
     def cuia_main_menu(self, params=None):
         self.showScreen("main_menu")

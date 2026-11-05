@@ -1116,7 +1116,7 @@ class zynthian_state_manager:
 
         mute = self.zynmixer_bus.get_mute(0)
         try:
-            snapshot = JSONDecoder().decode(json)
+            snapshot = zynthian_paths.remap_os_paths(JSONDecoder().decode(json))
             self.set_busy_details("fixing legacy snapshot")
             converter = zynthian_legacy_snapshot(self)
             state = converter.convert_state(snapshot)

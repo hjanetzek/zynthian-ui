@@ -230,8 +230,9 @@ Item {
             visible: root.launcherMode
             anchors.top: levelBar.bottom
             anchors.topMargin: 4
-            anchors.bottom: buttons.top
-            anchors.bottomMargin: 4
+            // Room for two buttons in every strip, so the pad rows line up (MIDI strips have one)
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 2 * 36 + buttons.spacing + 8
             anchors.left: parent.left
             anchors.right: parent.right
             clip: true
@@ -241,7 +242,9 @@ Item {
                 y: -root.launcherScroll
                 width: parent.width
                 Repeater {
-                    model: root.launcherMode ? root.launcher.phrases : 0
+                    // Always instantiated: creating the pads (strips x phrases) on each switch
+                    // to the launcher is what made it slow; hidden pads only note changes
+                    model: root.launcher.phrases
                     Pad {
                         required property int index
                         chainId: strip.chainId
@@ -353,12 +356,19 @@ Item {
         property bool selected
         property var info: ({})
 
-        function reload() { info = root.launcher.padInfo(chainId, phrase) }
-        Component.onCompleted: reload()
+        // Reloaded on a change while the launcher is shown, else when it is shown next
+        readonly property bool shown: root.launcherMode
+        property bool stale: true
+        function reload() { info = root.launcher.padInfo(chainId, phrase); stale = false }
+        function changed() { if (shown) reload(); else stale = true }
+        onShownChanged: if (shown && stale) reload()
+        onChainIdChanged: changed()
+        onPhraseChanged: changed()
+        Component.onCompleted: if (shown) reload()
         Connections {
             target: root.launcher
-            function onPadChanged(c, p) { if (c === pad.chainId && p === pad.phrase) pad.reload() }
-            function onPadsChanged() { pad.reload() }
+            function onPadChanged(c, p) { if (c === pad.chainId && p === pad.phrase) pad.changed() }
+            function onPadsChanged() { pad.changed() }
         }
 
         color: info.color || Theme.panelHighlight

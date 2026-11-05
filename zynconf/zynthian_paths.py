@@ -65,3 +65,31 @@ def native_lib(fname, build_dir):
         if os.path.isfile(fpath):
             return fpath
     return os.path.join(build_dir, fname)
+
+
+# Snapshots made on ZynthianOS store absolute paths under /zynthian (soundfonts, samples,
+# presets). Where the directories are elsewhere (desktop, distribution packages), map them.
+_OS_PATHS = (("/zynthian/zynthian-my-data/", "zynthian-my-data"), ("/zynthian/zynthian-data/", "zynthian-data"))
+
+
+def remap_os_paths(obj):
+    """obj (a decoded snapshot) with ZynthianOS data paths replaced by this system's"""
+    mapping = [(prefix, (my_data_dir if name == "zynthian-my-data" else data_dir).rstrip("/") + "/")
+               for prefix, name in _OS_PATHS]
+    mapping = [(a, b) for a, b in mapping if a != b]
+    if not mapping:
+        return obj
+
+    def remap(value):
+        if isinstance(value, str):
+            for a, b in mapping:
+                if value.startswith(a):
+                    return b + value[len(a):]
+            return value
+        if isinstance(value, dict):
+            return {remap(k): remap(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [remap(v) for v in value]
+        return value
+
+    return remap(obj)

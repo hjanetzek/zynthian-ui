@@ -176,8 +176,8 @@ settings (all desktop entries except ZynVoice), MIDI devices and their options, 
 transport keys, audio and MIDI player, chain manager, moving chains and processors, MIDI CC and note
 range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration's switch actions.
 M3 started: the launcher (mixer in launcher mode) with its phrase menu, the pattern editor
-(notes; first version, QML items). Not ported yet: ZynVoice, the pattern editor's CC view, block
-selection/copy, chords and the finer note parameters, arranger, engine widgets (waveform, ...).
+(notes, CC view, chord entry; QML items). Not ported yet: ZynVoice, the pattern editor's block
+selection/copy and finer note parameters, SMF import/export, arranger, engine widgets (waveform, ...).
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
 
@@ -203,8 +203,8 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
 3. Touch (postponed; multitouch faders already work): swipe vs. tap in lists, long-press timing,
    drag sensitivity.
 4. M3: launcher (9f3d00c8), phrase menu (ee070fcf), pattern editor notes (1b575e6a, plain QML
-   items: measure on the Duet before deciding on a C++ item). Next: pattern editor CC view,
-   block selection/copy/paste, chords; the audio file widget (waveform); arranger.
+   items: measure on the Duet before deciding on a C++ item), CC view and chords (3a6778ac).
+   Next: the audio file widget (waveform); pattern editor block selection/copy/paste; arranger.
 5. Upstream: split the shared modules into self-contained commits, fix the bugs noted in
    [upstream-candidates.md](upstream-candidates.md), pytest for the shared modules.
 

@@ -35,6 +35,7 @@ from zyngui import zynthian_gui_config
 from zyngine.zynthian_controller import zynthian_controller
 from zyngui.zynthian_gui_controller import zynthian_gui_controller
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
+from zyngui.zynthian_midi_recorder_data import get_filelist, midi_file_rows
 # Python wrapper for zynsmf (ensures initialised and wraps load() function)
 from zynlibs.zynsmf import zynsmf
 from zynlibs.zynsmf.zynsmf import libsmf  # Direct access to shared library
@@ -90,65 +91,13 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector_info):
         self.list_data = [None]
         self.update_status_recording(self.zyngui.state_manager.status_midi_recorder)
         self.update_status_loop()
-        i = 1
-
-        def fill_from_source(source_dir, header_title):
-            nonlocal i
-            flist = self.get_filelist(source_dir)
-            if len(flist) > 0:
-                self.list_data.append([None, 0, header_title])
-                for finfo in sorted(flist, key=lambda d: d['mtime'], reverse=True):
-                    title = f"{finfo['title']} ({finfo['fduration']})"
-                    self.list_data.append([finfo['fpath'], i, title, ["Select to play.\nBold to show options.", None]])
-                    i += 1
-
-        # External storage
-        for exd in zynthian_gui_config.get_external_storage_dirs(self.ex_data_dir):
-            fill_from_source(exd, f"USB> {os.path.basename(exd)} MIDI Tracks")
-
-        # Internal storage
-        fill_from_source(self.capture_dir_sdc, "SD> Captured MIDI Tracks")
-        fill_from_source(self.user_dir_sdc, "SD> User MIDI Tracks")
-        fill_from_source(self.system_dir_sdc, "SD> System MIDI Tracks")
+        self.list_data += midi_file_rows(self.ex_data_dir, 1)
         super().fill_list()
         self.update_status_playback(self.zyngui.state_manager.status_midi_player)
 
 
     def get_filelist(self, src_dir):
-        res = []
-        smf = libsmf.addSmf()
-
-        for f in os.listdir(src_dir):
-            fpath = join(src_dir, f)
-            fname = f[:-4]
-            fext = f[-4:].lower()
-            if isfile(fpath) and fext in ('.mid'):
-                # Get mtime
-                mtime = os.path.getmtime(fpath)
-
-                # Get duration
-                try:
-                    zynsmf.load(smf, fpath)
-                    length = libsmf.getDuration(smf)
-                except Exception as e:
-                    length = 0
-                    logging.warning(e)
-
-                # Generate title
-                title = fname.replace(";", ">", 1).replace(";", "/")
-
-                res.append({
-                    'fpath': fpath,
-                    'fname': fname,
-                    'fext': fext[1:],
-                    'length': length,
-                    'fduration': f"{int(length / 60)}:{int(length % 60):02}",
-                    'mtime': mtime,
-                    'title': title
-                })
-
-        libsmf.removeSmf(smf)
-        return res
+        return get_filelist(src_dir)
 
     def update_status_playback(self, state):
         item_labels = self.listbox.get(0, tkinter.END)

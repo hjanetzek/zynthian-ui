@@ -232,7 +232,7 @@ def filter_drag(cutoff, resonance, click_cutoff, click_res, dx_rel, dy_rel):
 
 # Plugin widgets (engine.custom_gui_fpath: zynthian_widget_<name>.py)
 
-PLUGIN_WIDGETS = ("spectr30", "tunaone", "GxGraphicEQ", "nam", "aidax", "chord_analyzer")
+PLUGIN_WIDGETS = ("spectr30", "tunaone", "GxGraphicEQ", "nam", "aidax", "chord_analyzer", "tempo", "inet_radio")
 
 
 def plugin_widget(processor):

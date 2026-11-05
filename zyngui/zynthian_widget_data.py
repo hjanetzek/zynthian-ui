@@ -228,3 +228,165 @@ def filter_drag(cutoff, resonance, click_cutoff, click_res, dx_rel, dy_rel):
     if resonance:
         y = max(0.0, min(1.0, click_res - dy_rel))
         resonance.set_value(resonance.value_min + y * resonance.value_range)
+
+
+# Plugin widgets (engine.custom_gui_fpath: zynthian_widget_<name>.py)
+
+PLUGIN_WIDGETS = ("spectr30", "tunaone", "GxGraphicEQ", "nam", "aidax", "chord_analyzer")
+
+
+def plugin_widget(processor):
+    """Name of a processor's plugin widget (zynthian_widget_<name>.py) if it has one of
+    PLUGIN_WIDGETS, else None"""
+    gui = getattr(processor.engine, "custom_gui_fpath", None) if processor else None
+    if not gui:
+        return None
+    name = gui.rsplit("/", 1)[-1]
+    if name.startswith("zynthian_widget_") and name.endswith(".py"):
+        name = name[len("zynthian_widget_"):-3]
+        return name if name in PLUGIN_WIDGETS else None
+    return None
+
+
+# 1/3 octave spectrum (x42 spectr30, zynthian_widget_spectr30)
+
+SPECTRUM_FREQS = [25, 31, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800,
+                  1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000]
+SPECTRUM_LABELS = ["25", "31.5", "40", "50", "63", "80", "100", "125", "160", "200", "250", "315", "400", "500",
+                   "630", "800", "1K", "1.25K", "1.6K", "2K", "2.5K", "3.15K", "4K", "5K", "6.3K", "8K", "10K",
+                   "12.5K", "16K", "20K"]
+
+
+def spectrum_levels(processor, monitors):
+    """Per band (level, peak), as fractions of the height (scaled by the UIgain controller)"""
+    try:
+        scale = (12.0 + processor.controllers_dict['UIgain'].value) / 12.0
+    except Exception:
+        scale = 1.0
+    levels = []
+    for freq in SPECTRUM_FREQS:
+        try:
+            bar = scale * (100 + monitors[f"band{freq}"]) / 100
+        except Exception:
+            bar = 0.0
+        try:
+            tick = scale * (100 + monitors[f"max{freq}"]) / 100
+        except Exception:
+            tick = 0.0
+        levels.append((bar, tick))
+    return levels
+
+
+# Guitarix graphic EQs (zynthian_widget_GxGraphicEQ): gains -30..+22 dB over the height
+
+GX_EQ_BANDS = {
+    "http://guitarix.sourceforge.net/plugins/gx_graphiceq_#_graphiceq_": (
+        [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000, 20000],
+        [">31Hz", "62Hz", "125Hz", "250Hz", "500Hz", "1KHz", "2KHz", "4KHz", "8KHz", "16KHz", "<20KHz"]),
+    "http://guitarix.sourceforge.net/plugins/gx_barkgraphiceq_#_barkgraphiceq_": (
+        [50, 150, 250, 350, 450, 570, 700, 840, 1000, 1170, 1370, 1600, 1850, 2150, 2500, 2900, 3400,
+         4000, 4800, 5800, 7000, 8500, 10500, 13500],
+        ["50Hz", "150Hz", "250Hz", "350Hz", "450Hz", "570Hz", "700Hz", "840Hz", "1K", "1.17K", "1.37K", "1.6K",
+         "1.85K", "2.15K", "2.5K", "2.9K", "3.4K", "4K", "4.8K", "5.8K", "7K", "8.5K", "10.5K", "13.5K"]),
+}
+GX_ZERO = 30 / 52   # height fraction of the 0 dB line
+
+
+def gx_eq_bands(processor):
+    """(freqs, labels) of a Guitarix graphic EQ, or None"""
+    return GX_EQ_BANDS.get(getattr(processor.engine, "plugin_url", None))
+
+
+def gx_eq_levels(processor, monitors, n_bands):
+    """Per band (bar bottom, bar top, gain tick), as height fractions from the bottom"""
+    levels = []
+    for i in range(n_bands):
+        try:
+            val = monitors[f"V{i + 1}"]
+            if n_bands == 24:
+                bar = (GX_ZERO, (30 + val) / 52)   # -40.0 <= val <= 4.0
+            else:
+                bar = (0.0, val)                   # 0 <= val <= 1.0
+        except Exception:
+            bar = (0.0, 0.0)
+        try:
+            tick = (30 + processor.controllers_dict[f"G{i + 1}"].value) / 52
+        except Exception:
+            tick = 0.0
+        levels.append((bar[0], bar[1], tick))
+    return levels
+
+
+def gx_eq_drag(processor, band, height_fraction):
+    """Set band's gain (0-based) from a touch at height_fraction (0 bottom, 1 top)"""
+    try:
+        zctrl = processor.controllers_dict[f"G{band + 1}"]
+    except KeyError:
+        return
+    zctrl.set_value(int(52 * height_fraction) - 30)
+
+
+# Tuner (x42 tuna, zynthian_widget_tunaone)
+
+NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+
+def tuner_color(cent):
+    try:
+        acent = abs(cent)
+        if acent > 25:
+            cr, cg = 255, 0
+        elif acent > 10:
+            cr, cg = 255, int((25 - acent) * 255 / 15)
+        else:
+            cr, cg = int(acent * 255 / 40), 255
+        return "#%02x%02x%02x" % (cr, cg, 0)
+    except Exception:
+        return "#00FF00"
+
+
+def tuner_state(monitors):
+    """(note name, cents, colour) while there is a signal, else None"""
+    if 'freq_out' not in monitors or monitors.get('rms', -100) <= -50.0:
+        return None
+    try:
+        note = f"{NOTE_NAMES[int(monitors['note'])]}{int(monitors['octave'])}"
+    except Exception:
+        note = "??"
+    cent = monitors.get('cent', 0) or 0
+    return note, cent, tuner_color(cent)
+
+
+# Chord analyzer (dusk chord analyzer, zynthian_widget_chord_analyzer)
+
+CHORD_ROOTS = ["-", "C", "C#/Db", "D", "D#/Eb", "E", "F", "F#/Gb", "G", "G#/Ab", "A", "A#/Bb", "B"]
+CHORD_QUALITIES = ["-", "maj", "m", "dim", "aug", "7", "maj7", "m7", "mMaj7", "dim7", "m7b5", "aug7", "augMaj7",
+                   "sus2", "sus4", "7sus4", "add9", "add11", "6", "m6", "maj9", "m9", "9", "maj11", "m11", "11",
+                   "maj13", "m13", "13", "5", "7b5", "7#5", "7b9", "7#9"]
+CHORD_INVERSIONS = ["-", "Root", "1st", "2nd", "3rd", "4th", "5th", "6th", "Slash"]
+
+
+def chord_texts(monitors):
+    """(chord text, bass text) of the detected chord, or None"""
+    for prefix, root, quality, inversion, bass in (
+            ("", "detected_root", "detected_quality", "detected_inversion", "detected_bass"),
+            ("chord_analyzer_", "detectedRoot", "detectedQuality", "detectedInversion", "detectedBass"),
+            ("chord_analyzer_midi_", "detectedRoot", "detectedQuality", "detectedInversion", "detectedBass")):
+        if prefix + root in monitors:
+            try:
+                r, q = int(monitors[prefix + root]), int(monitors[prefix + quality])
+                i, b = int(monitors[prefix + inversion]), int(monitors[prefix + bass])
+                return (f"{CHORD_ROOTS[r]} {CHORD_QUALITIES[q]}   ({CHORD_INVERSIONS[i]})",
+                        f"Bass {CHORD_ROOTS[b]}")
+            except Exception:
+                return None
+    return None
+
+
+# aidax (rt-neural loader, zynthian_widget_aidax): input/output meters falling by 10 % per refresh
+
+def meter_fall(level, value):
+    """New displayed level: jumps up to value, else falls 10 %"""
+    if value >= level:
+        return value
+    return max(0.9 * level, 0) if level else level

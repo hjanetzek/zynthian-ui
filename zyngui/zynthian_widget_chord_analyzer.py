@@ -30,6 +30,7 @@ import tkinter
 # Zynthian specific modules
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
+from zyngui.zynthian_widget_data import chord_texts
 
 # ------------------------------------------------------------------------------
 # Zynthian Widget Class for chord_analyzer_headless plugin
@@ -95,30 +96,9 @@ class zynthian_widget_chord_analyzer(zynthian_widget_base.zynthian_widget_base):
         self.widget_canvas.grid(row=0, column=0, sticky='news')
 
     def refresh_gui(self):
-        #logging.debug(self.monitors)
-        if "detected_root" in self.monitors:
-            root_index = int(self.monitors["detected_root"])
-            quality_index = int(self.monitors["detected_quality"])
-            inversion_index = int(self.monitors["detected_inversion"])
-            bass_index = int(self.monitors["detected_bass"])
-        elif "chord_analyzer_detectedRoot" in self.monitors:
-            root_index = int(self.monitors["chord_analyzer_detectedRoot"])
-            quality_index = int(self.monitors["chord_analyzer_detectedQuality"])
-            inversion_index = int(self.monitors["chord_analyzer_detectedInversion"])
-            bass_index = int(self.monitors["chord_analyzer_detectedBass"])
-        elif "chord_analyzer_midi_detectedRoot" in self.monitors:
-            root_index = int(self.monitors["chord_analyzer_midi_detectedRoot"])
-            quality_index = int(self.monitors["chord_analyzer_midi_detectedQuality"])
-            inversion_index = int(self.monitors["chord_analyzer_midi_detectedInversion"])
-            bass_index = int(self.monitors["chord_analyzer_midi_detectedBass"])
-        else:
-            return
-        try:
-            chord_text = self.root_labels[root_index] + " " + self.quality_labels[quality_index] + "   (" + self.inversion_labels[inversion_index] + ")"
-            self.widget_canvas.itemconfig(self.chord_label, text=chord_text)
-            bass_text = "Bass " + self.bass_labels[bass_index]
-            self.widget_canvas.itemconfig(self.bass_label, text=bass_text)
-        except Exception as e:
-            logging.error(f"Can't render result: {root_index}, {quality_index}, {bass_index}, {inversion_index} => {e}")
+        texts = chord_texts(self.monitors)
+        if texts:
+            self.widget_canvas.itemconfig(self.chord_label, text=texts[0])
+            self.widget_canvas.itemconfig(self.bass_label, text=texts[1])
 
 # ------------------------------------------------------------------------------

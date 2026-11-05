@@ -30,6 +30,7 @@ import tkinter
 # Zynthian specific modules
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
+from zyngui.zynthian_widget_data import meter_fall
 
 # ------------------------------------------------------------------------------
 # Zynthian Widget Class for "AidaX" neural emulator plugin
@@ -193,19 +194,13 @@ class zynthian_widget_aidax(zynthian_widget_base.zynthian_widget_base):
     def refresh_gui(self):
         if 'MeterIn' in self.monitors:
             #logging.debug(f"MeterIn: {self.monitors['MeterIn']}, Level in: {self.level_in}")
-            if self.monitors['MeterIn'] >= self.level_in:
-                self.level_in = self.monitors['MeterIn']
-            elif self.level_in:
-                self.level_in = max(0.9 * self.level_in, 0)
+            self.level_in = meter_fall(self.level_in, self.monitors['MeterIn'])
             x = int(self.x0 + self.bar_width * min(1, self.level_in))
             self.widget_canvas.coords(
                 self.input_level, x, self.y0, self.x0 + self.bar_width, self.y0 + self.bar_height)
         if 'MeterOut' in self.monitors:
             #logging.debug(f"MeterOut: {self.monitors['MeterOut']}, Level Out: {self.level_out}")
-            if self.monitors['MeterOut'] >= self.level_out:
-                self.level_out = self.monitors['MeterOut']
-            elif self.level_out:
-                self.level_out = max(0.9 * self.level_out, 0)
+            self.level_out = meter_fall(self.level_out, self.monitors['MeterOut'])
             x = int(self.x0 + self.bar_width * min(1, self.level_out))
             self.widget_canvas.coords(self.output_level, x, self.y0 + self.bar_height + 2,
                                       self.x0 + self.bar_width, self.y0 + self.bar_height * 2 + 2)

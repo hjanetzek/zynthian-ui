@@ -51,6 +51,7 @@ class ZynUI(QObject):
     keyboardChanged = Signal()
     movingChainChanged = Signal()
     movingProcessorChanged = Signal()
+    mixerSettingsChanged = Signal()
     # SEL pressed while the keyboard is shown: QML answers with keyboardAccept(text)
     keyboardSubmit = Signal()
     # Navigation for the current screen: "up", "down", "left", "right", "select", "select_bold"
@@ -320,6 +321,16 @@ class ZynUI(QObject):
 
     # Moving the active chain in the mixer (zynthian_gui_chain_manager's move mode)
 
+    # Mixer layout settings (admin)
+
+    @Property(int, notify=mixerSettingsChanged)
+    def visibleChains(self):
+        return zynthian_gui_config.visible_mixer_strips
+
+    def mixer_settings_changed(self):
+        """Visible chains or the toggle control changed: the mixer models reload too"""
+        self.mixerSettingsChanged.emit()
+
     @Property(bool, notify=movingChainChanged)
     def movingChain(self):
         return self._moving_chain
@@ -457,9 +468,9 @@ class ZynUI(QObject):
         self._confirm_action = None
         self.confirmChanged.emit()
 
-    def show_options(self, title, options):
-        """options: list of (label, action, info, icon)"""
-        self.list_screens["option"].config(title, options)
+    def show_options(self, title, options, selected=0):
+        """options: list of (label, action, info, icon); selected: the entry selected first"""
+        self.list_screens["option"].config(title, options, selected)
         self.show_screen("option")
 
     # On-screen keyboard (zynthian_gui_keyboard)

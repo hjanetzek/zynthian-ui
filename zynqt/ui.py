@@ -31,6 +31,7 @@ from zynqt.screens.chain_options import ChainOptions
 from zynqt.screens.routing import AudioOut, MidiDevicesIn, MidiDevicesOut, MidiIn, MidiOut
 from zynqt.screens.processor_options import ProcessorOptions
 from zynqt.screens.zs3 import ZS3
+from zynqt.screens.admin import Admin
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
@@ -89,7 +90,7 @@ class ZynUI(QObject):
                                    "alsa_mixer": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
                     ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
-                    MidiDevicesOut, ZS3):
+                    MidiDevicesOut, ZS3, Admin):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""
@@ -158,6 +159,15 @@ class ZynUI(QObject):
         QTimer.singleShot(0, self._do_exit)
 
     def _do_exit(self):
+        # As the Tk admin's last_state_action, but on every exit (the kiosk session ends with
+        # SIGTERM): the next start restores this state
+        try:
+            if zynthian_gui_config.restore_last_state:
+                self.state_manager.save_last_state_snapshot()
+            else:
+                self.state_manager.delete_last_state_snapshot()
+        except Exception as e:
+            logging.warning(f"last state: {e}")
         self.bridge.stop()
         if self._osc_server:
             self._osc_server.stop()
@@ -599,6 +609,9 @@ class ZynUI(QObject):
     def cuia_show_screen(self, params):
         if params:
             self.showScreen(str(params[0]))
+
+    def cuia_screen_admin(self, params=None):
+        self.show_screen("admin")
 
     def cuia_screen_zs3(self, params=None):
         self.show_screen("zs3")

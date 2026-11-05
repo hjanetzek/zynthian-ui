@@ -131,3 +131,11 @@ nura/deploy.sh -k -n zyncoder zynthian-data zynthian-ui
 - No hardware encoders or switches (wiringPi stand-in): touch, mouse and keyboard only.
 - The UI's ALSA mixer looks for card `hw:0`; with PipeWire the card may be another one.
 - `jack_capture` (audio recorder) is expected in `/usr/local/bin`.
+
+## Tools
+
+`nura/tools/` has helpers for a running device (address from the pmbootstrap config, as
+`deploy.sh`): `screenshot.sh`, `zyninject.sh` (run Python inside the running Tk zynthian:
+profiling, screen timing), `perf_profile.sh`, `thread_cpu.sh` (CPU per thread of zynthian, the
+compositor and the engines) and `qt_switch_timing.sh` (screen switch times of the Qt UI). How the
+performance numbers were measured, and how to repeat them: [docs/performance-measurement.md](../docs/performance-measurement.md).

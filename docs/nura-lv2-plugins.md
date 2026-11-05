@@ -147,8 +147,8 @@ once (zynthian's `zynthian_lv2.test_lv2_plugin`, or jalv) to catch missing symbo
   (`sooperlooper.lv2`, AUR `sooperlooper.lv2-git`) through the jalv engine: one fewer separate
   program and OSC link, chains and snapshots like any other plugin, and no wxWidgets-era
   package to build for Nura. Needs a look at what the engine and widget use (loop state,
-  positions, multiple loops) and whether the LV2 version exposes it as ports. The widget's port
-  to the Qt UI is postponed until then.
+  positions, multiple loops) and whether the LV2 version exposes it as ports. Meanwhile the
+  widget is ported to the Qt UI for the current engine (5bce848a; desktop: AUR `sooperlooper-headless`).
 - **Pure Data:** the puredata engine (`zynthian_engine_puredata`, patches in
   `zynthian-data/presets/puredata`) needs `pd` and the externals the patches declare from
   `/usr/lib/pd/extra`: cyclone, iemlib, osc (`packOSC`/`unpackOSC`, which zynthian's OSC

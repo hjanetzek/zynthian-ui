@@ -178,7 +178,8 @@ range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration
 M3 started: the launcher (mixer in launcher mode) with its phrase menu, the pattern editor
 (notes, CC view, chord entry; QML items), the waveform view of audio file processors (QML Shape).
 Not ported yet: ZynVoice, the pattern editor's block selection/copy and finer note parameters, SMF
-import/export, arranger (sooperlooper widget postponed: better as the LV2 plugin, see nura-lv2-plugins.md).
+import/export, arranger. All engine widgets are ported (SooperLooper for its current engine; better as the LV2
+plugin, see nura-lv2-plugins.md).
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
 
@@ -206,7 +207,7 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
 4. M3: launcher (9f3d00c8), phrase menu (ee070fcf), pattern editor notes (1b575e6a, plain QML
    items: measure on the Duet before deciding on a C++ item), CC view and chords (3a6778ac).
    Waveform view (9e603dc5), envelope and filter (786a9315), plugin widgets. Next:
-   pattern editor block selection/copy/paste; arranger. Euclidean sequencer (af8f6395) and Organelle widgets done.
+   pattern editor block selection/copy/paste; arranger. Euclidean sequencer (af8f6395), Organelle and SooperLooper widgets done.
 5. Upstream: split the shared modules into self-contained commits, fix the bugs noted in
    [upstream-candidates.md](upstream-candidates.md), pytest for the shared modules.
 

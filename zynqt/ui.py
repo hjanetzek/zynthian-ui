@@ -33,10 +33,11 @@ from zynqt.screens.processor_options import ProcessorOptions
 from zynqt.screens.zs3 import ZS3
 from zynqt.screens.admin import Admin
 from zynqt.screens.midi_recorder import MidiRecorder
+from zynqt.screens.midi_chain import KeyRangeProcessor, MidiCC
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
-QML_SCREENS = ("mixer", "chain_control", "tempo", "alsa_mixer", "audio_player")
+QML_SCREENS = ("mixer", "chain_control", "tempo", "alsa_mixer", "audio_player", "midi_key_range")
 
 
 class ZynUI(QObject):
@@ -90,10 +91,11 @@ class ZynUI(QObject):
         self.qml_screen_objects = {"chain_control": self.chain_control_screen,
                                    "tempo": self.chain_control_screen,
                                    "alsa_mixer": self.chain_control_screen,
-                                   "audio_player": self.chain_control_screen}
+                                   "audio_player": self.chain_control_screen,
+                                   "midi_key_range": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
                     ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
-                    MidiDevicesOut, ZS3, Admin, MidiRecorder):
+                    MidiDevicesOut, ZS3, Admin, MidiRecorder, MidiCC):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""
@@ -274,6 +276,13 @@ class ZynUI(QObject):
                 proc.refresh_controllers(params)
             self.chain_control_screen.special_processor = proc
             self.current_processor = proc
+        elif name == "midi_key_range":
+            # Note range and transpose of the active chain, as controllers
+            chain = self.chain_manager.get_active_chain()
+            if chain is None or chain.zmop_index is None or chain.zmop_index < 0:
+                self.show_info("This chain has no MIDI.")
+                return
+            self.chain_control_screen.special_processor = KeyRangeProcessor(chain)
         elif name == "chain_control":
             self.chain_control_screen.special_processor = None
         screen = self.list_screens.get(name) or self.qml_screen_objects.get(name)

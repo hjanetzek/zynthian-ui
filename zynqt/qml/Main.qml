@@ -7,9 +7,11 @@ Window {
     id: root
 
     // Screens with their own QML; tempo and alsa_mixer are chain control with a special processor
-    readonly property var qmlScreens: ["mixer", "chain_control", "tempo", "alsa_mixer", "audio_player"]
+    readonly property var qmlScreens: ["mixer", "chain_control", "tempo", "alsa_mixer", "audio_player",
+                                       "midi_key_range"]
     readonly property var qmlTitles: ({ mixer: "Mixer", chain_control: "Chain", tempo: "Tempo",
-                                        alsa_mixer: "Audio Levels", audio_player: "Audio Player" })
+                                        alsa_mixer: "Audio Levels", audio_player: "Audio Player",
+                                        midi_key_range: "Note Range & Transpose" })
 
     width: 960
     height: 600

@@ -88,7 +88,9 @@ while true; do
 	if [ "$ZYNTHIAN_UI" == "qt" ]; then
 		python3 ./zynthian_qt_main.py
 	else
-		python3 ./zynthian_main.py
+		# Tk draws through X11 (XWayland on a Wayland desktop): its OpenGL widgets
+		# (pyopengltk) need GLX, PyOpenGL would pick EGL when WAYLAND_DISPLAY is set
+		PYOPENGL_PLATFORM="${PYOPENGL_PLATFORM:-glx}" python3 ./zynthian_main.py
 	fi
 	status=$?
 	echo "zynthian exit status: $status"

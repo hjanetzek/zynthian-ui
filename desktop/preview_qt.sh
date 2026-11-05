@@ -1,6 +1,7 @@
 #!/bin/sh
 usage_text='Run the Qt UI (zynthian_qt_main.py, through zynthian_desktop.sh) in a headless labwc
-with the Duet kiosk'"'"'s output (1920x1200 at scale 2), take screenshots, and stop it again.
+with the Duet kiosk'"'"'s output (1920x1200 at scale 1.5, i.e. 1280x800 logical pixels; PREVIEW_SCALE
+overrides the scale), take screenshots, and stop it again.
 
 Usage: preview_qt.sh [-o FILE] [-w SECONDS] [-s CUIA]... [-k]
 
@@ -57,7 +58,7 @@ while [ ! -S "$tmp/wayland-0" ]; do
 	i=$((i + 1))
 done
 output=$(XDG_RUNTIME_DIR=$tmp WAYLAND_DISPLAY=wayland-0 wlr-randr | sed -n '1s/ .*//p')
-XDG_RUNTIME_DIR=$tmp WAYLAND_DISPLAY=wayland-0 wlr-randr --output "$output" --custom-mode 1920x1200 --scale 2
+XDG_RUNTIME_DIR=$tmp WAYLAND_DISPLAY=wayland-0 wlr-randr --output "$output" --custom-mode 1920x1200 --scale "${PREVIEW_SCALE:-1.5}"
 
 # zynthian: Wayland display of the headless labwc, everything else from the user's session
 env WAYLAND_DISPLAY="$tmp/wayland-0" XDG_RUNTIME_DIR="$pw_runtime" QT_QPA_PLATFORM=wayland \

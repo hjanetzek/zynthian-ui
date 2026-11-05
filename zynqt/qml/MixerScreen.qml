@@ -6,6 +6,9 @@ Item {
     id: root
 
     property bool shown: true
+    // The meters' levels, read once per update: every read of a Python list property converts it
+    readonly property var stripLevels: mixerMeters.levels
+    readonly property var mainLevels: mainMeters.levels
     readonly property int stripWidth: Math.max(40, Math.min(72, (width - 4) / Math.max(1, mixerStrips.count + 1) - 2))
 
     Binding { target: mixerMeters; property: "active"; value: root.shown }
@@ -26,7 +29,7 @@ Item {
         model: mixerStrips
 
         delegate: Strip {
-            meters: mixerMeters
+            lv: root.stripLevels
             stripModel: mixerStrips
             width: root.stripWidth
             height: strips.height
@@ -44,7 +47,7 @@ Item {
         model: mainStrip
 
         delegate: Strip {
-            meters: mainMeters
+            lv: root.mainLevels
             stripModel: mainStrip
             isMain: true
             width: root.stripWidth
@@ -73,11 +76,9 @@ Item {
         required property bool mute
         required property bool solo
         required property int meterIndex
-        property var meters
+        property var lv: []   // levels of all strips (MixerMeters.levels)
         property var stripModel
         property bool isMain: false
-
-        readonly property var lv: meters.levels
 
         color: Theme.panel
 

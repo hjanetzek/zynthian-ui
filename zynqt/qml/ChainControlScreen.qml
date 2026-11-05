@@ -71,13 +71,27 @@ Item {
         }
     }
 
+    // Audio file processors: the waveform above the pages
+    WaveformView {
+        id: waveform
+        visible: root.cc.hasWaveform
+        view: root.cc.waveform
+        anchors.left: procs.right
+        anchors.leftMargin: 4
+        anchors.right: controllers.left
+        anchors.rightMargin: 2
+        anchors.top: parent.top
+        height: visible ? parent.height * 0.5 : 0
+    }
+
     // Controller pages
     ListView {
         id: pages
 
         anchors.left: procs.right
         anchors.leftMargin: 4
-        anchors.top: parent.top
+        anchors.top: waveform.bottom
+        anchors.topMargin: waveform.visible ? 4 : 0
         anchors.bottom: parent.bottom
         anchors.right: controllers.left
         anchors.rightMargin: 2

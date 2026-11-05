@@ -1,7 +1,7 @@
 # Kiosk UI for postmarketOS/Nura: boots straight into zynthian (cage, XWayland, PipeWire).
 pkgname=postmarketos-ui-zynthian
 pkgver=1
-pkgrel=3
+pkgrel=4
 pkgdesc="zynthian synthesizer platform as a kiosk (Wayland, cage)"
 arch="noarch"
 url="https://github.com/zynthian/zynthian-ui"
@@ -12,6 +12,7 @@ options="!check pmb:drm pmb:support-systemd"
 depends="
 	calf
 	fluidsynth
+	jack_capture
 	jalv
 	mda-lv2
 	pipewire-jack

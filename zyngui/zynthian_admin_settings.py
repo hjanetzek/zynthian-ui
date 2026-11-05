@@ -2,8 +2,8 @@
 # ******************************************************************************
 # ZYNTHIAN PROJECT: Zynthian GUI
 #
-# Admin settings that are simple toggles: UI-independent part of zynthian_gui_admin, used by the
-# Tk and Qt UIs.
+# Admin settings: UI-independent part of zynthian_gui_admin (toggles, value settings and the
+# hotplug audio options), used by the Tk and Qt UIs.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -111,3 +111,106 @@ def toggle_preset_preload():
 
     # Save config
     zynconf.save_config({"ZYNTHIAN_UI_PRESET_PRELOAD": str(int(zynthian_gui_config.preset_preload))})
+
+
+# Settings with a value. Each saves the config; the UI redraws what depends on it.
+
+MIXER_TOGGLES = ["solo", "pfl", "mono", "phase", "ms", "record"]
+
+
+def pfl_output_labels():
+    """Choices for the PFL output: None, each hardware playback port and each pair"""
+    ports = zynautoconnect.get_hw_audio_dst_ports()
+    labels = ["None"]
+    for i in range(0, len(ports) - 1, 2):
+        try:
+            name1 = ports[i].aliases[0]
+            name2 = ports[i + 1].aliases[0]
+        except Exception:
+            name1 = ports[i].name
+            name2 = ports[i + 1].name
+        labels.append(f"{i + 1} ({name1})")
+        labels.append(f"{i + 2} ({name2})")
+        labels.append(f"{i + 1}+{i + 2} ({name1}+{name2})")
+    return labels
+
+
+def set_pfl_output(label):
+    zynthian_gui_config.pfl_output = label
+    zynconf.save_config({"ZYNTHIAN_PFL_OUTPUT": label})
+    zynautoconnect.request_audio_connect(True)
+
+
+def set_visible_mixer_strips(value):
+    zynthian_gui_config.visible_mixer_strips = value
+    zynconf.save_config({"ZYNTHIAN_UI_VISIBLE_MIXER_STRIPS": str(value)})
+
+
+def set_visible_launchers(value):
+    zynthian_gui_config.visible_launchers = value
+    zynconf.save_config({"ZYNTHIAN_UI_VISIBLE_LAUNCHERS": str(value)})
+
+
+def set_mixer_toggle(symbol):
+    zynthian_gui_config.mixer_toggle = symbol
+    zynconf.save_config({"ZYNTHIAN_UI_MIXER_TOGGLE": symbol})
+
+
+def set_chanpress_cc(value, state_manager):
+    """Channel pressure (mono aftertouch) => CC value; 0: none"""
+    zynthian_gui_config.midi_chanpress_cc = value
+    state_manager.init_midi_filter()
+    zynconf.update_midi_profile({"ZYNTHIAN_MIDI_CHANPRESS_CC": str(int(value))})
+
+
+# Hotplug USB audio (alsa_in/alsa_out clients)
+
+def _check(flag):
+    return "\u2612" if flag else "\u2610"
+
+
+def hotplug_options():
+    """The hotplug audio menu: list of (label, action, device, info); action None for a heading"""
+    options = []
+    if not zynthian_gui_config.hotplug_audio_enabled:
+        return [("\u2610 Hotplug Audio", "enable_hotplug", None, "Toggle USB hotplug audio enable.")]
+    options.append(("\u2612 Hotplug Audio", "disable_hotplug", None, "Toggle USB hotplug audio enable."))
+    options.append(("Input Devices", None, None, None))
+    for device in zynautoconnect.get_alsa_audio_devices(False, "hotplug"):
+        on = device not in zynthian_gui_config.disabled_audio_in
+        options.append((f"{_check(on)} {device} in", "disable_input" if on else "enable_input",
+                        device, "Toggle enable USB input audio device."))
+    options.append(("Output Devices", None, None, None))
+    devices = zynautoconnect.get_alsa_audio_devices(True, "hotplug")
+    for device in devices:
+        on = device not in zynthian_gui_config.disabled_audio_out
+        options.append((f"{_check(on)} {device} out", "disable_output" if on else "enable_output",
+                        device, "Toggle enable USB audio output device."))
+    if not devices:
+        options.append(("No available soundcard outputs - check ZynVoice", "tts", None,
+                        "No free audio outputs. Select to navigate to ZynVoice config."))
+    return options
+
+
+def hotplug_apply(action, device, state_manager):
+    """Run a hotplug menu action (except "tts", which the UI handles)"""
+    messages = {"enable_hotplug": "Enabling hotplug audio", "disable_hotplug": "Disabling hotplug audio",
+                "enable_input": f"Enabling {device} in", "disable_input": f"Disabling {device} in",
+                "enable_output": f"Enabling {device} out", "disable_output": f"Disabling {device} out"}
+    if action not in messages:
+        return
+    zynautoconnect.pause()
+    state_manager.start_busy("hotplug", messages[action])
+    try:
+        match action:
+            case "enable_hotplug":
+                zynautoconnect.enable_hotplug()
+            case "disable_hotplug":
+                zynautoconnect.disable_hotplug()
+            case "enable_input" | "disable_input":
+                zynautoconnect.enable_audio_input_device(device, action == "enable_input")
+            case "enable_output" | "disable_output":
+                zynautoconnect.enable_audio_output_device(device, action == "enable_output")
+    finally:
+        state_manager.end_busy("hotplug")
+        zynautoconnect.resume()

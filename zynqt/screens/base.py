@@ -42,7 +42,7 @@ def separator(title):
 class EntryModel(QAbstractListModel):
     TitleRole, InfoRole, IconRole, SeparatorRole, EnabledRole = range(Qt.UserRole + 1, Qt.UserRole + 6)
     _ROLES = {TitleRole: b"title", InfoRole: b"info", IconRole: b"icon",
-              SeparatorRole: b"separator", EnabledRole: b"enabled"}
+              SeparatorRole: b"separator", EnabledRole: b"entryEnabled"}
 
     countChanged = Signal()
 

@@ -178,8 +178,10 @@ range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration
 M3 started: the launcher (mixer in launcher mode) with its phrase menu, the pattern editor
 (notes with their settings: offset, stutter, play/stutter frequency and chance; CC view, chord
 entry; QML items, smooth on the Duet), the waveform view of audio file processors (QML Shape).
-Pattern files and MIDI file import/export with a file picker in the options screen.
-Not ported yet: ZynVoice. All engine widgets are ported (SooperLooper for its current engine; better as the LV2
+Pattern files and MIDI file import/export with a file picker in the options screen. MIDI learn:
+controller options (chain/global learn, CC mode and range, unlearn), bindings on the controllers,
+ZS3 program change learning, note range learning (b67093b4).
+Not ported yet: ZynVoice, the X-Y touchpad. All engine widgets are ported (SooperLooper for its current engine; better as the LV2
 plugin, see nura-lv2-plugins.md).
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
@@ -209,7 +211,7 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
    items: measure on the Duet before deciding on a C++ item), CC view and chords (3a6778ac).
    Waveform view (9e603dc5), envelope and filter (786a9315), plugin widgets. Next:
    Euclidean sequencer (af8f6395), Organelle and SooperLooper widgets done; pattern editor block
-   selection/copy/cut/paste (bf7af4d3), per-note settings (6e811e2b), pattern files and MIDI file import/export (2cb7bf28);
+   selection/copy/cut/paste (bf7af4d3), per-note settings (6e811e2b), pattern files and MIDI file import/export (2cb7bf28), MIDI learn (b67093b4);
    launcher pads kept
    instantiated (41c97752: creating them made the switch slow). The arranger is not ported: upstream has it switched off
    (zynthian_gui.py creates no arranger screen; zynseq: "until arranger is reinstated").

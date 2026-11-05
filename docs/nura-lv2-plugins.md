@@ -32,7 +32,7 @@ cd /usr/share/zynthian/zynthian-ui/zyngine && python3 ./zynthian_lv2.py engines
 with zynthian's environment (`ZYNTHIAN_DIR`, `ZYNTHIAN_LIB_DIR`, `PYTHONPATH` as in
 `/usr/bin/zynthian`, then `desktop/zynthian_desktop_env.sh`), then restart the session.
 
-## Installed: 146 of 313
+## Installed: 169 of 313
 
 All pulled in by the meta package `zynthian-lv2-plugins` (`nura/lv2/`), which
 `postmarketos-ui-zynthian` depends on. From Alpine:
@@ -64,6 +64,8 @@ Packaged in `nura/lv2/` (phase 1, built and tested on the Duet):
 | `artyfx-lv2` | 2 | without GUI and SSE |
 | `abgate-lv2`, `bolliedelay-lv2`, `ykchorus-lv2` | 3 | DSP only |
 | `setbfree` (`nura/engines/`) | 2 | x42 Whirl (b_whirl); also zynthian's setBfree engine |
+| `fluidplug-lv2` | 19 (of 23) | SoundFont instruments, zynthian's fork with the SoundFonts (310 MB installed); FluidGM left out (no SoundFont in the fork); `-fpermissive` |
+| `avldrums-lv2` | 5 | x42 AVL Drumkits (145 MB installed), without GUI and x86 flags |
 
 Before 2026-11-05 the kiosk package depended on `calf` instead of `calf-lv2` (Alpine puts the LV2
 plugins in a subpackage): none of the Calf plugins were installed. Fixed in `abd64c11`.
@@ -72,7 +74,7 @@ Available in Alpine but **not** in zynthian's defaults (all disabled there): `ls
 (0 of 194 enabled), `airwindows-lv2` (0 of 187), `noise-repellent`, `bankstown-lv2`. Not
 installed.
 
-## Missing: 167
+## Missing: 144
 
 None of these are packaged in Alpine. Source: how ZynthianOS gets them (Debian/KXStudio package
 from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a prebuilt binary).
@@ -80,9 +82,7 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | Project | Missing | Type | ZynthianOS source | Build | Notes |
 |---|---|---|---|---|---|
 | Guitarix + GxPlugins | 59 | effects (amps, pedals) | recipes `install_guitarix.sh` (`--mod-lv2 --no-standalone`), `install_gxplugins.sh`; Debian `gxplugins` | waf; make | largest group; Guitarix needs Boost, glibmm, fftw, lilv, zita-convolver/resampler |
-| FluidPlug | 19 | instruments (SF2 sound sets) | recipe `install_fluidplug.sh` (fork `zynthian/FluidPlug`) | make, downloads the SF2s | data-heavy (soundfonts); needs fluidsynth |
 | DPF-Plugins | 7 | effects, synths (3 Band EQ, MVerb, Ping Pong Pan, Kars, Nekobi, Ma*) | Debian `dpf-plugins`, recipe `install_dpf_plugins.sh` | make (DPF) | build without UIs |
-| x42 extras | 5 | AVL drumkits | recipe `install_avldrums.sh` (x42 binaries) | make | large sample data (Whirl: done, with `setbfree`) |
 | DISTRHO-Ports (JUCE) | 6 | TAL effects, Vex | Debian `distrho-plugin-ports-lv2`, recipe `install_distrho_ports.sh` | meson, JUCE (legacy) | long build |
 | EQ10Q | 8 | EQs, compressors | Debian `eq10q`, recipe `install_eq10q.sh` | cmake | GUI (gtkmm) to switch off |
 | Dusk Audio | 6 | effects, synth | prebuilt only (`install_dusk_*_prebuilt.sh`) | JUCE | sources to check; prebuilt glibc binaries can't run on musl |
@@ -134,7 +134,7 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | 1. Small C/C++ effects (**done**) | MOD MDA, MOD utilities/distortion/pitchshifter, CAPS, TAP, SWH, Invada, infamous, SHIRO, artyfx, abGate, Bollie Delay, YK Chorus | 73 | one day, see "Phase 1: lessons" |
 | 2. DPF family | DPF-Plugins, Dragonfly Reverb, string-machine, MiniOPL3 | ~20 | 1–2 days: one build system, UIs off |
 | 3. Guitarix | Guitarix (`--mod-lv2 --no-standalone`), GxPlugins | 59 | 2–4 days: waf, Boost/glibmm, musl fixes likely |
-| 4. Instruments with data | FluidPlug, avldrums, setBfree (also as engine) | ~26 | 2–3 days: data packages, download sizes |
+| 4. Instruments with data (**done**) | FluidPlug, avldrums, setBfree (also as engine) | 26 | in the meta package; about 450 MB |
 | 5. EQ10Q, QMidiArp, rncbc synths | EQ10Q, QMidiArp, padthv1/samplv1/synthv1 | ~13 | 1–2 days: cmake, GUIs off |
 | 6. JUCE | DISTRHO-Ports (TAL, Vex), CHOW, Surge XT, Odin2, OB-Xd, Dexed, Helm, Monique, Vaporizer2, … | ~30 | 1–2 weeks: long builds (under qemu: hours each), JUCE on musl, check each |
 | 7. Neural and the rest | AIDA-X, NAM, Dusk (if sources), single plugins | ~25 | case by case |

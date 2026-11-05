@@ -1,0 +1,47 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# FluidPlug: SoundFonts as LV2 instruments (URIs http://kxstudio.linuxaudio.org/plugins/FluidPlug_*),
+# 19 of them enabled by default in zynthian (zynthian-sys recipe install_fluidplug.sh). zynthian's
+# fork contains the SoundFonts (sf2/, about 300 MB), so nothing is downloaded at build time.
+# FluidGM has no SoundFont in the fork and is left out.
+pkgname=fluidplug-lv2
+_commit=697be3d063da50c05962ade38588b99f97955205
+pkgver=0_git20210207
+pkgrel=0
+pkgdesc="SoundFonts as LV2 instrument plugins (FluidPlug)"
+url="https://github.com/zynthian/FluidPlug"
+arch="all"
+license="GPL-2.0-or-later AND custom"
+makedepends="lv2-dev fluidsynth-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/zynthian/FluidPlug/archive/$_commit.tar.gz"
+builddir="$srcdir/FluidPlug-$_commit"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	# x86 flags (as the zynthian recipe removes them); FluidGM: no SoundFont in the fork
+	sed -i 's/-ffast-math -mtune=generic -msse -msse2 -mfpmath=sse -fdata-sections -ffunction-sections//; s/-msse -msse2//' Makefile.mk
+	# FluidGM out of the Makefile: its whole multi-line "install -m 644" block, and every other
+	# line naming it (in lists it is never the last entry)
+	awk '
+		/^\tinstall -m 644 \\$/ { buf = $0; inblk = 1; next }
+		inblk { buf = buf "\n" $0; if ($0 !~ /\\$/) { inblk = 0; if (buf !~ /FluidGM/) print buf }; next }
+		/FluidGM/ { next }
+		{ print }
+	' Makefile > Makefile.new
+	mv Makefile.new Makefile
+	! grep -q FluidGM Makefile
+	rm -rf FluidGM.lv2
+}
+
+build() {
+	# GCC 14: the LV2 descriptor's struct tag changed in the headers (incompatible pointer type,
+	# now an error); old C otherwise too
+	CFLAGS="$CFLAGS -std=gnu17 -fpermissive" make
+}
+
+package() {
+	make install DESTDIR="$pkgdir" PREFIX=/usr
+}
+sha512sums="
+377ec35e75bd9ae25223333af4d2a1adba5950f5cdb794873c84934d40cd25445032599c89128bd0375c133f55176477fc2d49528dbf1eab1e82d211211d1fd9  fluidplug-lv2-697be3d063da50c05962ade38588b99f97955205.tar.gz
+"

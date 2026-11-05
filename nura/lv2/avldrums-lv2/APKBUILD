@@ -1,0 +1,32 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# x42 AVL Drumkits (URIs http://gareus.org/oss/lv2/avldrums#...): 5 drum kits enabled by default in
+# zynthian (zynthian-sys recipe install_avldrums.sh installs x42's binaries). The SoundFonts (about
+# 150 MB) and a small fluidsynth are in the repository; without the OpenGL GUI (robtk submodule)
+# and without x42's default x86 optimization flags.
+pkgname=avldrums-lv2
+pkgver=0.7.6
+pkgrel=0
+pkgdesc="x42 AVL Drumkits LV2 plugin"
+url="https://x42-plugins.com/x42/x42-avldrums"
+arch="all"
+license="GPL-2.0-or-later AND CC-BY-SA-4.0"
+makedepends="lv2-dev glib-dev"
+source="$pkgname-$pkgver.tar.gz::https://github.com/x42/avldrums.lv2/archive/v$pkgver.tar.gz"
+builddir="$srcdir/avldrums.lv2-$pkgver"
+options="!check" # no tests
+
+_make() {
+	make BUILDOPENGL=no PREFIX=/usr LV2DIR=/usr/lib/lv2 \
+		OPTIMIZATIONS="-ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only -DNDEBUG" "$@"
+}
+
+build() {
+	_make
+}
+
+package() {
+	_make install DESTDIR="$pkgdir"
+}
+sha512sums="
+684cdc4e308879fb85d766ba70186809466b76d2e182a6a530f191e2817ce490bd55813632a372b1e6a38ae2c0ea1fb7ca5d7c92a7d789f5b8f68745639a8f3c  avldrums-lv2-0.7.6.tar.gz
+"

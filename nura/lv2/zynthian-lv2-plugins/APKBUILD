@@ -1,9 +1,10 @@
 # Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
 # The LV2 plugins zynthian enables by default, as far as they are packaged: Alpine's packages and
-# the ones in nura/lv2/. State and plan: docs/nura-lv2-plugins.md (zynthian-ui).
+# the ones in nura/lv2/. State and plan: docs/nura-lv2-plugins.md (zynthian-ui). The SoundFont
+# instruments are large: fluidplug-lv2 about 310 MB, avldrums-lv2 about 145 MB installed.
 pkgname=zynthian-lv2-plugins
 pkgver=1
-pkgrel=0
+pkgrel=1
 pkgdesc="LV2 plugins enabled by default in zynthian"
 url="https://github.com/zynthian/zynthian-ui"
 arch="noarch"
@@ -12,8 +13,10 @@ depends="
 	abgate-lv2
 	amsynth-lv2
 	artyfx-lv2
+	avldrums-lv2
 	bolliedelay-lv2
 	calf-lv2
+	fluidplug-lv2
 	infamous-lv2
 	invada-lv2
 	mda-lv2

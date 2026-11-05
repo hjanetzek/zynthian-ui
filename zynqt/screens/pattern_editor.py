@@ -54,6 +54,7 @@ class PatternEditor(QObject):
         self.select_mode = False    # touch selects a block instead of adding notes
         self._block = None           # selected block: [step1, row1, step2, row2] (inclusive)
         self.copied = None          # copied block (its [step1, row1, step2, row2]); taps paste it
+        self._pending = False       # changes without their undo snapshot yet
         self._timer = QTimer(self, interval=40)
         self._timer.timeout.connect(self._poll)
 
@@ -93,6 +94,7 @@ class PatternEditor(QObject):
             if not 0 <= self.cursor[1] < len(self.keymap):
                 self.cursor[1] = row_of.get(60, len(self.keymap) // 2)
         self.libseq.isPatternModified()   # reset the flag
+        self._pending = False
         self.patternChanged.emit()
         self.eventsChanged.emit()
         self.cursorChanged.emit()
@@ -106,7 +108,8 @@ class PatternEditor(QObject):
             self._playing = playing
             self.playheadChanged.emit()
         if self.libseq.isPatternModified():
-            # Changed elsewhere (MIDI recording, the other UI, undo)
+            # Changed elsewhere (MIDI recording): an undo step before the next change
+            self._pending = True
             self._events = note_events(self.libseq)
             self.eventsChanged.emit()
             self.ccChanged.emit()
@@ -215,20 +218,21 @@ class PatternEditor(QObject):
         else:
             self.libseq.addControl(step, self.cc_num, value, value, 1, 0)
         self.cc_cursor = step
+        self._pending = True    # one undo step at the end of the gesture (ccEditDone)
         self.libseq.isPatternModified()
         self.ccChanged.emit()
 
     @Slot()
     def ccEditDone(self):
         """End of a paint gesture: one undo step"""
-        self.libseq.savePatternSnapshot()
+        self._flush_pending()
 
     @Slot(int)
     def removeCc(self, step):
         if 0 <= step < self.steps and self.libseq.getControlValue(step, self.cc_num) <= 127:
-            self.libseq.savePatternSnapshot()
+            self._flush_pending()
             self.libseq.removeControl(step, self.cc_num)
-            self.libseq.savePatternSnapshot()
+            self._snapshot()
             self.libseq.isPatternModified()
             self.cc_cursor = step
             self.ccChanged.emit()
@@ -267,12 +271,27 @@ class PatternEditor(QObject):
     def _note(self, row):
         return self.keymap[row]["note"] if 0 <= row < len(self.keymap) else None
 
-    def _changed(self):
+    # Undo steps as zynthian_gui_pated_base: a pattern snapshot after each change (libseq keeps the
+    # states, the first one from when the pattern was created or loaded). Changes not saved yet
+    # (CC painting in progress, MIDI recording) get theirs before the next change or an undo.
+
+    def _snapshot(self):
         self.libseq.savePatternSnapshot()
+        self._pending = False
+
+    def _flush_pending(self):
+        if self._pending:
+            self._snapshot()
+
+    def _reload_events(self):
         self._events = note_events(self.libseq)
         self.libseq.isPatternModified()
         self.eventsChanged.emit()
         self.ccChanged.emit()
+
+    def _changed(self):
+        self._snapshot()
+        self._reload_events()
 
     def _play_preview(self, note, velocity):
         if self.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence) == zynseq.SEQ_STOPPED:
@@ -286,7 +305,7 @@ class PatternEditor(QObject):
             return
         self.cursor = [step, row]
         self.cursorChanged.emit()
-        self.libseq.savePatternSnapshot()
+        self._flush_pending()
         # Chord entry: the chord's notes (on the chord's root note's step)
         notes = [note + i for i in chord_intervals(self.chord_mode, self.chord_type, self.chord_tonic, note)]
         notes = [n for n in notes if 0 <= n <= 127]
@@ -330,7 +349,7 @@ class PatternEditor(QObject):
         def edited(action, index):
             # The change, then the options again (with the new value), to change more
             def run(value):
-                self.libseq.savePatternSnapshot()
+                self._flush_pending()
                 action(value)
                 self._changed()
                 self._note_options(start, note, index)
@@ -341,7 +360,7 @@ class PatternEditor(QObject):
             self.libseq.addNote(start, note, vel, float(d), ev.offset)
 
         def remove():
-            self.libseq.savePatternSnapshot()
+            self._flush_pending()
             self.libseq.removeNote(start, note)
             self._changed()
 
@@ -407,7 +426,7 @@ class PatternEditor(QObject):
                          lambda p=p, value=value, i=i: self._edit_param(p, value, setter(p["key"], 2 + i)),
                          None, None))
         if self.entry_params != NOTE_PARAM_DEFAULTS:
-            opts.append(("Reset settings", reset, None, None))
+            opts.append(("Reset offset, stutter and play settings to defaults", reset, None, None))
         self.ui.show_options("New notes", opts, selected)
 
     # Block selection, copy / cut / paste (zynthian_gui_pated_base block edit)
@@ -452,7 +471,7 @@ class PatternEditor(QObject):
             return
         note1, note2 = self._block_notes(self._block)
         if cut:
-            self.libseq.savePatternSnapshot()
+            self._flush_pending()
         n = self.libseq.copyPatternBuffer(self.pattern, self._block[0], self._block[2], note1, note2, cut)
         if cut:
             self._changed()
@@ -469,7 +488,7 @@ class PatternEditor(QObject):
         """Remove the selected block's notes (a cut without keeping the copy)"""
         if self._block:
             note1, note2 = self._block_notes(self._block)
-            self.libseq.savePatternSnapshot()
+            self._flush_pending()
             self.libseq.copyPatternBuffer(self.pattern, self._block[0], self._block[2], note1, note2, True)
             self._changed()
             self._block = None
@@ -483,7 +502,7 @@ class PatternEditor(QObject):
         src_note = self._block_notes(self.copied)[0]
         dnote = self.keymap[row]["note"] - src_note
         dstep = step - self.copied[0]
-        self.libseq.savePatternSnapshot()
+        self._flush_pending()
         self.libseq.pastePatternBuffer(self.pattern, dstep, 0.0, max(-127, min(127, dnote)), False)
         self._changed()
 
@@ -493,20 +512,14 @@ class PatternEditor(QObject):
 
     @Slot()
     def undo(self):
-        self.libseq.savePatternSnapshot()
+        self._flush_pending()
         if self.libseq.undoPattern():
-            self._events = note_events(self.libseq)
-            self.libseq.isPatternModified()
-            self.eventsChanged.emit()
-            self.ccChanged.emit()
+            self._reload_events()
 
     @Slot()
     def redo(self):
-        if self.libseq.redoPattern():
-            self._events = note_events(self.libseq)
-            self.libseq.isPatternModified()
-            self.eventsChanged.emit()
-            self.ccChanged.emit()
+        if not self._pending and self.libseq.redoPattern():
+            self._reload_events()
 
     @Slot()
     def togglePlayback(self):
@@ -587,9 +600,9 @@ class PatternEditor(QObject):
         self._pick("Chord mode", list(zip(CHORD_MODES, range(len(CHORD_MODES)))), self.chord_mode, apply_mode)
 
     def _clear_cc(self):
-        self.libseq.savePatternSnapshot()
+        self._flush_pending()
         self.libseq.clearControl(self.cc_num)
-        self.libseq.savePatternSnapshot()
+        self._snapshot()
         self.libseq.isPatternModified()
         self.ccChanged.emit()
 
@@ -630,7 +643,7 @@ class PatternEditor(QObject):
         self.load()
 
     def _transpose(self, offset):
-        self.libseq.savePatternSnapshot()
+        self._flush_pending()
         if self.libseq.getScale():
             # Transposing works on the chromatic scale (as Tk)
             self.libseq.setScale(0)
@@ -639,12 +652,12 @@ class PatternEditor(QObject):
         self._changed()
 
     def _undo_all(self):
-        self.libseq.savePatternSnapshot()
+        self._flush_pending()
         if self.libseq.undoPatternAll():
-            self._changed()
+            self._reload_events()
 
     def _clear(self):
-        self.libseq.savePatternSnapshot()
+        self._flush_pending()
         self.libseq.clearPattern(self.pattern)
         self._changed()
         if self.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence) != zynseq.SEQ_STOPPED:

@@ -1,0 +1,36 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# DISTRHO's DPF-Plugins (URIs http://distrho.sf.net/plugins/...; zynthian enables 3BandEQ, Kars,
+# MVerb, Nekobi, PingPongPan, MaGigaverb, MaPitchshift by default; Debian dpf-plugins on
+# ZynthianOS). DSP only (lv2_dsp per plugin, then the TTL generator), so DPF's GUI library and its
+# pugl submodule aren't needed; ProM and glBars (OpenGL only) left out. NOOPT: no x86 flags.
+pkgname=dpf-plugins-lv2
+pkgver=1.7
+pkgrel=0
+pkgdesc="DISTRHO DPF-Plugins (LV2, no GUIs)"
+url="https://github.com/DISTRHO/DPF-Plugins"
+arch="all"
+license="ISC AND GPL-2.0-or-later AND LGPL-3.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$pkgver.tar.gz::https://github.com/DISTRHO/DPF-Plugins/archive/v$pkgver.tar.gz"
+builddir="$srcdir/DPF-Plugins-$pkgver"
+options="!check" # no tests
+
+_plugins="3BandEQ 3BandSplitter AmplitudeImposer CycleShifter Kars MVerb Nekobi PingPongPan
+	SoulForce bitcrush freeverb gigaverb pitchshift"
+
+build() {
+	local p
+	for p in $_plugins; do
+		make -C plugins/$p NOOPT=true HAVE_OPENGL=false lv2_dsp
+	done
+	make -C dpf/utils/lv2-ttl-generator
+	dpf/utils/generate-ttl.sh
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	cp -r bin/*.lv2 "$pkgdir"/usr/lib/lv2/
+}
+sha512sums="
+7d84be61f5c173bd80ee2f94e41384fc08a18a651d995aec20345d19a80e7a2e771b6f9eb5de9c03acb4368a2a071f915373f6cca89b2075f1f096f4000c3147  dpf-plugins-lv2-1.7.tar.gz
+"

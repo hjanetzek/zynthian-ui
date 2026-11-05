@@ -32,7 +32,7 @@ cd /usr/share/zynthian/zynthian-ui/zyngine && python3 ./zynthian_lv2.py engines
 with zynthian's environment (`ZYNTHIAN_DIR`, `ZYNTHIAN_LIB_DIR`, `PYTHONPATH` as in
 `/usr/bin/zynthian`, then `desktop/zynthian_desktop_env.sh`), then restart the session.
 
-## Installed: 169 of 313
+## Installed: 180 of 313
 
 All pulled in by the meta package `zynthian-lv2-plugins` (`nura/lv2/`), which
 `postmarketos-ui-zynthian` depends on. From Alpine:
@@ -64,8 +64,10 @@ Packaged in `nura/lv2/` (phase 1, built and tested on the Duet):
 | `artyfx-lv2` | 2 | without GUI and SSE |
 | `abgate-lv2`, `bolliedelay-lv2`, `ykchorus-lv2` | 3 | DSP only |
 | `setbfree` (`nura/engines/`) | 2 | x42 Whirl (b_whirl); also zynthian's setBfree engine |
-| `fluidplug-lv2` | 19 (of 23) | SoundFont instruments, zynthian's fork with the SoundFonts (310 MB installed); FluidGM left out (no SoundFont in the fork); `-fpermissive` |
-| `avldrums-lv2` | 5 | x42 AVL Drumkits (145 MB installed), without GUI and x86 flags |
+| `fluidplug-lv2` (+ `-data`) | 19 (of 23) | SoundFont instruments, zynthian's fork with the SoundFonts (284 MB in `-data`); FluidGM left out (no SoundFont in the fork); `-fpermissive`; optional |
+| `avldrums-lv2` (+ `-data`) | 5 | x42 AVL Drumkits (145 MB in `-data`), without GUI and x86 flags; optional |
+| `dpf-plugins-lv2` | 7 | DPF-Plugins 1.7, DSP only (`lv2_dsp` per plugin), without ProM/glBars |
+| `dragonfly-reverb-lv2` | 4 | Dragonfly Reverb 3.2.10 (release source with DPF), DSP only |
 
 Before 2026-11-05 the kiosk package depended on `calf` instead of `calf-lv2` (Alpine puts the LV2
 plugins in a subpackage): none of the Calf plugins were installed. Fixed in `abd64c11`.
@@ -74,7 +76,7 @@ Available in Alpine but **not** in zynthian's defaults (all disabled there): `ls
 (0 of 194 enabled), `airwindows-lv2` (0 of 187), `noise-repellent`, `bankstown-lv2`. Not
 installed.
 
-## Missing: 144
+## Missing: 133
 
 None of these are packaged in Alpine. Source: how ZynthianOS gets them (Debian/KXStudio package
 from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a prebuilt binary).
@@ -82,12 +84,10 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | Project | Missing | Type | ZynthianOS source | Build | Notes |
 |---|---|---|---|---|---|
 | Guitarix + GxPlugins | 59 | effects (amps, pedals) | recipes `install_guitarix.sh` (`--mod-lv2 --no-standalone`), `install_gxplugins.sh`; Debian `gxplugins` | waf; make | largest group; Guitarix needs Boost, glibmm, fftw, lilv, zita-convolver/resampler |
-| DPF-Plugins | 7 | effects, synths (3 Band EQ, MVerb, Ping Pong Pan, Kars, Nekobi, Ma*) | Debian `dpf-plugins`, recipe `install_dpf_plugins.sh` | make (DPF) | build without UIs |
 | DISTRHO-Ports (JUCE) | 6 | TAL effects, Vex | Debian `distrho-plugin-ports-lv2`, recipe `install_distrho_ports.sh` | meson, JUCE (legacy) | long build |
 | EQ10Q | 8 | EQs, compressors | Debian `eq10q`, recipe `install_eq10q.sh` | cmake | GUI (gtkmm) to switch off |
 | Dusk Audio | 6 | effects, synth | prebuilt only (`install_dusk_*_prebuilt.sh`) | JUCE | sources to check; prebuilt glibc binaries can't run on musl |
 | CHOW | 4 | effects (Centaur, Phaser, Tape) | recipes (source and prebuilt) | JUCE, cmake | |
-| Dragonfly Reverb | 4 | reverbs | Debian `dragonfly-reverb`, recipe `install_dragonfly.sh` (3.0.0 + patch) | make (DPF) | |
 | jpcima | 4 | String machine, MiniOPL3 | recipes `install_string-machine.sh`, `install_miniopl3.sh` | make (DPF) | |
 | QMidiArp | 2 | MIDI tools | Debian / recipes | cmake | |
 | rncbc synths | 3 | padthv1, samplv1, synthv1 | Debian `*-lv2` | cmake, Qt | GUI-less build |
@@ -132,9 +132,9 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | Phase | Projects | Plugins | Effort |
 |---|---|---|---|
 | 1. Small C/C++ effects (**done**) | MOD MDA, MOD utilities/distortion/pitchshifter, CAPS, TAP, SWH, Invada, infamous, SHIRO, artyfx, abGate, Bollie Delay, YK Chorus | 73 | one day, see "Phase 1: lessons" |
-| 2. DPF family | DPF-Plugins, Dragonfly Reverb, string-machine, MiniOPL3 | ~20 | 1–2 days: one build system, UIs off |
+| 2. DPF family | DPF-Plugins, Dragonfly Reverb (**done**); string-machine, MiniOPL3 | ~20 | DSP only per plugin, as ykchorus |
 | 3. Guitarix | Guitarix (`--mod-lv2 --no-standalone`), GxPlugins | 59 | 2–4 days: waf, Boost/glibmm, musl fixes likely |
-| 4. Instruments with data (**done**) | FluidPlug, avldrums, setBfree (also as engine) | 26 | in the meta package; about 450 MB |
+| 4. Instruments with data (**done**) | FluidPlug, avldrums, setBfree (also as engine) | 26 | SoundFonts in optional `-data` packages, not in images |
 | 5. EQ10Q, QMidiArp, rncbc synths | EQ10Q, QMidiArp, padthv1/samplv1/synthv1 | ~13 | 1–2 days: cmake, GUIs off |
 | 6. JUCE | DISTRHO-Ports (TAL, Vex), CHOW, Surge XT, Odin2, OB-Xd, Dexed, Helm, Monique, Vaporizer2, … | ~30 | 1–2 weeks: long builds (under qemu: hours each), JUCE on musl, check each |
 | 7. Neural and the rest | AIDA-X, NAM, Dusk (if sources), single plugins | ~25 | case by case |
@@ -179,6 +179,19 @@ Problems found, and how the packages handle them:
 - **Testing**: lilv's instantiate without host features fails for every plugin that requires
   `urid:map` or `options` (most DPF and x42 plugins); that says nothing. dlopen with `RTLD_NOW`
   finds unresolved symbols, jalv on PipeWire tests the rest.
+
+### Optional data (TBD)
+
+Large sample data is kept out of device images: `fluidplug-lv2` and `avldrums-lv2` put their
+SoundFonts into `-data` subpackages (284 and 145 MB), and neither is in `zynthian-lv2-plugins`.
+The plugin packages depend on their data, so `apk add avldrums-lv2` installs a working instrument.
+
+- **TBD: admin menu entry** in zynthian to install (and remove) optional data packages on the
+  device (apk, with progress and the download size), then rescan the LV2 plugins
+  (`zynthian_lv2.py engines`). Until then: `apk add` over ssh.
+- **Other heavy packages** (installed sizes on the Duet): `zynthian-data` 616 MB (SoundFonts, SFZ
+  instruments, audio files: the biggest, worth a split into a small core and optional sample
+  sets), `zynaddsubfx` 53 MB (its banks), `pd-cyclone` 22 MB, `mod-caps-lv2` 26 MB.
 
 ### Open questions
 

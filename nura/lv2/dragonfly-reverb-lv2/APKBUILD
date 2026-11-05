@@ -1,0 +1,32 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Dragonfly Reverb (hall, room, plate, early reflections; URIs urn:dragonfly:..., enabled by
+# default in zynthian: zynthian-sys recipe install_dragonfly.sh). The release's source tarball
+# includes DPF. DSP only (lv2_dsp per plugin, then the TTL generator); NOOPT: no x86 flags.
+pkgname=dragonfly-reverb-lv2
+pkgver=3.2.10
+pkgrel=0
+pkgdesc="Dragonfly Reverb LV2 plugins (no GUIs)"
+url="https://michaelwillis.github.io/dragonfly-reverb/"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev"
+source="https://github.com/michaelwillis/dragonfly-reverb/releases/download/$pkgver/dragonfly-reverb-$pkgver-src.tar.xz"
+builddir="$srcdir/dragonfly-reverb-$pkgver"
+options="!check" # no tests
+
+build() {
+	local p
+	for p in plugins/*/; do
+		make -C "$p" NOOPT=true HAVE_OPENGL=false lv2_dsp
+	done
+	make -C dpf/utils/lv2-ttl-generator
+	dpf/utils/generate-ttl.sh
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	cp -r bin/*.lv2 "$pkgdir"/usr/lib/lv2/
+}
+sha512sums="
+772b70169970e5ec68270d3cfa690ad1b258a2df79430ecb36cae78654a761cb9b495a769daef37307af9960106c302df4d61094f95eb4f8619a0b764aa8d019  dragonfly-reverb-3.2.10-src.tar.xz
+"

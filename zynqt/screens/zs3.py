@@ -1,5 +1,6 @@
 """ZS3 (sub-snapshots: zynthian_gui_zs3, zynthian_gui_zs3_options): save, load, overwrite, rename,
-clone, delete. Restore options, notes, moving and program change numbers are not ported yet."""
+clone, delete; MIDI learn: a program change saves a ZS3 for it (while learning: from the ZS3 CUIA
+or TOGGLE_MIDI_LEARN). Restore options, notes and moving are not ported yet."""
 
 from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry, separator
 
@@ -7,11 +8,43 @@ from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry, separator
 class ZS3(SelectorScreen):
     name = "zs3"
 
+    def __init__(self, ui, parent=None):
+        super().__init__(ui, parent)
+        ui.bridge.zs3Saved.connect(self._saved)
+
+    # Program change learning (zynthian_gui_zs3): the state manager saves the ZS3
+
+    def enable_midi_learn(self):
+        self.state_manager.enable_learn_pc()
+        self.fill()
+
+    def disable_midi_learn(self):
+        if self.state_manager.midi_learn_pc is not None:
+            self.state_manager.disable_learn_pc()
+            if self.ui.current_screen == self.name:
+                self.fill()
+
+    def toggle_midi_learn(self):
+        if self.state_manager.midi_learn_pc is not None:
+            self.disable_midi_learn()
+        else:
+            self.enable_midi_learn()
+
+    def hide(self):
+        self.disable_midi_learn()
+
+    def _saved(self):
+        if self.ui.current_screen == self.name:
+            self.state_manager.disable_learn_pc()
+            self.fill()
+
     def fill(self):
         sm = self.state_manager
         self.set_title("ZS3")
         entries = [entry("Save as new ZS3", data="SAVE_ZS3", icon="zs3_new.png",
                          info="Save current state as a new ZS3.")]
+        if sm.midi_learn_pc is not None:
+            entries.append(separator("Waiting for MIDI Program Change..."))
         index = None
         if "zs3-0" in sm.zs3:
             entries.append(entry("Default state", data="zs3-0", icon="zs3_default.png",

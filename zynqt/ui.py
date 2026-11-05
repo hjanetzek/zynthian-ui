@@ -289,8 +289,8 @@ class ZynUI(QObject):
             # manager)
             self.endMoveChain()
             self.endMoveProcessor()
-        old = self.qml_screen_objects.get(self.current_screen)
-        if old and name != self.current_screen:
+        old = self.qml_screen_objects.get(self.current_screen) or self.list_screens.get(self.current_screen)
+        if old and name != self.current_screen and callable(getattr(old, "hide", None)):
             old.hide()
         if name in ("tempo", "alsa_mixer", "audio_player"):
             # As zynthian_gui.show_screen: the control screen with a processor without chain;
@@ -810,7 +810,9 @@ class ZynUI(QObject):
         self.show_screen("admin")
 
     def cuia_screen_zs3(self, params=None):
+        # As zynthian_gui: program changes save ZS3s while the screen is shown
         self.show_screen("zs3")
+        self.list_screens["zs3"].enable_midi_learn()
 
     def cuia_zs3_save(self, params=None):
         if params:
@@ -818,6 +820,94 @@ class ZynUI(QObject):
                 self.state_manager.save_zs3_by_index(params[0])
             else:
                 self.state_manager.save_zs3(params[0])
+
+    # MIDI learn (zynthian_gui's MIDI learn CUIAs): the chain control screen (and the screens
+    # it shows: ALSA mixer, note range) learns controllers / notes, the ZS3 screen program changes
+
+    def _learn_screen(self):
+        if self.current_screen in ("chain_control", "alsa_mixer", "midi_key_range", "tempo", "audio_player"):
+            return self.chain_control_screen
+        if self.current_screen == "zs3":
+            return self.list_screens["zs3"]
+        return None
+
+    def cuia_toggle_midi_learn(self, params=None):
+        screen = self._learn_screen()
+        if screen is not None:
+            screen.toggle_midi_learn()
+        elif self.state_manager.midi_learn_state:
+            self.state_manager.set_midi_learn(False)
+        else:
+            self.state_manager.set_midi_learn(True)
+
+    def cuia_enable_midi_learn(self, params=None):
+        screen = self._learn_screen()
+        if screen is self.chain_control_screen:
+            if not (screen.midi_learning or screen.note_learn):
+                screen.toggle_midi_learn()
+        elif screen is not None:
+            screen.enable_midi_learn()
+        else:
+            self.state_manager.set_midi_learn(True)
+
+    def cuia_disable_midi_learn(self, params=None):
+        screen = self._learn_screen()
+        if screen is self.chain_control_screen:
+            screen.exit_midi_learn()
+        elif screen is not None:
+            screen.disable_midi_learn()
+        self.state_manager.set_midi_learn(False)
+
+    def cuia_midi_learn_control(self, params=None):
+        if self._learn_screen() is self.chain_control_screen and params:
+            self.chain_control_screen.midi_learn(int(params[0]))
+
+    def cuia_midi_learn_control_options(self, params=None):
+        if self._learn_screen() is self.chain_control_screen and params:
+            self.chain_control_screen.controllers[int(params[0])].options()
+
+    def cuia_midi_unlearn_control(self, params=None):
+        cc = self.chain_control_screen
+        if self._learn_screen() is not cc:
+            return
+        zctrl = cc.controllers[int(params[0])].zctrl if params else self.state_manager.get_midi_learn_zctrl()
+        if zctrl is not None:
+            cc.exit_midi_learn()
+            self.chain_manager.clean_midi_learn(zctrl)
+            cc.refresh_bindings()
+
+    def cuia_action_midi_unlearn(self, params=None):
+        if self._learn_screen() is self.chain_control_screen:
+            self.chain_control_screen.midi_unlearn_action()
+
+    def cuia_midi_unlearn_mixer(self, params=None):
+        for chain in self.chain_manager.chains.values():
+            if chain.zynmixer_proc:
+                self.chain_manager.clean_midi_learn(chain.zynmixer_proc)
+
+    def cuia_midi_unlearn_node(self, params=None):
+        """params: processor id, controller symbol (zynthian_gui passes both as one list, which
+        remove_midi_learn(proc, symbol) doesn't take)"""
+        if params and len(params) > 1:
+            proc = self.chain_manager.processors.get(int(params[0]))
+            if proc is not None:
+                self.chain_manager.remove_midi_learn(proc, str(params[1]))
+
+    def cuia_midi_unlearn_chain(self, params=None):
+        self.chain_manager.clean_midi_learn(params[0] if params else self.chain_manager.active_chain.chain_id)
+
+    def cuia_enable_midi_learn_pc(self, params=None):
+        self.state_manager.enable_learn_pc(params[0] if params else "")
+
+    def cuia_disable_midi_learn_pc(self, params=None):
+        self.state_manager.disable_learn_pc()
+
+    def cuia_disable_midi_learn_cc(self, params=None):
+        self.state_manager.disable_learn_cc()
+
+    def cuia_z2_zynpot_touch(self, params=None):
+        if self._learn_screen() is self.chain_control_screen and params:
+            self.chain_control_screen.controllers[int(params[0])].touched()
 
     def cuia_zs3_load(self, params=None):
         if params:

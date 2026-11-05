@@ -40,8 +40,8 @@ class ChainOptions(SelectorScreen):
         entries = ([separator("> PROCESSORS")] + processors) if processors else []
         entries.append(separator("> MANAGE"))
         if chain.chain_id:
-            entries.append(entry("Move chain", icon="move_left_right.png", enabled=False,
-                                 info=NOT_PORTED))
+            entries.append(entry("Move chain", lambda e: self.ui.start_move_chain(), icon="move_left_right.png",
+                                 info="Reposition the chain in the mixer: arrows or ◀ ▶, SELECT or Done to finish."))
         entries.append(entry("Rename chain", lambda e: self.rename(),
                              info="Change the name of the chain. Clear name to reset to default name.",
                              icon="rename.png"))

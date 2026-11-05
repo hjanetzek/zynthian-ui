@@ -175,7 +175,7 @@ chains (type, engine, MIDI channel, bank, preset), snapshots, ZS3, tempo, audio 
 settings (all desktop entries except ZynVoice), MIDI devices and their options, recording and
 transport keys, audio and MIDI player, chain manager, moving chains and processors, MIDI CC and note
 range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration's switch actions.
-Not ported yet: controller drivers in the MIDI device options, audio input routing, ZynVoice,
+Not ported yet: ZynVoice,
 launcher.
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
@@ -195,8 +195,9 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
 **Next steps** (2026-11-05):
 
 1. Qt UI as the Duet's kiosk (`kiosk-session zynthian`, see nura/README.md) and everyday use.
-2. Remaining M2 gaps: controller drivers (ctrldev) in the MIDI device options; ZynVoice (needs a
-   TTS engine on the device). Move list logic out of the Tk screens into shared modules where it
+2. Remaining M2 gaps: ZynVoice (needs a TTS engine on the device). PipeWire integration of the
+   audio routing (hardware ports, main output, numbering; see docs/upstream-candidates.md) is
+   only patched over so far. Move list logic out of the Tk screens into shared modules where it
    isn't trivial, as for snapshots and MIDI config.
 3. Touch: multitouch on faders, swipe vs. tap in lists, long-press timing, drag sensitivity.
 4. M3: the launcher (PAD key) first, then the audio file widget (waveform: QML `Shape` or a C++

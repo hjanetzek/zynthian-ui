@@ -104,7 +104,7 @@ class Launcher(QObject):
                 proc.engine.set_phrase(proc, self.zynseq.phrase)
                 self.ui.chain_control(chain.chain_id, proc)
             else:
-                self.ui.show_info("The pattern editor is not in the Qt UI yet.")
+                self.ui.show_screen("pattern_editor")
 
     def toggle_selected(self):
         chain = self.chain_manager.get_active_chain()

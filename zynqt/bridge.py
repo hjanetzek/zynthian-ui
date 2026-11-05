@@ -27,6 +27,11 @@ class SignalBridge(QObject):
     seqPlayStateChanged = Signal(int, int)
     seqStateChanged = Signal()
     seqPhraseSelected = Signal(int)
+    # MIDI input (for learning): device index, channel, CC number / note / program, value / velocity
+    midiCc = Signal(int, int, int, int)
+    midiNoteOn = Signal(int, int, int, int)
+    midiProgramChange = Signal(int, int, int)
+    zs3Saved = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -46,6 +51,10 @@ class SignalBridge(QObject):
         self._register(zynsigman.S_STEPSEQ, zynsigman.SS_SEQ_PLAY_STATE, self._cb_seq_play_state)
         self._register(zynsigman.S_STEPSEQ, zynsigman.SS_SEQ_STATE, self._cb_seq_state)
         self._register(zynsigman.S_STEPSEQ, zynsigman.SS_SEQ_SELECT_PHRASE, self._cb_seq_phrase)
+        self._register(zynsigman.S_MIDI, zynsigman.SS_MIDI_CC, self._cb_midi_cc)
+        self._register(zynsigman.S_MIDI, zynsigman.SS_MIDI_NOTE_ON, self._cb_midi_note_on)
+        self._register(zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self._cb_midi_pc)
+        self._register(zynsigman.S_STATE_MAN, zynsigman.SS_SAVE_ZS3, self._cb_zs3_saved)
 
     def _register(self, signal, subsignal, callback):
         zynsigman.register(signal, subsignal, callback)
@@ -69,6 +78,18 @@ class SignalBridge(QObject):
             self.mixerValueChanged.emit(bool(mixbus), int(chan), str(symbol), float(value))
         except (TypeError, ValueError) as e:
             logging.debug(f"mixer value {symbol}={value!r}: {e}")
+
+    def _cb_midi_cc(self, izmip=0, chan=0, num=0, val=0, **kwargs):
+        self.midiCc.emit(int(izmip), int(chan), int(num), int(val))
+
+    def _cb_midi_note_on(self, izmip=0, chan=0, note=0, vel=0, **kwargs):
+        self.midiNoteOn.emit(int(izmip), int(chan), int(note), int(vel))
+
+    def _cb_midi_pc(self, izmip=0, chan=0, num=0, **kwargs):
+        self.midiProgramChange.emit(int(izmip), int(chan), int(num))
+
+    def _cb_zs3_saved(self, **kwargs):
+        self.zs3Saved.emit()
 
     def _cb_snapshot(self, **kwargs):
         self.snapshotLoaded.emit()

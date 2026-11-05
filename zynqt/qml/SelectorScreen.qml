@@ -66,7 +66,7 @@ Item {
             required property int index
             required property string title
             required property bool separator
-            required property bool enabled
+            required property bool entryEnabled
 
             width: list.width
             height: 44
@@ -79,7 +79,7 @@ Item {
                 anchors.leftMargin: 10
                 elide: Text.ElideRight
                 text: row.title
-                color: row.separator ? Theme.textOff : (row.enabled ? Theme.text : Theme.disabled)
+                color: row.separator ? Theme.textOff : (row.entryEnabled ? Theme.text : Theme.disabled)
                 font.pixelSize: 24
                 font.family: Theme.fontFamily
             }
@@ -145,7 +145,7 @@ Item {
             required property int index
             required property string title
             required property string icon
-            required property bool enabled
+            required property bool entryEnabled
 
             width: grid.cellWidth
             height: grid.cellHeight
@@ -155,7 +155,7 @@ Item {
                 anchors.margins: 1
                 color: tile.index === grid.currentIndex ? Theme.select : Theme.panel
                 border.color: tap.pressed ? Theme.text : "transparent"
-                opacity: tile.enabled ? 1 : 0.45
+                opacity: tile.entryEnabled ? 1 : 0.45
 
                 Image {
                     id: tileIcon

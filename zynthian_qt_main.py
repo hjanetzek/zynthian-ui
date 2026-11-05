@@ -72,6 +72,8 @@ def main():
     main_bus = MixerModel(ui.chain_manager, ui.bridge, main_only=True)
     meters = MixerMeters(ui.state_manager, mixer)
     main_meters = MixerMeters(ui.state_manager, main_bus)
+    ui.mixerSettingsChanged.connect(mixer.reload)
+    ui.mixerSettingsChanged.connect(main_bus.reload)
 
     engine = QQmlApplicationEngine()
     ctx = engine.rootContext()

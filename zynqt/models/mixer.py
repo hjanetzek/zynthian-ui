@@ -26,12 +26,14 @@ def db_to_fraction(db):
 
 class MixerModel(QAbstractListModel):
     ChainIdRole, NameRole, MidiChanRole, LevelRole, BalanceRole, MuteRole, SoloRole, RecordRole, \
-        IsMixbusRole, MeterIndexRole, ActiveRole = range(Qt.UserRole + 1, Qt.UserRole + 12)
+        IsMixbusRole, MeterIndexRole, ActiveRole, ToggleRole, ToggleLabelRole = \
+        range(Qt.UserRole + 1, Qt.UserRole + 14)
 
     _ROLE_NAMES = {ChainIdRole: b"chainId", NameRole: b"name", MidiChanRole: b"midiChan",
                    LevelRole: b"level", BalanceRole: b"balance", MuteRole: b"mute",
                    SoloRole: b"solo", RecordRole: b"record", IsMixbusRole: b"isMixbus",
-                   MeterIndexRole: b"meterIndex", ActiveRole: b"active"}
+                   MeterIndexRole: b"meterIndex", ActiveRole: b"active",
+                   ToggleRole: b"toggle", ToggleLabelRole: b"toggleLabel"}
     _SYMBOL_ROLES = {"level": LevelRole, "balance": BalanceRole, "mute": MuteRole,
                      "solo": SoloRole, "record": RecordRole}
 
@@ -101,6 +103,12 @@ class MixerModel(QAbstractListModel):
             return bool(chain.zynmixer_proc and chain.zynmixer_proc.eng_code == "MR")
         if role == self.MeterIndexRole:
             return index.row()
+        if role in (self.ToggleRole, self.ToggleLabelRole):
+            # The strip's second button: the controller chosen in admin (mixer_toggle), as Tk
+            zctrl = self._controller(chain, zynthian_gui_config.mixer_toggle)
+            if role == self.ToggleLabelRole:
+                return zctrl.name if zctrl else ""
+            return bool(zctrl and zctrl.value)
         if role == self.ActiveRole:
             active = self.chain_manager.active_chain
             return bool(active and active.chain_id == chain.chain_id)
@@ -127,11 +135,13 @@ class MixerModel(QAbstractListModel):
 
     @Slot(bool, int, str, float)
     def _mixer_value(self, mixbus, chan, symbol, value):
-        role = self._SYMBOL_ROLES.get(symbol)
-        row = self.strip_for(mixbus, chan) if role else None
+        roles = [self._SYMBOL_ROLES[symbol]] if symbol in self._SYMBOL_ROLES else []
+        if symbol == zynthian_gui_config.mixer_toggle:
+            roles.append(self.ToggleRole)
+        row = self.strip_for(mixbus, chan) if roles else None
         if row is not None:
             i = self.index(row)
-            self.dataChanged.emit(i, i, [role])
+            self.dataChanged.emit(i, i, roles)
 
     # Changes from the UI: through the processor's controllers, as the Tk mixer does, so MIDI
     # learn, snapshots and feedback work the same
@@ -156,8 +166,8 @@ class MixerModel(QAbstractListModel):
             zctrl.set_value(int(not zctrl.value))
 
     @Slot(int)
-    def toggleSolo(self, row):
-        zctrl = self._controller(self.chain(row), "solo")
+    def toggleControl(self, row):
+        zctrl = self._controller(self.chain(row), zynthian_gui_config.mixer_toggle)
         if zctrl is not None:
             zctrl.set_value(int(not zctrl.value))
 

@@ -2,15 +2,15 @@
 long press on a controller): chain controller, MIDI learn (chain or global), the learned binding's
 CC mode and value range, momentary/debounce for toggles, the step sequencer's CC, unlearn.
 
-Not ported: the X-Y touchpad axes (no touchpad screen in the Qt UI yet).
 """
 
 from zyngui.zynthian_midi_learn_data import (CC_MODES, MIDI_LEARNING_CHAIN, MIDI_LEARNING_GLOBAL, cc_mode_label,
                                              set_cc_mode, unlearn_label, zynstep_cc)
 
 
-def show_controller_options(cc, i, selected=0):
-    """cc: the ChainControl; i: controller slot"""
+def show_controller_options(cc, i, selected=0, select_text=None):
+    """cc: the ChainControl; i: controller slot; selected: the entry selected first, or the first
+    one containing select_text"""
     zctrl = cc.controllers[i].zctrl
     if zctrl is None:
         return
@@ -42,6 +42,24 @@ def show_controller_options(cc, i, selected=0):
         opts.append(("Clear", clear, None, None))
         ui.show_options(f"Control options: {zctrl.name}", opts, selected)
         return
+
+    if not zctrl.is_toggle:
+        # X-Y touchpad axes (state_manager.zctrl_x / zctrl_y; an axis takes one controller)
+        sm = ui.state_manager
+        if sm.zctrl_x and sm.zctrl_y:
+            opts.append(("Show touchpad", lambda: ui.show_screen("control_xy"), None, None))
+        for axis in ("x", "y"):
+            current = getattr(sm, f"zctrl_{axis}")
+            other = "y" if axis == "x" else "x"
+
+            def toggle_axis(axis=axis, other=other):
+                setattr(sm, f"zctrl_{axis}", None if getattr(sm, f"zctrl_{axis}") == zctrl else zctrl)
+                if getattr(sm, f"zctrl_{other}") == zctrl:
+                    setattr(sm, f"zctrl_{other}", None)
+                cc.refresh_bindings()
+                show_controller_options(cc, i, select_text=f"{axis.upper()}-axis")
+            info = f" => {current.name}" if current else ""
+            opts.append((f"{'☒' if current == zctrl else '☐'} {axis.upper()}-axis{info}", toggle_axis, None, None))
 
     ml = cm.get_midi_learn_from_zctrl(zctrl, abs=True, chain=True, zynstep=False)
     opts.append(("MIDI learn", None, None, None))
@@ -89,6 +107,8 @@ def show_controller_options(cc, i, selected=0):
             cc.refresh_bindings()
         opts.append((label, unlearn, None, None))
     opts.append(("Unlearn all controls", cc.midi_unlearn_action, None, None))
+    if select_text:
+        selected = next((k for k, o in enumerate(opts) if select_text in o[0]), selected)
     ui.show_options(f"Control options: {zctrl.name}", opts, selected)
 
 

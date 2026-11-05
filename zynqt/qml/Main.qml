@@ -125,6 +125,47 @@ Window {
         anchors.fill: screens
     }
 
+    // Value editor (zynthian param editor): steps, OK applies; arrows step, SEL OK, BACK cancels
+    Rectangle {
+        anchors.fill: screens
+        visible: zyn.valueEditorShown
+        color: "#d0000000"
+        MouseArea { anchors.fill: parent; onWheel: (wheel) => zyn.valueEditorStep(wheel.angleDelta.y > 0 ? 1 : -1) }
+
+        Column {
+            anchors.centerIn: parent
+            spacing: 24
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: zyn.valueEditorTitle
+                color: Theme.textOff
+                font.pixelSize: 24
+                font.family: Theme.fontFamily
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: zyn.valueEditorText
+                color: Theme.text
+                font.pixelSize: 56
+                font.family: Theme.fontFamily
+            }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 16
+                DialogButton { text: "−10"; width: 110; color: Theme.keyBackground; onTapped: zyn.valueEditorStep(-10) }
+                DialogButton { text: "−1"; width: 110; color: Theme.keyBackground; onTapped: zyn.valueEditorStep(-1) }
+                DialogButton { text: "+1"; width: 110; color: Theme.keyBackground; onTapped: zyn.valueEditorStep(1) }
+                DialogButton { text: "+10"; width: 110; color: Theme.keyBackground; onTapped: zyn.valueEditorStep(10) }
+            }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 40
+                DialogButton { text: "Cancel"; color: "#802020"; onTapped: zyn.valueEditorCancel() }
+                DialogButton { text: "OK"; color: "#208020"; onTapped: zyn.valueEditorAccept() }
+            }
+        }
+    }
+
     // Busy: loading snapshots, starting engines
     Rectangle {
         anchors.fill: screens

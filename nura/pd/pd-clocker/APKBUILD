@@ -1,0 +1,34 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# clocker, clockfill, midiclocker: Owen Osborn's MIDI clock externals, used by zynthian's Organelle
+# patches (zynthian-data ships them only as arm64/glibc binaries, pd-externals-arm64). The repo's
+# Makefile is an old Pd-extended template (and the repo contains built binaries): each external is
+# one C file, compiled here directly. Installed to /usr/lib/pd/extra, where pd finds them.
+pkgname=pd-clocker
+_commit=bfe08f9a4b32056f77739a602c21835a06314829
+pkgver=0_git20230601
+pkgrel=0
+pkgdesc="MIDI clock externals for Pure Data (clocker, clockfill, midiclocker)"
+url="https://github.com/owenosborn/clocker"
+arch="all"
+license="BSD-3-Clause"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/owenosborn/clocker/archive/$_commit.tar.gz"
+builddir="$srcdir/clocker-$_commit"
+options="!check" # no tests
+
+build() {
+	local e
+	for e in clocker clockfill midiclocker; do
+		${CC:-cc} $CFLAGS $CPPFLAGS -fPIC -shared $LDFLAGS -DPD -I/usr/include/pd \
+			$e.c -o $e.pd_linux
+	done
+}
+
+package() {
+	install -Dm644 -t "$pkgdir"/usr/lib/pd/extra clocker.pd_linux clockfill.pd_linux midiclocker.pd_linux
+	install -Dm644 LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.txt
+}
+sha512sums="
+608b500b2f42cb550409a64b60222363365d72af9296b7063221e078312c5566731739354a3175350fdf7ad96b5bcbcca247e9c704a08d57b6a1c64e8d507ddc  pd-clocker-bfe08f9a4b32056f77739a602c21835a06314829.tar.gz
+"

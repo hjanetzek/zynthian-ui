@@ -1,0 +1,30 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# osc (packOSC, unpackOSC, ...), Martin Peach's OSC objects, for Pure Data, installed to /usr/lib/pd/extra/osc: the path zynthian's puredata
+# patches declare (Organelle patches, zynthian-data/presets/puredata). pd-lib-builder build.
+pkgname=pd-osc
+pkgver=0.3.1
+pkgrel=0
+pkgdesc="osc (packOSC, unpackOSC, ...), Martin Peach's OSC objects, (Pure Data externals)"
+url="https://github.com/pd-externals/osc"
+arch="all"
+license="custom"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-0.3.1.tar.gz::https://github.com/pd-externals/osc/archive/v0.3.1.tar.gz"
+builddir="$srcdir/osc-0.3.1"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+
+build() {
+	make PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc"
+}
+
+package() {
+	make install PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc" DESTDIR="$pkgdir" pkglibdir=/usr/lib/pd/extra
+}
+sha512sums="
+8b29521f0957c2d97eb22925eac63d86a385678abaef0e719c6eb92520ebc75d2df4bb065297dd6312eec47b2b0dd759210b884edd4e7fd8c07a4123ce640909  pd-osc-0.3.1.tar.gz
+"

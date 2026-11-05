@@ -1,0 +1,47 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Pure Data (vanilla), for zynthian's puredata engine (Organelle patches); not packaged by Alpine
+# (only libpd). zynthian runs it as "pd -nogui -jack -alsamidi": JACK (pipewire-jack) and ALSA MIDI;
+# the Tcl/Tk GUI files are installed, but tk is not a dependency.
+pkgname=puredata
+pkgver=0.57.0
+_pkgver=0.57-0
+pkgrel=0
+pkgdesc="Pure Data, a visual programming language for audio"
+url="https://puredata.info"
+arch="all"
+license="BSD-3-Clause"
+makedepends="autoconf automake libtool gettext-dev alsa-lib-dev jack-dev fftw-dev"
+subpackages="$pkgname-dev $pkgname-doc"
+source="$pkgname-$_pkgver.tar.gz::https://github.com/pure-data/pure-data/archive/$_pkgver.tar.gz"
+builddir="$srcdir/pure-data-$_pkgver"
+options="!check" # tests need a running pd
+
+prepare() {
+	default_prepare
+	./autogen.sh
+}
+
+build() {
+	./configure \
+		--build=$CBUILD \
+		--host=$CHOST \
+		--prefix=/usr \
+		--enable-alsa \
+		--enable-jack \
+		--enable-fftw \
+		--disable-portaudio \
+		--disable-portmidi
+	make
+}
+
+package() {
+	make DESTDIR="$pkgdir" install
+}
+
+doc() {
+	default_doc
+	amove usr/lib/pd/doc
+}
+sha512sums="
+67d4f019322d80b974f44884136528112fac2064e8bd126025162bc8aee08059872c4326d09ccbed36b1f1b65759646309e5dc05c6024864f259e5933ad6bfd6  puredata-0.57-0.tar.gz
+"

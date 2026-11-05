@@ -1,0 +1,50 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# iemlib, IEM's objects, for Pure Data, installed to /usr/lib/pd/extra/iemlib: the path zynthian's puredata
+# patches declare (Organelle patches, zynthian-data/presets/puredata). pd-lib-builder build.
+pkgname=pd-iemlib
+pkgver=1.22.3
+pkgrel=1
+pkgdesc="iemlib, IEM's objects, (Pure Data externals)"
+url="https://git.iem.at/pd/iemlib"
+arch="all"
+license="LGPL-2.1-or-later"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-v1.22-3.tar.gz::https://git.iem.at/pd/iemlib/-/archive/v1.22-3/iemlib-v1.22-3.tar.gz"
+builddir="$srcdir/iemlib-v1.22-3"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+
+prepare() {
+	default_prepare
+	# Pd 0.55+ no longer declares the old API iemlib uses; pd still exports it (error(), and
+	# cos_table with the pre-0.55 size of 512, d_osc.c OLDTABSIZE)
+	cat > pd-legacy.h <<-'EOH'
+		#include "m_pd.h"
+		#define COSTABSIZE 512
+		EXTERN float *cos_table;
+		EXTERN void error(const char *fmt, ...);
+	EOH
+}
+
+build() {
+	make PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc" CPPFLAGS="-include $builddir/pd-legacy.h"
+}
+
+package() {
+	make install PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc" CPPFLAGS="-include $builddir/pd-legacy.h" DESTDIR="$pkgdir" pkglibdir=/usr/lib/pd/extra
+	# iemlib is one library binary; the patches only declare its directory (-path), so pd looks for
+	# <object>.pd_linux: link each object (help file without an abstraction) to the library, which
+	# exports every object's setup function
+	local d="$pkgdir"/usr/lib/pd/extra/iemlib h obj
+	for h in "$d"/*-help.pd; do
+		obj=$(basename "$h" -help.pd)
+		[ -e "$d/$obj.pd" ] || [ -e "$d/$obj.pd_linux" ] || ln -s iemlib.pd_linux "$d/$obj.pd_linux"
+	done
+}
+sha512sums="
+85f85c5e1731127ff28e2b03324fe01bf164cc3c14b16e6e315521cd7dce8986afed8cd6fa5a6db9cac9dd90c5fd114a6f1cc22dcc02dfb23ab365847c0ae236  pd-iemlib-v1.22-3.tar.gz
+"

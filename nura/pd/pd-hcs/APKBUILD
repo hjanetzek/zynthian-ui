@@ -1,0 +1,37 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# hcs, Hans-Christoph Steiner's objects, for Pure Data, installed to /usr/lib/pd/extra/hcs: the path zynthian's puredata
+# patches declare (Organelle patches, zynthian-data/presets/puredata). pd-lib-builder build.
+pkgname=pd-hcs
+pkgver=0.2.1
+pkgrel=0
+pkgdesc="hcs, Hans-Christoph Steiner's objects, (Pure Data externals)"
+url="https://github.com/pd-externals/hcs"
+arch="all"
+license="GPL-3.0-or-later"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-0.2.1.tar.gz::https://github.com/pd-externals/hcs/archive/v0.2.1.tar.gz"
+builddir="$srcdir/hcs-0.2.1"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+
+prepare() {
+	default_prepare
+	# stat: picks the BSD field names (st_atimespec) unless _POSIX_C_SOURCE is defined, which glibc
+	# defines implicitly and musl doesn't; Linux has the POSIX names
+	sed -i 's/^#if defined(_POSIX_C_SOURCE) || defined(_WIN32)$/#if defined(_POSIX_C_SOURCE) || defined(_WIN32) || defined(__linux__)/' stat.c
+}
+
+build() {
+	make PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc"
+}
+
+package() {
+	make install PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc" DESTDIR="$pkgdir" pkglibdir=/usr/lib/pd/extra
+}
+sha512sums="
+c64d447932c0fe1dbc256be11afcc94c6a36bffe556b097084dd6b743bea3c24faa426ce46d53b10871eed8b46c48544bd111640c314ece7e4464795330f3f94  pd-hcs-0.2.1.tar.gz
+"

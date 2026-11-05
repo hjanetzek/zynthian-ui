@@ -1,0 +1,42 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# ggee, Guenter Geiger's objects, for Pure Data, installed to /usr/lib/pd/extra/ggee: the path zynthian's puredata
+# patches declare (Organelle patches, zynthian-data/presets/puredata). pd-lib-builder build.
+pkgname=pd-ggee
+pkgver=0.28
+pkgrel=0
+pkgdesc="ggee, Guenter Geiger's objects, (Pure Data externals)"
+url="https://github.com/pd-externals/ggee"
+arch="all"
+license="custom"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-0.28.tar.gz::https://github.com/pd-externals/ggee/archive/v0.28.tar.gz"
+builddir="$srcdir/ggee-0.28"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+
+prepare() {
+	default_prepare
+	# Pd 0.55+ no longer declares the old API ggee uses; pd still exports it (error(), and
+	# cos_table with the pre-0.55 size of 512, d_osc.c OLDTABSIZE)
+	cat > pd-legacy.h <<-'EOH'
+		#include "m_pd.h"
+		#define COSTABSIZE 512
+		EXTERN float *cos_table;
+		EXTERN void error(const char *fmt, ...);
+	EOH
+}
+
+build() {
+	make PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc" CPPFLAGS="-include $builddir/pd-legacy.h"
+}
+
+package() {
+	make install PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc" CPPFLAGS="-include $builddir/pd-legacy.h" DESTDIR="$pkgdir" pkglibdir=/usr/lib/pd/extra
+}
+sha512sums="
+2b9668c5799908366f3633cc2637ac3acc78ff6e8889d1e4c726e7ea605a30e65e62d98f60a89cef8225a67fcda49a5a519a8ca4b4ce932bfb867beb5832f2ba  pd-ggee-0.28.tar.gz
+"

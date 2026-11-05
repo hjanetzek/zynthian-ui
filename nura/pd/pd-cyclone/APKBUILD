@@ -1,0 +1,30 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# cyclone, Max/MSP compatible objects, for Pure Data, installed to /usr/lib/pd/extra/cyclone: the path zynthian's puredata
+# patches declare (Organelle patches, zynthian-data/presets/puredata). pd-lib-builder build.
+pkgname=pd-cyclone
+pkgver=0.9.5
+pkgrel=0
+pkgdesc="cyclone, Max/MSP compatible objects, (Pure Data externals)"
+url="https://github.com/porres/pd-cyclone"
+arch="all"
+license="BSD-3-Clause"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-0.9-5.tar.gz::https://github.com/porres/pd-cyclone/archive/0.9-5.tar.gz"
+builddir="$srcdir/pd-cyclone-0.9-5"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+
+build() {
+	make PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc"
+}
+
+package() {
+	make install PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc" DESTDIR="$pkgdir" pkglibdir=/usr/lib/pd/extra
+}
+sha512sums="
+069051ad4d1ce3313983cc47779524dbb79051f2b9150a3203c60534b1ae3e529c07aa62ee1cc0644c626b8ed961f26d830f06869d4b9822c0ab77f825827bb6  pd-cyclone-0.9-5.tar.gz
+"

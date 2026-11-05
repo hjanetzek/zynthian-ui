@@ -6,7 +6,8 @@
 # and data directories. Safe to run again: existing user files are kept.
 #
 #   desktop/setup_desktop.sh            everything
-#   desktop/setup_desktop.sh build      only build zyncore and the zynlibs
+#   desktop/setup_desktop.sh build      only build zyncore, the zynlibs and zynthian's jalv
+#   desktop/setup_desktop.sh jalv       only build zynthian's jalv (../jalv, branch asyncli)
 #   desktop/setup_desktop.sh venv       only create/update the venv
 #   desktop/setup_desktop.sh dirs       only create config and data dirs
 #
@@ -86,6 +87,26 @@ do_build() {
 	ZYNTHIAN_WIRING_LAYOUT=DUMMIES "$ZYNTHIAN_ZYNCODER_DIR/build.sh"
 	echo "=== Building zynlibs ..."
 	"$ZYNTHIAN_UI_DIR/zynlibs/build.sh" Release
+	do_jalv
+}
+
+# zynthian's jalv (ZynthianOS: zynthian-sys/scripts/recipes/install_lv2_jalv.sh), only the
+# JACK command line host the jalv engine runs; into ZYNTHIAN_SW_DIR, on PATH through
+# zynthian_desktop_env.sh
+do_jalv() {
+	if [ ! -d "$ZYNTHIAN_JALV_SRC_DIR" ]; then
+		echo "=== No $ZYNTHIAN_JALV_SRC_DIR: LV2 engines need zynthian's jalv, clone it with"
+		echo "    git clone --recursive -b asyncli https://github.com/zynthian/jalv.git $ZYNTHIAN_JALV_SRC_DIR"
+		return 0
+	fi
+	echo "=== Building zynthian's jalv ..."
+	local build_dir="$ZYNTHIAN_SW_DIR/build/jalv"
+	if [ ! -f "$build_dir/build.ninja" ]; then
+		meson setup "$build_dir" "$ZYNTHIAN_JALV_SRC_DIR" --prefix="$ZYNTHIAN_SW_DIR" \
+			-Djack=enabled -Dgtk3=disabled -Dqt5=disabled -Dportaudio=disabled -Dsuil=disabled -Dtests=disabled
+	fi
+	meson compile -C "$build_dir"
+	meson install -C "$build_dir"
 }
 
 do_venv() {
@@ -167,10 +188,11 @@ do_dirs() {
 
 case "${1:-all}" in
 	build) check_dirs "$ZYNTHIAN_ZYNCODER_DIR"; do_build ;;
+	jalv) do_jalv ;;
 	venv) do_venv ;;
 	dirs) check_dirs "$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_DATA_DIR"; do_dirs ;;
 	all) check_dirs "$ZYNTHIAN_SYS_DIR" "$ZYNTHIAN_DATA_DIR" "$ZYNTHIAN_ZYNCODER_DIR"; do_build; do_venv; do_dirs ;;
-	*) echo "Usage: $0 [all|build|venv|dirs]"; exit 1 ;;
+	*) echo "Usage: $0 [all|build|jalv|venv|dirs]"; exit 1 ;;
 esac
 
 echo "=== Done. Start with: $DESKTOP_DIR/zynthian_desktop.sh"

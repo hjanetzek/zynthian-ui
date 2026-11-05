@@ -162,7 +162,7 @@ Item {
         border.color: Theme.select
         border.width: 2
         Text { id: moveKeyLabel; anchors.centerIn: parent; color: Theme.text; font.pixelSize: 22 }
-        TapHandler { id: moveKeyTap; onTapped: moveKey.tapped() }
+        TapHandler { id: moveKeyTap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: moveKey.tapped() }
     }
 
     component SideButton: Rectangle {

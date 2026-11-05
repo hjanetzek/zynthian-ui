@@ -1,0 +1,5 @@
+# Settings for the zynthian kiosk session (/etc/cage-ui/zynthian.sh), read when the session
+# starts: kiosk-session switches them, or edit and run sudo systemctl restart tinydm.
+
+# UI: qt (Qt Quick, native Wayland) or tk (Tkinter through XWayland)
+ZYNTHIAN_UI=qt

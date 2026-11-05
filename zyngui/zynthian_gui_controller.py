@@ -34,6 +34,7 @@ from tkinter import font as tkFont
 # Zynthian specific modules
 from zyncoder.zyncore import lib_zyncore
 from zyngui import zynthian_gui_config
+from zyngui.zynthian_midi_learn_data import binding
 
 # ------------------------------------------------------------------------------
 # Font size cache
@@ -555,22 +556,14 @@ class zynthian_gui_controller(tkinter.Canvas):
                 self.plot_midi_bind("X", zynthian_gui_config.color_alt2)
             elif self.zctrl == self.zyngui.state_manager.zctrl_y:
                 self.plot_midi_bind("Y", zynthian_gui_config.color_alt2)
-            elif midi_learn_params := self.zyngui.chain_manager.get_midi_learn_from_zctrl(self.zctrl):
-                key = midi_learn_params[0]
-                cc = key & 0xff
-                match midi_learn_params[1]:
-                    case "abs":
-                        #zmip = (key >> 16) & 0xff
-                        chan = (key >> 8) & 0xff
-                        self.plot_midi_bind(f"{chan + 1}#{cc}", zynthian_gui_config.color_ml)
-                    case "chain":
-                        chan = (key >> 8) & 0xff
-                        if chan < 16:
-                            self.plot_midi_bind(f"{chan + 1}#{cc}", zynthian_gui_config.color_hl)
-                        else:
-                            self.plot_midi_bind(f"{cc}")
-                    case "zynstep":
-                        self.plot_midi_bind(f"{cc}")
+            elif bind := binding(self.zyngui.chain_manager, self.zctrl):
+                text, kind = bind
+                if kind == "abs":
+                    self.plot_midi_bind(text, zynthian_gui_config.color_ml)
+                elif kind == "chain" and "#" in text:
+                    self.plot_midi_bind(text, zynthian_gui_config.color_hl)
+                else:
+                    self.plot_midi_bind(text)
             else:
                 self.erase_midi_bind()
                 return False

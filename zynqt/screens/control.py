@@ -13,7 +13,7 @@ from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
 from zynqt.models.audio_file import AudioFileView
-from zynqt.models.widgets import EnvelopeView, FilterView, PluginView
+from zynqt.models.widgets import EnvelopeView, FilterView, PluginView, EuclidSeqView
 from zynqt.screens.base import EntryModel, entry, separator
 
 
@@ -112,6 +112,7 @@ class ChainControl(QObject):
         self.envelope_view = EnvelopeView(self)
         self.filter_view = FilterView(self)
         self.plugin_view = PluginView(self)
+        self.euclid_view = EuclidSeqView(self)
         self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
 
@@ -271,7 +272,10 @@ class ChainControl(QObject):
         filter, audio file path), else the engine's own (audio player, clippy)"""
         wtype, file_zctrl = wd.screen_type(zctrls) if proc else (None, None)
         plugin = wd.plugin_widget(proc) if wtype is None else None
-        if plugin:
+        if plugin == "euclidseq":
+            wtype = "euclid"
+            self.euclid_view.set_processor(proc)
+        elif plugin:
             wtype = "plugin"
             if self.plugin_view.processor is not proc:
                 self.plugin_view.set_processor(proc, plugin)
@@ -309,6 +313,10 @@ class ChainControl(QObject):
     @Property(QObject, constant=True)
     def pluginView(self):
         return self.plugin_view
+
+    @Property(QObject, constant=True)
+    def euclidView(self):
+        return self.euclid_view
 
     @Slot(int)
     def selectProcessor(self, i):

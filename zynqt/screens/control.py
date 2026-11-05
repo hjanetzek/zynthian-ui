@@ -12,10 +12,13 @@ from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
 from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
+from zyngui.zynthian_midi_learn_data import (MIDI_LEARNING_CHAIN, MIDI_LEARNING_DISABLED, MIDI_LEARNING_GLOBAL,
+                                             binding, note_range_learn)
 from zynqt.models.audio_file import AudioFileView
 from zynqt.models.organelle import OrganelleView
 from zynqt.models.widgets import EnvelopeView, FilterView, PluginView, EuclidSeqView, SooperLooperView
 from zynqt.screens.base import EntryModel, entry, separator
+from zynqt.screens.controller_options import show_controller_options
 
 
 class ControllerProxy(QObject):
@@ -23,9 +26,10 @@ class ControllerProxy(QObject):
 
     changed = Signal()
 
-    def __init__(self, index, parent=None):
-        super().__init__(parent)
+    def __init__(self, index, control):
+        super().__init__(control)
         self.index = index
+        self.control = control      # the ChainControl (MIDI learn state)
         self.zctrl = None
 
     def set_zctrl(self, zctrl):
@@ -79,6 +83,39 @@ class ControllerProxy(QObject):
     def isToggle(self):
         return bool(self.zctrl and self.zctrl.is_toggle)
 
+    def _binding(self):
+        """(text, kind) shown for the MIDI binding (zynthian_gui_controller.set_midi_bind): kind
+        "learn" / "learnGlobal" (learning it, or any while learning without one chosen), "abs",
+        "chain", "zynstep" or "" (none)"""
+        z = self.zctrl
+        if z is None or z.is_path:
+            return "", ""
+        c = self.control
+        if c.midi_learning and (c.learn_preselect or z == c.ui.state_manager.get_midi_learn_zctrl()):
+            return "??#??", "learnGlobal" if c.midi_learning == MIDI_LEARNING_GLOBAL else "learn"
+        return binding(c.chain_manager, z) or ("", "")
+
+    @Property(str, notify=changed)
+    def bindText(self):
+        return self._binding()[0]
+
+    @Property(str, notify=changed)
+    def bindKind(self):
+        return self._binding()[1]
+
+    @Slot()
+    def options(self):
+        """Long press: the controller's options (MIDI learn, ...)"""
+        if self.zctrl is not None:
+            show_controller_options(self.control, self.index)
+
+    @Slot()
+    def touched(self):
+        """Touched while MIDI learning: learn this one (zynthian_gui_control.zctrl_touch)"""
+        c = self.control
+        if c.midi_learning and self.zctrl is not None and self.zctrl != c.ui.state_manager.get_midi_learn_zctrl():
+            c.midi_learn(self.index, c.midi_learning)
+
     @Slot(int)
     def nudge(self, steps):
         if self.zctrl is not None and steps:
@@ -99,6 +136,7 @@ class ChainControl(QObject):
 
     processorsChanged = Signal()
     pageChanged = Signal()
+    learnChanged = Signal()
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -124,6 +162,14 @@ class ChainControl(QObject):
         self.sl_view = SooperLooperView(ui, self)
         self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
+        # MIDI learn (zynthian_gui_control): MIDI_LEARNING_*; learn_preselect: learning without a
+        # controller chosen (all show "??#??", touching one chooses it); note_learn: the key range
+        # page learning its notes (zynthian_gui_midi_key_range: -1, then the first note)
+        self.midi_learning = MIDI_LEARNING_DISABLED
+        self.learn_preselect = False
+        self.note_learn = 0
+        ui.bridge.midiCc.connect(self._midi_cc)
+        ui.bridge.midiNoteOn.connect(self._midi_note_on)
 
     # Shown / hidden (ZynUI)
 
@@ -138,6 +184,10 @@ class ChainControl(QObject):
         self._shown = False
         self._timer.stop()
         self.audio_view.stop()
+        self.exit_midi_learn()
+
+    def rebuild(self):
+        self._build()
 
     def _rebuild_if_shown(self):
         if self._shown:
@@ -370,4 +420,129 @@ class ChainControl(QObject):
             self.ui.cuia_bank_preset()
 
     def back(self):
+        if self.midi_learning or self.note_learn:
+            self.exit_midi_learn()
+            return True
         return False
+
+    # MIDI learn (zynthian_gui_control; the learning itself is in the state / chain managers)
+
+    def refresh_bindings(self):
+        for c in self.controllers:
+            c.changed.emit()
+
+    def _is_key_range(self):
+        return getattr(self.special_processor, "zmop_index", None) is not None and \
+            hasattr(self.special_processor, "low")
+
+    @Property(str, notify=learnChanged)
+    def learnText(self):
+        if self.note_learn:
+            return "Learning the note range: play the lowest and the highest note"
+        if not self.midi_learning:
+            return ""
+        how = "Global" if self.midi_learning == MIDI_LEARNING_GLOBAL else "Chain"
+        if self.learn_preselect or self.ui.state_manager.get_midi_learn_zctrl() is None:
+            return f"{how} MIDI learn: touch a control"
+        return f"{how} MIDI learn: move a control on your MIDI device"
+
+    def _set_learning(self, mode, preselect):
+        self.midi_learning = mode
+        self.learn_preselect = preselect
+        self.refresh_bindings()
+        self.learnChanged.emit()
+
+    def enter_midi_learn(self, mode=MIDI_LEARNING_CHAIN, preselect=True):
+        if mode > MIDI_LEARNING_DISABLED:
+            self._set_learning(mode, preselect)
+
+    @Slot()
+    def stopLearn(self):
+        self.exit_midi_learn()
+
+    @Slot()
+    def toggleLearn(self):
+        self.toggle_midi_learn()
+
+    def exit_midi_learn(self):
+        if self.note_learn:
+            self.note_learn = 0
+            self.ui.state_manager.set_midi_learn(False)
+            self.learnChanged.emit()
+        if self.midi_learning:
+            self.ui.state_manager.disable_learn_cc()
+            self._set_learning(MIDI_LEARNING_DISABLED, False)
+
+    def toggle_midi_learn(self, i=None):
+        """CUIA TOGGLE_MIDI_LEARN: off -> chain -> global -> off (the ALSA mixer starts global);
+        with a controller slot, learn that one. On the key range page: learn the note range"""
+        if self._is_key_range():
+            if self.note_learn:
+                self.exit_midi_learn()
+            else:
+                self.note_learn = -1
+                self.ui.state_manager.set_midi_learn(True)
+                self.learnChanged.emit()
+            return
+        default = MIDI_LEARNING_GLOBAL if getattr(self.special_processor, "eng_code", None) == "MX" \
+            else MIDI_LEARNING_CHAIN
+        if i is not None:
+            zctrl = self.controllers[i].zctrl if 0 <= i < 4 else None
+            if zctrl is None:
+                self.exit_midi_learn()
+                return
+            if zctrl != self.ui.state_manager.get_midi_learn_zctrl():
+                self.midi_learn(i, self.midi_learning or default)
+                return
+        if self.midi_learning == MIDI_LEARNING_CHAIN:
+            self._set_learning(MIDI_LEARNING_GLOBAL, i is None and self.learn_preselect)
+        elif self.midi_learning == MIDI_LEARNING_GLOBAL:
+            self.exit_midi_learn()
+        else:
+            self.enter_midi_learn(default, i is None)
+
+    def midi_learn(self, i, mode=MIDI_LEARNING_CHAIN):
+        zctrl = self.controllers[i].zctrl if 0 <= i < 4 else None
+        if zctrl is not None and mode > MIDI_LEARNING_DISABLED:
+            self.ui.state_manager.enable_learn_cc(zctrl)
+            self.enter_midi_learn(mode, False)
+
+    def _midi_cc(self, izmip, chan, num, val):
+        """A CC while learning a controller: bind it (zynthian_gui_control.midi_learn_bind)"""
+        zctrl = self.ui.state_manager.get_midi_learn_zctrl()
+        if not self.midi_learning or zctrl is None or num >= 120:
+            return
+        if self.midi_learning == MIDI_LEARNING_GLOBAL:
+            self.chain_manager.add_midi_learn(chan, num, zctrl, izmip)
+        else:
+            self.chain_manager.add_midi_learn(chan, num, zctrl)
+        self.exit_midi_learn()
+
+    def _midi_note_on(self, izmip, chan, note, vel):
+        """A note while learning the key range page's note range"""
+        if not self.note_learn or not self._is_key_range():
+            return
+        p = self.special_processor
+        self.note_learn, low, high, done = note_range_learn(self.note_learn, note, p.low.value, p.high.value)
+        if low != p.low.value:
+            p.low.set_value(low)
+        if high != p.high.value:
+            p.high.set_value(high)
+        for c in self.controllers:
+            c.refresh(True)
+        if done:
+            self.exit_midi_learn()
+
+    def midi_unlearn_action(self):
+        """Clean the MIDI learn of all controllers of the current processor (confirmed)"""
+        proc = self.ui.current_processor
+        if proc is None:
+            return
+        question = f"Do you want to clean MIDI-learn for ALL controls in {proc.get_name()}"
+        if proc.midi_chan is not None and 0 <= proc.midi_chan < 16:
+            question += f" on MIDI channel {proc.midi_chan + 1}"
+
+        def clean():
+            self.chain_manager.clean_midi_learn(proc)
+            self.refresh_bindings()
+        self.ui.confirm(question + "?", clean)

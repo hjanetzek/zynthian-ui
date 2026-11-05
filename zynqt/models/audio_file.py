@@ -62,12 +62,13 @@ class AudioFileView(QObject):
 
     # Shown for a processor (ChainControl)
 
-    def set_processor(self, processor):
-        if processor is self.processor:
+    def set_processor(self, processor, widget_zctrl=None):
+        """processor; widget_zctrl: the page's file controller, if it has one"""
+        if processor is self.processor and (widget_zctrl is None or widget_zctrl is self.zctrl):
             return
         self.processor = processor
         self.eng_type = afd.engine_type(processor)
-        self.zctrl = afd.file_zctrl(processor) if processor else None
+        self.zctrl = afd.file_zctrl(processor, widget_zctrl) if processor else None
         self.clip_info = None
         if self.eng_type == afd.ENG_CLIPPY and self.zctrl:
             self.clip_info = afd.clippy_info(processor, self.zctrl, self.ui.state_manager.zynseq)

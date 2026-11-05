@@ -19,22 +19,21 @@ Item {
         clip: true
         model: root.cc.processors
 
-        header: Item {
+        // As the Tk chain sidebar: chain options and MIDI input before the processors, MIDI
+        // and audio outputs after them
+        header: Column {
             width: procs.width
-            height: 60
-            Rectangle {
-                width: parent.width
-                height: 56
-                radius: 3
-                color: Theme.panelHighlight
-                Text {
-                    anchors.centerIn: parent
-                    text: "Chain Options"
-                    color: Theme.text
-                    font.pixelSize: 15
-                }
-                TapHandler { onTapped: zyn.openChainOptions(-1) }
-            }
+            bottomPadding: 4
+            spacing: 4
+            SideButton { text: "Chain Options"; screen: "chain_options" }
+            SideButton { text: "MIDI Input"; screen: "midi_in"; visible: root.cc.isMidi }
+        }
+        footer: Column {
+            width: procs.width
+            topPadding: 4
+            spacing: 4
+            SideButton { text: "MIDI Output"; screen: "midi_out"; visible: root.cc.isMidi }
+            SideButton { text: "Audio Output"; screen: "audio_out"; visible: root.cc.isAudio }
         }
 
         delegate: Rectangle {
@@ -131,5 +130,22 @@ Item {
                 height: (controllers.height - 6) / 4
             }
         }
+    }
+
+    component SideButton: Rectangle {
+        id: button
+        property alias text: label.text
+        property string screen
+        width: procs.width
+        height: visible ? 44 : 0
+        radius: 3
+        color: Theme.keyBackground
+        Text {
+            id: label
+            anchors.centerIn: parent
+            color: Theme.keyText
+            font.pixelSize: 15
+        }
+        TapHandler { onTapped: zyn.openChainScreen(button.screen) }
     }
 }

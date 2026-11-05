@@ -8,8 +8,8 @@ the note at the cursor. The keymap, events and new note defaults are shared with
 
 from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
-from zyngui.zynthian_pated_data import (NOTE_NAMES, STEPS_PER_BEAT, default_note_evdata, load_keymap, note_events,
-                                        note_name, scale_names)
+from zyngui.zynthian_pated_data import (CHORD_MODES, CHORDS, NOTE_NAMES, STEPS_PER_BEAT, chord_intervals,
+                                        default_note_evdata, load_keymap, note_events, note_name, scale_names)
 from zynlibs.zynseq import zynseq
 
 
@@ -21,6 +21,7 @@ class PatternEditor(QObject):
     playheadChanged = Signal()
     cursorChanged = Signal()
     entryChanged = Signal()         # note-entry values (velocity, duration)
+    ccChanged = Signal()            # CC view: mode, CC number, values
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -40,6 +41,12 @@ class PatternEditor(QObject):
         self.cursor = [0, 60]      # step, keymap row
         self.velocity = 100
         self.duration = 1.0
+        self.chord_mode = 0         # CHORD_MODES index
+        self.chord_type = 0         # CHORDS index (chord mode 1)
+        self.chord_tonic = 0        # key of the diatonic chords
+        self.cc_mode = False        # CC view instead of the notes
+        self.cc_num = 64
+        self.cc_cursor = 0          # step
         self._timer = QTimer(self, interval=40)
         self._timer.timeout.connect(self._poll)
 
@@ -82,6 +89,7 @@ class PatternEditor(QObject):
         self.patternChanged.emit()
         self.eventsChanged.emit()
         self.cursorChanged.emit()
+        self.ccChanged.emit()
 
     def _poll(self):
         step = self.libseq.getPatternPlayhead()
@@ -94,6 +102,7 @@ class PatternEditor(QObject):
             # Changed elsewhere (MIDI recording, the other UI, undo)
             self._events = note_events(self.libseq)
             self.eventsChanged.emit()
+            self.ccChanged.emit()
 
     # For QML
 
@@ -141,7 +150,104 @@ class PatternEditor(QObject):
 
     @Property(str, notify=entryChanged)
     def entryText(self):
-        return f"Vel {self.velocity}  Dur {self.duration:g}"
+        chord = "" if not self.chord_mode else (
+            f"  {CHORDS[self.chord_type][0]}" if self.chord_mode == 1 else "  Diatonic")
+        return f"Vel {self.velocity}  Dur {self.duration:g}{chord}"
+
+    # CC view (zynthian_gui_pated_cc): one CC number, a value (0..127) or none per step
+
+    @Property(bool, notify=ccChanged)
+    def ccMode(self):
+        return self.cc_mode
+
+    @Property(str, notify=ccChanged)
+    def ccTitle(self):
+        zctrl = self.ui.chain_manager.get_zynstep_mapped_zctrl(self.channel, self.cc_num)
+        return f"CC {self.cc_num}" + (f" ({zctrl.name})" if zctrl else "")
+
+    @Property(bool, notify=ccChanged)
+    def ccInterpolate(self):
+        return bool(self.libseq.getInterpolateCC(self.cc_num))
+
+    @Property("QVariantList", notify=ccChanged)
+    def ccValues(self):
+        """Per step: [value, end value, duration] or None"""
+        values = []
+        for step in range(self.libseq.getSteps()):
+            v = self.libseq.getControlValue(step, self.cc_num)
+            if v <= 127:
+                values.append([v, self.libseq.getControlValueEnd(step, self.cc_num),
+                               self.libseq.getControlDuration(step, self.cc_num)])
+            else:
+                values.append(None)
+        return values
+
+    @Property(int, notify=ccChanged)
+    def ccCursor(self):
+        return self.cc_cursor
+
+    @Slot()
+    def toggleCcMode(self):
+        self.cc_mode = not self.cc_mode
+        self.ccChanged.emit()
+
+    @Slot(int, int)
+    def setCc(self, step, value):
+        """Set (or add) the CC value of step; for painting with a finger"""
+        if not 0 <= step < self.steps:
+            return
+        value = max(0, min(127, value))
+        if self.libseq.getControlValue(step, self.cc_num) <= 127:
+            self.libseq.setControlValue(step, self.cc_num, value, value)
+        else:
+            self.libseq.addControl(step, self.cc_num, value, value, 1, 0)
+        self.cc_cursor = step
+        self.libseq.isPatternModified()
+        self.ccChanged.emit()
+
+    @Slot()
+    def ccEditDone(self):
+        """End of a paint gesture: one undo step"""
+        self.libseq.savePatternSnapshot()
+
+    @Slot(int)
+    def removeCc(self, step):
+        if 0 <= step < self.steps and self.libseq.getControlValue(step, self.cc_num) <= 127:
+            self.libseq.savePatternSnapshot()
+            self.libseq.removeControl(step, self.cc_num)
+            self.libseq.savePatternSnapshot()
+            self.libseq.isPatternModified()
+            self.cc_cursor = step
+            self.ccChanged.emit()
+
+    @Slot()
+    def pickCc(self):
+        def label(n):
+            zctrl = self.ui.chain_manager.get_zynstep_mapped_zctrl(self.channel, n)
+            return f"CC {n}" + (f" ({zctrl.name})" if zctrl else "")
+
+        def apply(n):
+            self.cc_num = n
+            self.ccChanged.emit()
+
+        self._pick("CC number", [(label(n), n) for n in range(1, 128)], self.cc_num, apply)
+
+    def _cc_navigate(self, what):
+        step = self.cc_cursor
+        if what in ("left", "right"):
+            self.cc_cursor = max(0, min(self.steps - 1, step + (1 if what == "right" else -1)))
+            self.ccChanged.emit()
+        elif what in ("up", "down"):
+            v = self.libseq.getControlValue(step, self.cc_num)
+            v = 64 if v > 127 else v + (1 if what == "up" else -1)
+            self.setCc(step, v)
+            self.ccEditDone()
+        elif what == "select":
+            if self.libseq.getControlValue(step, self.cc_num) <= 127:
+                self.removeCc(step)
+            else:
+                self.setCc(step, 64)
+                self.ccEditDone()
 
     # Editing (undo snapshots around each change, as the Tk editor)
 
@@ -153,6 +259,7 @@ class PatternEditor(QObject):
         self._events = note_events(self.libseq)
         self.libseq.isPatternModified()
         self.eventsChanged.emit()
+        self.ccChanged.emit()
 
     def _play_preview(self, note, velocity):
         if self.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence) == zynseq.SEQ_STOPPED:
@@ -167,14 +274,21 @@ class PatternEditor(QObject):
         self.cursor = [step, row]
         self.cursorChanged.emit()
         self.libseq.savePatternSnapshot()
+        # Chord entry: the chord's notes (on the chord's root note's step)
+        notes = [note + i for i in chord_intervals(self.chord_mode, self.chord_type, self.chord_tonic, note)]
+        notes = [n for n in notes if 0 <= n <= 127]
         start = self.libseq.getNoteStart(step, note)
         if start >= 0:
-            self.libseq.removeNote(start, note)
-            self.libseq.playNote(note, 0, self.channel)   # silence it if sounding
+            for n in notes:
+                s = self.libseq.getNoteStart(start, n)
+                if s >= 0:
+                    self.libseq.removeNote(s, n)
+                    self.libseq.playNote(n, 0, self.channel)   # silence it if sounding
         else:
-            self.libseq.addNote(step, note, self.velocity, self.duration, 0.0)
-            self.libseq.setNoteData(step, note, default_note_evdata(self.duration, self.velocity))
-            self._play_preview(note, self.velocity)
+            for n in notes:
+                self.libseq.addNote(step, n, self.velocity, self.duration, 0.0)
+                self.libseq.setNoteData(step, n, default_note_evdata(self.duration, self.velocity))
+                self._play_preview(n, self.velocity)
         self._changed()
 
     @Slot(int, int)
@@ -245,6 +359,7 @@ class PatternEditor(QObject):
             self._events = note_events(self.libseq)
             self.libseq.isPatternModified()
             self.eventsChanged.emit()
+            self.ccChanged.emit()
 
     @Slot()
     def redo(self):
@@ -252,6 +367,7 @@ class PatternEditor(QObject):
             self._events = note_events(self.libseq)
             self.libseq.isPatternModified()
             self.eventsChanged.emit()
+            self.ccChanged.emit()
 
     @Slot()
     def togglePlayback(self):
@@ -271,7 +387,9 @@ class PatternEditor(QObject):
         beats = ls.getBeatsInPattern()
         scales = scale_names(self.ui.chain_manager, self.channel)
         scale = ls.getScale()
+        chord_label = CHORD_MODES[self.chord_mode] + (f": {CHORDS[self.chord_type][0]}" if self.chord_mode == 1 else "")
         opts = [
+            ("Edit notes" if self.cc_mode else "Edit CC", self.toggleCcMode, None, None),
             (f"Length ({beats} beats)", self._pick_length, None, None),
             (f"Steps/Beat ({ls.getStepsPerBeat()})", self._pick_steps_per_beat, None, None),
             (f"Scale ({scales[scale] if scale < len(scales) else scale})", lambda: self._pick(
@@ -281,10 +399,46 @@ class PatternEditor(QObject):
             ("Transpose up", lambda: self._transpose(1), None, None),
             ("Transpose down", lambda: self._transpose(-1), None, None),
             ("New note values", self.entry_options, None, None),
+            (f"Chord mode ({chord_label})", self._pick_chord_mode, None, None),
             ("Undo all", self._undo_all, None, None),
             ("Clear pattern", lambda: self.ui.confirm(f"Clear pattern {self.pattern}?", self._clear), None, None),
         ]
+        if self.cc_mode:
+            interp = bool(ls.getInterpolateCC(self.cc_num))
+            opts.insert(1, (f"{'☒' if interp else '☐'} Interpolate CC{self.cc_num} values",
+                            lambda: (ls.setInterpolateCC(self.cc_num, not interp), self.ccChanged.emit()), None, None))
+            opts.insert(2, (f"CC number ({self.cc_num})", self.pickCc, None, None))
+            opts.append((f"Clear pattern CC{self.cc_num}", lambda: self.ui.confirm(
+                f"Clear CC{self.cc_num} in pattern {self.pattern}?", self._clear_cc), None, None))
         self.ui.show_options("Pattern Editor", opts)
+
+    def _pick_chord_mode(self):
+        def apply_mode(mode):
+            self.chord_mode = mode
+            self.entryChanged.emit()
+            if mode == 1:
+                self._pick("Chord type", [(c[0], i) for i, c in enumerate(CHORDS)], self.chord_type, apply_type)
+            elif mode >= 2:
+                self._pick("Diatonic key", list(zip(NOTE_NAMES, range(12))), self.chord_tonic, apply_tonic)
+
+        def apply_type(t):
+            self.chord_type = t
+            self.entryChanged.emit()
+
+        def apply_tonic(t):
+            self.chord_tonic = t
+            self.entryChanged.emit()
+
+        self._pick("Chord mode", list(zip(CHORD_MODES, range(len(CHORD_MODES)))), self.chord_mode, apply_mode)
+
+    def _clear_cc(self):
+        self.libseq.savePatternSnapshot()
+        self.libseq.clearControl(self.cc_num)
+        self.libseq.savePatternSnapshot()
+        self.libseq.isPatternModified()
+        self.ccChanged.emit()
+
+    show_menu = menu   # CUIA MENU (ZynUI.cuia_menu)
 
     def _pick(self, title, choices, current, apply):
         selected = next((i for i, (_, v) in enumerate(choices) if v == current), 0)
@@ -344,6 +498,9 @@ class PatternEditor(QObject):
     # Keys
 
     def navigate(self, what):
+        if self.cc_mode:
+            self._cc_navigate(what)
+            return
         step, row = self.cursor
         if what == "left":
             step = max(0, step - 1)

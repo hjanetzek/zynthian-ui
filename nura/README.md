@@ -139,3 +139,18 @@ nura/deploy.sh -k -n zyncoder zynthian-data zynthian-ui
 profiling, screen timing), `perf_profile.sh`, `thread_cpu.sh` (CPU per thread of zynthian, the
 compositor and the engines) and `qt_switch_timing.sh` (screen switch times of the Qt UI). How the
 performance numbers were measured, and how to repeat them: [docs/performance-measurement.md](../docs/performance-measurement.md).
+
+## Switching kiosk sessions
+
+`postmarketos-ui-zynthian` installs `kiosk-session`, which sets the session tinydm starts and
+restarts it (`-n`: only set it). zynthian's and other kiosk packages (e.g. Zrythm's) can be
+installed side by side:
+
+```sh
+kiosk-session list           # current and available sessions
+kiosk-session zynthian       # zynthian with the Qt UI (cage)
+kiosk-session zynthian-tk    # zynthian with the Tk UI
+kiosk-session zrythm         # Zrythm (labwc)
+```
+
+The zynthian UI is `ZYNTHIAN_UI=qt|tk` in `/etc/default/zynthian`.

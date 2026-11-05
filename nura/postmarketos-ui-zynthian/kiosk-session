@@ -1,0 +1,75 @@
+#!/bin/sh
+# Switch the kiosk session tinydm starts: zynthian (Qt or Tk UI), Zrythm, or any installed
+# Wayland session. Sets tinydm's default session (and ZYNTHIAN_UI in /etc/default/zynthian),
+# then restarts tinydm unless -n is given.
+set -eu
+
+usage() {
+	cat <<EOF
+Usage: kiosk-session [-n] SESSION
+       kiosk-session list
+
+SESSION:
+  zynthian      zynthian with the Qt UI (cage)
+  zynthian-tk   zynthian with the Tk UI (cage, XWayland)
+  zrythm        Zrythm (labwc), if postmarketos-ui-zrythm is installed
+  NAME          any session in /usr/share/wayland-sessions (NAME.desktop)
+
+  -n  only set the session, don't restart tinydm now
+EOF
+	exit "${1:-0}"
+}
+
+sessions=/usr/share/wayland-sessions
+defaults=/etc/default/zynthian
+
+current() {
+	s=$(readlink /var/lib/tinydm/default-session.desktop 2>/dev/null || true)
+	name=$(basename "${s:-none}" .desktop)
+	if [ "$name" = cage-ui ] && [ -f /etc/cage-ui/zynthian.sh ]; then
+		ui=$(sed -n 's/^ZYNTHIAN_UI=//p' "$defaults" 2>/dev/null | tr -d '"' | tail -n 1)
+		[ "$ui" = tk ] && name=zynthian-tk || name=zynthian
+	fi
+	echo "$name"
+}
+
+as_root() {
+	if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi
+}
+
+restart=1
+while getopts "nh" opt; do
+	case $opt in
+		n) restart= ;;
+		h) usage ;;
+		*) usage 1 ;;
+	esac
+done
+shift $((OPTIND - 1))
+[ $# -eq 1 ] || usage 1
+
+case $1 in
+	list)
+		echo "current: $(current)"
+		echo "available: zynthian zynthian-tk $(cd "$sessions" && ls ./*.desktop | sed 's|^\./||; s|\.desktop$||' | grep -vx cage-ui | tr '\n' ' ')"
+		exit 0 ;;
+	zynthian|zynthian-tk)
+		[ -f /etc/cage-ui/zynthian.sh ] || { echo "postmarketos-ui-zynthian is not installed" >&2; exit 1; }
+		desktop=$sessions/cage-ui.desktop
+		ui=qt
+		[ "$1" = zynthian-tk ] && ui=tk
+		if grep -q '^ZYNTHIAN_UI=' "$defaults" 2>/dev/null; then
+			as_root sed -i "s/^ZYNTHIAN_UI=.*/ZYNTHIAN_UI=$ui/" "$defaults"
+		else
+			echo "ZYNTHIAN_UI=$ui" | as_root tee -a "$defaults" >/dev/null
+		fi ;;
+	*)
+		desktop=$sessions/$1.desktop ;;
+esac
+[ -f "$desktop" ] || { echo "no such session: $desktop" >&2; exit 1; }
+
+as_root tinydm-set-session -f -s "$desktop"
+echo "kiosk session: $(current)"
+if [ -n "$restart" ]; then
+	as_root systemctl restart tinydm
+fi

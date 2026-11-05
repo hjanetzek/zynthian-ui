@@ -33,4 +33,10 @@ export ZYNTHIAN_UI_SCALE=auto
 export QT_QPA_PLATFORM=wayland
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 
+# UI (qt or tk) from /etc/default/zynthian, switched by kiosk-session; zynthian's own config
+# (~/.config/zynthian/zynthian_custom_config.sh) can still override it
+ZYNTHIAN_UI=qt
+[ -f /etc/default/zynthian ] && . /etc/default/zynthian
+export ZYNTHIAN_UI
+
 CAGE_UI_COMMAND=zynthian

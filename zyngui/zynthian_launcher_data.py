@@ -213,3 +213,190 @@ def toggle_pad(zynseq_obj, chain, phrase):
     chan = pad_channel(chain)
     if chan is not None:
         zynseq_obj.libseq.togglePlayState(zynseq_obj.scene, phrase, chan)
+
+
+# Phrase menu (zynthian_gui_mixer.phrase_menu): the options of the selected pad's sequence, or of
+# the phrase itself (chan = PHRASE_CHANNEL)
+
+def selected_sequence_info(zynseq_obj, chan):
+    """State of channel chan's sequence in the selected phrase (the phrase for PHRASE_CHANNEL), or
+    None"""
+    try:
+        phrase = zynseq_obj.state["scenes"][zynseq_obj.scene]["phrases"][zynseq_obj.phrase]
+        return phrase if chan == zynseq.PHRASE_CHANNEL else phrase["sequences"][chan]
+    except Exception:
+        return None
+
+
+def phrase_title(zynseq_obj, phrase):
+    title = zynseq_obj.state["scenes"][zynseq_obj.scene]["phrases"][phrase]["name"]
+    return title or f"Phrase {phrase + 1}"
+
+
+def follow_info(zynseq_obj, phrase):
+    """(offset, title) of the follow action to phrase, from the selected phrase"""
+    offset = phrase - zynseq_obj.phrase
+    match offset:
+        case 0:
+            title = "NONE"
+        case -1:
+            title = f"{phrase_title(zynseq_obj, phrase)} (PREV)"
+        case 1:
+            title = f"{phrase_title(zynseq_obj, phrase)} (NEXT)"
+        case _:
+            title = f"{phrase_title(zynseq_obj, phrase)} ({offset:+})"
+    if offset < 0:
+        title = "LOOP from " + title
+    elif offset > 1:
+        title = "JUMP to " + title
+    return offset, title
+
+
+def follow_choices(zynseq_obj):
+    """(offset, title) for each phrase, as the Automate choices"""
+    return [follow_info(zynseq_obj, p) for p in range(zynseq_obj.phrases)]
+
+
+DURATION_LABELS = ["DISABLED", "AUTO", "1 bar"] + [f"{i} bars" for i in range(2, 255)]
+LOOP_COUNT_CHOICES = [(0, "∞")] + [(i, f"{i}") for i in range(2, 33)]
+
+
+def duration_to_index(repeat):
+    """Sequence repeat (0 disabled, 255 auto, n bars) => index in DURATION_LABELS"""
+    if repeat == 255:
+        return 1
+    return repeat + 1 if repeat else 0
+
+
+def phrase_menu_options(zynseq_obj, chan):
+    """(title, options) of the phrase menu; options: list of (key, label, value), key None for
+    a heading. Keys: duration, automate, loop_count, loops_to_play, tempo, remove_tempo, bpb,
+    rename, insert, clone, move, delete. None if there is nothing to show."""
+    info = selected_sequence_info(zynseq_obj, chan)
+    if not info:
+        return None
+    options = []
+    phrase = zynseq_obj.phrase
+    name = info["name"]
+    repeat = info["repeat"]
+    follow_action = info["followAction"]
+    follow_phrase = phrase + info["followParam"]
+    title = "Phrase options" + (f": {name}" if name else "")
+    if repeat == 0:
+        options.append(("duration", "Duration (DISABLED)", repeat))
+    else:
+        if repeat == 255:
+            options.append(("duration", "Duration (AUTO)", repeat))
+        else:
+            options.append(("duration", f"Duration ({repeat} {'bar' if repeat == 1 else 'bars'})", repeat))
+        if follow_action == zynseq.FOLLOW_ACTION_NONE:
+            options.append(("automate", "Automate => NONE", 0))
+        elif follow_action == zynseq.FOLLOW_ACTION_RELATIVE:
+            offset, follow_name = follow_info(zynseq_obj, follow_phrase)
+            flags = info["playFlags"]
+            options.append(("automate", f"Automate => {follow_name}", offset))
+            if follow_phrase < phrase:
+                loop_count = info["followRepeat"]
+                options.append(("loop_count", f"  Loop count ({loop_count if loop_count else '∞'})", loop_count))
+            loop_info = zynseq_obj.get_phrase_loop_info()
+            if loop_info:
+                if loop_info[2] > 0:
+                    if flags:
+                        skip_loops = ",".join(str(i + 1) for i in range(loop_info[2]) if not (flags >> i) & 1)
+                    else:
+                        skip_loops = "ALL"
+                    if skip_loops == "":
+                        skip_loops = "NONE"
+                else:
+                    skip_loops = "NONE" if flags & 1 else "ALL"
+                options.append(("loops_to_play", f"  Loops to play ({skip_loops})", flags))
+        if "tempo" not in info or info["tempo"] == 0.0:
+            options.append(("tempo", "Tempo (NONE)", False))
+        else:
+            options.append(("tempo", f"Tempo ({info['tempo']:.1f})", info["tempo"]))
+            options.append(("remove_tempo", "Remove tempo", phrase))
+        if "bpb" not in info or not info["bpb"]:
+            options.append(("bpb", "Beats per bar (NONE)", 0))
+        else:
+            options.append(("bpb", f"Beats per bar ({info['bpb']})", info["bpb"]))
+    options.append(("rename", f"Rename ({name})" if name else "Rename", name or ""))
+    options.append((None, "> MANAGE", None))
+    options.append(("insert", "Insert phrase", phrase))
+    options.append(("clone", "Clone phrase", phrase))
+    if zynseq_obj.phrases > 1:
+        options.append(("move", "Move phrase", phrase))
+        options.append(("delete", "Delete phrase", phrase))
+    return title, options
+
+
+def loops_to_play_options(zynseq_obj, flags):
+    """The loops-to-play toggles: list of (label, (loop index, flags, set)) as the Tk menu"""
+    options = []
+    loop_info = zynseq_obj.get_phrase_loop_info()
+    if loop_info:
+        if loop_info[2] > 0:
+            val = flags
+            for i in range(loop_info[2]):
+                if val & 1:
+                    options.append((f"☐ {i + 1}", (i, flags, True)))
+                else:
+                    options.append((f"☒ {i + 1}", (i, flags, False)))
+                val >>= 1
+        elif loop_info[2] == 0:
+            if flags & 1:
+                options.append(("☒ Skip Always", (0, flags, True)))
+            else:
+                options.append(("☐ Skip Always", (0, flags, False)))
+    return options
+
+
+def toggle_play_flag(zynseq_obj, params):
+    """Toggle a loops-to-play flag (params from loops_to_play_options); returns the new flags"""
+    index, flags, is_set = params
+    flags = flags & ~(1 << index) if is_set else flags | (1 << index)
+    zynseq_obj.set_sequence_param(zynseq_obj.scene, zynseq_obj.phrase, zynseq.PHRASE_CHANNEL, "playFlags", flags)
+    return flags
+
+
+def set_phrase_value(zynseq_obj, chain_manager, state_manager, chan, symbol, value):
+    """Apply a phrase menu value of the selected phrase (as zynthian_gui_mixer's param editor):
+    tempo, bpb, duration (index in DURATION_LABELS), automate (follow offset), loop_count"""
+    scene = zynseq_obj.scene
+    phrase = zynseq_obj.phrase
+    if chan is None:
+        chan = zynseq.PHRASE_CHANNEL
+    match symbol:
+        case "tempo":
+            zynseq_obj.set_sequence_param(scene, phrase, zynseq.PHRASE_CHANNEL, "tempo", value)
+            if "CL" in chain_manager.zyngines:
+                # Warp clips in this phrase to match tempo
+                state_manager.start_busy("clippy_rewarp_phrase", "Re-warping audio clips...")
+                chain_manager.zyngines["CL"].rewarp_phrase(phrase)
+                state_manager.end_busy("clippy_rewarp_phrase")
+        case "bpb":
+            zynseq_obj.libseq.setPhraseBPB(scene, phrase, value)
+            zynseq_obj.refresh_state()
+        case "duration":
+            if value == 1:
+                repeat = 255
+            elif value > 1:
+                repeat = value - 1
+            else:
+                repeat = 0
+            zynseq_obj.set_sequence_param(scene, phrase, chan, "repeat", repeat)
+        case "automate":
+            if value == 0:
+                action, param = zynseq.FOLLOW_ACTION_NONE, 0
+            else:
+                action, param = zynseq.FOLLOW_ACTION_RELATIVE, value
+            zynseq_obj.set_sequence_param(scene, phrase, chan, "followAction", action)
+            zynseq_obj.set_sequence_param(scene, phrase, chan, "followParam", param)
+            if param < 0:
+                # The phrases in the loop follow to the next one
+                for p in range(phrase + param, phrase):
+                    if zynseq_obj.state["scenes"][scene]["phrases"][p]["followAction"] == zynseq.FOLLOW_ACTION_NONE:
+                        zynseq_obj.set_sequence_param(scene, p, zynseq.PHRASE_CHANNEL, "followAction",
+                                                      zynseq.FOLLOW_ACTION_RELATIVE)
+                        zynseq_obj.set_sequence_param(scene, p, zynseq.PHRASE_CHANNEL, "followParam", 1)
+        case "loop_count":
+            zynseq_obj.set_sequence_param(scene, phrase, chan, "followRepeat", value)

@@ -43,7 +43,9 @@ from zynlibs.zynaudioplayer import *
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_base import zynthian_gui_base
 from zyngui.zynthian_gui_dpm import zynthian_gui_dpm
-from zyngui.zynthian_launcher_data import pad_info, toggle_pad
+from zyngui.zynthian_launcher_data import (pad_info, toggle_pad, phrase_menu_options, phrase_title, follow_info,
+                                           follow_choices, duration_to_index, DURATION_LABELS, LOOP_COUNT_CHOICES,
+                                           loops_to_play_options, toggle_play_flag, set_phrase_value)
 from zyngine.zynthian_signal_manager import zynsigman
 
 logging.getLogger('PIL').setLevel(logging.WARNING)
@@ -1851,91 +1853,16 @@ class zynthian_gui_mixer(zynthian_gui_base):
         self.set_launcher_mode(not self.launcher_mode)
 
     def phrase_menu(self):
-        try:
-            if self.highlighted_strip.chan == zynseq.PHRASE_CHANNEL:
-                info = self.zynseq.state["scenes"][self.zynseq.scene]["phrases"][self.zynseq.phrase]
-            else:
-                info = self.zynseq.state["scenes"][self.zynseq.scene]["phrases"][self.zynseq.phrase]["sequences"][self.highlighted_strip.chan]
-        except Exception as e:
-            info = None
-        if not info:
+        menu = phrase_menu_options(self.zynseq, self.highlighted_strip.chan)
+        if not menu:
             return
-        options = {}
-        phrase = self.zynseq.phrase
-        name = info["name"]
-        repeat = info["repeat"]
-        follow_action = info["followAction"]
-        follow_phrase = phrase + info["followParam"]
-        title = f"Phrase options"
-        if name:
-            title += f": {name}"
-        #options["> Phrase Options"] = None
-        if repeat == 0:
-            options["Duration (DISABLED)"] = repeat
-        else:
-            if repeat == 255:
-                options["Duration (AUTO)"] = repeat
-            else:
-                if repeat == 1:
-                    unit = "bar"
-                else:
-                    unit = "bars"
-                options[f"Duration ({repeat} {unit})"] = repeat
-            if follow_action == zynseq.FOLLOW_ACTION_NONE:
-                options[f"Automate => NONE"] = 0
-            elif follow_action == zynseq.FOLLOW_ACTION_RELATIVE:
-                offset, follow_name = self.get_follow_info(follow_phrase)
-                flags = info["playFlags"]
-                options[f"Automate => {follow_name}"] = offset
-                if follow_phrase < phrase:
-                    loop_count = info["followRepeat"]
-                    if loop_count:
-                        options[f"  Loop count ({loop_count})"] = loop_count
-                    else:
-                        options[f"  Loop count (∞)"] = loop_count
-                loop_info = self.zynseq.get_phrase_loop_info()
-                if loop_info:
-                    if loop_info[2] > 0:
-                        if flags:
-                            skip_loops = ",".join(str(i + 1) for i in range(loop_info[2]) if not (flags >> i) & 1)
-                        else:
-                            skip_loops = "ALL"
-                        if skip_loops == "":
-                            skip_loops = "NONE"
-                    else:
-                        if flags & 1:
-                            skip_loops = "NONE"
-                        else:
-                            skip_loops = "ALL"
-                    options[f"  Loops to play ({skip_loops})"] = flags
-            if 'tempo' not in info or info['tempo'] == 0.0:
-                options[f"Tempo (NONE)"] = False
-            else:
-                options[f"Tempo ({info['tempo']:.1f})"] = info['tempo']
-                options["Remove tempo"] = self.zynseq.phrase
-            if "bpb" not in info or not info["bpb"]:
-                options[f"Beats per bar (NONE)"] = 0
-            else:
-                options[f"Beats per bar ({info['bpb']})"] = info["bpb"]
-        if name:
-            options[f"Rename ({name})"] = name
-        else:
-            options[f"Rename"] = ""
-        options["> MANAGE"] = None
-        options["Insert phrase"] = phrase
-        options["Clone phrase"] = phrase
-        if self.zynseq.phrases > 1:
-            options["Move phrase"] = phrase
-            options["Delete phrase"] = phrase
-
+        title, rows = menu
+        options = {label: value for key, label, value in rows}
         self.zyngui.screens['option'].config(title, options, self.phrase_menu_cb, close_on_select=False)
         self.zyngui.show_screen('option')
 
     def get_phrase_title(self, phrase):
-        title = self.zynseq.state["scenes"][self.zynseq.scene]["phrases"][phrase]["name"]
-        if not title:
-            title = f"Phrase {phrase + 1}"
-        return title
+        return phrase_title(self.zynseq, phrase)
 
     def get_follow_info(self, phrase):
         """ Get the offset and text representing the follow action
@@ -1943,23 +1870,7 @@ class zynthian_gui_mixer(zynthian_gui_base):
             phrase: Index of phrase
         Returns: Tuple (offset, title)
         """
-
-        offset = phrase - self.zynseq.phrase
-        match offset:
-            case 0:
-                title = "NONE"
-            case -1:
-                title = f"{self.get_phrase_title(phrase)} (PREV)"
-            case 1:
-                title = f"{self.get_phrase_title(phrase)} (NEXT)"
-            case _:
-                title = f"{self.get_phrase_title(phrase)} ({offset:+})"
-        if offset < 0:
-            title = "LOOP from " + title
-        elif offset > 1:
-            title = "JUMP to " + title
-
-        return (offset, title)
+        return follow_info(self.zynseq, phrase)
 
     def phrase_menu_cb(self, option, params):
         option_screen = self.zyngui.screens["option"]
@@ -2004,19 +1915,10 @@ class zynthian_gui_mixer(zynthian_gui_base):
             self.phrase_menu()
             option_screen.select(index - 1)
         elif option.startswith("Duration"):
-            labels = ["DISABLED", "AUTO", "1 bar"]
-            for i in range(2, 255):
-                labels.append(f"{i} bars")
-            if params == 255:
-                value = 1
-            elif params:
-                value = params + 1
-            else:
-                value = 0
             option_screen.enable_param_editor(option_screen, "duration", {
                 'name': 'Duration',
-                'value': value,
-                'labels': labels,
+                'value': duration_to_index(params),
+                'labels': DURATION_LABELS,
             }, assert_cb=self.cb_assert_param_editor)
         elif option.startswith("Beats per bar"):
             labels = []
@@ -2030,12 +1932,9 @@ class zynthian_gui_mixer(zynthian_gui_base):
                 'value': params
             }, assert_cb=self.cb_assert_param_editor)
         elif option.startswith("Automate"):
-            ticks = []
-            labels = []
-            for phrase in range(self.zynseq.phrases):
-                offset, title = self.get_follow_info(phrase)
-                ticks.append(offset)
-                labels.append(title)
+            choices = follow_choices(self.zynseq)
+            ticks = [offset for offset, title in choices]
+            labels = [title for offset, title in choices]
             option_screen.enable_param_editor(option_screen, "automate", {
                 "name": "Automate",
                 "labels": labels,
@@ -2043,31 +1942,13 @@ class zynthian_gui_mixer(zynthian_gui_base):
                 "value": params
             }, assert_cb=self.cb_assert_param_editor)
         elif option.startswith("  Loops to play"):
-            val = params
-            loop_info = self.zynseq.get_phrase_loop_info()
-            options = {}
-            if loop_info:
-                if loop_info[2] > 0:
-                    for i in range(loop_info[2]):
-                        if val & 1:
-                            options[f"\u2610 {i + 1}"] = (i, params, True)
-                        else:
-                            options[f"\u2612 {i + 1}"] = (i, params, False)
-                        val >>= 1
-                elif loop_info[2] == 0:
-                    if val & 1:
-                        options[f"\u2612 Skip Always"] = (0, params, True)
-                    else:
-                        options[f"\u2610 Skip Always"] = (0, params, False)
+            options = dict(loops_to_play_options(self.zynseq, params))
             if options:
                 self.zyngui.screens['option'].config("Loops to play", options, self.play_flag_cb, close_on_select=False)
                 self.zyngui.show_screen('option')
         elif option.startswith("  Loop count"):
-            ticks = [0]
-            labels = ["∞"]
-            for i in range(2, 33):
-                ticks.append(i)
-                labels.append(f"{i}")
+            ticks = [v for v, label in LOOP_COUNT_CHOICES]
+            labels = [label for v, label in LOOP_COUNT_CHOICES]
             option_screen.enable_param_editor(option_screen, "loop_count", {
                 "name": "Loop count",
                 "ticks": ticks,
@@ -2076,13 +1957,7 @@ class zynthian_gui_mixer(zynthian_gui_base):
             }, assert_cb=self.cb_assert_param_editor)
 
     def play_flag_cb(self, option, params):
-        if params[2]:
-            # Reset flag
-            flags = params[1] & ~(1 << params[0])
-        else:
-            # Set flag
-            flags = params[1] | (1 << params[0])
-        self.zynseq.set_sequence_param(self.zynseq.scene, self.zynseq.phrase, zynseq.PHRASE_CHANNEL, "playFlags", flags)
+        flags = toggle_play_flag(self.zynseq, params)
         self.phrase_menu_cb("  Loops to play", flags)
 
     def remove_phrase(self, phrase):
@@ -2138,47 +2013,8 @@ class zynthian_gui_mixer(zynthian_gui_base):
     def send_controller_value(self, zctrl):
         """ Handle param editor value change """
 
-        phrase = self.zynseq.phrase
-        chan = self.highlighted_strip.chain.midi_chan
-        if chan is None:
-            chan = zynseq.PHRASE_CHANNEL
-        match zctrl.symbol:
-            case "tempo":
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, zynseq.PHRASE_CHANNEL, "tempo", zctrl.value)
-                if "CL" in self.chain_manager.zyngines:
-                    # Warp clips in this phrase to match tempo ...
-                    self.zyngui.state_manager.start_busy("clippy_rewarp_phrase", "Re-warping audio clips...")
-                    self.chain_manager.zyngines["CL"].rewarp_phrase(phrase)
-                    self.zyngui.state_manager.end_busy("clippy_rewarp_phrase")
-            case "bpb":
-                #self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "bpb", zctrl.value)
-                self.zynseq.libseq.setPhraseBPB(self.zynseq.scene, phrase, zctrl.value)
-                self.zynseq.refresh_state()
-            case "duration":
-                if zctrl.value == 1:
-                    value = 255
-                elif zctrl.value > 1:
-                    value = zctrl.value - 1
-                else:
-                    value = 0
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "repeat", value)
-            case "automate":
-                if zctrl.value == 0:
-                    followAction = zynseq.FOLLOW_ACTION_NONE
-                    followParam = 0
-                else:
-                    followAction = zynseq.FOLLOW_ACTION_RELATIVE
-                    followParam = zctrl.value
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "followAction", followAction)
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "followParam", followParam)
-                if followParam < 0:
-                    # Set (unset) loop contents to automate NEXT
-                    for p in range(phrase + followParam, phrase):
-                        if self.zynseq.state["scenes"][self.zynseq.scene]["phrases"][p]["followAction"] == zynseq.FOLLOW_ACTION_NONE:
-                            self.zynseq.set_sequence_param(self.zynseq.scene, p, zynseq.PHRASE_CHANNEL, "followAction", zynseq.FOLLOW_ACTION_RELATIVE)
-                            self.zynseq.set_sequence_param(self.zynseq.scene, p, zynseq.PHRASE_CHANNEL, "followParam", 1)
-            case "loop_count":
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "followRepeat", zctrl.value)
+        set_phrase_value(self.zynseq, self.chain_manager, self.zyngui.state_manager,
+                         self.highlighted_strip.chain.midi_chan, zctrl.symbol, zctrl.value)
 
 
     # --------------------------------------------------------------------------

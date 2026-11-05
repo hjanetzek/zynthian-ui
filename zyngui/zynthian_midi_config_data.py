@@ -325,3 +325,23 @@ def midi_config_action(sm, chain, midi_input, row):
         except Exception as e:
             logging.error(e)
     return None
+
+
+def device_drivers(sm, idev):
+    """Controller drivers (ctrldev) for MIDI input idev, as the device options list them: list
+    of (driver class, loaded). Those for its device ID first, then those for its SysEx identity,
+    then the generic ones (external devices only). Asks the device for its identity if it isn't
+    known (the device list does too, so it is normally known by now)."""
+    manager = sm.ctrldev_manager
+    manager.request_identity(idev)
+    loaded = manager.drivers
+    return [(cls, idev in loaded and type(loaded[idev]) is cls) for cls in manager.get_device_drivers(idev)]
+
+
+def driver_description(driver_class, sm=None, idev=None):
+    """A driver's description; with sm and idev, it says when the driver matches the SysEx
+    identity of the device on MIDI input idev"""
+    description = driver_class.get_driver_description() or "Device driver integrating UI functions and customized workflow."
+    if sm is not None and driver_class in sm.ctrldev_manager.get_identity_drivers(idev):
+        description += f"\n\nMatches the device's SysEx identity ({sm.ctrldev_manager.get_identity_str(idev)})."
+    return description

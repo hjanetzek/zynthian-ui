@@ -149,5 +149,19 @@ once (zynthian's `zynthian_lv2.test_lv2_plugin`, or jalv) to catch missing symbo
   package to build for Nura. Needs a look at what the engine and widget use (loop state,
   positions, multiple loops) and whether the LV2 version exposes it as ports. The widget's port
   to the Qt UI is postponed until then.
+- **Pure Data:** the puredata engine (`zynthian_engine_puredata`, patches in
+  `zynthian-data/presets/puredata`) needs `pd` and the externals the patches declare from
+  `/usr/lib/pd/extra`: cyclone, iemlib, osc (`packOSC`/`unpackOSC`, which zynthian's OSC
+  controllers use), hcs, ggee (ZynthianOS: Debian's `puredata` and `pd-*` packages). Alpine
+  packages neither Pure Data nor these externals (its `cyclone` is a Scheme compiler), so the
+  Duet has no puredata engine yet: package `pd` (vanilla) and the externals (pd-lib-builder,
+  sources on GitHub) in `nura/`, with a `/usr/lib/pd/extra` layout so the patches' absolute
+  `declare -path` lines work. Some patches also declare
+  `/zynthian/zynthian-data/puredata/organelle` (ZynthianOS path).
+  On the desktop (Arch: `pd`, but no externals in the repos or the AUR) they come from Pure
+  Data's package manager deken: the Linux-amd64 builds of cyclone, iemlib, osc, hcs and ggee
+  unpacked into `~/Documents/Pd/externals`, and `~/.pdsettings` adding each library folder to
+  pd's search path (`npath: 5`, `path1: ~/Documents/Pd/externals/cyclone`, …), since the patches
+  only declare the `/usr/lib/pd/extra` folders. Checked with EuclidSeq6: no "couldn't create".
 - **CPU:** some plugins are too heavy for the Duet's A73 cores at a 256-frame quantum (neural amp
   models, Surge XT with many voices); enable them, but expect limits.

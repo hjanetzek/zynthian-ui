@@ -19,7 +19,7 @@ import os
 import signal
 import sys
 
-from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -35,6 +35,28 @@ QML_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zynqt", "qml
 
 # Exit codes as zynthian_main.py (the launchers restart on 100 and 102)
 EXIT_CODES = {signal.SIGHUP: 0, signal.SIGINT: 100, signal.SIGQUIT: 102, signal.SIGTERM: 101}
+
+
+def add_switch_timing(ui, window):
+    """ZYNTHIAN_QT_TIMING=1: log the time from each screen switch to the next frame on screen
+    (from the start of ZynUI._set_current_screen to QQuickWindow.frameSwapped, which the render
+    thread emits)"""
+    import time
+    pending = {}
+
+    def switched():
+        # From the start of the switch (ZynUI._set_current_screen), list building included
+        pending["t0"] = getattr(ui, "switch_t0", None) or time.monotonic()
+        pending["screen"] = ui.current_screen
+
+    def swapped():
+        t0 = pending.pop("t0", None)
+        if t0 is not None:
+            logging.warning(f"SCREEN TIMING {pending.get('screen')}: {1000 * (time.monotonic() - t0):.1f} ms to frame"
+                            f" (build {getattr(ui, 'switch_build_ms', 0):.1f} ms)")
+
+    ui.currentScreenChanged.connect(switched)
+    window.frameSwapped.connect(swapped, Qt.DirectConnection)
 
 
 def main():
@@ -63,6 +85,9 @@ def main():
     if not engine.rootObjects():
         logging.error("Can't load the QML UI")
         return 1
+
+    if os.environ.get("ZYNTHIAN_QT_TIMING") == "1":
+        add_switch_timing(ui, engine.rootObjects()[0])
 
     # Python runs its signal handlers only between bytecodes; let it run now and then while Qt's
     # event loop is in C++

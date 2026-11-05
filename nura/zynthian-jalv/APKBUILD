@@ -1,0 +1,52 @@
+# zynthian's jalv for postmarketOS/Nura: the LV2 host zynthian's jalv engine runs. The engine
+# talks to the command line of this fork (branch asyncli, ZynthianOS recipe
+# install_lv2_jalv.sh); with Alpine's jalv, loading an LV2 chain waits forever.
+#
+# Installed as /usr/lib/zynthian/bin/jalv, beside Alpine's jalv; zynthian's environment
+# (desktop/zynthian_desktop_env.sh) puts /usr/lib/zynthian/bin first on PATH.
+#
+# Only the JACK command line host (no GTK/Qt GUIs, no suil, no PortAudio). From a local
+# checkout:
+#   pmbootstrap build --src=/path/to/jalv zynthian-jalv
+pkgname=zynthian-jalv
+_commit=e01b6d64651d451107640b1a502e06c9ec10e353
+pkgver=1.12.1_git20260330
+pkgrel=0
+pkgdesc="zynthian's jalv: LV2 host with the asynchronous command line zynthian uses"
+url="https://github.com/zynthian/jalv"
+arch="aarch64 x86_64"
+license="ISC"
+options="!check"
+makedepends="
+	jack-dev
+	lilv-dev
+	lv2-dev
+	meson
+	serd-dev
+	sord-dev
+	sratom-dev
+	zix-dev
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/zynthian/jalv/archive/$_commit.tar.gz"
+builddir="$srcdir/jalv-$_commit"
+
+build() {
+	abuild-meson \
+		--wrap-mode=nodownload \
+		-Djack=enabled \
+		-Dgtk3=disabled \
+		-Dqt5=disabled \
+		-Dportaudio=disabled \
+		-Dsuil=disabled \
+		-Dtests=disabled \
+		. output
+	meson compile -C output
+}
+
+package() {
+	install -Dm755 output/jalv -t "$pkgdir"/usr/lib/zynthian/bin/
+}
+
+sha512sums="
+94d0935959fa86bcb06311e60446d07b170872c870a8d107e9ec1469e89f40c9fe63028f05e6199ce0fac3d1cf2ed19a18906faae14c234a2d72b4ffef515301  zynthian-jalv-e01b6d64651d451107640b1a502e06c9ec10e353.tar.gz
+"

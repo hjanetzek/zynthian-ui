@@ -43,7 +43,12 @@ Item {
         ToolButton { text: root.pe.playing ? "■ Stop" : "▶ Play"; width: 120; on: root.pe.playing; onTapped: root.pe.togglePlayback() }
         ToolButton { text: "Undo"; onTapped: root.pe.undo() }
         ToolButton { text: "Redo"; onTapped: root.pe.redo() }
-        ToolButton { text: root.pe.entryText; width: 190; onTapped: root.pe.entryOptions() }
+        ToolButton { text: root.pe.ccMode ? "Notes" : "CC"; width: 80; onTapped: root.pe.toggleCcMode() }
+        ToolButton {
+            text: root.pe.ccMode ? root.pe.ccTitle : root.pe.entryText
+            width: 230
+            onTapped: root.pe.ccMode ? root.pe.pickCc() : root.pe.entryOptions()
+        }
         ToolButton { text: "Menu"; onTapped: root.pe.menu() }
         Text {
             anchors.verticalCenter: parent.verticalCenter
@@ -77,6 +82,7 @@ Item {
     // Piano keys
     Item {
         id: keys
+        visible: !root.pe.ccMode
         anchors.left: parent.left
         anchors.top: grid.top
         anchors.bottom: grid.bottom
@@ -109,6 +115,7 @@ Item {
 
     Flickable {
         id: grid
+        visible: !root.pe.ccMode
         anchors.left: keys.right
         anchors.right: parent.right
         anchors.top: playStrip.bottom
@@ -188,6 +195,100 @@ Item {
                     root.pe.editNote(c[0], c[1])
                 }
             }
+        }
+    }
+
+    // CC view: the steps fit the width; a bar per step with a value (0..127, end value for
+    // interpolated ramps); drag paints values, long press removes a step's value
+    Item {
+        id: ccLane
+        visible: root.pe.ccMode
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: playStrip.bottom
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: root.keyWidth + 2
+        anchors.topMargin: 4
+        readonly property real sw: width / root.steps
+        readonly property var values: root.pe.ccValues
+
+        Rectangle { anchors.fill: parent; color: "#262c34" }
+        // Value lines every 16
+        Repeater {
+            model: 9
+            Rectangle {
+                required property int index
+                y: ccLane.height - index * 16 / 127 * ccLane.height
+                width: ccLane.width
+                height: 1
+                color: index % 4 === 0 ? "#566270" : "#323a45"
+                Text {
+                    x: -root.keyWidth
+                    y: -8
+                    width: root.keyWidth - 6
+                    horizontalAlignment: Text.AlignRight
+                    text: Math.min(127, parent.index * 16)
+                    color: Theme.textOff
+                    font.pixelSize: 12
+                }
+            }
+        }
+        // Beat lines
+        Repeater {
+            model: root.steps
+            Rectangle {
+                required property int index
+                x: index * ccLane.sw
+                width: 1
+                height: ccLane.height
+                visible: index % root.pe.stepsPerBeat === 0
+                color: "#566270"
+            }
+        }
+        // Values
+        Repeater {
+            model: ccLane.values.length
+            Item {
+                required property int index
+                readonly property var v: ccLane.values[index]
+                x: index * ccLane.sw
+                width: ccLane.sw
+                height: ccLane.height
+                visible: v !== null && v !== undefined
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    x: 2
+                    width: parent.width - 4
+                    height: parent.v ? parent.v[0] / 127 * ccLane.height : 0
+                    color: index === root.pe.ccCursor ? "#4080c0" : "#305070"
+                    border.color: "#e0f0ff"
+                    border.width: 1
+                }
+            }
+        }
+        // Playhead and cursor
+        Rectangle {
+            x: root.pe.ccCursor * ccLane.sw
+            width: ccLane.sw
+            height: ccLane.height
+            color: "transparent"
+            border.color: Theme.select
+            border.width: 2
+        }
+        MouseArea {
+            anchors.fill: parent
+            pressAndHoldInterval: 600
+            property bool held: false
+            function paint(mouse) {
+                if (held)
+                    return
+                root.pe.setCc(Math.floor(mouse.x / ccLane.sw),
+                              Math.round(127 * (1 - Math.max(0, Math.min(ccLane.height, mouse.y)) / ccLane.height)))
+            }
+            onPressed: (mouse) => { held = false; paint(mouse) }
+            onPositionChanged: (mouse) => paint(mouse)
+            onReleased: root.pe.ccEditDone()
+            onPressAndHold: (mouse) => { held = true; root.pe.removeCc(Math.floor(mouse.x / ccLane.sw)) }
         }
     }
 

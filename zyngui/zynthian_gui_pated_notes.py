@@ -39,7 +39,8 @@ from zyngui import zynthian_gui_config
 from zyngui.multitouch import MultitouchTypes
 from zyngui.zynthian_gui_pated_base import *
 from zyngui.zynthian_gui_base import zynthian_gui_base
-from zyngui.zynthian_pated_data import scale_names, get_custom_keymap, load_keymap, default_note_evdata
+from zyngui.zynthian_pated_data import (scale_names, get_custom_keymap, load_keymap, default_note_evdata,
+                                        SCALES, CHORD_MODES, CHORDS, diatonic_chord)
 
 # ------------------------------------------------------------------------------
 
@@ -110,58 +111,6 @@ STUT_FREQ_OPTIONS = (
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 NOTE_PRONOUNCE = ["C", "C Sharp", "D", "D Sharp", "E", "F", "F Sharp", "G", "G Sharp", "A", "A Sharp", "B"]
-SCALES = {
-    "major": [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23],
-    "minor": [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19, 20, 22]
-}
-
-CHORD_MODES = [
-    "Single note",
-    "Chord",
-    "Diatonic triads, major key",
-    "Diatonic 7ths, major key",
-    "Diatonic triads, minor key",
-    "Diatonic 7ths, minor key"
-]
-
-CHORDS = [
-    # Triads
-    ["Major", [0, 4, 7]],
-    ["Minor", [0, 3, 7]],
-    ["Diminished", [0, 3, 6]],
-    ["Augmented", [0, 4, 8]],
-    # Seventh chords
-    ["Major 7th", [0, 4, 7, 11]],  # (maj7)
-    ["Minor 7th", [0, 3, 7, 10]],  # (m7)
-    ["Dominant 7th", [0, 4, 7, 10]],  # (7)
-    ["Half-Diminished 7th", [0, 3, 6, 10]],  # (m7♭5)
-    ["Diminished 7th", [0, 3, 6, 9]],  # (dim7)
-    ["Minor-Major 7th", [0, 3, 7, 11]],  # (m(maj7))
-    ["Augmented Major 7th", [0, 4, 8, 11]],  # (+maj7)
-    ["Augmented 7th", [0, 4, 8, 10]],  # (+7)
-    # Extended chords
-    ["Major 9th", [0, 4, 7, 11, 14]],  # (maj9)
-    ["Dominant 9th", [0, 4, 7, 10, 14]],  # (9)
-    ["Minor 9th", [0, 3, 7, 10, 14]],  # (m9)
-    ["Minor-Major 9th", [0, 3, 7, 11, 14]],  # (m(maj9))
-    ["Dominant 11th", [0, 4, 7, 10, 14, 17]],  # (11)
-    ["Minor 11th", [0, 3, 7, 10, 14, 17]],  # (m11)
-    ["Dominant 13th", [0, 4, 7, 10, 14, 17, 21]],  # (13)
-    ["Minor 13th", [0, 3, 7, 10, 14, 17, 21]],  # (m13)
-    # Suspended chords
-    ["Suspended 2nd", [0, 2, 7]],  # (sus2)
-    ["Suspended 4th", [0, 5, 7]],  # (sus4)
-    ["7sus4", [0, 5, 7, 10]],
-    # Add chords
-    ["Add9", [0, 4, 7, 14]],
-    ["Minor Add9", [0, 3, 7, 14]],  # (madd9)
-    # 6th chords
-    ["Major 6th", [0, 4, 7, 9]],  # (6)
-    ["Minor 6th", [0, 3, 7, 9]],  # (m6)
-    # Altered 7th chords
-    ["Half-Diminished Dominant", [0, 4, 6, 10]]  # (7♭5)
-]
-
 # ------------------------------------------------------------------------------
 # Zynthian Step-Sequencer Pattern Note Editor GUI Class
 # ------------------------------------------------------------------------------
@@ -232,25 +181,7 @@ class zynthian_gui_pated_notes(zynthian_gui_pated_base):
     get_row_from_note = get_row_from_evnum
 
     def get_diatonic_chord(self, trigger_note):
-        chord = []
-        match self.chord_mode:
-            case 2 | 3:
-                scale_template = SCALES["major"]
-            case 4 | 5:
-                scale_template = SCALES["minor"]
-            case _:
-                return []
-        if self.chord_mode in [3, 5]:
-            chord_len = 4
-        else:
-            chord_len = 3
-        scale_offset = trigger_note % 12 + self.diatonic_scale_tonic
-        if scale_offset not in scale_template:
-            return []  # Trigger note not in diatonic scale
-        note_offset = scale_template.index(scale_offset)
-        for i in range(chord_len):
-            chord.append(scale_template[note_offset + 2 * i] - scale_template[note_offset])
-        return chord
+        return diatonic_chord(self.chord_mode, self.diatonic_scale_tonic, trigger_note)
 
     def play_note(self, note):
         if self.zynseq.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence) == zynseq.SEQ_STOPPED:

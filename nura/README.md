@@ -66,15 +66,17 @@ don't work.
 
 All commands below work when pasted into fish or bash, run from the zynthian-ui checkout.
 
-Write the pmbootstrap config (own config and work directory, as for Kick; `ui = cage` until the
-kiosk package is built). Skip this if you already have `~/.config/pmbootstrap-zynthian.cfg`:
+Write the pmbootstrap config (own config, `ui = cage` until the kiosk package is built). The work
+directory is the one the other Duet builds share (Kick, Oscairn, Zrythm: `~/postmarketos/kick-pi4`),
+so chroots, the package cache, the signing key and built packages (e.g. Zrythm's Qt 6.12, which
+the Qt port needs) are shared. Skip this if you already have `~/.config/pmbootstrap-zynthian.cfg`:
 
 ```sh
-printf '%s\n' '[pmbootstrap]' 'device = google-kukui' 'hostname = zynthian-duet' 'is_default_channel = False' 'locale = C.UTF-8' 'service_manager = systemd' 'ssh_key_glob = ~/.ssh/id_ed25519.pub' 'ssh_keys = True' 'timezone = Europe/Berlin' 'ui = cage' "user = $USER" "work = $HOME/postmarketos/zynthian" '' '[providers]' 'postmarketos-base-ui-audio-backend = postmarketos-base-ui-audio-backend-pipewire' '' '[mirrors]' > ~/.config/pmbootstrap-zynthian.cfg
+printf '%s\n' '[pmbootstrap]' 'device = google-kukui' 'hostname = zynthian-duet' 'is_default_channel = False' 'locale = C.UTF-8' 'service_manager = systemd' 'ssh_key_glob = ~/.ssh/id_ed25519.pub' 'ssh_keys = True' 'timezone = Europe/Berlin' 'ui = cage' "user = $USER" "work = $HOME/postmarketos/kick-pi4" '' '[providers]' 'postmarketos-base-ui-audio-backend = postmarketos-base-ui-audio-backend-pipewire' '' '[mirrors]' > ~/.config/pmbootstrap-zynthian.cfg
 ```
 
-Initialise the work directory (interactive; answers as for Kick: channel edge, systemd, audio
-backend PipeWire), link the packages into pmbootstrap's pmaports checkout and seed the distfiles
+If the work directory is new, initialise it (interactive; answers as for Kick: channel edge,
+systemd, audio backend PipeWire). Link the packages into pmbootstrap's pmaports checkout and seed the distfiles
 cache (needs sudo):
 
 ```sh

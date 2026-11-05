@@ -45,6 +45,7 @@ depends="
 	python3
 	python3-tkinter
 	rubberband
+	sooperlooper
 	sox
 	so:libasound.so.2
 	so:libjack.so.0

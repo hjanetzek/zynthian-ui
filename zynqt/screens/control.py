@@ -13,7 +13,7 @@ from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
 from zynqt.models.audio_file import AudioFileView
-from zynqt.models.widgets import EnvelopeView, FilterView
+from zynqt.models.widgets import EnvelopeView, FilterView, PluginView
 from zynqt.screens.base import EntryModel, entry, separator
 
 
@@ -111,6 +111,7 @@ class ChainControl(QObject):
         self.audio_view = AudioFileView(ui, self)
         self.envelope_view = EnvelopeView(self)
         self.filter_view = FilterView(self)
+        self.plugin_view = PluginView(self)
         self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
 
@@ -139,6 +140,8 @@ class ChainControl(QObject):
             self.envelope_view.refresh()
         elif self._widget_type == "filter":
             self.filter_view.refresh()
+        elif self._widget_type == "plugin":
+            self.plugin_view.refresh()
 
     # Contents
 
@@ -269,6 +272,11 @@ class ChainControl(QObject):
         wtype, file_zctrl = wd.screen_type(zctrls) if proc else (None, None)
         if wtype == "drawbar":
             wtype = None  # No Qt drawbar widget (yet): the controllers are shown
+        plugin = wd.plugin_widget(proc) if wtype is None else None
+        if plugin:
+            wtype = "plugin"
+            if self.plugin_view.processor is not proc:
+                self.plugin_view.set_processor(proc, plugin)
         if wtype is None and proc is not None:
             gui = getattr(proc.engine, "custom_gui_fpath", None)
             if afd.engine_type(proc) != afd.ENG_NONE or (gui and gui.endswith("zynthian_widget_audio_file.py")):
@@ -299,6 +307,10 @@ class ChainControl(QObject):
     @Property(QObject, constant=True)
     def filterView(self):
         return self.filter_view
+
+    @Property(QObject, constant=True)
+    def pluginView(self):
+        return self.plugin_view
 
     @Slot(int)
     def selectProcessor(self, i):

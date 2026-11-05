@@ -97,6 +97,11 @@ Item {
             visible: root.cc.widgetType === "filter"
             view: root.cc.filterView
         }
+        PluginWidgetView {
+            anchors.fill: parent
+            visible: root.cc.widgetType === "plugin"
+            view: root.cc.pluginView
+        }
     }
 
     // Controller pages

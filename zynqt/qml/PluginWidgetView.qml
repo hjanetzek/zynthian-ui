@@ -1,6 +1,7 @@
 // Plugin widgets (PluginView): bars (1/3 octave spectrum, Guitarix graphic EQ: drag a band to
 // set its gain), tuner (note and cents needle), text (NAM model, detected chord), aidax
-// (in/out meters, model and cabinet files)
+// (in/out meters, model and cabinet files), tempo (BPM; tap for tap tempo), radio (station
+// info and artwork)
 import QtQuick
 
 Rectangle {
@@ -107,12 +108,46 @@ Rectangle {
         }
     }
 
+    // Tempo: tap anywhere for tap tempo
+    Item {
+        anchors.fill: parent
+        visible: root.d.kind === "tempo"
+        Text {
+            anchors.centerIn: parent
+            text: root.d.big || ""
+            color: Theme.text
+            font.pixelSize: Math.min(parent.height / 3, parent.width / 8)
+            font.family: Theme.fontFamily
+        }
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 8
+            text: "tap for tap tempo"
+            color: Theme.textOff
+            font.pixelSize: 14
+        }
+        TapHandler { enabled: root.d.kind === "tempo"; onTapped: root.view.tap() }
+    }
+
+    // Radio artwork (right half)
+    Image {
+        visible: root.d.kind === "radio" && source != ""
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 12
+        width: parent.height / 2
+        height: width
+        fillMode: Image.PreserveAspectFit
+        source: root.d.kind === "radio" && root.d.artwork ? "file://" + root.d.artwork : ""
+    }
+
     // Text lines (and aidax meters)
     Column {
         anchors.fill: parent
         anchors.margins: 12
         spacing: 10
-        visible: root.d.kind === "text" || root.d.kind === "aidax"
+        visible: root.d.kind === "text" || root.d.kind === "aidax" || root.d.kind === "radio"
         Repeater {
             model: root.d.kind === "aidax" ? root.d.meters : []
             Rectangle {

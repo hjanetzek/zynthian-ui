@@ -11,7 +11,8 @@ Window {
                                        "midi_key_range"]
     readonly property var qmlTitles: ({ mixer: "Mixer", chain_control: "Chain", tempo: "Tempo",
                                         alsa_mixer: "Audio Levels", audio_player: "Audio Player",
-                                        midi_key_range: "Note Range & Transpose" })
+                                        midi_key_range: "Note Range & Transpose",
+                                        chain_manager: "Chain Manager" })
 
     width: 960
     height: 600
@@ -47,7 +48,8 @@ Window {
         anchors.top: topBar.bottom
         anchors.bottom: parent.bottom
         anchors.bottomMargin: keypad.keyHeight
-        currentIndex: zyn.currentList ? 2 : (zyn.currentScreen === "mixer" ? 0 : 1)
+        currentIndex: zyn.currentList ? 2
+                      : zyn.currentScreen === "mixer" ? 0 : zyn.currentScreen === "chain_manager" ? 3 : 1
 
         MixerScreen { shown: screens.currentIndex === 0 }
         ChainControlScreen {}
@@ -63,6 +65,7 @@ Window {
                 }
             }
         }
+        ChainManagerScreen {}
     }
 
     // Info message, as zynthian_gui.show_info

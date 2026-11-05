@@ -28,6 +28,7 @@ from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
 from zynqt.screens.control import ChainControl
 from zynqt.screens.snapshots import Options, Snapshots
 from zynqt.screens.chain_options import ChainOptions
+from zynqt.screens.routing import AudioOut, MidiIn, MidiOut
 
 # Screens with their own QML (the others are selector screens, zynqt.screens)
 QML_SCREENS = ("mixer", "chain_control")
@@ -82,7 +83,7 @@ class ZynUI(QObject):
         # Screens with their own QML and Python object (build when shown, hide when left)
         self.qml_screen_objects = {"chain_control": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
-                    ChainOptions):
+                    ChainOptions, AudioOut, MidiIn, MidiOut):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""
@@ -390,7 +391,10 @@ class ZynUI(QObject):
         if status is not None:
             self.chain_edit.start(status)
         step, result = self.chain_edit.next_step()
-        if step in ("engine", "midi_chan"):
+        if step == "midi_chan":
+            self.list_screens["midi_chan"].mode = "ADD"
+            self.show_screen(step)
+        elif step == "engine":
             self.show_screen(step)
         elif step == "failed":
             self.show_info(result)
@@ -585,7 +589,16 @@ class ZynUI(QObject):
         self.showScreen("main_menu")
 
     def cuia_chain_control(self, params=None):
-        self.chain_control()
+        """As zynthian_gui: params[0] the chain's position (1-based, 0 the main chain)"""
+        chain_id = None
+        try:
+            index = int(params[0])
+            chain_id = 0 if index == 0 else self.chain_manager.get_chain_id_by_index(index - 1)
+        except (TypeError, ValueError, IndexError):
+            pass
+        self.chain_control(chain_id)
+
+    cuia_screen_control = cuia_chain_control
 
     def cuia_menu(self, params=None):
         if self.current_screen == "main_menu":
@@ -641,6 +654,16 @@ class ZynUI(QObject):
         if chain_id >= 0:
             self.chain_manager.set_active_chain_by_id(chain_id)
         self.show_screen("chain_options")
+
+    def set_midi_channel(self):
+        """Change the active chain's MIDI channel"""
+        self.list_screens["midi_chan"].mode = "SET"
+        self.show_screen("midi_chan")
+
+    @Slot(str)
+    def openChainScreen(self, name):
+        """Chain control's sidebar: chain_options, midi_in, midi_out, audio_out"""
+        self.show_screen(name)
 
     def cuia_chain_options(self, params=None):
         self.show_screen("chain_options")

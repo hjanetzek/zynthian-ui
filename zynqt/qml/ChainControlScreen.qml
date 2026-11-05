@@ -112,6 +112,11 @@ Item {
             visible: root.cc.widgetType === "organelle"
             view: root.cc.organelleView
         }
+        SooperLooperView {
+            anchors.fill: parent
+            visible: root.cc.widgetType === "sooperlooper"
+            view: root.cc.sooperLooperView
+        }
     }
 
     // Controller pages

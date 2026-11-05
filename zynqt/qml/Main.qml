@@ -6,8 +6,8 @@ import QtQuick.Layouts
 Window {
     id: root
 
-    readonly property var screenNames: ["mixer", "main_menu", "chain_control"]
-    readonly property var screenTitles: ({ mixer: "Mixer", main_menu: "Main", chain_control: "Chain" })
+    readonly property var qmlScreens: ["mixer", "chain_control"]
+    readonly property var qmlTitles: ({ mixer: "Mixer", chain_control: "Chain" })
 
     width: 960
     height: 600
@@ -32,7 +32,7 @@ Window {
         anchors.right: parent.right
         anchors.top: parent.top
         height: 50
-        title: root.screenTitles[zyn.currentScreen] || zyn.currentScreen
+        title: zyn.currentList ? zyn.currentList.title : (root.qmlTitles[zyn.currentScreen] || zyn.currentScreen)
     }
 
     StackLayout {
@@ -43,11 +43,63 @@ Window {
         anchors.top: topBar.bottom
         anchors.bottom: parent.bottom
         anchors.bottomMargin: keypad.keyHeight
-        currentIndex: Math.max(0, root.screenNames.indexOf(zyn.currentScreen))
+        currentIndex: zyn.currentList ? 2 : Math.max(0, root.qmlScreens.indexOf(zyn.currentScreen))
 
         MixerScreen { shown: screens.currentIndex === 0 }
-        PlaceholderScreen { text: "Main menu: not ported yet" }
         PlaceholderScreen { text: "Chain control: not ported yet" }
+        SelectorScreen { screen: zyn.currentList }
+    }
+
+    // Info message, as zynthian_gui.show_info
+    Rectangle {
+        anchors.horizontalCenter: screens.horizontalCenter
+        anchors.bottom: screens.bottom
+        anchors.bottomMargin: 16
+        width: Math.min(screens.width - 40, infoText.implicitWidth + 40)
+        height: infoText.implicitHeight + 20
+        radius: 6
+        visible: zyn.info !== ""
+        color: "#e0202830"
+        border.color: Theme.keyText
+        Text {
+            id: infoText
+            anchors.centerIn: parent
+            width: Math.min(implicitWidth, screens.width - 80)
+            wrapMode: Text.WordWrap
+            horizontalAlignment: Text.AlignHCenter
+            text: zyn.info
+            color: Theme.text
+            font.pixelSize: 20
+        }
+    }
+
+    // Confirmation (zynthian_gui_confirm): SEL/YES confirms, BACK/NO cancels
+    Rectangle {
+        anchors.fill: screens
+        visible: zyn.confirmText !== ""
+        color: "#d0000000"
+        TapHandler {}   // modal
+
+        Column {
+            anchors.centerIn: parent
+            spacing: 30
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: screens.width - 80
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: zyn.confirmText
+                color: Theme.text
+                font.pixelSize: 28
+                font.family: Theme.fontFamily
+            }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 40
+                DialogButton { text: "NO"; color: "#802020"; onTapped: zyn.confirmNo() }
+                DialogButton { text: "YES"; color: "#208020"; onTapped: zyn.confirmYes() }
+            }
+        }
     }
 
     // Busy: loading snapshots, starting engines
@@ -78,5 +130,22 @@ Window {
             font.pixelSize: 24
             font.family: Theme.fontFamily
         }
+    }
+
+    component DialogButton: Rectangle {
+        id: button
+        property alias text: label.text
+        signal tapped
+        width: 160
+        height: 70
+        radius: 4
+        Text {
+            id: label
+            anchors.centerIn: parent
+            color: Theme.text
+            font.pixelSize: 26
+            font.family: Theme.fontFamily
+        }
+        TapHandler { onTapped: button.tapped() }
     }
 }

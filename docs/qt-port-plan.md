@@ -175,8 +175,7 @@ chains (type, engine, MIDI channel, bank, preset), snapshots, ZS3, tempo, audio 
 settings (all desktop entries except ZynVoice), MIDI devices and their options, recording and
 transport keys, audio and MIDI player, chain manager, moving chains and processors, MIDI CC and note
 range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration's switch actions.
-Not ported yet: ZynVoice,
-launcher.
+Not ported yet: ZynVoice, launcher (M3).
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
 

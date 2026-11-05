@@ -57,7 +57,8 @@ Rectangle {
             }
             Text { visible: !!root.status.xrun; text: "XRUN"; color: Theme.meterHigh; font.pixelSize: 12 }
             Text { visible: !!root.status.midi; text: "MIDI"; color: Theme.meterLow; font.pixelSize: 12 }
-            Text { visible: !!root.status.midiRecorder; text: "REC"; color: Theme.meterHigh; font.pixelSize: 12 }
+            Text { visible: !!root.status.audioRecorder; text: "\u25cf REC"; color: Theme.meterHigh; font.pixelSize: 12 }
+            Text { visible: !!root.status.midiRecorder; text: "\u25cf MIDI REC"; color: Theme.meterHigh; font.pixelSize: 12 }
             Text { visible: !!root.status.audioPlayer; text: "PLAY"; color: Theme.meterLow; font.pixelSize: 12 }
         }
     }

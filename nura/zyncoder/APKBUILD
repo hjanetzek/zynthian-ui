@@ -14,7 +14,7 @@ license="GPL-3.0-or-later"
 options="!check"
 depends="python3"
 makedepends="
-	boost-dev
+	boost1.89-dev
 	cmake
 	jack-dev
 	liblo-dev

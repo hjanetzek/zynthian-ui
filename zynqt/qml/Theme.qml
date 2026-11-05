@@ -5,7 +5,7 @@ import QtQuick
 // (zynthian_qt_main.py sets the context property zynThemeName): "classic" (zynthian's default
 // colours, as zynthian_gui_config), "galactica" (a battlestar CIC console: gun-metal panels with
 // clipped corners, amber console text in a condensed face, red alerts) or "enterprise" (a starship
-// console in galactica's amber: pill buttons with dark labels, coloured header bars, a curved
+// console: orange, blue-gray, mauve and violet pill buttons with dark labels, coloured header bars, a curved
 // frame around the screen).
 QtObject {
     id: theme
@@ -315,74 +315,74 @@ QtObject {
 
     property QtObject enterprise: QtObject {
         readonly property color background: "#000000"
-        readonly property color panel: "#17120c"           // dark, warm plates
+        readonly property color panel: "#16151b"           // dark, cool plates
         readonly property color panelHighlight: "#000000"
-        readonly property color text: "#f0ad3c"            // galactica's amber
-        readonly property color textOff: "#c9a16a"
-        readonly property color disabled: "#6b5a44"
-        readonly property color select: "#f6c870"          // butterscotch pill ...
+        readonly property color text: "#fe972c"            // orange
+        readonly property color textOff: "#9aa4a9"         // dim blue-gray
+        readonly property color disabled: "#5b5866"
+        readonly property color select: "#bbc6cb"          // blue-gray pill ...
         readonly property color selectText: "#000000"      // ... with black type
-        readonly property color keyBackground: "#2a2016"
-        readonly property color keyText: "#f0ad3c"
-        readonly property color keyBack: "#e8432e"
-        readonly property color keyYes: "#8fc46a"
-        readonly property color meterLow: "#8fc46a"
-        readonly property color meterMid: "#f0b030"
-        readonly property color meterHigh: "#e8432e"
-        readonly property color mute: "#e8432e"
-        readonly property color solo: "#8e9ee8"            // lavender
+        readonly property color keyBackground: "#1f1d27"
+        readonly property color keyText: "#fe972c"
+        readonly property color keyBack: "#cf6660"         // coral red
+        readonly property color keyYes: "#6cc98a"          // green, saturation and lightness of the red
+        readonly property color meterLow: "#6cc98a"
+        readonly property color meterMid: "#e5af46"
+        readonly property color meterHigh: "#cf6660"
+        readonly property color mute: "#cf6660"
+        readonly property color solo: "#7e5edb"            // violet
         readonly property color overlay: "#f0000000"
-        readonly property color dialogNo: "#e8432e"
-        readonly property color dialogYes: "#8fc46a"
+        readonly property color dialogNo: "#cf6660"
+        readonly property color dialogYes: "#6cc98a"
         readonly property color dialogText: "#000000"
-        readonly property color separator: "#b8742e"       // header bar
+        readonly property color separator: "#8e6790"       // mauve header bar
         readonly property color separatorText: "#000000"
         readonly property color listBackground: "#000000"  // pills on black
         readonly property color dim: "#d8000000"
         readonly property color dimBusy: "#c8000000"
-        readonly property color link: "#f6c870"
-        readonly property color alert: "#e8432e"
-        readonly property color warning: "#f0b030"
-        readonly property color flagRecord: "#e8432e"
-        readonly property color flagPlay: "#8fc46a"
-        readonly property color flagMidi: "#8e9ee8"
-        readonly property color flagSeq: "#f0b030"
-        readonly property color midiActivity: "#8e9ee8"
-        readonly property color bindChain: "#8fc46a"
-        readonly property color bindGlobal: "#f6c870"
-        readonly property color bindXy: "#f0b030"
-        readonly property color marker: "#f6c870"
-        readonly property color textBypassed: "#6b5a44"
-        readonly property color nodeMidi: "#3a2614"
-        readonly property color nodeSynth: "#3a3014"
-        readonly property color nodeAudio: "#1e2236"
-        readonly property color nodeSpecial: "#26301a"
-        readonly property color nodeOther: "#17120c"
-        readonly property color pinnedBackground: "#120e09"
-        readonly property color divider: "#6b5a44"
-        readonly property color connector: "#c9a16a"
-        readonly property color gridRow: "#17120c"
-        readonly property color gridRowDark: "#0e0b07"
+        readonly property color link: "#bbc6cb"
+        readonly property color alert: "#cf6660"
+        readonly property color warning: "#e5af46"
+        readonly property color flagRecord: "#cf6660"
+        readonly property color flagPlay: "#6cc98a"
+        readonly property color flagMidi: "#b08bb2"
+        readonly property color flagSeq: "#fe972c"
+        readonly property color midiActivity: "#a48ae6"
+        readonly property color bindChain: "#6cc98a"
+        readonly property color bindGlobal: "#e5af46"
+        readonly property color bindXy: "#fe972c"
+        readonly property color marker: "#bbc6cb"
+        readonly property color textBypassed: "#5b5866"
+        readonly property color nodeMidi: "#3a2a3b"
+        readonly property color nodeSynth: "#3f2a14"
+        readonly property color nodeAudio: "#2a2540"
+        readonly property color nodeSpecial: "#2b3134"
+        readonly property color nodeOther: "#16151b"
+        readonly property color pinnedBackground: "#0d0c10"
+        readonly property color divider: "#5b5866"
+        readonly property color connector: "#9aa4a9"
+        readonly property color gridRow: "#16151b"
+        readonly property color gridRowDark: "#0d0c10"
         readonly property color gridRowLine: "#000000"
-        readonly property color gridBar: "#c9a16a"
-        readonly property color gridBeat: "#6b5a44"
-        readonly property color gridStep: "#2a2016"
-        readonly property real noteHue: 0.1
-        readonly property color noteFrame: "#ffe2a8"
-        readonly property color selectionFill: "#30f6c870"
-        readonly property color selectionFrame: "#f6c870"
-        readonly property color ccBar: "#6a4a20"
-        readonly property color ccBarCurrent: "#d4884a"
-        readonly property color buttonOn: "#5d7f3f"
-        readonly property color buttonRecord: "#b03020"
-        readonly property color widgetBackground: "#0b0906"
-        readonly property color widgetLine: "#f0ad3c"
-        readonly property color widgetFill: "#4a3418"
-        readonly property color widgetGrid: "#2a2016"
-        readonly property color widgetWave: "#d4884a"
-        readonly property color widgetOutside: "#17120c"
+        readonly property color gridBar: "#9aa4a9"
+        readonly property color gridBeat: "#5b5866"
+        readonly property color gridStep: "#24222c"
+        readonly property real noteHue: 0.085
+        readonly property color noteFrame: "#ffe0c0"
+        readonly property color selectionFill: "#30bbc6cb"
+        readonly property color selectionFrame: "#bbc6cb"
+        readonly property color ccBar: "#5c4a8c"
+        readonly property color ccBarCurrent: "#7e5edb"
+        readonly property color buttonOn: "#4f9a68"
+        readonly property color buttonRecord: "#a84a45"
+        readonly property color widgetBackground: "#0d0c10"
+        readonly property color widgetLine: "#fe972c"
+        readonly property color widgetFill: "#4a2c10"
+        readonly property color widgetGrid: "#24222c"
+        readonly property color widgetWave: "#bbc6cb"
+        readonly property color widgetOutside: "#16151b"
         readonly property color frame: "transparent"
-        readonly property color frameActive: "#f6c870"
+        readonly property color frameActive: "#bbc6cb"
         readonly property real frameWidth: 0
         readonly property real cut: 0
         readonly property real cutLarge: 0
@@ -390,12 +390,16 @@ QtObject {
         readonly property real panelRadius: 14
         readonly property bool pillButtons: true
         readonly property bool keyFilled: true
-        readonly property var keyFills: ["#f0ad3c", "#d4884a", "#e7b77a", "#b8742e", "#f6c870"]
+        // orange, blue-gray, mauve, violet and lighter versions; gold rarely (one key)
+        readonly property var keyFills: ["#fe972c", "#bbc6cb", "#8e6790", "#7e5edb", "#ffb366",
+                                         "#d9e0e3", "#b08bb2", "#a48ae6", "#e5af46", "#fe972c",
+                                         "#7e5edb", "#bbc6cb", "#8e6790", "#ffb366", "#a48ae6",
+                                         "#d9e0e3", "#fe972c", "#b08bb2", "#bbc6cb", "#7e5edb"]
         readonly property color keyFilledText: "#000000"
         readonly property bool elbow: true
         readonly property real elbowBar: 14
-        readonly property color elbowColor: "#d4884a"
-        readonly property var barColors: ["#e7b77a", "#b8742e", "#f0ad3c", "#e8432e"]
+        readonly property color elbowColor: "#9a72a0"
+        readonly property var barColors: ["#bbc6cb", "#7e5edb", "#e5af46", "#cf6660"]
         readonly property string fontFamily: "Khand"
         readonly property string textFamily: "Khand"
         readonly property int fontWeight: Font.DemiBold

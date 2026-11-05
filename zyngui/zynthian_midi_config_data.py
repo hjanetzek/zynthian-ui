@@ -255,16 +255,17 @@ def midi_config_list(sm, chain, midi_input):
         list_data.append((None, None, "> CHAINS"))
         len_check = len(list_data)
         for i, chain_id in enumerate(sm.chain_manager.chains):
-            chain = sm.chain_manager.get_chain(chain_id)
-            if chain and chain.is_midi() and chain != chain and chain.midi_chan < 16:
+            # MIDI chains on a channel, other than this one
+            target = sm.chain_manager.get_chain(chain_id)
+            if target and target.is_midi() and target != chain and target.midi_chan < 16:
                 if sm.chain_manager.will_midi_howl(sm.chain_manager.active_chain.chain_id, chain_id):
                     prefix = "∞ "
                 else:
                     prefix = ""
                 if chain_id in chain.midi_out:
-                    list_data.append((chain_id, None, f"\u2612 {prefix}{chain.get_name()}", [get_info("Connected to chain.", False), "midi_output.png"]))
+                    list_data.append((chain_id, None, f"\u2612 {prefix}{target.get_name()}", [get_info("Connected to chain.", False), "midi_output.png"]))
                 else:
-                    list_data.append((chain_id, None, f"\u2610 {prefix}{chain.get_name()}", [get_info("Disconnected from chain.", False), "midi_output.png"]))
+                    list_data.append((chain_id, None, f"\u2610 {prefix}{target.get_name()}", [get_info("Disconnected from chain.", False), "midi_output.png"]))
         if len(list_data) == len_check:
             list_data.pop() # Remove section title for empty section
 

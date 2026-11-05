@@ -40,12 +40,16 @@ export ZYNTHIAN_LV2_DIR="${ZYNTHIAN_LV2_DIR:-$ZYNTHIAN_PLUGINS_DIR/lv2}"
 export ZYNTHIAN_SW_DIR="${ZYNTHIAN_SW_DIR:-$_zd_data_home/zynthian/sw}"
 export ZYNTHIAN_PLUGINS_SRC_DIR="${ZYNTHIAN_PLUGINS_SRC_DIR:-$ZYNTHIAN_SW_DIR/plugins}"
 export ZYNTHIAN_VENV_DIR="${ZYNTHIAN_VENV_DIR:-$_zd_data_home/zynthian/venv}"
-# Programs built by setup_desktop.sh (zynthian's jalv) before the system's: the jalv
-# engine talks to the asyncli fork's command line, a distribution's jalv makes it hang
-case ":$PATH:" in
-	*":$ZYNTHIAN_SW_DIR/bin:"*) ;;
-	*) export PATH="$ZYNTHIAN_SW_DIR/bin:$PATH" ;;
-esac
+# zynthian's own programs (its jalv) before the system's: the jalv engine talks to the
+# asyncli fork's command line, a distribution's jalv makes it hang. Built by
+# setup_desktop.sh into ZYNTHIAN_SW_DIR, or packaged in ZYNTHIAN_LIB_DIR/bin (Nura)
+for _zd_bin in "${ZYNTHIAN_LIB_DIR:-/usr/lib/zynthian}/bin" "$ZYNTHIAN_SW_DIR/bin"; do
+	case ":$PATH:" in
+		*":$_zd_bin:"*) ;;
+		*) [ -d "$_zd_bin" ] && export PATH="$_zd_bin:$PATH" ;;
+	esac
+done
+unset _zd_bin
 # Removable media, as mounted by udisks
 export ZYNTHIAN_EX_DATA_DIR="${ZYNTHIAN_EX_DATA_DIR:-/run/media/$USER}"
 

@@ -401,7 +401,8 @@ class zynthian_gui_base(tkinter.Frame):
                 # flags = "\uf2c7"
                 flags = "\uf769"
             else:
-                cpu_load = self.state_manager.status_cpu_load
+                # The load can exceed 100 (e.g. pipewire-jack): out of range, the colour isn't valid
+                cpu_load = max(0, min(100, self.state_manager.status_cpu_load))
                 if cpu_load < 50:
                     cr = 0
                     cg = 0xCC

@@ -227,7 +227,7 @@ Problems found, and how the packages handle them:
   (Ableton Link, with Link and asio; Link uses asio on Linux too), `pd-clocker` (clocker,
   clockfill, midiclocker from Owen Osborn's sources, BSD-3-Clause, instead of zynthian-data's
   arm64/glibc binaries). All 116 patches in `zynthian-data/presets/puredata` load headless without
-  a missing object.
+  a missing object; in zynthian (Qt UI on the Duet) an Organelle patch loads and plays.
   Fixes: old C with GCC 14+/15 (`-std=gnu17 -fpermissive`); Pd 0.55+ no longer declaring `error()`
   and `COSTABSIZE` (a compat header, also for C++; pd still exports them, `cos_table` with 512
   entries); Pd 0.57 asserting `t_float` for the signal inlet field (tb_peakcomp~); hcs' stat on

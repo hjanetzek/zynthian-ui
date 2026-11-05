@@ -27,6 +27,7 @@
 from zynconf import zynthian_paths
 import os
 import logging
+import shutil
 from subprocess import Popen
 from datetime import datetime
 
@@ -68,7 +69,9 @@ class zynthian_audio_recorder:
             # Already recording
             return False
 
-        cmd = ["/usr/local/bin/jack_capture", "--daemon", "--bitdepth", "16", "--bufsize", "30", "--maxbufsize", "120"]
+        # ZynthianOS installs jack_capture in /usr/local/bin, distributions in PATH
+        jack_capture = shutil.which("jack_capture") or "/usr/local/bin/jack_capture"
+        cmd = [jack_capture, "--daemon", "--bitdepth", "16", "--bufsize", "30", "--maxbufsize", "120"]
         single_chan = True
         for chain in self.state_manager.chain_manager.chains.values():
             if chain.zynmixer_proc and chain.zynmixer_proc.controllers_dict["record"].value:

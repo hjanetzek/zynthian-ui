@@ -65,7 +65,7 @@ Item {
             }
             TapHandler {
                 onTapped: root.cc.selectProcessor(index)
-                onLongPressed: { root.cc.selectProcessor(index); zyn.cuia("bank_preset", []) }
+                onLongPressed: { root.cc.selectProcessor(index); zyn.openChainScreen("processor_options") }
             }
         }
     }

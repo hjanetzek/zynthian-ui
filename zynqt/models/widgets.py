@@ -260,3 +260,66 @@ class PluginView(QObject):
         if self.name == "GxGraphicEQ" and self.processor:
             wd.gx_eq_drag(self.processor, band, max(0.0, min(1.0, height_fraction)))
             self.refresh()
+
+
+class EuclidSeqView(QObject):
+    """Euclidean sequencer widget (zynthian_widget_euclidseq, EuclidSeq6 Pure Data patch): the
+    shared model (zyngui.zynthian_euclidseq_data) keeps the state from the patch's OSC messages
+    and sends the notes on each trigger; this gives QML the six channels' points and the
+    selected channel's values. Model changes come from the engine's OSC thread too: a queued
+    signal brings them to the GUI thread."""
+    changed = Signal()
+    _modelChanged = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        from zyngui.zynthian_euclidseq_data import EuclidSeqModel
+        self.model = EuclidSeqModel(on_change=self._modelChanged.emit)
+        self._modelChanged.connect(self._update)
+        self._channels = []
+        self._panel = {}
+        self._update()
+
+    def set_processor(self, processor):
+        self.model.set_processor(processor)
+        self._update()
+
+    def _update(self):
+        m = self.model
+        channels = []
+        for k in range(m.channels):
+            pos = m.play_position(k)
+            channels.append({"dots": [[x, y] for x, y in m.step_dots(k)],
+                             "hits": [[x, y] for x, y in m.hit_points(k)],
+                             "play": [pos[0], pos[1], bool(pos[2])] if pos else [],
+                             "note": m.note_numbers[k], "selected": k == m.select_ch, "muted": m.mute[k]})
+        ch = m.select_ch
+        self._channels = channels
+        self._panel = {"mode": m.display_mode.capitalize(), "channel": ch + 1, "length": m.limit[ch],
+                       "hits": m.hits[ch], "offset": m.offset[ch], "interval": m.interval_value[ch],
+                       "showInterval": m.display_mode == "interval", "mute": m.mute[ch]}
+        self.changed.emit()
+
+    @Property("QVariantList", notify=changed)
+    def channels(self):
+        return self._channels
+
+    @Property("QVariantMap", notify=changed)
+    def panel(self):
+        return self._panel
+
+    @Slot(int)
+    def selectChannel(self, ch):
+        self.model.select_channel(ch)
+
+    @Slot(int, int)
+    def nudgeNote(self, ch, step):
+        self.model.nudge_note(ch, step)
+
+    @Slot(str, int)
+    def adjust(self, key, step):
+        self.model.adjust_param(key, step)
+
+    @Slot()
+    def toggleMute(self):
+        self.model.toggle_mute()

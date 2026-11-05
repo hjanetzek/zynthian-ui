@@ -218,6 +218,46 @@ hardware kits (encoders, switches, LEDs), small screens. Dense views (pattern ed
 meters if needed) as C++ items on Qt Canvas Painter, as in Zrythm, registered as a QML module the
 Python app imports.
 
+## Raspberry Pi kits with SPI displays
+
+Older kits drive small SPI displays (zynthian-sys overlays: `piscreen2r`, ILI9486 480×320;
+`pitft28-resistive`, ILI9341 320×240 at `speed=32000000,fps=20`). Research only, not measured yet.
+
+**The bottleneck is the SPI bus, not rendering.** A full 480×320 RGB565 frame is 300 KB; at 32 MHz
+(about 4 MB/s) that is at most ~13 full frames per second, ~26 at 64 MHz. Rendering such a small
+screen is cheap either way; what matters is how much of the screen goes over the bus per update.
+
+| Path | How | SPI traffic |
+|---|---|---|
+| GL on the SPI display | `eglfs_kms` on the display's DRM device; Mesa's `kmsro` pairs the display-only driver with the Pi's GPU (v3d), renders into a buffer the driver reads and sends | Qt Quick's GL renderer draws whole frames and reports no damage: every frame goes over the bus in full; with meters running the bus saturates (~13 fps) |
+| GL offscreen, own blit | `QQuickRenderControl` into an FBO, read back, compare with the last frame, write changed rectangles to the framebuffer | partial, but custom code for a screen that is cheap to render anyway |
+| Software renderer | `QT_QUICK_BACKEND=software`, `QT_QPA_PLATFORM=linuxfb:fb=/dev/fbN` (plain fbdev, **not** `QT_QPA_FB_DRM=1`) | Qt Quick repaints and writes only changed regions; fbtft and the DRM drivers' fbdev emulation track the written lines (deferred I/O) and send only those |
+
+- Qt's linuxfb in DRM mode double-buffers with full page flips and passes no damage
+  (`qlinuxfbdrmscreen.cpp` in Qt 6.12: `drmModePageFlip`, no `drmModeDirtyFB`): full frames again.
+- A compositor (cage) on the SPI display doesn't help with GL rendering (Qt reports the whole
+  window as damaged); only with the software renderer would partial damage reach the display, and
+  then the compositor is only an extra layer.
+
+**Recommendation:** the software renderer with linuxfb on `/dev/fbN` for SPI kits; GL (eglfs or
+Wayland) for HDMI/DSI kits and the Duet. Choose the backend at start by display type.
+
+**Limits of the software renderer** (keep the QML working with both, branch on `GraphicsInfo.api`):
+
+- no shader effects: no `MultiEffect` or `layer.effect`. The icon tinting of the themes
+  ([qt-theming.md](qt-theming.md), branch `qt-theme-galactica`) needs pre-tinted icons there
+  (tinted once in Python and cached);
+- no Qt Canvas Painter (it needs the RHI): the C++ items planned for dense views (waveform, pattern
+  editor) need a QPainter fallback (`QQuickPaintedItem`) on these kits;
+- Shapes work (clipped corners, arcs), drawn on the CPU.
+
+**The Tk UI stays as the fallback** for these kits until the software path is measured on one and
+the small screens have their own layouts (320×240 and 480×320 are far below the 960×600–1280×800
+the QML is laid out for). `ZYNTHIAN_UI=tk` keeps working as it does today.
+
+Test to settle it: the mixer with running meters on an SPI kit, software renderer vs GL
+(`kmsro`): frame rate, CPU, and the bytes the SPI driver sends.
+
 ## Packaging
 
 - **`nura/pyside6/`**: start from aports' `py3-pyside6` recipe (it builds shiboken6 and PySide6),
@@ -262,3 +302,6 @@ Python app imports.
   and the clean backend boundary are useful upstream either way.
 - **Scale in cage**: solved: cage takes an output scale from `wlr-randr`, fractional values work
   (1.5 is the default; checked on the Duet).
+- **SPI display kits**: GL rendering sends full frames over the SPI bus; the software renderer
+  with partial updates fits better, but lacks shader effects and Canvas Painter. The Tk UI stays
+  the fallback there (see "Raspberry Pi kits with SPI displays").

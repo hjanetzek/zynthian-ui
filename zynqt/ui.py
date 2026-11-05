@@ -26,6 +26,7 @@ from zynqt.chain_edit import ChainEdit
 from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
 from zynqt.screens.control import ChainControl
+from zynqt.screens.snapshots import Options, Snapshots
 
 # Screens with their own QML (the others are selector screens, zynqt.screens)
 QML_SCREENS = ("mixer", "chain_control")
@@ -39,11 +40,15 @@ class ZynUI(QObject):
     altModeChanged = Signal()
     infoChanged = Signal()
     confirmChanged = Signal()
+    keyboardChanged = Signal()
+    # SEL pressed while the keyboard is shown: QML answers with keyboardAccept(text)
+    keyboardSubmit = Signal()
     # Navigation for the current screen: "up", "down", "left", "right", "select", "select_bold"
     navigate = Signal(str)
     # Internal: a CUIA from the CUIA thread or OSC, to be run in the GUI thread
     _cuiaRequested = Signal(str, list)
     _startFinished = Signal(bool)
+    _backgroundDone = Signal(object, object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -75,7 +80,7 @@ class ZynUI(QObject):
         self.chain_control_screen = ChainControl(self, self)
         # Screens with their own QML and Python object (build when shown, hide when left)
         self.qml_screen_objects = {"chain_control": self.chain_control_screen}
-        for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset):
+        for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""
@@ -83,6 +88,10 @@ class ZynUI(QObject):
         self._info_timer.timeout.connect(lambda: self._set_info(""))
         self._confirm_text = ""
         self._confirm_action = None
+        self._keyboard_title = ""
+        self._keyboard_text = ""
+        self._keyboard_action = None
+        self._backgroundDone.connect(lambda done, result: done(result))
 
         self._cuiaRequested.connect(self._run_cuia)
         self._startFinished.connect(self._start_finished)
@@ -249,6 +258,9 @@ class ZynUI(QObject):
 
     @Slot()
     def back(self):
+        if self._keyboard_action:
+            self.keyboardCancel()
+            return
         if self._confirm_action:
             self.confirmNo()
             return
@@ -259,7 +271,12 @@ class ZynUI(QObject):
             self._set_current_screen(self.screen_history.pop())
 
     def _navigate(self, what):
-        """Arrows and SELECT: the confirm dialog, the selector screen shown, or the QML screen"""
+        """Arrows and SELECT: the keyboard, the confirm dialog, the selector screen shown, or the
+        QML screen"""
+        if self._keyboard_action:
+            if what == "select":
+                self.keyboardSubmit.emit()
+            return
         if self._confirm_action:
             if what == "select":
                 self.confirmYes()
@@ -306,6 +323,58 @@ class ZynUI(QObject):
         self._confirm_text = ""
         self._confirm_action = None
         self.confirmChanged.emit()
+
+    def show_options(self, title, options):
+        """options: list of (label, action, info, icon)"""
+        self.list_screens["option"].config(title, options)
+        self.show_screen("option")
+
+    # On-screen keyboard (zynthian_gui_keyboard)
+
+    @Property(bool, notify=keyboardChanged)
+    def keyboardShown(self):
+        return self._keyboard_action is not None
+
+    @Property(str, notify=keyboardChanged)
+    def keyboardTitle(self):
+        return self._keyboard_title
+
+    @Property(str, notify=keyboardChanged)
+    def keyboardText(self):
+        return self._keyboard_text
+
+    def show_keyboard(self, action, text="", title=""):
+        """Ask for a text; action(text) runs when it is accepted"""
+        self._keyboard_title = title
+        self._keyboard_text = text
+        self._keyboard_action = action
+        self.keyboardChanged.emit()
+
+    @Slot(str)
+    def keyboardAccept(self, text):
+        action = self._keyboard_action
+        self.keyboardCancel()
+        if action:
+            action(text.strip())
+
+    @Slot()
+    def keyboardCancel(self):
+        self._keyboard_action = None
+        self.keyboardChanged.emit()
+
+    # Background work (loading and saving snapshots): keeps the GUI thread drawing the busy
+    # overlay; done(result) runs in the GUI thread
+
+    def run_background(self, task, done=None):
+        def run():
+            result = None
+            try:
+                result = task()
+            except Exception as e:
+                logging.exception(f"background task failed: {e}")
+            if done:
+                self._backgroundDone.emit(done, result)
+        Thread(target=run, name="ui task", daemon=True).start()
 
     # Chains
 
@@ -503,6 +572,9 @@ class ZynUI(QObject):
     def cuia_show_screen(self, params):
         if params:
             self.showScreen(str(params[0]))
+
+    def cuia_screen_snapshot(self, params=None):
+        self.show_screen("snapshot")
 
     def cuia_screen_mixer(self, params=None):
         self.showScreen("mixer")

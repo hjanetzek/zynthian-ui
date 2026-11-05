@@ -22,17 +22,21 @@ def test_deleting_the_current_bank_unselects_it(tmp_path):
     assert screen.sm.snapshot_dir == str(tmp_path)
 
 
+def make_files(snapshot_dir):
+    from zyngine.zynthian_snapshot_files import zynthian_snapshot_files
+    sm = SimpleNamespace(snapshot_dir=str(snapshot_dir), snapshot_bank=None, chain_manager=None)
+    return zynthian_snapshot_files(sm)
+
+
 def test_without_banks_the_first_one_is_created_and_selected(tmp_path):
-    screen = make_screen(tmp_path)
-    screen.check_bankless_mode()
+    files = make_files(tmp_path)
+    assert files.check_bankless_mode()
     assert (tmp_path / "000").is_dir()
-    assert screen.bankless_mode
-    assert screen.sm.snapshot_bank == "000"
+    assert files.sm.snapshot_bank == "000"
 
 
 def test_a_single_bank_is_selected(tmp_path):
     (tmp_path / "005-Live").mkdir()
-    screen = make_screen(tmp_path)
-    screen.check_bankless_mode()
-    assert screen.bankless_mode
-    assert screen.sm.snapshot_bank == "005-Live"
+    files = make_files(tmp_path)
+    assert files.check_bankless_mode()
+    assert files.sm.snapshot_bank == "005-Live"

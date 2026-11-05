@@ -38,14 +38,13 @@ from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info, create
 from zyngui.zynthian_widget_data import screen_type as widget_screen_type
 from zyngui.zynthian_gui_controller import zynthian_gui_controller
 from zyngine.zynthian_chain_manager import ZMIP_STEP_INDEX
+from zyngui.zynthian_midi_learn_data import (MIDI_LEARNING_DISABLED, MIDI_LEARNING_CHAIN, MIDI_LEARNING_GLOBAL,
+                                             CC_MODES, cc_mode_label, set_cc_mode, unlearn_label)
 
 # ------------------------------------------------------------------------------
 # Zynthian Instrument Controller GUI Class
 # ------------------------------------------------------------------------------
 
-MIDI_LEARNING_DISABLED = 0
-MIDI_LEARNING_CHAIN = 1
-MIDI_LEARNING_GLOBAL = 2
 
 
 class zynthian_gui_control(zynthian_gui_selector):
@@ -938,18 +937,9 @@ class zynthian_gui_control(zynthian_gui_selector):
                     else:
                         options["\u2610 Debounce"] = i
                 elif ml and ml[0][1] != "automate":
-                    match zctrl.midi_cc_mode:
-                        case -1:
-                            options["Relative Mode learning..."] = i
-                            options["CC Value Range"] = i
-                        case 0:
-                            if zctrl.range_reversed:
-                                options["Absolute Reverse"] = i
-                            else:
-                                options["Absolute Mode"] = i
-                            options["CC Value Range"] = i
-                        case _:
-                            options[f"Relative Mode {zctrl.midi_cc_mode}"] = i
+                    options[cc_mode_label(zctrl)] = i
+                    if zctrl.midi_cc_mode <= 0:
+                        options["CC Value Range"] = i
                 if zctrl.processor:
                     options[f"Chain learn..."] = i
                 options[f"Global learn..."] = i
@@ -960,12 +950,7 @@ class zynthian_gui_control(zynthian_gui_selector):
 
             ml = self.chain_manager.get_midi_binding_from_zctrl(zctrl, filter_automate=False)
             if ml:
-                cc, chan, zmip, chain_id = self.chain_manager.unpack_midi_bind_key(ml[0][0])
-                if chan < 16:
-                    ml_text = f"CH{chan + 1}, CC{cc}"
-                else:
-                    ml_text = f"CC{cc}"
-                options[f"Unlearn [{ml_text}]"] = zctrl
+                options[unlearn_label(self.chain_manager, ml)] = zctrl
             options["Unlearn all controls"] = ""
 
             if keep_selection:
@@ -1072,15 +1057,7 @@ class zynthian_gui_control(zynthian_gui_selector):
                     self.zgui_controllers[param].zctrl.midi_cc_debounce = 1
                 self.controller_options(param, keep_selection=True)
             elif parts[0] in ["Relative", "Absolute"]:
-                options = {
-                    "Absolute Mode": [(param, 0), ["Controller sends absolute value:\n0—127", None]],
-                    "Absolute Reverse": [(param, 0), ["Controller sends reversed absolute value:\n127—0", None]],
-                    "Relative Mode 1 (55—63, 64—73)": [(param, 1),  ["Down: 55—63\nUp:65—73\nWITH speed-up", None]],
-                    "Relative Mode 2 (118—127, 1—9)": [(param, 2), ["Down: 118—127\nUp:1—9\nWITH speed-up", None]],
-                    "Relative Mode 3 (7—15, 17—24)": [(param, 3), ["Down:7—15\nUp:17—24\nWITH speed-up", None]],
-                    "Relative Mode 4 (0—63, 64—127)": [(param, 4), ["Down:0—63\nUp:64—127\nNO speed-up", None]],
-                    "Learn Relative Mode": [(param, -1), ["Auto-detected from user's actions", None]]
-                }
+                options = {label: [(param, mode), [info, None]] for label, mode, _, info in CC_MODES}
                 self.zyngui.screens['option'].config("Select CC mode", options, self.set_cc_mode)
                 self.zyngui.show_screen('option')
 
@@ -1105,8 +1082,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         self.controller_options_cb("Learned MIDI Inputs", zctrl)
 
     def set_cc_mode(self, option, param):
-        self.zgui_controllers[param[0]].zctrl.midi_cc_mode_set(param[1])
-        self.zgui_controllers[param[0]].zctrl.range_reversed = "Reverse" in option
+        set_cc_mode(self.zgui_controllers[param[0]].zctrl, param[1], "Reverse" in option)
         self.controller_options(param[0], keep_selection=True)
 
     def show_xy(self, params=None):

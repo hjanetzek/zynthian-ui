@@ -32,6 +32,7 @@ from tkinter import font as tkFont
 # Zynthian specific modules
 from zyncoder.zyncore import lib_zyncore
 from zyngui import zynthian_gui_config
+from zyngui.zynthian_midi_learn_data import binding
 
 # ------------------------------------------------------------------------------
 # Font size cache
@@ -553,36 +554,14 @@ class zynthian_gui_controller(tkinter.Canvas):
                 self.plot_midi_bind("X", zynthian_gui_config.color_alt2)
             elif self.zctrl == self.zyngui.state_manager.zctrl_y:
                 self.plot_midi_bind("Y", zynthian_gui_config.color_alt2)
-            elif midi_learn_params := self.zyngui.chain_manager.get_midi_binding_from_zctrl(self.zctrl):
-                automate = ""
-                key = None
-                bind_type = 0
-                for ml in midi_learn_params:
-                    match ml[1]:
-                        case "automate":
-                            automate = "A:"
-                        case "chain":
-                            key = ml[0]
-                            bind_type = 1
-                        case "global":
-                            key = ml[0]
-                            bind_type = 2
-                if key is not None:
-                    cc, chan, zmip, chain_id = self.zyngui.chain_manager.unpack_midi_bind_key(key)
-                if self.zctrl.midi_cc_mode == -1:
-                    mode = "\u23fa"
+            elif bind := binding(self.zyngui.chain_manager, self.zctrl):
+                text, kind = bind
+                if kind == "abs":
+                    self.plot_midi_bind(text, zynthian_gui_config.color_ml)
+                elif kind == "chain" and "#" in text:
+                    self.plot_midi_bind(text, zynthian_gui_config.color_hl)
                 else:
-                    mode = ""
-                match bind_type:
-                    case 2: # global
-                        self.plot_midi_bind(f"{mode}{automate}{chan + 1}#{cc}", zynthian_gui_config.color_ml)
-                    case 1: #chain
-                        if chan < 16:
-                            self.plot_midi_bind(f"{mode}{automate}{chan + 1}#{cc}", zynthian_gui_config.color_hl)
-                        else:
-                            self.plot_midi_bind(f"{mode}{automate}{cc}")
-                    case _:
-                        self.plot_midi_bind(automate)
+                    self.plot_midi_bind(text)
             else:
                 self.erase_midi_bind()
                 return False

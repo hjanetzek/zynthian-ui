@@ -6,13 +6,35 @@ Item {
     id: root
 
     property bool shown: true
+    // Launcher mode (screen "launcher", the PAD key): a column of sequence pads per strip, one per
+    // phrase, instead of the faders; all columns scroll together
+    readonly property bool launcherMode: zyn.currentScreen === "launcher"
+    readonly property var launcher: zyn.launcherModel
+    property real launcherScroll: 0
+    property real padHeight: 60
+    readonly property real padAreaHeight: padHeight * launcher.phrases
+
+    // Keep the selected phrase in view
+    function showPhrase(phrase) {
+        const top = phrase * padHeight
+        const view = strips.height - 150   // about the pad area of a strip
+        if (top < launcherScroll)
+            launcherScroll = Math.max(0, top)
+        else if (top + padHeight > launcherScroll + view)
+            launcherScroll = Math.max(0, top + padHeight - view)
+    }
+    Connections {
+        target: root.launcher
+        function onPhraseChanged() { root.showPhrase(root.launcher.phrase) }
+    }
     // The meters' levels, read once per update: every read of a Python list property converts it
     readonly property var stripLevels: mixerMeters.levels
     readonly property var mainLevels: mainMeters.levels
     // Admin "Visible Chains": the strips that fit (the others by flicking); 0: all, up to 72 px wide
+    // (wider in launcher mode, for the pads)
     readonly property int stripWidth: zyn.visibleChains > 0
         ? Math.max(40, (width - 4) / (zyn.visibleChains + 1) - 2)
-        : Math.max(40, Math.min(72, (width - 4) / Math.max(1, mixerStrips.count + 1) - 2))
+        : Math.max(40, Math.min(launcherMode ? 150 : 72, (width - 4) / Math.max(1, mixerStrips.count + 1) - 2))
 
     Binding { target: mixerMeters; property: "active"; value: root.shown }
     Binding { target: mainMeters; property: "active"; value: root.shown }
@@ -168,9 +190,75 @@ Item {
             TapHandler { onDoubleTapped: strip.stripModel.setBalance(strip.index, 0) }
         }
 
+        // Launcher mode: the level as a horizontal bar (drag sideways)
+        Item {
+            id: levelBar
+            visible: root.launcherMode
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: balanceBar.bottom
+            anchors.margins: 4
+            height: visible ? 10 : 0
+            Rectangle { anchors.fill: parent; color: Theme.panelHighlight }
+            Rectangle { width: parent.width * strip.level; height: parent.height; color: Theme.keyText }
+            DragHandler {
+                target: null
+                yAxis.enabled: false
+                property real startLevel
+                onActiveChanged: if (active) startLevel = strip.level
+                onTranslationChanged: strip.stripModel.setLevel(strip.index,
+                                          startLevel + translation.x / levelBar.width)
+            }
+        }
+
+        Item {
+            id: pads
+
+            visible: root.launcherMode
+            anchors.top: levelBar.bottom
+            anchors.topMargin: 4
+            anchors.bottom: buttons.top
+            anchors.bottomMargin: 4
+            anchors.left: parent.left
+            anchors.right: parent.right
+            clip: true
+            onHeightChanged: if (strip.isMain && height > 0) root.padHeight = height / root.launcher.visiblePads
+
+            Column {
+                y: -root.launcherScroll
+                width: parent.width
+                Repeater {
+                    model: root.launcherMode ? root.launcher.phrases : 0
+                    Pad {
+                        required property int index
+                        chainId: strip.chainId
+                        phrase: index
+                        isMain: strip.isMain
+                        selected: strip.active && index === root.launcher.phrase
+                        width: pads.width
+                        height: root.padHeight
+                    }
+                }
+            }
+            // Vertical drag scrolls all columns; taps go to the pads
+            DragHandler {
+                target: null
+                xAxis.enabled: false
+                property real startScroll
+                onActiveChanged: if (active) startScroll = root.launcherScroll
+                onTranslationChanged: root.launcherScroll = Math.max(0, Math.min(
+                    root.padAreaHeight - pads.height, startScroll - translation.y))
+            }
+            WheelHandler {
+                onWheel: (event) => root.launcherScroll = Math.max(0, Math.min(
+                    root.padAreaHeight - pads.height, root.launcherScroll - event.angleDelta.y / 2))
+            }
+        }
+
         Item {
             id: fader
 
+            visible: !root.launcherMode
             anchors.top: balanceBar.bottom
             anchors.topMargin: 6
             anchors.bottom: buttons.top
@@ -238,6 +326,85 @@ Item {
                 text: strip.toggleLabel; on: strip.toggle; onColor: Theme.solo
                 onTapped: strip.stripModel.toggleControl(strip.index)
             }
+        }
+    }
+
+    // A launcher pad (zynthian_gui_launcher_pad): sequence name, play state, repeat mode, length;
+    // the main strip's pads are the phrases (with tempo, time signature, loops)
+    component Pad: Rectangle {
+        id: pad
+
+        property int chainId
+        property int phrase
+        property bool isMain
+        property bool selected
+        property var info: ({})
+
+        function reload() { info = root.launcher.padInfo(chainId, phrase) }
+        Component.onCompleted: reload()
+        Connections {
+            target: root.launcher
+            function onPadChanged(c, p) { if (c === pad.chainId && p === pad.phrase) pad.reload() }
+            function onPadsChanged() { pad.reload() }
+        }
+
+        color: info.color || Theme.panelHighlight
+        border.color: selected ? "yellow" : Theme.panel
+        border.width: selected ? 2 : 1
+
+        // Phrase loops (main strip)
+        Repeater {
+            model: pad.info.loops || []
+            Item {
+                required property var modelData
+                required property int index
+                x: 2 + index * 7
+                width: 5
+                height: pad.height
+                Rectangle {
+                    visible: modelData.part !== "bottom"
+                    width: parent.width; height: parent.height / 2; color: modelData.top
+                }
+                Rectangle {
+                    visible: modelData.part !== "top"
+                    y: parent.height / 2; width: parent.width; height: parent.height / 2; color: modelData.bottom
+                }
+                Text {
+                    visible: modelData.text !== ""
+                    x: 7; y: 2; text: modelData.text; color: Theme.text; font.pixelSize: 11
+                }
+            }
+        }
+        Text {
+            anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 3
+            anchors.leftMargin: (pad.info.loops || []).length ? 3 + 7 * pad.info.loops.length : 3
+            text: pad.info.state_text || ""; color: pad.info.state_color || Theme.text; font.pixelSize: 13
+        }
+        Text {
+            anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 3
+            text: pad.info.tempo_text || ""; color: pad.info.text_color || Theme.text; font.pixelSize: 11
+        }
+        Text {
+            anchors.centerIn: parent
+            width: parent.width - 8
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            text: pad.info.title || ""
+            color: pad.info.text_color || Theme.text
+            font.pixelSize: (pad.info.title || "").length > 3 ? 14 : 18
+            font.family: Theme.fontFamily
+        }
+        Text {
+            anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 3
+            text: pad.info.mode_text || ""; color: pad.info.mode_color || Theme.text; font.pixelSize: 12
+        }
+        Text {
+            anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 3
+            text: pad.info.timesig_text || ""; color: pad.info.text_color || Theme.text; font.pixelSize: 12
+        }
+        TapHandler {
+            onTapped: root.launcher.tapPad(pad.chainId, pad.phrase)
+            onLongPressed: root.launcher.longPressPad(pad.chainId, pad.phrase)
         }
     }
 

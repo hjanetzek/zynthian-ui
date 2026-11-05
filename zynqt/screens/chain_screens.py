@@ -193,6 +193,15 @@ class Bank(SelectorScreen):
                 self.fill()   # more bank levels (sub-folders)
                 return
             proc.set_show_fav_presets(False)
+            proc.load_preset_list()
+            if not proc.preset_list:
+                # Nothing to choose: the "bank" was the preset (the audio player's files are
+                # listed with the folders); back to the processor (zynthian_gui_preset doesn't
+                # show an empty list either)
+                self.ui.purge_history("bank")
+                self.ui.replace_screen("audio_player" if proc is self.state_manager.audio_player
+                                       else "chain_control")
+                return
         if len(self.entries) <= 1:
             self.ui.replace_screen("preset")
         else:
@@ -234,7 +243,9 @@ class Preset(SelectorScreen):
             self.fill()   # still browsing (sub-folders)
         else:
             self.ui.purge_history("bank")
-            self.ui.replace_screen("chain_control")
+            # Back to what shows the processor: the audio player's own screen, else chain control
+            self.ui.replace_screen("audio_player" if proc is self.state_manager.audio_player
+                                   else "chain_control")
 
     def back(self):
         proc = self.ui.current_processor

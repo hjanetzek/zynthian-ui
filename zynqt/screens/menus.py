@@ -25,7 +25,7 @@ class MainMenu(SelectorScreen):
             _todo("Tempo", "metronome.png"),
             entry("ZS3s", lambda e: ui.show_screen("zs3"), icon="zs3.png"),
             self.audio_rec_entry(),
-            _todo("Audio\nPlayer", "folder_audio.png"),
+            entry("Audio\nPlayer", lambda e: ui.show_screen("audio_player"), icon="folder_audio.png"),
             self.midi_rec_entry(),
             entry("Admin", lambda e: ui.show_screen("admin"), icon="settings.png"),
         ])

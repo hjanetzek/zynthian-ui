@@ -35,7 +35,7 @@ from zynqt.screens.admin import Admin
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
-QML_SCREENS = ("mixer", "chain_control", "tempo", "alsa_mixer")
+QML_SCREENS = ("mixer", "chain_control", "tempo", "alsa_mixer", "audio_player")
 
 
 class ZynUI(QObject):
@@ -87,7 +87,8 @@ class ZynUI(QObject):
         # Screens with their own QML and Python object (build when shown, hide when left)
         self.qml_screen_objects = {"chain_control": self.chain_control_screen,
                                    "tempo": self.chain_control_screen,
-                                   "alsa_mixer": self.chain_control_screen}
+                                   "alsa_mixer": self.chain_control_screen,
+                                   "audio_player": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
                     ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
                     MidiDevicesOut, ZS3, Admin):
@@ -255,15 +256,19 @@ class ZynUI(QObject):
         old = self.qml_screen_objects.get(self.current_screen)
         if old and name != self.current_screen:
             old.hide()
-        if name in ("tempo", "alsa_mixer"):
-            # As zynthian_gui.show_screen: the control screen with a processor without chain
-            proc = (self.state_manager.tempo_processor if name == "tempo"
-                    else self.state_manager.alsa_mixer_processor)
+        if name in ("tempo", "alsa_mixer", "audio_player"):
+            # As zynthian_gui.show_screen: the control screen with a processor without chain;
+            # it becomes the current processor (its bank/preset lists: the player's files)
+            proc = {"tempo": self.state_manager.tempo_processor,
+                    "alsa_mixer": self.state_manager.alsa_mixer_processor,
+                    "audio_player": self.state_manager.audio_player}[name]
             if proc is None:
                 self.show_info(f"No {name} processor.")
                 return
-            proc.refresh_controllers(params)
+            if name != "audio_player":
+                proc.refresh_controllers(params)
             self.chain_control_screen.special_processor = proc
+            self.current_processor = proc
         elif name == "chain_control":
             self.chain_control_screen.special_processor = None
         screen = self.list_screens.get(name) or self.qml_screen_objects.get(name)
@@ -662,6 +667,11 @@ class ZynUI(QObject):
         zs = self.state_manager.zynseq
         zs.set_tempo(zs.get_tempo() - (params[0] if params else 1))
 
+    def cuia_screen_audio_player(self, params=None):
+        self.show_screen("audio_player")
+
+    cuia_audio_file_list = cuia_screen_audio_player
+
     def cuia_screen_alsa_mixer(self, params=None):
         self.show_screen("alsa_mixer", params=params)
 
@@ -822,6 +832,9 @@ class ZynUI(QObject):
             self.cuia_toggle_midi_play()
         else:
             self.cuia_toggle_audio_play()
+
+    def cuia_nop(self, params=None):
+        pass
 
     def cuia_toggle_alt_mode(self, params=None):
         self.alt_mode = not self.alt_mode

@@ -71,17 +71,32 @@ Item {
         }
     }
 
-    // Audio file processors: the waveform above the pages
-    WaveformView {
+    // The page's widget above the pages (zynthian_gui_control's widgets): waveform of audio
+    // file processors, envelope, filter
+    Item {
         id: waveform
-        visible: root.cc.hasWaveform
-        view: root.cc.waveform
+        visible: root.cc.widgetType !== ""
         anchors.left: procs.right
         anchors.leftMargin: 4
         anchors.right: controllers.left
         anchors.rightMargin: 2
         anchors.top: parent.top
         height: visible ? parent.height * 0.5 : 0
+        WaveformView {
+            anchors.fill: parent
+            visible: root.cc.widgetType === "audio_file"
+            view: root.cc.waveform
+        }
+        EnvelopeView {
+            anchors.fill: parent
+            visible: root.cc.widgetType === "envelope"
+            view: root.cc.envelope
+        }
+        FilterView {
+            anchors.fill: parent
+            visible: root.cc.widgetType === "filter"
+            view: root.cc.filterView
+        }
     }
 
     // Controller pages

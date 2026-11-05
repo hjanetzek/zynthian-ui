@@ -547,6 +547,8 @@ class ZynUI(QObject):
         func = getattr(self, "cuia_" + name, None)
         if not callable(func):
             logging.info(f"CUIA '{name}' not available in the Qt UI (yet) => {params}")
+            # Keys mapped to it should visibly do something
+            self.show_info(f"{name.upper()}: not in the Qt UI yet.")
             return
         try:
             func(params)
@@ -586,21 +588,26 @@ class ZynUI(QObject):
     def cuia_screen_snapshot(self, params=None):
         self.show_screen("snapshot")
 
+    def cuia_screen_audio_mixer(self, params=None):
+        self.show_screen_reset("mixer")
+
     def cuia_screen_mixer(self, params=None):
         self.showScreen("mixer")
 
     def cuia_main_menu(self, params=None):
         self.showScreen("main_menu")
 
-    def cuia_chain_control(self, params=None):
-        """As zynthian_gui: params[0] the chain's position (1-based, 0 the main chain)"""
-        chain_id = None
+    def _chain_id_param(self, params):
+        """Chain from a CUIA parameter: its position (1-based, 0 the main chain), as zynthian_gui;
+        None without a parameter"""
         try:
             index = int(params[0])
-            chain_id = 0 if index == 0 else self.chain_manager.get_chain_id_by_index(index - 1)
+            return 0 if index == 0 else self.chain_manager.get_chain_id_by_index(index - 1)
         except (TypeError, ValueError, IndexError):
-            pass
-        self.chain_control(chain_id)
+            return None
+
+    def cuia_chain_control(self, params=None):
+        self.chain_control(self._chain_id_param(params))
 
     cuia_screen_control = cuia_chain_control
 
@@ -670,6 +677,9 @@ class ZynUI(QObject):
         self.show_screen(name)
 
     def cuia_chain_options(self, params=None):
+        chain_id = self._chain_id_param(params)
+        if chain_id is not None:
+            self.chain_manager.set_active_chain_by_id(chain_id)
         self.show_screen("chain_options")
 
     def cuia_bank_preset(self, params=None):

@@ -28,4 +28,9 @@ export PIPEWIRE_LATENCY=256/48000
 export ZYNTHIAN_FULLSCREEN=1
 export ZYNTHIAN_UI_SCALE=auto
 
+# Qt Quick UI (ZYNTHIAN_UI=qt in ~/.config/zynthian/zynthian_custom_config.sh): a native Wayland
+# client in cage, no XWayland; cage already rotates the panel and sets output scale 2.
+export QT_QPA_PLATFORM=wayland
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+
 CAGE_UI_COMMAND=zynthian

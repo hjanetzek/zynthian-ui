@@ -93,7 +93,7 @@ Window {
         anchors.fill: screens
         visible: zyn.confirmText !== ""
         color: "#d0000000"
-        TapHandler {}   // modal
+        MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }   // modal: keeps touches from the screen below
 
         Column {
             anchors.centerIn: parent
@@ -136,7 +136,7 @@ Window {
             font.pixelSize: 28
             font.family: Theme.fontFamily
         }
-        TapHandler {}   // swallow taps while busy
+        MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }   // swallow taps while busy
     }
 
     component PlaceholderScreen: Rectangle {
@@ -165,6 +165,6 @@ Window {
             font.pixelSize: 26
             font.family: Theme.fontFamily
         }
-        TapHandler { onTapped: button.tapped() }
+        TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: button.tapped() }
     }
 }

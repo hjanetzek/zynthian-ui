@@ -1,7 +1,7 @@
 # LV2 plugins on Nura: state and plan
 
-Status: 2026-11-05, measured on the Lenovo Duet (Nura edge, aarch64, musl). Phase 1 of the plan
-done: 144 of the 313 default plugins installed and loading (from 36 before).
+Status: 2026-11-06, measured on the Lenovo Duet (Nura edge, aarch64, musl). Phases 1, 2 and 4 of
+the plan done: 184 of the 313 default plugins installed and loading (from 36 before).
 
 zynthian's default engine configuration (`zynthian-sys/config/engine_config.json`) lists 1300
 LV2 plugins, **313 of them enabled by default** (the rest are installed on ZynthianOS but
@@ -32,7 +32,7 @@ cd /usr/share/zynthian/zynthian-ui/zyngine && python3 ./zynthian_lv2.py engines
 with zynthian's environment (`ZYNTHIAN_DIR`, `ZYNTHIAN_LIB_DIR`, `PYTHONPATH` as in
 `/usr/bin/zynthian`, then `desktop/zynthian_desktop_env.sh`), then restart the session.
 
-## Installed: 180 of 313
+## Installed: 184 of 313
 
 All pulled in by the meta package `zynthian-lv2-plugins` (`nura/lv2/`), which
 `postmarketos-ui-zynthian` depends on. From Alpine:
@@ -68,6 +68,8 @@ Packaged in `nura/lv2/` (phase 1, built and tested on the Duet):
 | `avldrums-lv2` (+ `-data`) | 5 | x42 AVL Drumkits (145 MB in `-data`), without GUI and x86 flags; optional |
 | `dpf-plugins-lv2` | 7 | DPF-Plugins 1.7, DSP only (`lv2_dsp` per plugin), without ProM/glBars |
 | `dragonfly-reverb-lv2` | 4 | Dragonfly Reverb 3.2.10 (release source with DPF), DSP only |
+| `string-machine-lv2` | 3 | jpcima's String machine (synth, built without its cairo GUI) and its two chorus effects |
+| `miniopl3-lv2` | 1 | jpcima's OPL3 FM synth with the bundled banks as LV2 presets; old DPF: `generate-ttl.sh` by absolute path |
 
 Before 2026-11-05 the kiosk package depended on `calf` instead of `calf-lv2` (Alpine puts the LV2
 plugins in a subpackage): none of the Calf plugins were installed. Fixed in `abd64c11`.
@@ -76,7 +78,7 @@ Available in Alpine but **not** in zynthian's defaults (all disabled there): `ls
 (0 of 194 enabled), `airwindows-lv2` (0 of 187), `noise-repellent`, `bankstown-lv2`. Not
 installed.
 
-## Missing: 133
+## Missing: 129
 
 None of these are packaged in Alpine. Source: how ZynthianOS gets them (Debian/KXStudio package
 from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a prebuilt binary).
@@ -88,7 +90,6 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | EQ10Q | 8 | EQs, compressors | Debian `eq10q`, recipe `install_eq10q.sh` | cmake | GUI (gtkmm) to switch off |
 | Dusk Audio | 6 | effects, synth | prebuilt only (`install_dusk_*_prebuilt.sh`) | JUCE | sources to check; prebuilt glibc binaries can't run on musl |
 | CHOW | 4 | effects (Centaur, Phaser, Tape) | recipes (source and prebuilt) | JUCE, cmake | |
-| jpcima | 4 | String machine, MiniOPL3 | recipes `install_string-machine.sh`, `install_miniopl3.sh` | make (DPF) | |
 | QMidiArp | 2 | MIDI tools | Debian / recipes | cmake | |
 | rncbc synths | 3 | padthv1, samplv1, synthv1 | Debian `*-lv2` | cmake, Qt | GUI-less build |
 | Synths (JUCE and others) | ~20 | Surge XT, Monique, Odin2, Vaporizer2, OB-Xd, Dexed, Helm, TAL-NoiseMaker, JC303, KR-106, RipplerX, MiMi-d, Mutated Instruments, Triceratops, Foo YC20, SO-kl5, Fabla, … | recipes, some prebuilt only | mostly JUCE, cmake | long builds; check each on aarch64/musl |
@@ -132,7 +133,7 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | Phase | Projects | Plugins | Effort |
 |---|---|---|---|
 | 1. Small C/C++ effects (**done**) | MOD MDA, MOD utilities/distortion/pitchshifter, CAPS, TAP, SWH, Invada, infamous, SHIRO, artyfx, abGate, Bollie Delay, YK Chorus | 73 | one day, see "Phase 1: lessons" |
-| 2. DPF family | DPF-Plugins, Dragonfly Reverb (**done**); string-machine, MiniOPL3 | ~20 | DSP only per plugin, as ykchorus |
+| 2. DPF family | DPF-Plugins, Dragonfly Reverb, string-machine, MiniOPL3 (**done**) | ~20 | DSP only per plugin, as ykchorus |
 | 3. Guitarix | Guitarix (`--mod-lv2 --no-standalone`), GxPlugins | 59 | 2–4 days: waf, Boost/glibmm, musl fixes likely |
 | 4. Instruments with data (**done**) | FluidPlug, avldrums, setBfree (also as engine) | 26 | SoundFonts in optional `-data` packages, not in images |
 | 5. EQ10Q, QMidiArp, rncbc synths | EQ10Q, QMidiArp, padthv1/samplv1/synthv1 | ~13 | 1–2 days: cmake, GUIs off |

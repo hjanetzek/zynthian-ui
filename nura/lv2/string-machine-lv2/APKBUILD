@@ -1,0 +1,48 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# String machine (URIs http://jpcima.sdf1.org/lv2/string-machine-mk2, -chorus, -chorus-stereo),
+# enabled by default in zynthian (zynthian-sys recipe install_string-machine.sh). DPF is a git
+# submodule: second source at its commit. DSP only (the synth's cairo GUI left out); the Faust code
+# is pre-generated in gen/, so faustpp isn't needed.
+pkgname=string-machine-lv2
+_commit=7050cb1516fbaf5aaaa2c6cc9999fe5ac100d746
+_dpf=f24e5317cd7b57c8ab36b0987ec29a5579cd5dd2
+pkgver=0_git20220219
+pkgrel=1
+pkgdesc="String machine synthesizer and chorus LV2 plugins"
+url="https://github.com/jpcima/string-machine"
+arch="all"
+license="BSL-1.0"
+# bash: DPF's utils/generate-ttl.sh is a bash script
+makedepends="bash lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/jpcima/string-machine/archive/$_commit.tar.gz
+	dpf-$_dpf.tar.gz::https://github.com/DISTRHO/DPF/archive/$_dpf.tar.gz"
+builddir="$srcdir/string-machine-$_commit"
+options="!check" # no tests
+
+_plugins="string-machine string-machine-chorus string-machine-chorus-stereo"
+
+prepare() {
+	default_prepare
+	rmdir dpf
+	mv "$srcdir"/DPF-$_dpf dpf
+	# no GUI: without this the TTL references string-machine_ui.so, which isn't built
+	sed -i 's/\(DISTRHO_PLUGIN_HAS_UI *\)1/\10/' plugins/string-machine/meta/DistrhoPluginInfo.h
+}
+
+build() {
+	local p
+	for p in $_plugins; do
+		make -C plugins/$p NOOPT=true HAVE_DGL=false HAVE_OPENGL=false HAVE_CAIRO=false lv2_dsp
+	done
+	make -C dpf/utils/lv2-ttl-generator
+	dpf/utils/generate-ttl.sh
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	cp -r bin/*.lv2 "$pkgdir"/usr/lib/lv2/
+}
+sha512sums="
+3c3bc9057e35f86953d84ef1573e4a4246d55fb81ad182ba0aaaf6f9b500fca4b0ec0fdfb85c6966f6529181ee9f6af2e40f862caeace3fcff2144e2bf66fdc5  string-machine-lv2-7050cb1516fbaf5aaaa2c6cc9999fe5ac100d746.tar.gz
+1d2c4cc69d40d50f8a4b9cf11bcaec1cd7bcc8ec4462094fed35dd29d288b41f1deccf873924bbba51456745191b2a3f924cf5929c4c007b11eebf80c5c22250  dpf-f24e5317cd7b57c8ab36b0987ec29a5579cd5dd2.tar.gz
+"

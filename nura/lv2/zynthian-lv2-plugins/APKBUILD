@@ -4,7 +4,7 @@
 # instruments (fluidplug-lv2, avldrums-lv2: about 450 MB of data) are optional, not in here.
 pkgname=zynthian-lv2-plugins
 pkgver=1
-pkgrel=2
+pkgrel=3
 pkgdesc="LV2 plugins enabled by default in zynthian"
 url="https://github.com/zynthian/zynthian-ui"
 arch="noarch"
@@ -20,6 +20,7 @@ depends="
 	infamous-lv2
 	invada-lv2
 	mda-lv2
+	miniopl3-lv2
 	mod-caps-lv2
 	mod-distortion-lv2
 	mod-mda-lv2
@@ -27,6 +28,7 @@ depends="
 	mod-tap-lv2
 	mod-utilities-lv2
 	shiro-lv2
+	string-machine-lv2
 	swh-lv2
 	x42-plugins
 	ykchorus-lv2

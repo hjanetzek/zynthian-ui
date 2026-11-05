@@ -1,0 +1,46 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# MiniOPL3 (URI http://jpcima.sdf1.org/lv2/miniopl3), an OPL3 FM synth, enabled by default in
+# zynthian (zynthian-sys recipe install_miniopl3.sh). DPF and libADLMIDI are git submodules: extra
+# sources at their commits. DSP only (no GUI); the LV2 presets are generated from the bundled banks.
+pkgname=miniopl3-lv2
+_commit=205ae767f7e2e9d839df2718746ea1d3e3f492b8
+_dpf=4e180a77ec6e93abb021b28495bd84b43498bf31
+_adlmidi=75f2f1b7677e1bc44fa1ff9cb11ff0b0616f5afa
+pkgver=0_git20200111
+pkgrel=0
+pkgdesc="MiniOPL3 FM synthesizer LV2 plugin"
+url="https://github.com/jpcima/miniopl3"
+arch="all"
+license="ISC AND LGPL-2.1-or-later"
+# bash: DPF's utils/generate-ttl.sh is a bash script
+makedepends="bash lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/jpcima/miniopl3/archive/$_commit.tar.gz
+	dpf-$_dpf.tar.gz::https://github.com/DISTRHO/DPF/archive/$_dpf.tar.gz
+	libadlmidi-$_adlmidi.tar.gz::https://github.com/Wohlstand/libADLMIDI/archive/$_adlmidi.tar.gz"
+builddir="$srcdir/miniopl3-$_commit"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	rmdir dpf thirdparty/libADLMIDI
+	mv "$srcdir"/DPF-$_dpf dpf
+	mv "$srcdir"/libADLMIDI-$_adlmidi thirdparty/libADLMIDI
+}
+
+build() {
+	make -C plugins/MiniOPL3 NOOPT=true HAVE_DGL=false HAVE_OPENGL=false lv2_dsp
+	make -C plugins/MiniOPL3 HOSTCXX="${CXX:-g++}" presets
+	make -C dpf/utils/lv2-ttl-generator
+	# the old DPF script finds its generator relative to $0, after a cd: call it by absolute path
+	"$builddir"/dpf/utils/generate-ttl.sh
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	cp -r bin/*.lv2 plugins/MiniOPL3/presets/miniopl3-presets.lv2 "$pkgdir"/usr/lib/lv2/
+}
+sha512sums="
+963643e0fc5b83262beec66bfe536815433fc6b113a7290ad4a21cda1860d6f336ce705e468b1398093c39c0f9327b3a3fcb43d0650e833992986ab63b98e9c6  miniopl3-lv2-205ae767f7e2e9d839df2718746ea1d3e3f492b8.tar.gz
+cf43a8b9b6b10763dd07cdc8d0c0873f2d2e8c71a5fee48522ed7883a5f23ace411d9968b4e0b90c1e45718eb30fc5d88ab50f958108ee6e01ce96b4167264b6  dpf-4e180a77ec6e93abb021b28495bd84b43498bf31.tar.gz
+35960497e5e37231456ed54a5cb55640b82727182d3ab9d7e7bf1908631ebe6ebf5b9f6b96a6b9e3a30b21f470de51b2698eb2ecd896a4434198b9eb31b32f99  libadlmidi-75f2f1b7677e1bc44fa1ff9cb11ff0b0616f5afa.tar.gz
+"

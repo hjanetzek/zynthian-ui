@@ -102,6 +102,10 @@ Window {
         }
     }
 
+    Keyboard {
+        anchors.fill: screens
+    }
+
     // Busy: loading snapshots, starting engines
     Rectangle {
         anchors.fill: screens

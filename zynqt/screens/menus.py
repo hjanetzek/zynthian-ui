@@ -23,7 +23,7 @@ class MainMenu(SelectorScreen):
             entry("MIDI\nInput", lambda e: ui.show_screen("midi_devices_in"), icon="midi_input.png"),
             entry("MIDI\nOutput", lambda e: ui.show_screen("midi_devices_out"), icon="midi_output.png"),
             _todo("Tempo", "metronome.png"),
-            _todo("ZS3s", "zs3.png"),
+            entry("ZS3s", lambda e: ui.show_screen("zs3"), icon="zs3.png"),
             self.audio_rec_entry(),
             _todo("Audio\nPlayer", "folder_audio.png"),
             self.midi_rec_entry(),

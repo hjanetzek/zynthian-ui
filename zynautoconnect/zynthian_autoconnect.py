@@ -1244,6 +1244,9 @@ def audio_autoconnect():
 
 def get_hw_audio_dst_ports():
     ports = jclient.get_ports("system:playback", is_input=True, is_audio=True, is_physical=True)
+    if not ports:
+        # PipeWire (pipewire-jack) names the hardware ports after their device, not "system"
+        ports = jclient.get_ports(is_input=True, is_audio=True, is_physical=True)
     if jack_audio_device == "Dummy":
         # Remove first two ports
         for port in list(ports):
@@ -1446,6 +1449,9 @@ def get_audio_capture_ports():
     """Get list of hardware audio inputs"""
 
     ports = jclient.get_ports("system", is_output=True, is_audio=True, is_physical=True)
+    if not ports:
+        # PipeWire (pipewire-jack) names the hardware ports after their device, not "system"
+        ports = jclient.get_ports(is_output=True, is_audio=True, is_physical=True)
     if jack_audio_device == "Dummy":
         # Remove first two ports
         for port in list(ports):

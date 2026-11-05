@@ -2,8 +2,8 @@
 # ******************************************************************************
 # ZYNTHIAN PROJECT: Zynthian GUI
 #
-# Audio output routing list of the active chain: UI-independent part of
-# zynthian_gui_audio_out, used by the Tk and Qt UIs.
+# Audio output and input routing lists of a chain: UI-independent part of
+# zynthian_gui_audio_out and zynthian_gui_audio_in, used by the Tk and Qt UIs.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -15,6 +15,7 @@
 # ******************************************************************************
 
 import logging
+from time import sleep
 
 import zynautoconnect
 
@@ -80,3 +81,42 @@ def audio_out_list(chain_manager, playback_ports):
             list_data.pop() # Remove section title for empty section
 
     return list_data
+
+
+def audio_in_list(chain, capture_ports):
+    """Rows [input number, port name, title, (info, icon)] of the chain's audio inputs
+    (capture_ports: zynautoconnect.get_audio_capture_ports())"""
+    list_data = []
+    for i, scp in enumerate(capture_ports):
+        if scp.aliases:
+            suffix = f" ({scp.aliases[0]})"
+        elif not scp.name.startswith("system:"):
+            suffix = f" ({scp.name})"   # PipeWire: the device's port, without aliases
+        else:
+            suffix = ""
+        if i + 1 in chain.audio_in:
+            list_data.append((i + 1, scp.name, f"\u2612 Input {i + 1}{suffix}",
+                              [f"Audio input {i + 1}{suffix} is connected to this chain.", "audio_input.png"]))
+        else:
+            list_data.append((i + 1, scp.name, f"\u2610 Input {i + 1}{suffix}",
+                              [f"Audio input {i + 1}{suffix} is disconnected from this chain.", "audio_input.png"]))
+    return list_data
+
+
+def alsa_input_controls(state_manager, port_name):
+    """Symbols of the ALSA mixer controls of capture port port_name ("system:capture_N"), for
+    the audio levels screen; empty for other ports"""
+    if not port_name.startswith("system:"):
+        return []
+    ctrl_list = []
+    try:
+        sel_chan = int(port_name.split("_")[-1]) - 1
+        zctrls = state_manager.alsa_mixer_processor.engine.get_controllers_dict()
+        for symbol, zctrl in zctrls.items():
+            chan = zctrl.graph_path[1] if zctrl.graph_path[4] else zctrl.graph_path[2]
+            if chan == sel_chan:
+                ctrl_list.append(symbol)
+            sleep(0.01)
+    except Exception:
+        pass
+    return ctrl_list

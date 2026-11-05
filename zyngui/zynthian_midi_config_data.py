@@ -315,3 +315,20 @@ def midi_config_action(sm, chain, midi_input, row):
         except Exception as e:
             logging.error(e)
     return None
+
+
+def device_drivers(sm, idev):
+    """Controller drivers (ctrldev) for MIDI input idev, as the device options list them: list
+    of (driver class, loaded). Device-specific ones first, then the generic ones (not for the
+    internal inputs after the sequencer)."""
+    dev_id = zynautoconnect.get_midi_in_devid(idev)
+    available = sm.ctrldev_manager.available_drivers
+    loaded = sm.ctrldev_manager.drivers
+    drivers = list(available.get(dev_id, []))
+    if idev < lib_zyncore.zmip_get_seq_index():
+        drivers += available.get("*", [])
+    return [(cls, idev in loaded and type(loaded[idev]) is cls) for cls in drivers]
+
+
+def driver_description(driver_class):
+    return driver_class.get_driver_description() or "Device driver integrating UI functions and customized workflow."

@@ -27,6 +27,7 @@ Item {
             spacing: 4
             SideButton { text: "Chain Options"; screen: "chain_options"; visible: root.cc.isChain }
             SideButton { text: "MIDI Input"; screen: "midi_in"; visible: root.cc.isMidi }
+            SideButton { text: "Audio Input"; screen: "audio_in"; visible: root.cc.hasAudioIn }
         }
         footer: Column {
             width: procs.width

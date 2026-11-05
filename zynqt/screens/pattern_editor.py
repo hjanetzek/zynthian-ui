@@ -6,13 +6,17 @@ remove it, long press a note for its velocity and duration. Arrows move the curs
 the note at the cursor. The keymap, events and new note defaults are shared with the Tk editor
 (zyngui.zynthian_pated_data)."""
 
+import os
+
 from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
 from zyngui.zynthian_pated_data import (CHORD_MODES, CHORDS, NOTE_NAMES, NOTE_PARAM_DEFAULTS, NOTE_PARAMS,
                                         STEPS_PER_BEAT, chord_intervals, default_note_evdata, load_keymap,
                                         note_events, note_label, note_muted, note_name, note_param_text,
                                         scale_names, set_note_param, stutter_muted)
+from zyngui.zynthian_pated_smf import PATTERNS_DIR, SMF_EXPORT_DIR, analyze_smf, export_smf, import_smf
 from zynlibs.zynseq import zynseq
+from zynqt.screens.file_picker import FilePicker
 
 
 class PatternEditor(QObject):
@@ -55,6 +59,7 @@ class PatternEditor(QObject):
         self._block = None           # selected block: [step1, row1, step2, row2] (inclusive)
         self.copied = None          # copied block (its [step1, row1, step2, row2]); taps paste it
         self._pending = False       # changes without their undo snapshot yet
+        self.last_smf_import = {}   # pattern: the MIDI file imported last (where the picker starts)
         self._timer = QTimer(self, interval=40)
         self._timer.timeout.connect(self._poll)
 
@@ -536,7 +541,7 @@ class PatternEditor(QObject):
     @Slot()
     def menu(self):
         ls = self.libseq
-        beats = ls.getBeatsInPattern()
+        beats = ls.getBeatsInPattern(self.pattern)
         scales = scale_names(self.ui.chain_manager, self.channel)
         scale = ls.getScale()
         chord_label = CHORD_MODES[self.chord_mode] + (f": {CHORDS[self.chord_type][0]}" if self.chord_mode == 1 else "")
@@ -559,6 +564,12 @@ class PatternEditor(QObject):
             ("Transpose down", lambda: self._transpose(-1), None, None),
             ("New note values", self.entry_options, None, None),
             (f"Chord mode ({chord_label})", self._pick_chord_mode, None, None),
+            ("Load pattern", self._load_pattern_file, None, None),
+            ("Save pattern", lambda: self._ask_file_name(PATTERNS_DIR, "zpat", self._save_pattern_file),
+             None, None),
+            ("Import from MIDI file", self._import_smf, None, None),
+            ("Export to MIDI file", lambda: self._ask_file_name(SMF_EXPORT_DIR, "mid", self._export_smf),
+             None, None),
             ("Undo all", self._undo_all, None, None),
             ("Clear pattern", lambda: self.ui.confirm(f"Clear pattern {self.pattern}?", self._clear), None, None),
         ]
@@ -579,6 +590,82 @@ class PatternEditor(QObject):
         """The note that enters a rest step when recording from MIDI (zynthian_gui_pated_notes)"""
         choices = [("None", 128)] + [(note_name(n), n) for n in range(128)]
         self._pick("Rest-step note", choices, self.libseq.getInputRest(), self.libseq.setInputRest)
+
+    # Files (zynthian_gui_pated_base): patterns (.zpat) and Standard MIDI Files
+
+    def _ask_file_name(self, dirpath, ext, action):
+        """Name a file in dirpath; action(path), after asking before overwriting"""
+        def named(name):
+            name = name.strip()
+            if not name:
+                return
+            path = f"{dirpath}/{name}.{ext}"
+            if os.path.exists(path):
+                self.ui.confirm(f"Overwrite '{name}'?", lambda: action(path))
+            else:
+                action(path)
+        self.ui.show_keyboard(named, f"pattern_{self.pattern}", "File name")
+
+    def _save_pattern_file(self, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if self.zynseq.save_pattern(self.pattern, path):
+            self.ui.show_info(f"Saved {os.path.basename(path)}")
+        else:
+            self.ui.show_info(f"Can't save {os.path.basename(path)}")
+
+    def _load_pattern_file(self):
+        def load(path):
+            self.zynseq.load_pattern(self.pattern, path)
+            # As zynthian_gui_pated_base: needed when the steps/beat changed; no undo past loading
+            self.libseq.setBeatsInPattern(self.pattern, self.libseq.getBeatsInPattern(self.pattern))
+            self.libseq.resetPatternSnapshots()
+            self.load()
+
+        def chosen(path):
+            if self.zynseq.is_pattern_empty(self.pattern):
+                load(path)
+            else:
+                self.ui.confirm(f"Replace pattern {self.pattern} with {os.path.basename(path)}?", lambda: load(path))
+        FilePicker(self.ui).pick("Load pattern", ["zpat"], chosen)
+
+    def _import_smf(self):
+        FilePicker(self.ui).pick("Import MIDI file", ["mid"], self._import_smf_file,
+                                 self.last_smf_import.get(self.pattern))
+
+    def _import_smf_file(self, path):
+        info = analyze_smf(path, self.bpb)
+        if not info or not info[0]:
+            self.ui.show_info(f"No notes in {os.path.basename(path)}")
+            return
+        channels, n_bars = info
+        if len(channels) == 1:
+            self._do_import_smf(path, channels[0][0], n_bars)
+        else:
+            self.ui.show_options("MIDI file channel", [
+                (label, lambda chan=chan: self._do_import_smf(path, chan, n_bars), None, None)
+                for chan, label in channels])
+
+    def _do_import_smf(self, path, chan, n_bars):
+        """Notes and CCs of a channel of the file; the pattern's length from the file (up to 16
+        bars, as Tk)"""
+        self.last_smf_import[self.pattern] = path
+        beats = min(n_bars, 16) * self.bpb
+        if beats != self.libseq.getBeatsInPattern(self.pattern):
+            # No undo past a length change (zynthian_gui_pated_base)
+            self.libseq.setBeatsInPattern(self.pattern, beats)
+            self.libseq.resetPatternSnapshots()
+        else:
+            self._flush_pending()
+        n = import_smf(self.libseq, path, chan, self.bpb)
+        self._snapshot()
+        self.load()
+        self.ui.show_info(f"Imported {n} note{'' if n == 1 else 's'}" if n is not None else f"Can't read {os.path.basename(path)}")
+
+    def _export_smf(self, path):
+        if export_smf(self.libseq, path, self.channel):
+            self.ui.show_info(f"Exported {os.path.basename(path)}")
+        else:
+            self.ui.show_info(f"Can't write {os.path.basename(path)}")
 
     def _pick_chord_mode(self):
         def apply_mode(mode):
@@ -623,7 +710,8 @@ class PatternEditor(QObject):
                 self.ui.confirm("Reducing beats in pattern will truncate pattern", do)
             else:
                 do()
-        self._pick("Length (beats)", [(str(b), b) for b in range(1, 65)], self.libseq.getBeatsInPattern(), apply)
+        self._pick("Length (beats)", [(str(b), b) for b in range(1, 65)],
+                   self.libseq.getBeatsInPattern(self.pattern), apply)
 
     def _pick_steps_per_beat(self):
         def apply(spb):

@@ -80,6 +80,19 @@ Item {
         }
     }
 
+    // Moving the selected phrase (phrase menu: Move / Clone)
+    Row {
+        anchors.horizontalCenter: strips.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 90
+        spacing: 12
+        visible: root.launcherMode && root.launcher.movingPhrase
+        z: 10
+        MoveButton { text: "\u25b2"; onTapped: root.launcher.move_phrase(-1) }
+        MoveButton { text: "Done"; width: 140; onTapped: root.launcher.end_moving_phrase() }
+        MoveButton { text: "\u25bc"; onTapped: root.launcher.move_phrase(1) }
+    }
+
     // Moving the active chain (chain options: Move chain)
     Row {
         anchors.horizontalCenter: strips.horizontalCenter
@@ -438,6 +451,6 @@ Item {
             font.pixelSize: 24
             font.family: Theme.fontFamily
         }
-        TapHandler { id: moveTap; onTapped: moveButton.tapped() }
+        TapHandler { id: moveTap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: moveButton.tapped() }
     }
 }

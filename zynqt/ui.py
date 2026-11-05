@@ -54,6 +54,7 @@ class ZynUI(QObject):
     movingChainChanged = Signal()
     movingProcessorChanged = Signal()
     mixerSettingsChanged = Signal()
+    valueEditorChanged = Signal()
     # SEL pressed while the keyboard is shown: QML answers with keyboardAccept(text)
     keyboardSubmit = Signal()
     # Navigation for the current screen: "up", "down", "left", "right", "select", "select_bold"
@@ -114,6 +115,7 @@ class ZynUI(QObject):
         self._keyboard_title = ""
         self._keyboard_text = ""
         self._keyboard_action = None
+        self._value_editor = None   # (title, value, min, max, step, decimals, action)
         self._moving_chain = False
         self._moving_processor = None
         self._backgroundDone.connect(lambda done, result: done(result))
@@ -410,6 +412,9 @@ class ZynUI(QObject):
         if self._moving_chain:
             self.endMoveChain()
             return
+        if self._value_editor:
+            self.valueEditorCancel()
+            return
         if self._keyboard_action:
             self.keyboardCancel()
             return
@@ -438,6 +443,14 @@ class ZynUI(QObject):
                 self.moveChain(1)
             elif what in ("select", "select_bold"):
                 self.endMoveChain()
+            return
+        if self._value_editor:
+            if what in ("up", "right"):
+                self.valueEditorStep(1)
+            elif what in ("down", "left"):
+                self.valueEditorStep(-1)
+            elif what == "select":
+                self.valueEditorAccept()
             return
         if self._keyboard_action:
             if what == "select":
@@ -527,6 +540,48 @@ class ZynUI(QObject):
     def keyboardCancel(self):
         self._keyboard_action = None
         self.keyboardChanged.emit()
+
+    # Value editor (Tk's param editor, for numeric values): action(value) when accepted
+
+    def edit_value(self, title, value, vmin, vmax, action, step=1, decimals=0):
+        self._value_editor = [title, value, vmin, vmax, step, decimals, action]
+        self.valueEditorChanged.emit()
+
+    @Property(bool, notify=valueEditorChanged)
+    def valueEditorShown(self):
+        return self._value_editor is not None
+
+    @Property(str, notify=valueEditorChanged)
+    def valueEditorTitle(self):
+        return self._value_editor[0] if self._value_editor else ""
+
+    @Property(str, notify=valueEditorChanged)
+    def valueEditorText(self):
+        if not self._value_editor:
+            return ""
+        value, decimals = self._value_editor[1], self._value_editor[5]
+        return f"{value:.{decimals}f}"
+
+    @Slot(int)
+    def valueEditorStep(self, steps):
+        ed = self._value_editor
+        if ed:
+            ed[1] = round(max(ed[2], min(ed[3], ed[1] + steps * ed[4])), ed[5] if ed[5] else None)
+            if not ed[5]:
+                ed[1] = int(ed[1])
+            self.valueEditorChanged.emit()
+
+    @Slot()
+    def valueEditorAccept(self):
+        ed = self._value_editor
+        self.valueEditorCancel()
+        if ed:
+            ed[6](ed[1])
+
+    @Slot()
+    def valueEditorCancel(self):
+        self._value_editor = None
+        self.valueEditorChanged.emit()
 
     # Background work (loading and saving snapshots): keeps the GUI thread drawing the busy
     # overlay; done(result) runs in the GUI thread

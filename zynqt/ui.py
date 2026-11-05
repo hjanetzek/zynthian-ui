@@ -29,7 +29,7 @@ from zynqt.screens.chain_manager import ChainManager
 from zynqt.screens.control import ChainControl
 from zynqt.screens.snapshots import Options, Snapshots
 from zynqt.screens.chain_options import ChainOptions
-from zynqt.screens.routing import AudioOut, MidiDevicesIn, MidiDevicesOut, MidiIn, MidiOut
+from zynqt.screens.routing import AudioIn, AudioOut, MidiDevicesIn, MidiDevicesOut, MidiIn, MidiOut
 from zynqt.screens.processor_options import ProcessorOptions
 from zynqt.screens.zs3 import ZS3
 from zynqt.screens.admin import Admin
@@ -99,7 +99,7 @@ class ZynUI(QObject):
                                    "audio_player": self.chain_control_screen,
                                    "midi_key_range": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
-                    ChainOptions, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
+                    ChainOptions, AudioIn, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
                     MidiDevicesOut, ZS3, Admin, MidiRecorder, MidiCC):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen

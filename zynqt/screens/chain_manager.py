@@ -163,10 +163,8 @@ class ChainManager(QObject):
                 self.ui.show_screen("midi_in")
             case "midi_output":
                 self.ui.show_screen("midi_out")
-            case "audio_out":
-                self.ui.show_screen("audio_out")
-            case "audio_in":
-                self.ui.show_info("Audio input routing is not in the Qt UI yet.")
+            case "audio_out" | "audio_in":
+                self.ui.show_screen(proc)
             case str():
                 pass
             case _:

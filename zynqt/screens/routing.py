@@ -4,8 +4,9 @@ zynthian_gui_midi_config in chain mode). The lists and route changes are shared 
 
 import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
-from zyngui.zynthian_audio_out_data import audio_out_list
-from zyngui.zynthian_midi_config_data import midi_config_action, midi_config_list
+from zyngui.zynthian_audio_out_data import alsa_input_controls, audio_in_list, audio_out_list
+from zyngui.zynthian_midi_config_data import (device_drivers, driver_description, midi_config_action,
+                                               midi_config_list)
 from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry
 from zynqt.screens.chain_screens import list_data_entries
 
@@ -26,6 +27,36 @@ class AudioOut(SelectorScreen):
         if t == "S":
             self.chain_manager.get_active_chain().toggle_audio_out(self.entries[index]["data"][0])
             self.fill()
+
+
+class AudioIn(SelectorScreen):
+    """Audio inputs of the active chain (zynthian_gui_audio_in): tap toggles, long press shows the
+    input's ALSA levels"""
+
+    name = "audio_in"
+
+    def build(self):
+        self.capture_ports = zynautoconnect.get_audio_capture_ports()
+        super().build()
+
+    def fill(self):
+        chain = self.chain_manager.get_active_chain()
+        self.set_title(f"{chain.get_name()}/Capture Audio from ...")
+        self.set_entries(list_data_entries(audio_in_list(chain, self.capture_ports)))
+
+    def select_action(self, index, t):
+        row = self.entries[index]["data"]
+        if not row:
+            return
+        if t == "S":
+            self.chain_manager.get_active_chain().toggle_audio_in(row[0])
+            self.fill()
+        else:
+            ctrls = alsa_input_controls(self.state_manager, row[1])
+            if ctrls:
+                self.ui.show_screen("alsa_mixer", params=ctrls)
+            else:
+                self.ui.show_info("No ALSA level controls for this input.")
 
 
 class MidiRouting(SelectorScreen):
@@ -105,7 +136,7 @@ class MidiDevicesOut(MidiDevices):
 
 def show_device_options(ui, midi_input, idev, refresh):
     """Options of MIDI device idev (as zynthian_gui_midi_config.show_options/menu_cb): input mode,
-    sequencer capture, MIDI clock, port name. Controller drivers are not ported yet."""
+    sequencer capture, MIDI clock, controller drivers (ctrldev), port name."""
     try:
         port = (zynautoconnect.devices_in if midi_input else zynautoconnect.devices_out)[idev]
     except (IndexError, TypeError):
@@ -147,6 +178,21 @@ def show_device_options(ui, midi_input, idev, refresh):
         opts.append((("☒" if sending else "☐") + " Send MIDI Clock",
                      act(lambda: zynautoconnect.toggle_midi_clock_output_zmop(idev)),
                      "Send MIDI clock to this device.", "midi_output.png"))
+
+    if midi_input:
+        cdm = ui.state_manager.ctrldev_manager
+        drivers = device_drivers(ui.state_manager, idev)
+        if drivers:
+            opts.append(("Drivers", None, None, None))
+        for driver_class, loaded in drivers:
+            if loaded:
+                action = act(lambda: cdm.unload_driver(idev, True))
+            else:
+                action = act(lambda c=driver_class: cdm.load_driver(idev, c.__name__))
+            opts.append((("☒ " if loaded else "☐ ") + driver_class.get_driver_name(), action,
+                         driver_description(driver_class), "midi_input.png"))
+        if drivers:
+            opts.append(("Advanced", None, None, None))
 
     def rename(name):
         zynautoconnect.set_port_friendly_name(port, name)

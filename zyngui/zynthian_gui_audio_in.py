@@ -29,6 +29,7 @@ from time import sleep
 # Zynthian specific modules
 import zynautoconnect
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
+from zyngui.zynthian_audio_out_data import alsa_input_controls, audio_in_list
 
 # ------------------------------------------------------------------------------
 # Zynthian Audio-In Selection GUI Class
@@ -61,23 +62,8 @@ class zynthian_gui_audio_in(zynthian_gui_selector_info):
                 self.fill_list()
 
     def fill_list(self):
-        self.list_data = []
         chain = self.chain if self.chain else self.zyngui.chain_manager.active_chain
-
-        for i, scp in enumerate(self.capture_ports):
-            if scp.aliases:
-                suffix = f" ({scp.aliases[0]})"
-            else:
-                suffix = ""
-            if i + 1 in chain.audio_in:
-                self.list_data.append(
-                    (i + 1, scp.name, f"\u2612 Input {i + 1}{suffix}",
-                    [f"Audio input {i + 1}{suffix} is connected to this chain.", "audio_input.png"]))
-            else:
-                self.list_data.append(
-                    (i + 1, scp.name, f"\u2610 Input {i + 1}{suffix}",
-                    [f"Audio input {i + 1}{suffix} is disconnected from this chain.", "audio_input.png"]))
-
+        self.list_data = audio_in_list(chain, self.capture_ports)
         super().fill_list()
 
     def fill_listbox(self):
@@ -93,20 +79,7 @@ class zynthian_gui_audio_in(zynthian_gui_selector_info):
                 return
             self.zyngui.state_manager.start_busy("alsa_input", "Getting audio level parameters...")
             sleep(0.1)
-            ctrl_list = []
-            try:
-                sel_chan = int(self.list_data[i][1].split("_")[-1]) - 1
-                zctrls = self.zyngui.state_manager.alsa_mixer_processor.engine.get_controllers_dict()
-                for symbol, zctrl in zctrls.items():
-                    if zctrl.graph_path[4]:
-                        chan = zctrl.graph_path[1]
-                    else:
-                        chan = zctrl.graph_path[2]
-                    if chan == sel_chan:
-                        ctrl_list.append(symbol)
-                    sleep(0.01)
-            except:
-                pass
+            ctrl_list = alsa_input_controls(self.zyngui.state_manager, self.list_data[i][1])
             self.zyngui.state_manager.end_busy("alsa_input")
             if ctrl_list:
                 self.zyngui.show_screen("alsa_mixer", params=ctrl_list)

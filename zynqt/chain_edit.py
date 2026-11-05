@@ -46,7 +46,8 @@ class ChainEdit:
             if chain_id is None:
                 return ("failed", "Failed to create chain")
             chain = cm.get_chain(chain_id)
-            processor = cm.add_processor(chain_id, s["engine"])
+            # "None" in the engine list: an empty chain
+            processor = cm.add_processor(chain_id, s["engine"]) if s["engine"] != "None" else None
             if chain.synth_slots or s.get("audio_thru", False):
                 if s.get("mixbus", False):
                     am_proc = cm.add_processor(chain_id, "MR")
@@ -74,6 +75,8 @@ class ChainEdit:
         if chain is None:
             return ("failed", f"No chain {chain_id}")
         old_processor = s.get("processor")
+        if s["engine"] == "None":
+            return ("done", (chain_id, None))
         self.state_manager.start_busy("modify_chain",
                                       "Replacing processor" if old_processor else "Adding processor")
         try:

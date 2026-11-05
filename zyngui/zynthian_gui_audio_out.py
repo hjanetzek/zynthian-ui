@@ -30,6 +30,7 @@ from time import sleep
 import zynautoconnect
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
+from zyngui.zynthian_audio_out_data import audio_out_list
 
 # ------------------------------------------------------------------------------
 # Zynthian Audio-Out Selection GUI Class
@@ -57,62 +58,7 @@ class zynthian_gui_audio_out(zynthian_gui_selector_info):
                 self.fill_list()
 
     def fill_list(self):
-        self.list_data = []
-        if self.zyngui.chain_manager.active_chain.chain_id:
-            # Normal chain so add mixer / chain targets
-            port_names = [("Main mixbus", 0, ["Send audio from this chain to the main mixbus", "audio_output.png"])]
-            self.list_data.append((None, None, "> CHAINS"))
-            len_check = len(self.list_data)
-            for chain_id, chain in self.zyngui.chain_manager.chains.items():
-                if chain_id != 0 and chain != self.zyngui.chain_manager.active_chain and chain.audio_thru or chain.is_synth() and chain.synth_slots[0][0].type == "Special":
-                    if self.zyngui.chain_manager.will_audio_howl(self.zyngui.chain_manager.active_chain.chain_id, chain_id):
-                        prefix = "∞ "
-                    else:
-                        prefix = ""
-                    port_names.append((f"{prefix}{chain.get_name()}", chain_id, [f"Send audio from this chain to the input of chain {chain.get_name()}.", "audio_output.png"]))
-                # Add side-chain targets
-                for processor in chain.get_processors():
-                    try:
-                        for port_name in zynautoconnect.get_sidechain_portnames(processor.jackname):
-                            port_names.append((f"↣ side {port_name}", port_name, [f"Send audio from this chain to the sidechain input of processor {port_name}.", "audio_output.png"]))
-                    except Exception as e:
-                        logging.info(e)
-                        pass
-            for title, processor, info in port_names:
-                if processor in self.zyngui.chain_manager.active_chain.audio_out:
-                    self.list_data.append((processor, processor, "\u2612 " + title, info))
-                else:
-                    self.list_data.append((processor, processor, "\u2610 " + title, info))
-            if len(self.list_data) == len_check:
-                self.list_data.pop() # Remove section title for empty section
-
-        if self.zyngui.chain_manager.active_chain.is_audio():
-            port_names = []
-            # Direct physical outputs
-            self.list_data.append((None, None, "> AUDIO OUTPUT"))
-            len_check = len(self.list_data)
-            port_count = len(self.playback_ports)
-            for i in range(0, port_count, 2):
-                if self.playback_ports[i].aliases:
-                    suffix = f" ({self.playback_ports[i].aliases[0]})"
-                else:
-                    suffix = ""
-                port_names.append((f"Output {i + 1}{suffix}", f"^{self.playback_ports[i].name}$", [f"Send audio from this chain directly to physical audio output {i + 1}{suffix} as mono.", "audio_output.png"]))
-                if i < port_count:
-                    if self.playback_ports[i + 1].aliases:
-                        suffix = f" ({self.playback_ports[i + 1].aliases[0]})"
-                    else:
-                        suffix = ""
-                    port_names.append((f"Output {i + 2}{suffix}", f"^{self.playback_ports[i + 1].name}$", [f"Send audio from this chain directly to physical audio output {i + 2}{suffix} as mono.", "audio_output.png"]))
-                    port_names.append((f"Outputs {i + 1}+{i + 2} (stereo)", f"^{self.playback_ports[i].name}$|^{self.playback_ports[i + 1].name}$", [f"Send audio from this chain directly to physical audio outputs {i + 1} & {i + 2} as stereo.", "audio_output.png"]))
-            for title, processor, info in port_names:
-                if processor in self.zyngui.chain_manager.active_chain.audio_out:
-                    self.list_data.append((processor, processor, "\u2612 " + title, info))
-                else:
-                    self.list_data.append((processor, processor, "\u2610 " + title, info))
-            if len(self.list_data) == len_check:
-                self.list_data.pop() # Remove section title for empty section
-
+        self.list_data = audio_out_list(self.zyngui.chain_manager, self.playback_ports)
         super().fill_list()
 
     def select_action(self, i, t='S'):

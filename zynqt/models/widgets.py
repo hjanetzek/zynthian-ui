@@ -323,3 +323,95 @@ class EuclidSeqView(QObject):
     @Slot()
     def toggleMute(self):
         self.model.toggle_mute()
+
+
+class SooperLooperView(QObject):
+    """SooperLooper widget (zynthian_widget_sooperlooper): loop rows, the buttons and sliders of
+    the selected loop, from the engine's monitors (zyngui.zynthian_sooperlooper_data, shared
+    with the Tk widget); polled with the controller refresh."""
+    changed = Signal()
+    removeRequested = Signal(int)   # the engine asks to remove a loop (confirm)
+
+    def __init__(self, ui, parent=None):
+        super().__init__(parent)
+        self.ui = ui
+        self.processor = None
+        self._data = {}
+        self.flash = 0
+
+    def set_processor(self, processor):
+        self.processor = processor
+        self._data = {}
+        self.refresh()
+
+    def refresh(self):
+        from zyngui import zynthian_sooperlooper_data as sl
+        if self.processor is None:
+            return
+        try:
+            m = self.processor.engine.get_monitors_dict() or {}
+        except Exception:
+            m = {}
+        self.flash = (self.flash + 1) % 8
+        btn, flashing = sl.active_button(m)
+        data = {
+            "loops": sl.loop_rows(m),
+            "selected": int(m.get('selected_loop_num', 0) or 0),
+            "canAdd": int(m.get('loop_count', 0)) < sl.MAX_LOOPS,
+            "button": btn if (btn and (not flashing or self.flash > 3)) else "",
+            "reverse": float(m.get('rate_output', 1) or 1) < 0,
+            "flashOn": self.flash > 3,
+            "inPeak": float(m.get('in_peak_meter', 0) or 0),
+            "inGain": float(m.get('input_gain', 0) or 0),
+            "sliders": {s: float(m.get(s, 0) or 0) for s in sl.SLIDERS},
+        }
+        if data != self._data:
+            self._data = data
+            self.changed.emit()
+        if 'loop_del' in m:
+            # A remove request from the engine (zynthian_widget_sooperlooper)
+            self.processor.engine.monitors_dict.pop('loop_del')
+            self.askRemove(data["selected"])
+
+    @Property("QVariantMap", notify=changed)
+    def data(self):
+        return self._data
+
+    @Property("QVariantList", constant=True)
+    def buttons(self):
+        from zyngui.zynthian_sooperlooper_data import BUTTONS
+        return BUTTONS
+
+    @Slot(int)
+    def selectLoop(self, loop):
+        from zyngui import zynthian_sooperlooper_data as sl
+        sl.select_loop(self.processor, loop)
+
+    @Slot(int)
+    def toggleMute(self, loop):
+        from zyngui import zynthian_sooperlooper_data as sl
+        sl.toggle_mute(self.processor, loop)
+
+    @Slot()
+    def addLoop(self):
+        from zyngui import zynthian_sooperlooper_data as sl
+        sl.add_loop(self.processor)
+
+    @Slot(int)
+    def askRemove(self, loop):
+        from zyngui import zynthian_sooperlooper_data as sl
+        if int(self._data.get("loops") and len(self._data["loops"]) or 0) > 1:
+            self.ui.confirm(f"Remove loop {loop + 1}?", lambda: sl.remove_loop(self.processor, loop))
+
+    @Slot(str)
+    def press(self, btn):
+        from zyngui import zynthian_sooperlooper_data as sl
+        sl.press_button(self.processor, btn)
+
+    @Slot(str, float)
+    def setSlider(self, symbol, value):
+        """Drag a slider: rec_thresh, wet, dry or feedback to value (0..1)"""
+        try:
+            self.processor.controllers_dict[symbol].set_value(max(0.0, min(1.0, value)))
+        except Exception:
+            pass

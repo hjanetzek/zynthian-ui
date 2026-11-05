@@ -14,7 +14,7 @@ from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
 from zynqt.models.audio_file import AudioFileView
 from zynqt.models.organelle import OrganelleView
-from zynqt.models.widgets import EnvelopeView, FilterView, PluginView, EuclidSeqView
+from zynqt.models.widgets import EnvelopeView, FilterView, PluginView, EuclidSeqView, SooperLooperView
 from zynqt.screens.base import EntryModel, entry, separator
 
 
@@ -62,6 +62,12 @@ class ControllerProxy(QObject):
         """Position 0..1 for the display (log scale as MIDI mapping)"""
         z = self.zctrl
         if z is None:
+            return 0.0
+        if isinstance(z.value, str):
+            # Text values (paths, names): the position of the value in the labels, if any
+            labels = getattr(z, "labels", None) or []
+            if z.value in labels and len(labels) > 1:
+                return labels.index(z.value) / (len(labels) - 1)
             return 0.0
         try:
             return max(0.0, min(1.0, z.get_ctrl_midi_val() / 127))
@@ -115,6 +121,7 @@ class ChainControl(QObject):
         self.plugin_view = PluginView(self)
         self.euclid_view = EuclidSeqView(self)
         self.organelle_view = OrganelleView(self)
+        self.sl_view = SooperLooperView(ui, self)
         self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
 
@@ -145,6 +152,8 @@ class ChainControl(QObject):
             self.filter_view.refresh()
         elif self._widget_type == "plugin":
             self.plugin_view.refresh()
+        elif self._widget_type == "sooperlooper":
+            self.sl_view.refresh()
 
     # Contents
 
@@ -280,6 +289,10 @@ class ChainControl(QObject):
         elif plugin == "organelle":
             wtype = "organelle"
             self.organelle_view.set_processor(proc)
+        elif plugin == "sooperlooper":
+            wtype = "sooperlooper"
+            if self.sl_view.processor is not proc:
+                self.sl_view.set_processor(proc)
         elif plugin:
             wtype = "plugin"
             if self.plugin_view.processor is not proc:
@@ -326,6 +339,10 @@ class ChainControl(QObject):
     @Property(QObject, constant=True)
     def organelleView(self):
         return self.organelle_view
+
+    @Property(QObject, constant=True)
+    def sooperLooperView(self):
+        return self.sl_view
 
     @Slot(int)
     def selectProcessor(self, i):

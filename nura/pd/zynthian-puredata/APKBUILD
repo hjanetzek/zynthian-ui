@@ -1,0 +1,32 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Pure Data and the externals zynthian's puredata patches (Organelle patches in
+# zynthian-data/presets/puredata) use: with these all 116 patches load without missing objects.
+# Packages in nura/pd/; state: docs/nura-lv2-plugins.md (zynthian-ui), "Pure Data on Nura".
+pkgname=zynthian-puredata
+pkgver=1
+pkgrel=0
+pkgdesc="Pure Data and externals for zynthian's puredata engine"
+url="https://github.com/zynthian/zynthian-ui"
+arch="noarch"
+license="GPL-3.0-or-later"
+depends="
+	puredata
+	pd-abl-link
+	pd-clocker
+	pd-cyclone
+	pd-freeverb
+	pd-ggee
+	pd-grids
+	pd-hcs
+	pd-iemlib
+	pd-midifile
+	pd-osc
+	pd-plaits
+	pd-tb-peakcomp
+	pd-unauthorized
+	"
+options="!check"
+
+package() {
+	mkdir -p "$pkgdir"
+}

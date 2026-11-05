@@ -1,0 +1,38 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# midifile (Martin Peach's MIDI file reader/writer, from mrpeach), used by zynthian's puredata
+# patches. pd-lib-builder is a git submodule, not in GitHub's archive: a second source.
+# Installed to /usr/lib/pd/extra/midifile.
+pkgname=pd-midifile
+pkgver=0.4.4
+pkgrel=0
+pkgdesc="midifile object for Pure Data"
+url="https://github.com/pd-externals/midifile"
+arch="all"
+license="GPL-2.0-or-later"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-$pkgver.tar.gz::https://github.com/pd-externals/midifile/archive/v$pkgver.tar.gz
+	pd-lib-builder-0.7.0.tar.gz::https://github.com/pure-data/pd-lib-builder/archive/v0.7.0.tar.gz"
+builddir="$srcdir/midifile-$pkgver"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+
+prepare() {
+	default_prepare
+	[ -f pd-lib-builder/Makefile.pdlibbuilder ] || { rm -rf pd-lib-builder; cp -r "$srcdir"/pd-lib-builder-0.7.0 pd-lib-builder; }
+}
+
+build() {
+	make PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc"
+}
+
+package() {
+	make install PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc" DESTDIR="$pkgdir" pkglibdir=/usr/lib/pd/extra
+}
+sha512sums="
+442061217e3490d183ba9d45a95ae6dcd19f33c952e9d25e771dde15e23f75c89c1fd7193d92a86ff9c48a65a9b73477075450cc33063ec117a26e691a89db1d  pd-midifile-0.4.4.tar.gz
+8e449b9e7ef3849f95e08fa4423d57deea9f3e5ffdddbb9bf693f5c5e235a038618e4af1077b50714f014a94b7c855d0c6b4ae469ea990238e08eb2cd7236455  pd-lib-builder-0.7.0.tar.gz
+"

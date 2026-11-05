@@ -129,6 +129,16 @@ class zynthian_engine_puredata(zynthian_engine):
         organelle_dir = f"{zynthian_paths.data_dir}/puredata/organelle"
         if organelle_dir != "/zynthian/zynthian-data/puredata/organelle" and os.path.isdir(organelle_dir):
             self.base_command += f" -path \"{organelle_dir}\""
+            # Externals libraries (cyclone, iemlib, ggee, hcs, osc, ...): the patches declare some by
+            # folder, others only as library ("declare -lib cyclone"), which since cyclone 0.9 no
+            # longer adds the library's folder for its single objects ([split]). Add every library
+            # folder of pd's system "extra" directory (distribution packages, nura/pd)
+            for extra_dir in ("/usr/lib/pd/extra", "/usr/local/lib/pd/extra"):
+                if os.path.isdir(extra_dir):
+                    for lib in sorted(os.listdir(extra_dir)):
+                        lib_dir = os.path.join(extra_dir, lib)
+                        if os.path.isdir(lib_dir):
+                            self.base_command += f" -path \"{lib_dir}\""
 
         self.reset()
 

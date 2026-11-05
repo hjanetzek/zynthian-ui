@@ -1,0 +1,56 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# unauthorized (Yves Degoyon's objects; zynthian's patches use [grid]), Debian pd-unauthorized on
+# ZynthianOS. Debian's source and patches; each object is one C file, compiled here directly
+# (the Makefile is an old Pd-extended template), without the mp3*/speex* objects (LAME, Speex).
+# Installed to /usr/lib/pd/extra/unauthorized.
+pkgname=pd-unauthorized
+pkgver=0.1
+_debrel=9
+pkgrel=0
+pkgdesc="unauthorized objects for Pure Data"
+url="https://salsa.debian.org/multimedia-team/pd/pd-unauthorized"
+arch="all"
+license="GPL-2.0-or-later"
+depends="puredata"
+makedepends="puredata-dev"
+source="https://deb.debian.org/debian/pool/main/p/pd-unauthorized/pd-unauthorized_$pkgver.orig.tar.gz
+	https://deb.debian.org/debian/pool/main/p/pd-unauthorized/pd-unauthorized_$pkgver-$_debrel.debian.tar.xz"
+builddir="$srcdir/unauthorized-$pkgver"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+_objects="audience~ beatify~ blinkenlights compressor~ cooled~ countund disto~ exciter filterbank~
+	formant~ grid pianoroll playlist probalizer randomblock~ samplebox~ scratcher~ scrolllist
+	sonogram~ spigot~ wahwah~"
+
+prepare() {
+	default_prepare
+	local p
+	for p in $(cat "$srcdir"/debian/patches/series 2>/dev/null); do
+		patch -p1 -i "$srcdir"/debian/patches/$p
+	done
+}
+
+build() {
+	local o
+	for o in $_objects; do
+		${CC:-cc} $CFLAGS $_oldc $CPPFLAGS -fPIC -shared $LDFLAGS -DPD -I/usr/include/pd \
+			"$o.c" -o "$o.pd_linux" -lm
+	done
+}
+
+package() {
+	local d="$pkgdir"/usr/lib/pd/extra/unauthorized o
+	mkdir -p "$d"
+	for o in $_objects; do
+		cp "$o.pd_linux" "$d"/
+		[ -f "$o-help.pd" ] && cp "$o-help.pd" "$d"/
+	done
+	return 0
+}
+sha512sums="
+015a25a414b100b552b3a4abe271867e27a657a8a037db201f3e11d5865ba88f351f82b6f2823b7e8c1717e718dd0b103ae45f6316fcce49755c951a432bde3a  pd-unauthorized_0.1.orig.tar.gz
+e12192a0449db4f3a09a7f17658515754f065111b39a0db29b0e77d0f44dc7bf13d747df280529fa224b75f1162bce4c6d9e54685ea082ee60e62a129bc4b40e  pd-unauthorized_0.1-9.debian.tar.xz
+"

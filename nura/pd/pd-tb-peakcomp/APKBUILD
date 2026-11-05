@@ -1,0 +1,39 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# tb_peakcomp~ (Two Big Ears' stereo peak compressor), used by a zynthian puredata patch. One C
+# file, compiled here directly. Installed to /usr/lib/pd/extra/tb_peakcomp~.
+pkgname=pd-tb-peakcomp
+_commit=afbc9eeaa920411d33f09230fc3928afd226bcae
+pkgver=1.0_git20131022
+pkgrel=0
+pkgdesc="tb_peakcomp~ stereo peak compressor for Pure Data"
+url="https://github.com/twobigears/tb_peakcomp"
+arch="all"
+license="MIT"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/twobigears/tb_peakcomp/archive/$_commit.tar.gz"
+builddir="$srcdir/tb_peakcomp-$_commit"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+
+prepare() {
+	default_prepare
+	# Pd 0.57 asserts that the main signal inlet's dummy field is a t_float (it was a double)
+	sed -i 's/^\tdouble\t\tf_float2Sig;/\tt_float\t\tf_float2Sig;/' "src/tb_peakcomp~.c"
+	grep -q 't_float\t\tf_float2Sig;' "src/tb_peakcomp~.c"
+}
+
+build() {
+	${CC:-cc} $CFLAGS $_oldc $CPPFLAGS -fPIC -shared $LDFLAGS -DPD -I/usr/include/pd \
+		"src/tb_peakcomp~.c" -o "tb_peakcomp~.pd_linux" -lm
+}
+
+package() {
+	install -Dm644 -t "$pkgdir/usr/lib/pd/extra/tb_peakcomp~" "tb_peakcomp~.pd_linux" "src/tb_peakcomp~-help.pd"
+}
+sha512sums="
+1ae357cdd126fc50d41fc747b4b1a7a6b07e973243dd44ad7045ba6aff5a75022c46868082bcb163d91fb84e1aa1830c833a78918c2cf769511ac74a3a2bc5f1  pd-tb-peakcomp-afbc9eeaa920411d33f09230fc3928afd226bcae.tar.gz
+"

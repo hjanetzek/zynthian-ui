@@ -1,0 +1,38 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# grids: Mutable Instruments Grids (drum pattern generator) for Pure Data, used by zynthian's
+# grids_zynth patch (which carries a copy of this source). One C file, compiled here directly with
+# the system m_pd.h. Installed to /usr/lib/pd/extra/grids.
+pkgname=pd-grids
+_commit=295ec032c5b6e3c3721eefc92e5480ac7767bf1f
+pkgver=0_git20171023
+pkgrel=0
+pkgdesc="Mutable Instruments Grids for Pure Data"
+url="https://github.com/spoitras/Pd-Grids"
+arch="all"
+license="GPL-3.0-or-later"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/spoitras/Pd-Grids/archive/$_commit.tar.gz"
+builddir="$srcdir/Pd-Grids-$_commit"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+
+prepare() {
+	default_prepare
+	rm -f m_pd.h
+}
+
+build() {
+	${CC:-cc} $CFLAGS $_oldc $CPPFLAGS -fPIC -shared $LDFLAGS -DPD -I/usr/include/pd -I. \
+		grids.c -o grids.pd_linux -lm
+}
+
+package() {
+	install -Dm644 -t "$pkgdir"/usr/lib/pd/extra/grids grids.pd_linux
+}
+sha512sums="
+6acc8ba60860de52dc3c6b28a751e0653c7a8dc95b6a1b3b5421089862be8c987f58aaec0433fb4ed7b68997f23f5059384b1f3ddc1a1df3e83be1e362475f98  pd-grids-295ec032c5b6e3c3721eefc92e5480ac7767bf1f.tar.gz
+"

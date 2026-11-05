@@ -1,0 +1,53 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# abl_link~: Ableton Link for Pure Data (tempo/beat sync), used by most of zynthian's Organelle
+# patches. Link and its asio-standalone are git submodules, not in GitHub's archives: extra
+# sources at the submodules' commits, put where the submodules go. Installed to
+# /usr/lib/pd/extra/abl_link~.
+pkgname=pd-abl-link
+pkgver=0.6
+_link=17479b417973f1ae182757a1e1c512214bc05669
+_asio=01b4e87c04abd4daec58e40463bcdc150085b269
+pkgrel=0
+pkgdesc="Ableton Link for Pure Data (abl_link~)"
+url="https://github.com/libpd/abl_link"
+arch="all"
+license="GPL-2.0-or-later"
+depends="puredata"
+makedepends="puredata-dev linux-headers"
+source="$pkgname-$pkgver.tar.gz::https://github.com/libpd/abl_link/archive/v$pkgver.tar.gz
+	link-$_link.tar.gz::https://github.com/Ableton/link/archive/$_link.tar.gz
+	asio-$_asio.tar.gz::https://github.com/chriskohlhoff/asio/archive/$_asio.tar.gz"
+builddir="$srcdir/abl_link-$pkgver"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	rm -rf external/link
+	mv "$srcdir"/link-$_link external/link
+	rm -rf external/link/modules/asio-standalone
+	mv "$srcdir"/asio-$_asio external/link/modules/asio-standalone
+	# Pd 0.55+ no longer declares error(); pd still exports it
+	cat > pd-legacy.h <<-'EOH'
+		#include "m_pd.h"
+		#ifdef __cplusplus
+		extern "C" {
+		#endif
+		EXTERN void error(const char *fmt, ...);
+		#ifdef __cplusplus
+		}
+		#endif
+	EOH
+}
+
+build() {
+	make -C external PDINCLUDEDIR=/usr/include/pd CPPFLAGS="-include $builddir/pd-legacy.h"
+}
+
+package() {
+	make -C external install PDINCLUDEDIR=/usr/include/pd CPPFLAGS="-include $builddir/pd-legacy.h" DESTDIR="$pkgdir" pkglibdir=/usr/lib/pd/extra
+}
+sha512sums="
+105ad1f271f29d6703825e7ea77dd79f700a3e565e5fe40cc42cd7c2e60e9b0b99c840dd2d5767d45efdeba0ac2d8bc0ae87c058bcc0cbf6e195be1bd2ad38f4  pd-abl-link-0.6.tar.gz
+c44194c7bfc764b7657cb5548b76b5bca9aabf1345c3f5bb9cfaff696a7f1f8a8dbc2a236703b4031257351dcf5480318ea7505f3354f339b95ded5840e80ad2  link-17479b417973f1ae182757a1e1c512214bc05669.tar.gz
+c44e02a88c60e055b3398618335fe0e0d64162fe364d543212331f2717edcc68d348b4c72e4eabe180f3ef48082c1b7eb1406ac57c07fe1f45963093bd25b887  asio-01b4e87c04abd4daec58e40463bcdc150085b269.tar.gz
+"

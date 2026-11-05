@@ -1,0 +1,41 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# freeverb~ (Jezar's Freeverb for Pure Data), used by zynthian's puredata patches (Debian
+# pd-freeverb on ZynthianOS). Debian's source and patches; installed to /usr/lib/pd/extra/freeverb.
+pkgname=pd-freeverb
+pkgver=1.3.0
+_debrel=1
+pkgrel=0
+pkgdesc="freeverb~ reverb for Pure Data"
+url="https://salsa.debian.org/multimedia-team/pd/pd-freeverb"
+arch="all"
+license="GPL-2.0-or-later"
+depends="puredata"
+makedepends="puredata-dev"
+source="https://deb.debian.org/debian/pool/main/p/pd-freeverb/pd-freeverb_$pkgver.orig.tar.gz
+	https://deb.debian.org/debian/pool/main/p/pd-freeverb/pd-freeverb_$pkgver-$_debrel.debian.tar.xz"
+builddir="$srcdir/pd-freeverb-$pkgver"
+options="!check" # no tests
+
+# Old C: GCC 14 made implicit declarations, implicit int and incompatible pointer types errors
+# (-fpermissive turns them back into warnings), GCC 15 defaults to C23
+_oldc="-std=gnu17 -fpermissive"
+
+prepare() {
+	default_prepare
+	local p
+	for p in $(cat "$srcdir"/debian/patches/series); do
+		patch -p1 -i "$srcdir"/debian/patches/$p
+	done
+}
+
+build() {
+	make PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc"
+}
+
+package() {
+	make install PDINCLUDEDIR=/usr/include/pd CFLAGS="$CFLAGS $_oldc" DESTDIR="$pkgdir" pkglibdir=/usr/lib/pd/extra
+}
+sha512sums="
+fed2c6e3c5a1609e645de1e3f3b6f33d208fcb2585e85ad8c0eab3af4465e1dacf9ae422c0855e2a2578316e70a885725dd6e2138a37426260c606dc35e2be6c  pd-freeverb_1.3.0.orig.tar.gz
+b938bacfe8533c23af295c9276850bc6559747fed9f6c1a94f58e5ae2c2a128c0050aecb4809848dcf8a0f7571f01562be07c16373671d891e603f1ba09204ef  pd-freeverb_1.3.0-1.debian.tar.xz
+"

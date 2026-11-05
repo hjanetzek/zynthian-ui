@@ -1,7 +1,7 @@
 # Kiosk UI for postmarketOS/Nura: boots straight into zynthian (cage, XWayland, PipeWire).
 pkgname=postmarketos-ui-zynthian
 pkgver=1
-pkgrel=8
+pkgrel=9
 pkgdesc="zynthian synthesizer platform as a kiosk (Wayland, cage)"
 arch="noarch"
 url="https://github.com/zynthian/zynthian-ui"
@@ -10,7 +10,8 @@ options="!check pmb:drm pmb:support-systemd"
 # Engines: those packaged by Alpine (jalv and sfizz are in testing). zynaddsubfx, setBfree,
 # Aeolus, sooperlooper and linuxsampler are not packaged yet.
 # LV2 plugins: zynthian-lv2-plugins (nura/lv2/), the plugins zynthian enables by default as far as
-# they are packaged; state and the missing ones: docs/nura-lv2-plugins.md.
+# they are packaged; state and the missing ones: docs/nura-lv2-plugins.md. Pure Data for the
+# puredata engine: zynthian-puredata (nura/pd/).
 depends="
 	fluidsynth
 	jack_capture
@@ -22,6 +23,7 @@ depends="
 	sfizz
 	wlr-randr
 	zynthian-lv2-plugins
+	zynthian-puredata
 	zynthian-ui
 	"
 backup="etc/default/zynthian"

@@ -218,19 +218,24 @@ Problems found, and how the packages handle them:
   only as prebuilt arm64 glibc binaries in `zynthian-data/puredata/pd-externals-arm64`: no
   x86_64 build, and on musl (Nura) they won't load either; their sources are needed. Without
   them those patches run but lose Link/MIDI clock sync.
-- **Pure Data on Nura (2026-11-05):** packaged from source in `nura/pd/`, built and installed on
-  the Duet: `puredata` 0.57.0 (`-nogui`, JACK, ALSA MIDI), `pd-cyclone` 0.9-5, `pd-iemlib`
-  1.22-3, `pd-ggee` 0.28, `pd-hcs` 0.2.1, `pd-osc` 0.3.1, and `pd-clocker` (clocker, clockfill,
-  midiclocker from Owen Osborn's sources, BSD-3-Clause), all in `/usr/lib/pd/extra`. Fixes: GCC 14+
-  and old C (`-std=gnu17 -fpermissive`), Pd 0.55+ no longer declaring `error()` and `COSTABSIZE`
-  (a compat header; pd still exports them, `cos_table` with 512 entries), hcs' stat on musl,
-  iemlib's objects linked to its library binary so `-path` finds them. Loading all 116 patches
-  headless: with the libraries on pd's search path (`-path /usr/lib/pd/extra/cyclone` etc.) still
-  missing are `abl_link~` (71 patches; Link sync only), `freeverb~` (12; Debian `pd-freeverb`),
-  `plts~` (8; Mutable Instruments Plaits port, source to find), `midifile` (2), `tb_peakcomp~`,
-  `grids` (its source is in the patch folder), `grid` (1 each). cyclone 0.9 loaded with
-  `declare -lib cyclone` doesn't add its folder to the search path any more, so patches that only
-  declare `-lib cyclone` (e.g. `split`) need it from the engine: `-path` for each library in
-  `/usr/lib/pd/extra` in `zynthian_engine_puredata`'s command line.
+- **Pure Data on Nura (2026-11-05): done.** Packaged from source in `nura/pd/`, built and tested
+  on the Duet; the meta package `zynthian-puredata` (a dependency of `postmarketos-ui-zynthian`)
+  pulls in `puredata` 0.57.0 (`-nogui`, JACK, ALSA MIDI; Alpine only has libpd) and the externals,
+  all in `/usr/lib/pd/extra`: `pd-cyclone`, `pd-iemlib`, `pd-ggee`, `pd-hcs`, `pd-osc`,
+  `pd-freeverb`, `pd-unauthorized` ([grid]), `pd-midifile`, `pd-tb-peakcomp`, `pd-grids`
+  (Mutable Instruments Grids), `pd-plaits` ([plts~], Mutable Instruments Plaits), `pd-abl-link`
+  (Ableton Link, with Link and asio; Link uses asio on Linux too), `pd-clocker` (clocker,
+  clockfill, midiclocker from Owen Osborn's sources, BSD-3-Clause, instead of zynthian-data's
+  arm64/glibc binaries). All 116 patches in `zynthian-data/presets/puredata` load headless without
+  a missing object.
+  Fixes: old C with GCC 14+/15 (`-std=gnu17 -fpermissive`); Pd 0.55+ no longer declaring `error()`
+  and `COSTABSIZE` (a compat header, also for C++; pd still exports them, `cos_table` with 512
+  entries); Pd 0.57 asserting `t_float` for the signal inlet field (tb_peakcomp~); hcs' stat on
+  musl; iemlib's objects linked to its library binary; `linux-headers` for asio.
+  Engine: cyclone 0.9 loaded with `declare -lib cyclone` no longer adds its folder for its single
+  objects ([split]); `zynthian_engine_puredata` adds every library folder of pd's system `extra`
+  directory to the search path when zynthian-data is not in the ZynthianOS location (like the
+  Organelle path). Pd's settings for the desktop (deken externals in `~/Documents/Pd/externals`)
+  are described above.
 - **CPU:** some plugins are too heavy for the Duet's A73 cores at a 256-frame quantum (neural amp
   models, Surge XT with many voices); enable them, but expect limits.

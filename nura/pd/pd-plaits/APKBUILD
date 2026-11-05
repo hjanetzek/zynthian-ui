@@ -1,0 +1,33 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# plts~: Mutable Instruments Plaits for Pure Data, used by zynthian's WeaveZyn patch. The Plaits
+# and stmlib code is Mutable Instruments' (MIT); the Pd wrapper states no licence. Built with the
+# system m_pd.h instead of the repo's copy. Installed to /usr/lib/pd/extra/plts~.
+pkgname=pd-plaits
+_commit=aad346c64028c987595c9270e010a9fe41b85ff1
+pkgver=0_git20190526
+pkgrel=0
+pkgdesc="Mutable Instruments Plaits for Pure Data (plts~)"
+url="https://github.com/jnonis/pd-plaits"
+arch="all"
+license="MIT AND custom"
+depends="puredata"
+makedepends="puredata-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/jnonis/pd-plaits/archive/$_commit.tar.gz"
+builddir="$srcdir/pd-plaits-$_commit"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	rm -f m_pd.h
+}
+
+build() {
+	make PDINCLUDEDIR=/usr/include/pd
+}
+
+package() {
+	make install PDINCLUDEDIR=/usr/include/pd DESTDIR="$pkgdir" pkglibdir=/usr/lib/pd/extra
+}
+sha512sums="
+d2babe23e9e3021e91d45305fa371e19ea596f05809f5a3ab684e9eaae731e5ce2a7cf187750622f3e2dbfa24af671acfa18856f71ddb15b4ccfdcf5fb7fe0d9  pd-plaits-aad346c64028c987595c9270e010a9fe41b85ff1.tar.gz
+"

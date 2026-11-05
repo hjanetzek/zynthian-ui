@@ -153,3 +153,88 @@ class FilterView(QObject):
     @Slot()
     def release(self):
         self.dragging = False
+
+
+class PluginView(QObject):
+    """Plugin widgets (zynthian_widget_spectr30, tunaone, GxGraphicEQ, nam, aidax,
+    chord_analyzer): what they show from the engine's monitors and controllers, as a dict for
+    QML, by kind:
+
+    bars (spectrum, graphic EQ): labels, bars [[bottom, top, tick], ...] as height fractions,
+        zero (0 dB line or -1), editable (EQ: drag sets the band's gain);
+    tuner: note, cents (-50..50), color, or note "" without signal;
+    text: lines (title, text) pairs (NAM model, chord analyzer);
+    aidax: meters (in, out levels 0..1) and lines.
+    """
+    changed = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.processor = None
+        self.name = None
+        self._data = {}
+        self.levels = [0.0, 0.0]
+
+    def set_processor(self, processor, name):
+        self.processor = processor
+        self.name = name
+        self.levels = [0.0, 0.0]
+        self._data = {}
+        self.refresh()
+
+    def refresh(self):
+        proc = self.processor
+        if proc is None:
+            return
+        try:
+            monitors = proc.engine.get_monitors_dict() or {}
+        except Exception:
+            monitors = {}
+        data = {"kind": "", "labels": [], "bars": [], "zero": -1, "editable": False}
+        match self.name:
+            case "spectr30":
+                data.update(kind="bars", labels=wd.SPECTRUM_LABELS,
+                            bars=[[0.0, bar, tick] for bar, tick in wd.spectrum_levels(proc, monitors)])
+            case "GxGraphicEQ":
+                bands = wd.gx_eq_bands(proc)
+                if bands:
+                    data.update(kind="bars", labels=bands[1], zero=wd.GX_ZERO, editable=True,
+                                bars=[list(b) for b in wd.gx_eq_levels(proc, monitors, len(bands[0]))])
+            case "tunaone":
+                state = wd.tuner_state(monitors)
+                data.update(kind="tuner", note=state[0] if state else "", cents=state[1] if state else 0,
+                            color=state[2] if state else "#808080")
+            case "nam":
+                data.update(kind="text", lines=[["Model", self._file(proc, "model")]])
+            case "chord_analyzer":
+                texts = wd.chord_texts(monitors)
+                old = self._data.get("lines") if self._data.get("kind") == "text" else None
+                data.update(kind="text", lines=[["Chord", texts[0]], ["", texts[1]]] if texts else
+                            (old or [["Chord", "-"], ["", ""]]))
+            case "aidax":
+                for i, key in enumerate(("MeterIn", "MeterOut")):
+                    if key in monitors:
+                        self.levels[i] = wd.meter_fall(self.levels[i], monitors[key])
+                data.update(kind="aidax", meters=[min(1.0, v) for v in self.levels],
+                            lines=[["Model", self._file(proc, "json")], ["Cabinet", self._file(proc, "cabinet")]])
+        if data != self._data:
+            self._data = data
+            self.changed.emit()
+
+    @staticmethod
+    def _file(proc, symbol):
+        try:
+            return str(proc.controllers_dict[symbol].value).rsplit("/", 1)[-1]
+        except Exception:
+            return ""
+
+    @Property("QVariantMap", notify=changed)
+    def data(self):
+        return self._data
+
+    @Slot(int, float)
+    def dragBand(self, band, height_fraction):
+        """Graphic EQ: set band's gain from a touch (0 bottom .. 1 top)"""
+        if self.name == "GxGraphicEQ" and self.processor:
+            wd.gx_eq_drag(self.processor, band, max(0.0, min(1.0, height_fraction)))
+            self.refresh()

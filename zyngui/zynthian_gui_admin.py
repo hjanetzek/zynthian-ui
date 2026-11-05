@@ -383,30 +383,12 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
     def pfl(self, t='S'):
         logging.info("PFL routing")
-        ports = zynautoconnect.get_hw_audio_dst_ports()
-        port_count = len(ports)
-        labels = ["None"]
-        for i in range(0, port_count, 2):
-            try:
-                name1 = ports[i].aliases[0]
-                name2 = ports[i+1].aliases[0]
-            except:
-                name1 = ports[i].name
-                name2 = ports[i+1].name
-            labels.append(f"{i+1} ({name1})")
-            labels.append(f"{i+2} ({name2})")
-            labels.append(f"{i+1}+{i+2} ({name1}+{name2})")
         self.enable_param_editor(self, "PFL Output",
-                {'labels': labels, 'value': zynthian_gui_config.pfl_output},
+                {'labels': zynthian_admin_settings.pfl_output_labels(), 'value': zynthian_gui_config.pfl_output},
                 self.pfl_cb)
 
     def pfl_cb(self, value):
-        label = self.param_editor_zctrl.get_value2label(value)
-        zynthian_gui_config.pfl_output = label
-        zynconf.save_config({
-            "ZYNTHIAN_PFL_OUTPUT": zynthian_gui_config.pfl_output
-        })
-        zynautoconnect.request_audio_connect(True)
+        zynthian_admin_settings.set_pfl_output(self.param_editor_zctrl.get_value2label(value))
         self.update_list()
 
     def show_tts(self, t='S'):
@@ -456,26 +438,10 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
     def get_hotplug_menu_options(self):
         options = {}
-        if zynthian_gui_config.hotplug_audio_enabled:
-            options[f"\u2612 Hotplug Audio"] = ["disable_hotplug", ["Toggle USB hotplug audio enable.", None]]
-            options["Input Devices"] = None
-            for device in zynautoconnect.get_alsa_audio_devices(False, "hotplug"):
-                if device in zynthian_gui_config.disabled_audio_in:
-                    options[f"\u2610 {device} in"] = ["enable_input", ["Toggle enable USB input audio device.", None]]
-                else:
-                    options[f"\u2612 {device} in"] = ["disable_input", ["Toggle enable USB input audio device.", None]]
-            options["Output Devices"] = None
-            devices = zynautoconnect.get_alsa_audio_devices(True, "hotplug")
-            if devices:
-                for device in devices:
-                    if device in zynthian_gui_config.disabled_audio_out:
-                        options[f"\u2610 {device} out"] = ["enable_output", ["Toggle enable USB audio output device.", None]]
-                    else:
-                        options[f"\u2612 {device} out"] = ["disable_output", ["Toggle enable USB audio output device.", None]]
-            else:
-                options["No available soundcard outputs - check ZynVoice"] = ["tts", ["No free audio outputs. Select to navigate to ZynVoice config.", None]]
-        else:
-            options[f"\u2610 Hotplug Audio"] = ["enable_hotplug", ["Toggle USB hotplug audio enable.", None]]
+        self.hotplug_devices = {}
+        for label, action, device, info in zynthian_admin_settings.hotplug_options():
+            options[label] = [action, [info, None]] if action else None
+            self.hotplug_devices[label] = device
         return options
 
     def hotplug_audio_menu(self):
@@ -483,33 +449,12 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         self.zyngui.show_screen('option')
 
     def hotplug_audio_cb(self, option, value):
-        zynautoconnect.pause()
-        match value:
-            case "enable_hotplug":
-                self.zyngui.state_manager.start_busy("hotplug", "Enabling hotplug audio")
-                zynautoconnect.enable_hotplug()
-            case "disable_hotplug":
-                self.zyngui.state_manager.start_busy("hotplug", "Disabling hotplug audio")
-                zynautoconnect.disable_hotplug()
-            case "enable_input":
-                self.zyngui.state_manager.start_busy("hotplug", f"Enabling {option[2:]}")
-                zynautoconnect.enable_audio_input_device(option[2:-3])
-            case "disable_input":
-                self.zyngui.state_manager.start_busy("hotplug", f"Disabling {option[2:]}")
-                zynautoconnect.enable_audio_input_device(option[2:-3], False)
-            case "enable_output":
-                self.zyngui.state_manager.start_busy("hotplug", f"Enabling {option[2:]}")
-                zynautoconnect.enable_audio_output_device(option[2:-4])
-            case "disable_output":
-                self.zyngui.state_manager.start_busy("hotplug", f"Disabling {option[2:]}")
-                zynautoconnect.enable_audio_output_device(option[2:-4], False)
-            case "tts":
-                self.show_tts()
-                return
+        if value == "tts":
+            self.show_tts()
+            return
+        zynthian_admin_settings.hotplug_apply(value, self.hotplug_devices.get(option), self.zyngui.state_manager)
         self.zyngui.screens['option'].config("Hotplug Audio", self.get_hotplug_menu_options(), self.hotplug_audio_cb, False)
         self.zyngui.show_screen('option')
-        self.zyngui.state_manager.end_busy("hotplug")
-        zynautoconnect.resume()
 
     def toggle_dpm(self):
         zynthian_admin_settings.toggle_dpm()
@@ -527,7 +472,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
     def mixer_toggle(self):
         self.enable_param_editor(self, "Toggle Control",
-                                 {'labels': ['solo', 'pfl', 'mono', 'phase', 'ms', 'record'], 'value': zynthian_gui_config.mixer_toggle},
+                                 {'labels': zynthian_admin_settings.MIXER_TOGGLES, 'value': zynthian_gui_config.mixer_toggle},
                                  self.mixer_toggle_cb)
 
     def toggle_snapshot_mixer_settings(self):
@@ -560,21 +505,17 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         self.restart_gui()
 
     def visible_chains_cb(self, value):
-        zynconf.save_config({"ZYNTHIAN_UI_VISIBLE_MIXER_STRIPS": str(value)})
-        zynthian_gui_config.visible_mixer_strips = value
+        zynthian_admin_settings.set_visible_mixer_strips(value)
         self.zyngui.screens["mixer"].update_layout()
         self.update_list()
 
     def visible_launchers_cb(self, value):
-        zynconf.save_config({"ZYNTHIAN_UI_VISIBLE_LAUNCHERS": str(value)})
-        zynthian_gui_config.visible_launchers = value
+        zynthian_admin_settings.set_visible_launchers(value)
         self.zyngui.screens["mixer"].update_layout()
         self.update_list()
 
     def mixer_toggle_cb(self, value):
-        val = self.param_editor_zctrl.value2label[str(value)]
-        zynconf.save_config({"ZYNTHIAN_UI_MIXER_TOGGLE": val})
-        zynthian_gui_config.mixer_toggle = val
+        zynthian_admin_settings.set_mixer_toggle(self.param_editor_zctrl.value2label[str(value)])
         self.update_list()
 
     # -------------------------------------------------------------------------
@@ -598,13 +539,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
                                  self.set_chanpress_cc_cb)
 
     def set_chanpress_cc_cb(self, value):
-        zynthian_gui_config.midi_chanpress_cc = value
-        self.state_manager.init_midi_filter()
-
-        # Update Config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_CHANPRESS_CC": str(int(zynthian_gui_config.midi_chanpress_cc))
-        })
+        zynthian_admin_settings.set_chanpress_cc(value, self.state_manager)
         self.update_list()
 
     # -------------------------------------------------------------------------

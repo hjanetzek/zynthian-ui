@@ -37,7 +37,7 @@ from zyncoder.zyncore import lib_zyncore
 from zyngine.ctrldev.zynthian_ctrldev_base import SCROLL_MODE_DISABLED, SCROLL_MODE_FIXED, SCROLL_MODE_GUI_SEL, SCROLL_MODE_GUI_VIEW, SCROLL_MODE_CTRLDEV
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
-from zyngui.zynthian_midi_config_data import (midi_config_list, midi_config_action,
+from zyngui.zynthian_midi_config_data import (midi_config_list, midi_config_action, device_drivers, driver_description,
     ZMIP_ICON_MODE_ACTIVE, ZMIP_ICON_MODE_MULTI, ZMIP_ICON_SEQ_EXCL, ZMIP_ICON_MIDI_CLOCK,
     ZMIP_ICON_CTRLDEV_DRIVER)
 
@@ -218,29 +218,17 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
 
                 # Reload drivers => Hot reload the driver classes!
                 #self.zyngui.state_manager.ctrldev_manager.update_available_drivers(reload_modules=False)
-                ctrldev_manager = self.zyngui.state_manager.ctrldev_manager
-                loaded_drivers = ctrldev_manager.drivers
-                # Drivers for this device: by its device ID, by its SysEx identity, then the generic ones.
-                # The identity is asked for when the list is shown, so it is normally known by now.
-                ctrldev_manager.request_identity(idev)
-                device_drivers = ctrldev_manager.get_device_drivers(idev)
-                identity = ctrldev_manager.get_identity_str(idev)
-                identity_drivers = ctrldev_manager.get_identity_drivers(idev)
+                # Drivers for this device: by its device ID, by its SysEx identity, then the generic ones
                 driver_options = {}
-                for i, driver_class in enumerate(device_drivers):
+                for driver_class, loaded in device_drivers(self.zyngui.state_manager, idev):
                     driver_name = driver_class.get_driver_name()
-                    driver_description = driver_class.get_driver_description()
-                    if not driver_description:
-                        driver_description = "Device driver integrating UI functions and customized workflow."
-                    driver_description = f"{ZMIP_ICON_CTRLDEV_DRIVER}: Driver.\n\n{driver_description}"
-                    if driver_class in identity_drivers:
-                        driver_description += f"\n\nMatches the device's SysEx identity ({identity})."
-                    if idev in loaded_drivers and type(loaded_drivers[idev]) is driver_class:
+                    description = f"{ZMIP_ICON_CTRLDEV_DRIVER}: Driver.\n\n{driver_description(driver_class, self.zyngui.state_manager, idev)}"
+                    if loaded:
                         driver_options[f"\u2612 {driver_name}"] = [
-                            ["UNLOAD_DRIVER", driver_class.__name__], [driver_description, "midi_input.png"]]
+                            ["UNLOAD_DRIVER", driver_class.__name__], [description, "midi_input.png"]]
                     else:
                         driver_options[f"\u2610 {driver_name}"] = [
-                            ["LOAD_DRIVER", driver_class.__name__], [driver_description, "midi_input.png"]]
+                            ["LOAD_DRIVER", driver_class.__name__], [description, "midi_input.png"]]
                 if driver_options:
                     options[f"Drivers {ZMIP_ICON_CTRLDEV_DRIVER}"] = None
                     options.update(driver_options)

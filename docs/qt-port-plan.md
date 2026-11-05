@@ -189,6 +189,19 @@ mattered for the Qt numbers: one QML view per selector screen, kept while hidden
 updates in place instead of resets (the main menu grid took ~290 ms when its delegates and
 images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch times.
 
+**Next steps** (2026-11-05):
+
+1. Qt UI as the Duet's kiosk (`kiosk-session zynthian`, see nura/README.md) and everyday use.
+2. Remaining M2 lists: audio and MIDI player file lists, chain manager and moving chains and
+   processors, MIDI CC and note range/transpose, MIDI device options, the remaining admin
+   entries (PFL output, hotplug audio, visible chains, ...). Move list logic out of the Tk
+   screens into shared modules where it isn't trivial, as for snapshots and MIDI config.
+3. Touch: multitouch on faders, swipe vs. tap in lists, long-press timing, drag sensitivity.
+4. M3: the launcher (PAD key) first, then the audio file widget (waveform: QML `Shape` or a C++
+   Canvas Painter item) and the pattern editor.
+5. Upstream: split the shared modules into self-contained commits, fix the bugs noted in
+   [upstream-candidates.md](upstream-candidates.md), pytest for the shared modules.
+
 ### M3: towards parity
 
 As in [ui-reimplementation-plan.md](ui-reimplementation-plan.md), phases 3–4: launcher/zynpad,

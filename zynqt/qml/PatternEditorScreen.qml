@@ -161,19 +161,56 @@ Item {
                     color: bar ? "#8090a0" : (beat ? "#566270" : "#2a3038")
                 }
             }
-            // Notes (brighter with velocity)
+            // Notes (brighter with velocity; faded if never played), with their stutter (ticks:
+            // retriggers, rising or falling with its velocity effect) and play/stutter frequency
+            // or chance
             Repeater {
                 model: root.pe.events
                 Rectangle {
+                    id: noteItem
                     required property var modelData
+                    readonly property color decoColor: modelData.velocity >= 58 ? "#101010" : "#e0e0e0"
                     x: modelData.step * root.stepWidth + 1
                     y: root.rowY(modelData.row) + 2
                     width: Math.max(6, modelData.duration * root.stepWidth - 2)
                     height: root.rowHeight - 4
                     radius: 3
+                    opacity: modelData.muted ? 0.35 : 1
                     color: Qt.hsla(0.58, 0.8, 0.25 + 0.45 * modelData.velocity / 127, 1)
                     border.color: "#e0f0ff"
                     border.width: 1
+                    Repeater {
+                        id: ticks
+                        model: noteItem.modelData.stutter > 0
+                               ? Math.max(1, Math.min(Math.floor(noteItem.width / 4),
+                                                      Math.round(noteItem.modelData.duration * noteItem.modelData.stutter)))
+                               : 0
+                        Rectangle {
+                            required property int index
+                            readonly property real level: {
+                                const n = Math.max(1, ticks.count - 1)
+                                const fx = noteItem.modelData.stutterFx
+                                return fx === 1 ? 0.3 + 0.7 * index / n : (fx === 2 ? 1 - 0.7 * index / n : 0.5)
+                            }
+                            x: index * noteItem.width / ticks.count + 1
+                            width: Math.max(1, noteItem.width / ticks.count / 2)
+                            // Lower half with a label, so it stays readable
+                            height: (noteItem.height - 4) * level * (noteItem.modelData.label ? 0.4 : 1)
+                            y: noteItem.height - 2 - height
+                            color: noteItem.decoColor
+                            opacity: noteItem.modelData.stutterMuted ? 0.3 : 0.6
+                        }
+                    }
+                    Text {
+                        visible: text !== ""
+                        anchors.centerIn: parent
+                        width: parent.width - 2
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                        text: noteItem.modelData.label
+                        color: noteItem.decoColor
+                        font.pixelSize: Math.min(13, noteItem.height - 2)
+                    }
                 }
             }
             // Selected block

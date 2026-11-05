@@ -21,7 +21,7 @@ import sys
 
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
 
 # zynthian's settings; Tk is only set up there for zynthian_main.py
 from zyngui import zynthian_gui_config
@@ -30,6 +30,7 @@ zynthian_gui_config.init_zyncore()
 
 from zynqt.ui import ZynUI
 from zynqt.models.mixer import MixerModel, MixerMeters
+from zynqt.models.organelle import OledDisplay
 
 QML_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zynqt", "qml")
 
@@ -75,6 +76,8 @@ def main():
     ui.mixerSettingsChanged.connect(mixer.reload)
     ui.mixerSettingsChanged.connect(main_bus.reload)
 
+    # QML types implemented in Python
+    qmlRegisterType(OledDisplay, "Zynthian", 1, 0, "OledDisplay")
     engine = QQmlApplicationEngine()
     ctx = engine.rootContext()
     ctx.setContextProperty("zyn", ui)

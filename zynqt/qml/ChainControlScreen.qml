@@ -132,6 +132,39 @@ Item {
         }
     }
 
+    // Moving the current processor (processor options: Move)
+    Grid {
+        anchors.horizontalCenter: pages.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 20
+        columns: 3
+        spacing: 8
+        visible: zyn.movingProcessor
+        z: 10
+        Item { width: 80; height: 56 }
+        MoveKey { text: "\u25b2"; onTapped: zyn.moveProcessor("up") }
+        Item { width: 80; height: 56 }
+        MoveKey { text: "\u25c0"; onTapped: zyn.moveProcessor("left") }
+        MoveKey { text: "Done"; onTapped: zyn.endMoveProcessor() }
+        MoveKey { text: "\u25b6"; onTapped: zyn.moveProcessor("right") }
+        Item { width: 80; height: 56 }
+        MoveKey { text: "\u25bc"; onTapped: zyn.moveProcessor("down") }
+    }
+
+    component MoveKey: Rectangle {
+        id: moveKey
+        property alias text: moveKeyLabel.text
+        signal tapped
+        width: 80
+        height: 56
+        radius: 4
+        color: moveKeyTap.pressed ? Theme.keyText : "#e0202830"
+        border.color: Theme.select
+        border.width: 2
+        Text { id: moveKeyLabel; anchors.centerIn: parent; color: Theme.text; font.pixelSize: 22 }
+        TapHandler { id: moveKeyTap; onTapped: moveKey.tapped() }
+    }
+
     component SideButton: Rectangle {
         id: button
         property alias text: label.text

@@ -11,6 +11,8 @@ the Tk mixer's update_dpm_states) and exposed as one list property, which the QM
 import logging
 import os
 
+from zyngui import zynthian_gui_config
+
 from PySide6.QtCore import (QAbstractListModel, QModelIndex, QObject, QTimer, Qt, Property, Signal,
                             Slot)
 
@@ -201,6 +203,13 @@ class MixerMeters(QObject):
             logging.debug(f"DPM update: {e}")
             return
         levels = []
+        # Peak meters of the chain strips can be switched off (admin); the main strip has them always
+        if not (zynthian_gui_config.enable_dpm or self.model.main_only):
+            levels = [0.0] * (4 * self.model.rowCount())
+            if levels != self._levels:
+                self._levels = levels
+                self.levelsChanged.emit()
+            return
         for row in range(self.model.rowCount()):
             chain = self.model.chain(row)
             proc = chain.zynmixer_proc if chain else None

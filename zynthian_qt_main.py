@@ -1,0 +1,82 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+# ******************************************************************************
+# ZYNTHIAN PROJECT: Zynthian GUI
+#
+# Main Script for the Qt Quick UI (docs/qt-port-plan.md), started instead of zynthian_main.py
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or any later version.
+#
+# For a full copy of the GNU General Public License see the LICENSE.txt file.
+#
+# ******************************************************************************
+
+import logging
+import os
+import signal
+import sys
+
+from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlApplicationEngine
+
+# zynthian's settings; Tk is only set up there for zynthian_main.py
+from zyngui import zynthian_gui_config
+# Before the engine modules are imported: zynthian_chain_manager queries zyncore at import
+zynthian_gui_config.init_zyncore()
+
+from zynqt.ui import ZynUI
+from zynqt.models.mixer import MixerModel, MixerMeters
+
+QML_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zynqt", "qml")
+
+# Exit codes as zynthian_main.py (the launchers restart on 100 and 102)
+EXIT_CODES = {signal.SIGHUP: 0, signal.SIGINT: 100, signal.SIGQUIT: 102, signal.SIGTERM: 101}
+
+
+def main():
+    logging.info("STARTING ZYNTHIAN-UI (Qt) ...")
+    app = QGuiApplication(sys.argv)
+    app.setApplicationName("zynthian")
+    app.setOrganizationName("zynthian")
+
+    ui = ZynUI()
+    zynthian_gui_config.zyngui = ui
+
+    mixer = MixerModel(ui.chain_manager, ui.bridge)
+    main_bus = MixerModel(ui.chain_manager, ui.bridge, main_only=True)
+    meters = MixerMeters(ui.state_manager, mixer)
+    main_meters = MixerMeters(ui.state_manager, main_bus)
+
+    engine = QQmlApplicationEngine()
+    ctx = engine.rootContext()
+    ctx.setContextProperty("zyn", ui)
+    ctx.setContextProperty("mixerStrips", mixer)
+    ctx.setContextProperty("mainStrip", main_bus)
+    ctx.setContextProperty("mixerMeters", meters)
+    ctx.setContextProperty("mainMeters", main_meters)
+    ctx.setContextProperty("startFullScreen", os.environ.get("ZYNTHIAN_FULLSCREEN") == "1")
+    engine.load(QUrl.fromLocalFile(os.path.join(QML_DIR, "Main.qml")))
+    if not engine.rootObjects():
+        logging.error("Can't load the QML UI")
+        return 1
+
+    # Python runs its signal handlers only between bytecodes; let it run now and then while Qt's
+    # event loop is in C++
+    tick = QTimer(interval=200)
+    tick.timeout.connect(lambda: None)
+    tick.start()
+    for signo, code in EXIT_CODES.items():
+        signal.signal(signo, lambda s, f, code=code: ui.exit(code))
+
+    ui.start()
+    app.exec()
+    logging.info(f"EXITING ZYNTHIAN-UI (Qt) => {ui.exit_code}")
+    return ui.exit_code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

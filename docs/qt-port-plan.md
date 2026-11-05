@@ -1,6 +1,6 @@
 # Starting the Qt Quick port: implementation plan
 
-Status: plan, 2026-11-05. Follows [ui-reimplementation-plan.md](ui-reimplementation-plan.md),
+Status: plan, 2026-11-05; M0 done, M1 started (`zynthian_qt_main.py`, `zynqt/`). Follows [ui-reimplementation-plan.md](ui-reimplementation-plan.md),
 which chose Qt Quick (QML) with the Python backend in-process (PySide6). This plan covers how to
 start: what to build first, how it runs on the Lenovo Duet, and what decides the open questions.
 
@@ -97,6 +97,32 @@ Goal: decide that PySide6 + Qt Quick works on the Duet, and how fast.
   meters update through property bindings, not Python per frame.
 
 Exit: numbers in this document; PySide6 or the C++ fallback chosen.
+
+**Results (2026-11-05).** PySide6 6.12.0 built for Nura (`nura/pyside6`, 8 modules) and
+installed on the Duet; the spike (`zynqt/spike/`) ran there as a native Wayland client in labwc
+(Zrythm's session, Zrythm paused), Qt Quick on OpenGL ES 3.1 (Panfrost), threaded render loop.
+Measured with the `performance` governor and the spike pinned to the A73 cores (4–7); CPU in % of
+one core:
+
+| | render thread | Python (GUI thread) | labwc |
+|---|---|---|---|
+| idle, nothing changing | 0 % (no frames drawn) | 0 % | 0 % |
+| screen switch every second | 1 % | 0.4 % | 0.1 % |
+| 32 meters at 30 Hz | 4.7 % | 4.1 % | 2.5 % |
+| 32 meters at 60 Hz | 9.2 % | 7.9 % | 5.1 % |
+
+- Frame rate 58–60 fps; a screen switch is on screen in the next frame or two (1–5 ms with
+  `performance`, 2–25 ms with `schedutil`), against 37–76 ms per switch in the Tk UI.
+- First frame 330–460 ms after start (mock app).
+- A meter update costs ~1 ms of Python, 0.9 ms of it in QML bindings. Two things mattered:
+  read a Python list property once per update into a QML property (every read converts the whole
+  list: 5.7 ms per update before), and draw meters without `clip` (clipping breaks the scene
+  graph's batching: half the render thread time without it).
+- Under `schedutil` (the default of Zrythm's Duet package) the same work shows about twice the
+  CPU time: the clock stays low.
+
+Decision: PySide6 in-process, as planned; meters at 30 Hz. If the meters need to get cheaper, a
+small C++ item reading zynmixer's DPM data directly (no Python per frame) is the next step.
 
 ### M1: backend in a Qt process (1–2 weeks)
 

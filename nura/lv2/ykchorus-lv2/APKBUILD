@@ -10,7 +10,8 @@ pkgdesc="YK Chorus LV2 plugin"
 url="https://github.com/SpotlightKid/ykchorus"
 arch="all"
 license="GPL-2.0-or-later"
-makedepends="lv2-dev"
+# bash: DPF's utils/generate-ttl.sh (run in build()) is a bash script
+makedepends="bash lv2-dev"
 source="$pkgname-$_commit.tar.gz::https://github.com/SpotlightKid/ykchorus/archive/$_commit.tar.gz
 	dpf-$_dpf.tar.gz::https://github.com/DISTRHO/DPF/archive/$_dpf.tar.gz"
 builddir="$srcdir/ykchorus-$_commit"

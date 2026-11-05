@@ -102,6 +102,11 @@ Item {
             visible: root.cc.widgetType === "plugin"
             view: root.cc.pluginView
         }
+        EuclidSeqView {
+            anchors.fill: parent
+            visible: root.cc.widgetType === "euclid"
+            view: root.cc.euclidView
+        }
     }
 
     // Controller pages

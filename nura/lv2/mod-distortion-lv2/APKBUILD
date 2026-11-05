@@ -1,0 +1,26 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# MOD's distortion plugins (DS1, Big Muff; URIs http://moddevices.com/plugins/mod-devel/), enabled
+# by default in zynthian (Debian mod-distortion on ZynthianOS).
+pkgname=mod-distortion-lv2
+_commit=3622901c643570087b9d26fec2fd878384eaa98e
+pkgver=0_git20191001
+pkgrel=0
+pkgdesc="MOD distortion LV2 plugins (DS1, Big Muff)"
+url="https://github.com/moddevices/mod-distortion"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/moddevices/mod-distortion/archive/$_commit.tar.gz"
+builddir="$srcdir/mod-distortion-$_commit"
+options="!check" # no tests
+
+build() {
+	make NOOPT=true
+}
+
+package() {
+	make install NOOPT=true INSTALL_PATH=/usr/lib/lv2 DESTDIR="$pkgdir"
+}
+sha512sums="
+0e86ce9d00fda68e37259a0b6d6edab16dbda9f63ae5ac5d78a68c1ae7a1fdadfbc33f3dc8c79e7638d58f205cd5e61dd7ffe8909fb09d69e9d1546faf4258a5  mod-distortion-lv2-3622901c643570087b9d26fec2fd878384eaa98e.tar.gz
+"

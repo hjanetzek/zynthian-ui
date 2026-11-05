@@ -1,0 +1,35 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# MOD's pitch shifters (2Voices, Capo, Drop, Harmonizer, SuperCapo, SuperWhammy; URIs
+# http://moddevices.com/plugins/mod-devel/), enabled by default in zynthian (Debian
+# mod-pitchshifter on ZynthianOS).
+pkgname=mod-pitchshifter-lv2
+_commit=3140d9a3c29a44f9c79813b34de1e44404a39b98
+pkgver=0_git20261016
+pkgrel=0
+pkgdesc="MOD pitch shifter LV2 plugins"
+url="https://github.com/moddevices/mod-pitchshifter"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev fftw-dev armadillo-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/moddevices/mod-pitchshifter/archive/$_commit.tar.gz"
+builddir="$srcdir/mod-pitchshifter-$_commit"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	# The Makefile generates FFTW wisdom for 34 sizes in exhaustive mode (fftwf-wisdom -x): very
+	# slow, and only valid for the machine that runs it (under pmbootstrap: qemu). The plugins load
+	# the system wisdom first, then this file, and otherwise plan with FFTW_ESTIMATE. Ship it empty.
+	: > Shared_files/harmonizer.wisdom
+}
+
+build() {
+	make NOOPT=true
+}
+
+package() {
+	make install NOOPT=true INSTALL_PATH=/usr/lib/lv2 DESTDIR="$pkgdir"
+}
+sha512sums="
+9254a7b793e6aa00bf80d6f42575a3a267aceacfa71c1091d049431515e0c611ee5a05c36a073575f0ebafa11ce052dc87a46df1417d0c038a5d989cf1141d75  mod-pitchshifter-lv2-3140d9a3c29a44f9c79813b34de1e44404a39b98.tar.gz
+"

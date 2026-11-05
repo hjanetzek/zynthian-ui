@@ -1,0 +1,33 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# MOD's LV2 port of the C* Audio Plugin Suite (URIs http://moddevices.com/plugins/caps/), the
+# variant zynthian enables by default (zynthian-sys recipe install_mod-caps.sh). Alpine's caps is
+# the LADSPA suite.
+pkgname=mod-caps-lv2
+_commit=5d52a0c6e8863c058c2aab2dea9f901a90d96eb9
+pkgver=0.9.26_git20200530
+pkgrel=0
+pkgdesc="C* Audio Plugin Suite, MOD's LV2 port"
+url="https://github.com/moddevices/caps-lv2"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/moddevices/caps-lv2/archive/$_commit.tar.gz"
+builddir="$srcdir/caps-lv2-$_commit"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	# glibc's internal __intN_t types: musl has only the standard ones
+	sed -i 's/__\(u\{0,1\}int[0-9]*_t\)/\1/g; s|^\(#define BASICS_H\)|\1\n#include <stdint.h>|' basics.h
+}
+
+build() {
+	make
+}
+
+package() {
+	make install PREFIX=/usr DESTDIR="$pkgdir"
+}
+sha512sums="
+a88746f8fa0b0dc3cd24ed6ff49969f827eaf9f0231290874c3add3dcb4f4a12763e947b19dc80997bea7a36245f539ad648095e20c6ab56f282b14b4f389eb3  mod-caps-lv2-5d52a0c6e8863c058c2aab2dea9f901a90d96eb9.tar.gz
+"

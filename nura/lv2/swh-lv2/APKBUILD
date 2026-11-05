@@ -1,0 +1,26 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Steve Harris' plugins as LV2 (URIs http://plugin.org.uk/swh-plugins/), enabled by default in
+# zynthian (zynthian-sys recipe install_swh.sh). The sources are generated from XML (xsltproc).
+pkgname=swh-lv2
+_commit=e5f8356c773fe5995f183fe28758b93912aa8901
+pkgver=1.0.16_git20261021
+pkgrel=0
+pkgdesc="Steve Harris' LV2 plugins"
+url="https://github.com/swh/lv2"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev fftw-dev libxslt"
+source="$pkgname-$_commit.tar.gz::https://github.com/swh/lv2/archive/$_commit.tar.gz"
+builddir="$srcdir/lv2-$_commit"
+options="!check" # no tests
+
+build() {
+	make
+}
+
+package() {
+	make install-system INSTALL_DIR="$pkgdir"/usr/lib/lv2
+}
+sha512sums="
+75683b023e9147f18a2e1a72ac53e4d2bf6093b0cd9440d06308f4a145b537a0feb799ff77538589e3c97b2010fb8d47b92bb7aa42ab8904e8598cca1b0b04bb  swh-lv2-e5f8356c773fe5995f183fe28758b93912aa8901.tar.gz
+"

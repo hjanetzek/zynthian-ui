@@ -1,0 +1,33 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# MOD's LV2 port of the TAP plugins (URIs http://moddevices.com/plugins/tap/), the variant
+# zynthian enables by default (zynthian-sys recipe install_mod-tap.sh).
+pkgname=mod-tap-lv2
+_commit=cab6e0dfb2ce20e4ad34b067d1281ec0b193598a
+pkgver=0_git20180221
+pkgrel=0
+pkgdesc="Tom's Audio Processing plugins, MOD's LV2 port"
+url="https://github.com/moddevices/tap-lv2"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/moddevices/tap-lv2/archive/$_commit.tar.gz"
+builddir="$srcdir/tap-lv2-$_commit"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	# -Werror breaks with newer compilers' warnings
+	sed -i 's/ -Werror//' Makefile.mk
+}
+
+build() {
+	# NOOPT: without the x86 flags (-msse -mfpmath=sse)
+	make NOOPT=true
+}
+
+package() {
+	make install NOOPT=true INSTALL_PATH=/usr/lib/lv2 DESTDIR="$pkgdir"
+}
+sha512sums="
+f511f2f6496070e4eb8f82106f7e5bb6033c82dc8e3491574496a6e97f9c56be255dd941882e4ccbee0510dcaf465071d9560baa030ec6d3fbdc3b6c8d502fc4  mod-tap-lv2-cab6e0dfb2ce20e4ad34b067d1281ec0b193598a.tar.gz
+"

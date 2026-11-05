@@ -1,0 +1,48 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# MOD's fork of the MDA plugins (URIs http://moddevices.com/plugins/mda/, bundles mod-mda-*.lv2),
+# the variant zynthian enables by default (zynthian-sys recipe install_mod-mda.sh). Alpine's
+# mda-lv2 is drobilla's, with other URIs; both can be installed.
+# The bundled waf (1.7, a self-extracting script) doesn't run on Python 3.12+, and autowaf isn't
+# packaged: build() does what the wscript does, one module per plugin.
+pkgname=mod-mda-lv2
+_commit=b2df88cb28540856b7ec7d0210809efd7ca6bcd7
+pkgver=1.1.0_git20230925
+pkgrel=0
+pkgdesc="MDA plugins, MOD's LV2 port"
+url="https://github.com/mod-audio/mda-lv2"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/mod-audio/mda-lv2/archive/$_commit.tar.gz"
+builddir="$srcdir/mda-lv2-$_commit"
+options="!check" # no tests
+
+_plugins="Ambience Bandisto BeatBox Combo DX10 DeEss Degrade Delay Detune Dither DubDelay
+	Dynamics EPiano Image JX10 Leslie Limiter Loudness MultiBand Overdrive Piano RePsycho
+	RezFilter RingMod RoundPan Shepard Splitter Stereo SubSynth TalkBox TestTone ThruZero
+	Tracker Transient VocInput Vocoder"
+
+build() {
+	local p bundle
+	for p in $_plugins; do
+		bundle=build/mod-mda-$p.lv2
+		mkdir -p "$bundle"
+		${CXX:-c++} $CXXFLAGS $CPPFLAGS -fPIC -shared $LDFLAGS \
+			-I. -Ilvz -Isrc \
+			-DPLUGIN_CLASS=mda$p \
+			-DURI_PREFIX='"http://moddevices.com/plugins/mda/"' \
+			-DPLUGIN_URI_SUFFIX="\"$p\"" \
+			-DPLUGIN_HEADER="\"src/mda$p.h\"" \
+			src/mda$p.cpp lvz/wrapper.cpp -o "$bundle/$p.so"
+		sed 's/@LIB_EXT@/.so/g' bundles/mod-mda-$p.lv2/manifest.ttl.in > "$bundle"/manifest.ttl
+		cp bundles/mod-mda-$p.lv2/*.ttl "$bundle"/
+	done
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	cp -r build/*.lv2 "$pkgdir"/usr/lib/lv2/
+}
+sha512sums="
+679c7ac81feb7da6d4844a9d0d46258fb9abe18d9f812a308e10aa3239cc208f422b2b2873977edb85e04ddc960c47c0983221f65e9302b86ffc373af8464923  mod-mda-lv2-b2df88cb28540856b7ec7d0210809efd7ca6bcd7.tar.gz
+"

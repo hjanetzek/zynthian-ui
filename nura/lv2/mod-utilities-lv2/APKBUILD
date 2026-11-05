@@ -1,0 +1,27 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# MOD's utility plugins (gain, crossovers, filters, switch boxes; URIs
+# http://moddevices.com/plugins/mod-devel/), enabled by default in zynthian (Debian
+# mod-utilities on ZynthianOS).
+pkgname=mod-utilities-lv2
+_commit=b8013e46ef495c8c4ef527fa147cf5ad505e4f07
+pkgver=0_git20261016
+pkgrel=0
+pkgdesc="MOD utility LV2 plugins"
+url="https://github.com/moddevices/mod-utilities"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/moddevices/mod-utilities/archive/$_commit.tar.gz"
+builddir="$srcdir/mod-utilities-$_commit"
+options="!check" # no tests
+
+build() {
+	make NOOPT=true
+}
+
+package() {
+	make install NOOPT=true INSTALL_PATH=/usr/lib/lv2 DESTDIR="$pkgdir"
+}
+sha512sums="
+53103a4250dd235bc0748b8cfa9d8c9f92fbf8765fd1810b1642b5c870879800490f5d017b6fcc3ffc00d5cf746f967d2132fda90d062f704f6eaad21e495969  mod-utilities-lv2-b8013e46ef495c8c4ef527fa147cf5ad505e4f07.tar.gz
+"

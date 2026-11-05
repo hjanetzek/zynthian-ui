@@ -21,6 +21,7 @@ class SignalBridge(QObject):
     mixerValueChanged = Signal(bool, int, str, float)
     snapshotLoaded = Signal()
     processorControllersChanged = Signal()
+    recorderStateChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,6 +35,8 @@ class SignalBridge(QObject):
         self._register(zynsigman.S_STATE_MAN, zynsigman.SS_LOAD_SNAPSHOT, self._cb_snapshot)
         self._register(zynsigman.S_PROCESSOR, zynsigman.SS_PROCESSOR_CTRL_SCREENS,
                        self._cb_ctrl_screens)
+        self._register(zynsigman.S_AUDIO_RECORDER, zynsigman.SS_AUDIO_RECORDER_STATE, self._cb_recorder)
+        self._register(zynsigman.S_STATE_MAN, zynsigman.SS_MIDI_RECORDER_STATE, self._cb_recorder)
 
     def _register(self, signal, subsignal, callback):
         zynsigman.register(signal, subsignal, callback)
@@ -63,3 +66,6 @@ class SignalBridge(QObject):
 
     def _cb_ctrl_screens(self, **kwargs):
         self.processorControllersChanged.emit()
+
+    def _cb_recorder(self, **kwargs):
+        self.recorderStateChanged.emit()

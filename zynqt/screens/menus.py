@@ -17,7 +17,7 @@ class MainMenu(SelectorScreen):
         ui = self.ui
         self.set_entries([
             entry("Add\nChain", lambda e: ui.cuia_add_chain(), icon="add_chain.png"),
-            _todo("Chain\nManager", "chain_manager.png"),
+            entry("Chain\nManager", lambda e: ui.show_screen("chain_manager"), icon="chain_manager.png"),
             entry("Snapshots", lambda e: ui.show_screen("snapshot"), icon="snapshot.png"),
             entry("Clean", lambda e: self.clean_menu(), icon="delete.png"),
             entry("MIDI\nInput", lambda e: ui.show_screen("midi_devices_in"), icon="midi_input.png"),

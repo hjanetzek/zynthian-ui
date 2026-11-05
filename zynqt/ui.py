@@ -919,7 +919,12 @@ class ZynUI(QObject):
     cuia_screen_control = cuia_chain_control
 
     def cuia_menu(self, params=None):
-        if self.current_screen == "main_menu":
+        """The current screen's own menu if it has one (pattern editor), else the main menu"""
+        screen = self.qml_screen_objects.get(self.current_screen)
+        show_menu = getattr(screen, "show_menu", None)
+        if callable(show_menu):
+            show_menu()
+        elif self.current_screen == "main_menu":
             self.back()
         else:
             self.showScreen("main_menu")

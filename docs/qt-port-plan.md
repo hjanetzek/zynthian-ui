@@ -168,6 +168,27 @@ display).
 Exit: everyday use (load a snapshot, add a chain, pick a preset, mix, tweak controllers) works
 with the Qt UI on the Duet, by touch.
 
+**Status (2026-11-05).** On the desktop and the Duet (as a native Wayland client in labwc):
+mixer, chain control (with sidebar: chain options, MIDI/audio routing, processor options), adding
+chains (type, engine, MIDI channel, bank, preset), snapshots, ZS3, tempo, audio levels, admin
+settings, MIDI devices, recording and transport keys, on-screen keyboard, the V5 keypad with the
+wiring configuration's switch actions. Not ported yet: players' file lists, chain manager, moving
+chains/processors, remaining admin entries, MIDI device options, MIDI CC / note range, launcher.
+
+Measured on the Duet (performance governor, A73 cores), the UI as it is now:
+
+| | Qt UI | Tk UI (labwc, XWayland) |
+|---|---|---|
+| Screen switch (mixer, main menu, chain control, admin, snapshots), after the first visit | 4–7 ms to the presented frame | 16–40 ms |
+| First visit of a screen | 12–50 ms | 10–209 ms |
+| Mixer while playing (meters at 30 Hz) | GUI thread 4.8 %, render thread 4.8 %, labwc 2.8 % | |
+
+The Tk UI under labwc draws at 960×565 (its XWayland window is scaled up by the compositor), the
+Qt UI at 1920×1200; in cage at full resolution the Tk UI took 37–76 ms per switch. Two things
+mattered for the Qt numbers: one QML view per selector screen, kept while hidden, and model
+updates in place instead of resets (the main menu grid took ~290 ms when its delegates and
+images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch times.
+
 ### M3: towards parity
 
 As in [ui-reimplementation-plan.md](ui-reimplementation-plan.md), phases 3–4: launcher/zynpad,

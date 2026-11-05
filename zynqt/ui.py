@@ -25,6 +25,7 @@ from zynqt.bridge import SignalBridge
 from zynqt.chain_edit import ChainEdit
 from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
+from zynqt.models.launcher import Launcher
 from zynqt.screens.chain_manager import ChainManager
 from zynqt.screens.control import ChainControl
 from zynqt.screens.snapshots import Options, Snapshots
@@ -38,7 +39,7 @@ from zynqt.screens.midi_chain import KeyRangeProcessor, MidiCC
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
-QML_SCREENS = ("mixer", "chain_manager", "chain_control", "tempo", "alsa_mixer", "audio_player", "midi_key_range")
+QML_SCREENS = ("mixer", "launcher", "chain_manager", "chain_control", "tempo", "alsa_mixer", "audio_player", "midi_key_range")
 
 
 class ZynUI(QObject):
@@ -91,8 +92,10 @@ class ZynUI(QObject):
         self.list_screens = {}
         self.chain_control_screen = ChainControl(self, self)
         self.chain_manager_screen = ChainManager(self, self)
+        self.launcher = Launcher(self, self)
         # Screens with their own QML and Python object (build when shown, hide when left)
-        self.qml_screen_objects = {"chain_manager": self.chain_manager_screen,
+        self.qml_screen_objects = {"launcher": self.launcher,
+                                   "chain_manager": self.chain_manager_screen,
                                    "chain_control": self.chain_control_screen,
                                    "tempo": self.chain_control_screen,
                                    "alsa_mixer": self.chain_control_screen,
@@ -252,6 +255,10 @@ class ZynUI(QObject):
     def listScreenObjects(self):
         """All selector screens: QML keeps one view per screen, so switching doesn't recreate them"""
         return list(self.list_screens.values())
+
+    @Property(QObject, constant=True)
+    def launcherModel(self):
+        return self.launcher
 
     @Property(QObject, constant=True)
     def chainManager(self):
@@ -581,7 +588,7 @@ class ZynUI(QObject):
                 if len(processor.preset_list) > 1:
                     screen = "preset"
         if processor and processor.eng_code == "CL":
-            screen = "mixer"   # launcher: not in the Qt UI yet
+            screen = "launcher"
         self.show_screen(screen)
 
     def get_current_screen(self):
@@ -798,6 +805,22 @@ class ZynUI(QObject):
 
     def cuia_screen_mixer(self, params=None):
         self.showScreen("mixer")
+
+    def cuia_screen_launcher(self, params=None):
+        """PAD: the launcher; in the launcher, edit the selected pad (zynthian_gui)"""
+        if self.current_screen == "launcher":
+            self.launcher.edit_pad()
+        else:
+            self.show_screen_reset("launcher")
+
+    def cuia_screen_zynpad(self, params=None):
+        self.showScreen("launcher")
+
+    def cuia_screen_pattern_editor(self, params=None):
+        if self.current_screen == "launcher":
+            self.launcher.edit_pad()
+        else:
+            self.show_info("The pattern editor is not in the Qt UI yet.")
 
     def cuia_screen_chain_manager(self, params=None):
         self.showScreen("chain_manager")

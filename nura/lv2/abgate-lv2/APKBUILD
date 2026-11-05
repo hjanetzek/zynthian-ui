@@ -1,0 +1,26 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# abGate noise gate (URI http://hippie.lt/lv2/gate), enabled by default in zynthian (Debian abgate
+# on ZynthianOS); the plugin only, without its GTK and Qt GUIs.
+pkgname=abgate-lv2
+_commit=bcb61514760ead02511620979749fb55a8b447bd
+pkgver=1.2.0_git20210810
+pkgrel=0
+pkgdesc="abGate noise gate LV2 plugin"
+url="https://github.com/antanasbruzas/abGate"
+arch="all"
+license="LGPL-3.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/antanasbruzas/abGate/archive/$_commit.tar.gz"
+builddir="$srcdir/abGate-$_commit"
+options="!check" # no tests
+
+build() {
+	make TARGET=gate.so CXXFLAGS="$CXXFLAGS"
+}
+
+package() {
+	make install TARGET=gate.so DESTDIR="$pkgdir" PREFIX=/usr
+}
+sha512sums="
+32dadf93a2992e05a7f95bdf6639d7dca0fcd4e0d2a56e71ba48592dac7be2393f313eb7d96103802701a379c32cf1d5574b4b34a6357dd912c519a03778e1bc  abgate-lv2-bcb61514760ead02511620979749fb55a8b447bd.tar.gz
+"

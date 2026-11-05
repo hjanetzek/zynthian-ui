@@ -4,7 +4,7 @@
 pkgname=swh-lv2
 _commit=e5f8356c773fe5995f183fe28758b93912aa8901
 pkgver=1.0.16_git20261021
-pkgrel=0
+pkgrel=1
 pkgdesc="Steve Harris' LV2 plugins"
 url="https://github.com/swh/lv2"
 arch="all"
@@ -15,7 +15,10 @@ builddir="$srcdir/lv2-$_commit"
 options="!check" # no tests
 
 build() {
-	make
+	# The plugins declare helpers as plain 'inline' (GNU89 semantics): in C99 and later no external
+	# definition is emitted, and with -Os the calls aren't all inlined (sifter: "partition: symbol
+	# not found" at load time)
+	make CFLAGS="$CFLAGS -fgnu89-inline"
 }
 
 package() {

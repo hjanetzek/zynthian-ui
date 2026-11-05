@@ -1,0 +1,41 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Invada Studio plugins (URIs http://invadarecords.com/plugins/lv2/...), enabled by default in
+# zynthian (Debian invada-studio-plugins-lv2 on ZynthianOS). Debian's source and patches
+# (header location, flags, GCC 14); the plugins only, without the GTK 2 GUIs.
+pkgname=invada-lv2
+pkgver=1.2.0
+_debver=1.2.0+repack0
+_debrel=10
+pkgrel=0
+pkgdesc="Invada Studio LV2 plugins"
+url="https://launchpad.net/invada-studio"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="lv2-dev"
+source="https://deb.debian.org/debian/pool/main/i/invada-studio-plugins-lv2/invada-studio-plugins-lv2_$_debver.orig.tar.gz
+	https://deb.debian.org/debian/pool/main/i/invada-studio-plugins-lv2/invada-studio-plugins-lv2_$_debver-$_debrel.debian.tar.xz"
+builddir="$srcdir/invada-studio-plugins-lv2-$pkgver"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	local p
+	for p in $(cat "$srcdir"/debian/patches/series); do
+		patch -p1 -i "$srcdir"/debian/patches/$p
+	done
+}
+
+build() {
+	make -C plugin/library
+	make -C plugin
+}
+
+package() {
+	local dest="$pkgdir"/usr/lib/lv2/invada.lv2
+	mkdir -p "$dest"
+	cp plugin/*.so rdf/*.ttl "$dest"/
+}
+sha512sums="
+0256aadf08d5f53ed94116cfa44f62265ba9bc54861a4d958cb793b888ba7655406f7770afdd4b8034bb5f89f1aea04bad855d604214cac0c1c946d601d68426  invada-studio-plugins-lv2_1.2.0+repack0.orig.tar.gz
+56cc7042bf7c8ed1eabea9ab93a35a5d99ced17c7e68eaf7c63ddc3111891bef3cce31c61cb21b2202aed6b1f461230cac72b5c4b07ecf3b9d298996f25c503d  invada-studio-plugins-lv2_1.2.0+repack0-10.debian.tar.xz
+"

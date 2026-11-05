@@ -1,6 +1,7 @@
 # LV2 plugins on Nura: state and plan
 
-Status: 2026-11-05, measured on the Lenovo Duet (Nura edge, aarch64, musl).
+Status: 2026-11-05, measured on the Lenovo Duet (Nura edge, aarch64, musl). Phase 1 of the plan
+done: 144 of the 313 default plugins installed and loading (from 36 before).
 
 zynthian's default engine configuration (`zynthian-sys/config/engine_config.json`) lists 1300
 LV2 plugins, **313 of them enabled by default** (the rest are installed on ZynthianOS but
@@ -9,16 +10,17 @@ rest.
 
 ## How it was measured
 
-The enabled plugin URIs from `engine_config.json`, compared with the plugins lilv finds on the
-device (`py3-lilv`):
+`nura/tools/lv2-coverage.py` compares the enabled plugin URIs of zynthian's default
+`engine_config.json` with the plugins lilv finds on the device; `--missing` lists the missing ones by
+project, `--load` dlopens every LV2 library (unresolved symbols) and instantiates the enabled
+plugins that need no host features:
 
-```python
-import lilv
-w = lilv.World(); w.load_all()
-have = {str(p.get_uri()) for p in w.get_all_plugins()}
-# enabled: the URLs of the entries with ENABLED in engine_config.json
-print(sum(1 for u in enabled if u in have), "of", len(enabled))
+```sh
+ssh jeff@kick-duet.local python3 - --missing --load < nura/tools/lv2-coverage.py
 ```
+
+Plugins that need host features (`urid:map`, `options`, ...) only show they load; start them in
+jalv on PipeWire (`jalv -n test -i URI </dev/null`: exit status 0, no "Failed to instantiate").
 
 After installing plugins, zynthian has to rescan them (it takes the enabled state from its
 defaults):
@@ -30,9 +32,10 @@ cd /usr/share/zynthian/zynthian-ui/zyngine && python3 ./zynthian_lv2.py engines
 with zynthian's environment (`ZYNTHIAN_DIR`, `ZYNTHIAN_LIB_DIR`, `PYTHONPATH` as in
 `/usr/bin/zynthian`, then `desktop/zynthian_desktop_env.sh`), then restart the session.
 
-## Installed: 71 of 313
+## Installed: 144 of 313
 
-From Alpine packages, all dependencies of `postmarketos-ui-zynthian`:
+All pulled in by the meta package `zynthian-lv2-plugins` (`nura/lv2/`), which
+`postmarketos-ui-zynthian` depends on. From Alpine:
 
 | Package | Enabled zynthian plugins it provides |
 |---|---|
@@ -42,9 +45,24 @@ From Alpine packages, all dependencies of `postmarketos-ui-zynthian`:
 | `amsynth-lv2` | 1 |
 
 `mda-lv2` is installed too, but it is drobilla's MDA with `http://drobilla.net/plugins/mda/` URIs;
-zynthian enables the MOD fork's (`http://moddevices.com/plugins/mda/`). After the rescan 18 of
-drobilla's were enabled (why, not checked), so the MDA effects are there, but snapshots made on ZynthianOS
-refer to the MOD URIs and don't find them.
+zynthian enables the MOD fork's (`http://moddevices.com/plugins/mda/`), now packaged as
+`mod-mda-lv2` (bundles `mod-mda-*.lv2`, no conflict with drobilla's `mda.lv2`). After a rescan 18 of
+drobilla's were enabled too (why, not checked).
+
+Packaged in `nura/lv2/` (phase 1, built and tested on the Duet):
+
+| Package | Enabled zynthian plugins | Notes |
+|---|---|---|
+| `mod-mda-lv2` | 18 | MOD's MDA fork; built without its waf |
+| `mod-utilities-lv2`, `mod-distortion-lv2`, `mod-pitchshifter-lv2` | 17 | pitch shifters with an empty FFTW wisdom file |
+| `swh-lv2` | 11 | `-fgnu89-inline` |
+| `mod-caps-lv2` | 6 | musl integer types |
+| `mod-tap-lv2` | 6 | without `-Werror` |
+| `invada-lv2` | 5 | Debian's source and patches, without the GTK 2 GUIs |
+| `infamous-lv2` | 3 | without GUIs (NTK isn't packaged) |
+| `shiro-lv2` | 3 | built against a newer DPF, modgui off |
+| `artyfx-lv2` | 2 | without GUI and SSE |
+| `abgate-lv2`, `bolliedelay-lv2`, `ykchorus-lv2` | 3 | DSP only |
 
 Before 2026-11-05 the kiosk package depended on `calf` instead of `calf-lv2` (Alpine puts the LV2
 plugins in a subpackage): none of the Calf plugins were installed. Fixed in `abd64c11`.
@@ -53,7 +71,7 @@ Available in Alpine but **not** in zynthian's defaults (all disabled there): `ls
 (0 of 194 enabled), `airwindows-lv2` (0 of 187), `noise-repellent`, `bankstown-lv2`. Not
 installed.
 
-## Missing: 242
+## Missing: 169
 
 None of these are packaged in Alpine. Source: how ZynthianOS gets them (Debian/KXStudio package
 from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a prebuilt binary).
@@ -62,24 +80,18 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 |---|---|---|---|---|---|
 | Guitarix + GxPlugins | 59 | effects (amps, pedals) | recipes `install_guitarix.sh` (`--mod-lv2 --no-standalone`), `install_gxplugins.sh`; Debian `gxplugins` | waf; make | largest group; Guitarix needs Boost, glibmm, fftw, lilv, zita-convolver/resampler |
 | FluidPlug | 19 | instruments (SF2 sound sets) | recipe `install_fluidplug.sh` (fork `zynthian/FluidPlug`) | make, downloads the SF2s | data-heavy (soundfonts); needs fluidsynth |
-| MDA, MOD fork | 18 | effects, synths (DX10, JX10, ePiano) | recipe `install_mod-mda.sh` (`mod-audio/mda-lv2`) | waf (old, Python 3 fixes in the recipe) | URIs differ from Alpine's `mda-lv2`, see above |
-| MOD plugins | 17 | effects (gain, crossover, filters, DS1, Big Muff, pitch shifters, harmonizer) | Debian `mod-utilities`, `mod-distortion`, `mod-pitchshifter` | make | pitch shifters need FFTW |
-| SWH LV2 | 11 | effects | recipe `install_swh.sh` (`swh/lv2`) | make (generates code with XSLT) | |
 | DPF-Plugins | 7 | effects, synths (3 Band EQ, MVerb, Ping Pong Pan, Kars, Nekobi, Ma*) | Debian `dpf-plugins`, recipe `install_dpf_plugins.sh` | make (DPF) | build without UIs |
 | x42 extras | 7 | drumkits (5), Whirl (2) | recipes `install_avldrums.sh` (x42 binaries), `install_setbfree.sh` | make | avldrums: large sample data; setBfree is also a zynthian engine |
-| CAPS, MOD fork | 6 | effects, generators | recipe `install_mod-caps.sh`; Debian `caps-lv2` | make | |
-| TAP, MOD fork | 6 | effects | recipe `install_mod-tap.sh`; Debian `tap-lv2` | make | |
 | DISTRHO-Ports (JUCE) | 6 | TAL effects, Vex | Debian `distrho-plugin-ports-lv2`, recipe `install_distrho_ports.sh` | meson, JUCE (legacy) | long build |
 | EQ10Q | 8 | EQs, compressors | Debian `eq10q`, recipe `install_eq10q.sh` | cmake | GUI (gtkmm) to switch off |
 | Dusk Audio | 6 | effects, synth | prebuilt only (`install_dusk_*_prebuilt.sh`) | JUCE | sources to check; prebuilt glibc binaries can't run on musl |
-| Invada | 5 | effects, generator | Debian `invada-studio-plugins-lv2` | make | |
 | CHOW | 4 | effects (Centaur, Phaser, Tape) | recipes (source and prebuilt) | JUCE, cmake | |
 | Dragonfly Reverb | 4 | reverbs | Debian `dragonfly-reverb`, recipe `install_dragonfly.sh` (3.0.0 + patch) | make (DPF) | |
 | jpcima | 4 | String machine, MiniOPL3 | recipes `install_string-machine.sh`, `install_miniopl3.sh` | make (DPF) | |
-| infamous, SHIRO, artyfx, QMidiArp | 3, 3, 2, 2 | effects, MIDI tools | Debian / recipes | make, cmake | |
+| QMidiArp | 2 | MIDI tools | Debian / recipes | cmake | |
 | rncbc synths | 3 | padthv1, samplv1, synthv1 | Debian `*-lv2` | cmake, Qt | GUI-less build |
 | Synths (JUCE and others) | ~20 | Surge XT, Monique, Odin2, Vaporizer2, OB-Xd, Dexed, Helm, TAL-NoiseMaker, JC303, KR-106, RipplerX, MiMi-d, Mutated Instruments, Triceratops, Foo YC20, SO-kl5, Fabla, … | recipes, some prebuilt only | mostly JUCE, cmake | long builds; check each on aarch64/musl |
-| Single plugins | ~25 | AIDA-X, Neural Amp Modeler, Aether, Argotlunar2, Temper, Roboverb, Ratatouille, TalentedHack, Regrader, SAFE, gula, Luftikus, ChaosChimp, Granulator (Faust), abGate, Bollie Delay, YK Chorus, AMS Bitgrinder, The Pilgrim, Punk Console, Calf Wavetable, … | Debian / recipes / prebuilt | various | AIDA-X and NAM need RTNeural/Eigen and are CPU-heavy |
+| Single plugins | ~22 | AIDA-X, Neural Amp Modeler, Aether, Argotlunar2, Temper, Roboverb, Ratatouille, TalentedHack, Regrader, SAFE, gula, Luftikus, ChaosChimp, Granulator (Faust), AMS Bitgrinder, The Pilgrim, Punk Console, Calf Wavetable, … | Debian / recipes / prebuilt | various | AIDA-X and NAM need RTNeural/Eigen and are CPU-heavy |
 
 (The full list, plugin by plugin: regenerate with the measurement above; the table groups it.)
 
@@ -118,7 +130,7 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 
 | Phase | Projects | Plugins | Effort |
 |---|---|---|---|
-| 1. Small C/C++ effects | MOD MDA, MOD utilities/distortion/pitchshifter, CAPS, TAP, SWH, Invada, infamous, SHIRO, artyfx, abGate, Bollie Delay, YK Chorus | ~80 | 2–4 days: make/waf, few dependencies |
+| 1. Small C/C++ effects (**done**) | MOD MDA, MOD utilities/distortion/pitchshifter, CAPS, TAP, SWH, Invada, infamous, SHIRO, artyfx, abGate, Bollie Delay, YK Chorus | 73 | one day, see "Phase 1: lessons" |
 | 2. DPF family | DPF-Plugins, Dragonfly Reverb, string-machine, MiniOPL3 | ~20 | 1–2 days: one build system, UIs off |
 | 3. Guitarix | Guitarix (`--mod-lv2 --no-standalone`), GxPlugins | 59 | 2–4 days: waf, Boost/glibmm, musl fixes likely |
 | 4. Instruments with data | FluidPlug, avldrums, setBfree (also as engine) | ~26 | 2–3 days: data packages, download sizes |
@@ -127,8 +139,45 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | 7. Neural and the rest | AIDA-X, NAM, Dusk (if sources), single plugins | ~25 | case by case |
 
 After each phase: build, install on the Duet, rescan, measure coverage, and load each new plugin
-once (zynthian's `zynthian_lv2.test_lv2_plugin`, or jalv) to catch missing symbols and crashes;
-`lv2lint` for the TTL.
+once (`nura/tools/lv2-coverage.py --load`, and jalv for the ones that need host features) to catch
+missing symbols and crashes; `lv2lint` for the TTL.
+
+### Phase 1: lessons
+
+Built with abuild on the Duet itself (the target: aarch64, musl), which takes seconds to minutes per
+package and needs no sudo on the host; pmbootstrap builds the same APKBUILDs for images. Setup on
+the device: `sudo apk add alpine-sdk`, `sudo addgroup $USER abuild`, `abuild-keygen -a -n -i`; then
+in a copy of `nura/lv2/<pkg>`: `abuild checksum && abuild -r`, and
+`sudo apk add -u --repository ~/.local/share/abuild/aports <pkg>` (`-u`: `apk add` alone doesn't
+upgrade an installed package to a new pkgrel).
+
+Problems found, and how the packages handle them:
+
+- **Old waf** (MOD's MDA: waf 1.7, a self-extracting script) doesn't start on Python 3.12+
+  ("source code cannot contain null bytes"), and autowaf isn't packaged: `build()` compiles one
+  module per plugin as the wscript does.
+- **glibc-only types**: CAPS uses `__int16_t` and friends; musl has only the standard `int16_t`.
+- **C99 inline**: SWH declares helpers `inline` (GNU89 meaning). With Alpine's `-Os` not every call
+  is inlined, no external definition exists, and the library doesn't load ("partition: symbol not
+  found", Signal sifter): `-fgnu89-inline`. glibc distributions build with `-O2`/`-O3`, which hides
+  it.
+- **`-Werror`** in TAP's flags: removed.
+- **Old DPF**: SHIRO's DPF (2020) builds, but the plugins don't instantiate in jalv ("Failed to
+  instantiate plugin", without a reason; jalv then crashes). Built against the newer DPF of YK Chorus,
+  with the MOD web GUI description off (`DISTRHO_PLUGIN_USES_MODGUI 0`; the newer DPF needs more
+  settings for it, and the old bundles referred to a `modgui.ttl` that wasn't installed).
+- **DPF as a git submodule**: GitHub's archives don't contain submodules; DPF is a second source at
+  the right commit. DPF's top-level `all` builds the GUI library (and needs pugl, another submodule):
+  build `lv2_dsp` per plugin, then the TTL generator.
+- **Build-time FFTW wisdom**: MOD's pitch shifters generate exhaustive FFTW wisdom for 34 sizes
+  during the build (slow, and only valid on the machine that builds). Shipped empty: the plugins fall
+  back to FFTW_ESTIMATE plans. Better plans: generate system wisdom on the device once
+  (`fftwf-wisdom`, from Alpine's `fftw`; the plugins import the system wisdom first).
+- **x86 flags**: the MOD Makefiles add `-msse -mfpmath=sse` unless `NOOPT=true`; ArtyFX has
+  `BUILD_SSE=OFF`; infamous checks whether the compiler takes them.
+- **Testing**: lilv's instantiate without host features fails for every plugin that requires
+  `urid:map` or `options` (most DPF and x42 plugins); that says nothing. dlopen with `RTLD_NOW`
+  finds unresolved symbols, jalv on PipeWire tests the rest.
 
 ### Open questions
 
@@ -137,8 +186,9 @@ once (zynthian's `zynthian_lv2.test_lv2_plugin`, or jalv) to catch missing symbo
   building on an aarch64 machine.
 - **Image size:** soundfonts and drum samples are hundreds of MB. Optional data packages, or a
   download on first use as ZynthianOS does for some.
-- **MDA URIs:** keep drobilla's `mda-lv2` next to the MOD fork, or replace it (both install
-  `mda.lv2` bundles; the MOD fork's needs another bundle name or a conflict).
+- **MDA:** drobilla's `mda-lv2` and MOD's fork are both installed (no file conflict); drop
+  drobilla's from the meta package if its duplicate entries in zynthian's lists are a nuisance.
+- **FFTW wisdom** for the pitch shifters: generate it on the device (see Phase 1: lessons).
 - **Licences:** most are GPL/LGPL/ISC; check the few with unclear terms before adding them to an
   image.
 - **SooperLooper:** zynthian runs SooperLooper as its own engine (`zynthian_engine_sooperlooper`:

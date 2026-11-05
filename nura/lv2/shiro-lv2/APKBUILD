@@ -1,0 +1,49 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# SHIRO plugins (Shiroverb, Modulay, Larynx, Harmless; URIs https://github.com/ninodewit/SHIRO-Plugins/...),
+# enabled by default in zynthian (zynthian-sys recipe install_shiro.sh). DPF is a git submodule,
+# not in GitHub's archive: a second source. Not the submodule's DPF (2020): with it the plugins
+# don't instantiate in jalv ("Failed to instantiate plugin", without a reason); built against the
+# DPF of ykchorus-lv2, which works, with the MOD web GUI description (modgui) off, as the newer DPF
+# needs more settings for it and the kiosk doesn't use it. DSP only, no GUIs; NOOPT: no x86 flags.
+pkgname=shiro-lv2
+_commit=3e0a1d35f6ddfe3430e5921e0d55cf60574f8bc3
+_dpf=077fcf5758ed6038bfe6e7aee1e407aa02e807b2
+pkgver=0_git20201109
+pkgrel=1
+pkgdesc="SHIRO LV2 plugins"
+url="https://github.com/ninodewit/SHIRO-Plugins"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/ninodewit/SHIRO-Plugins/archive/$_commit.tar.gz
+	dpf-$_dpf.tar.gz::https://github.com/DISTRHO/DPF/archive/$_dpf.tar.gz"
+builddir="$srcdir/SHIRO-Plugins-$_commit"
+options="!check" # no tests
+
+_plugins="shiroverb modulay larynx harmless"
+
+prepare() {
+	default_prepare
+	rmdir dpf
+	mv "$srcdir"/DPF-$_dpf dpf
+	sed -i 's/#define DISTRHO_PLUGIN_USES_MODGUI *1/#define DISTRHO_PLUGIN_USES_MODGUI 0/' \
+		plugins/*/DistrhoPluginInfo.h
+}
+
+build() {
+	local p
+	for p in $_plugins; do
+		make -C plugins/$p NOOPT=true HAVE_OPENGL=false lv2_dsp
+	done
+	make -C dpf/utils/lv2-ttl-generator
+	dpf/utils/generate-ttl.sh
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	cp -r bin/*.lv2 "$pkgdir"/usr/lib/lv2/
+}
+sha512sums="
+07b2277ba88ce2781c6134f5654c85d64dfc83e8ef8381892620875a7b06073a341cdca7dbc0e26bb4ca41db3826d5a0880eee12060e06bc8fb99d50969e6a3f  shiro-lv2-3e0a1d35f6ddfe3430e5921e0d55cf60574f8bc3.tar.gz
+7e911abccfb8a232062fb72e9ff4fc84e053be329df034b40dd00a9b5cbf91a718db506fd838ded3ad69ada2553e48021ca912591369bfea9f6ee217319b3703  dpf-077fcf5758ed6038bfe6e7aee1e407aa02e807b2.tar.gz
+"

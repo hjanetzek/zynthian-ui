@@ -1,0 +1,26 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Bollie Delay (URI https://ca9.eu/lv2/bolliedelay), enabled by default in zynthian (zynthian-sys
+# recipe install_bolliedelay.sh).
+pkgname=bolliedelay-lv2
+_commit=e00d63e5011ac209de3a70bd9a83c7cbb896383a
+pkgver=0_git20170613
+pkgrel=0
+pkgdesc="Bollie Delay LV2 plugin"
+url="https://github.com/MrBollie/bolliedelay.lv2"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/MrBollie/bolliedelay.lv2/archive/$_commit.tar.gz"
+builddir="$srcdir/bolliedelay.lv2-$_commit"
+options="!check" # no tests
+
+build() {
+	make PREFIX=/usr
+}
+
+package() {
+	make install PREFIX=/usr DESTDIR="$pkgdir"
+}
+sha512sums="
+872176bbfa917a34f7199c1c7da8d4e17864028248ba1079735cf894af114a902f1e539761da04e39f2c21d5b02d712322065df9dec7bf05cf7ad0b62aea8973  bolliedelay-lv2-e00d63e5011ac209de3a70bd9a83c7cbb896383a.tar.gz
+"

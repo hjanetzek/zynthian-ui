@@ -1,0 +1,34 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# The infamous plugins (URIs http://ssj71.github.io/infamousPlugins/plugs.html#...), enabled by
+# default in zynthian (zynthian-sys recipe install_infamous.sh). The GUIs need NTK (not in Alpine):
+# without it only the plugins are built.
+pkgname=infamous-lv2
+_commit=8c0e11ecac624e014caba00e5cf4fb0ca2faa806
+pkgver=0.3.0_git20230321
+pkgrel=0
+pkgdesc="The infamous LV2 plugins"
+url="https://github.com/ssj71/infamousPlugins"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="cmake samurai lv2-dev fftw-dev zita-resampler-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/ssj71/infamousPlugins/archive/$_commit.tar.gz"
+builddir="$srcdir/infamousPlugins-$_commit"
+options="!check" # no tests
+
+build() {
+	CXXFLAGS="$CXXFLAGS -fpermissive" \
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=None \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DLIBDIR=lib \
+		-DCMAKE_POLICY_VERSION_MINIMUM=3.5
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+	rm -rf "$pkgdir"/usr/bin   # infamous-rule, a GUI helper
+}
+sha512sums="
+9b9c91a140d7dc75282307ff3013003c6c1d3e662bd03fd85e20bf0436d99e294cc3a71bdae08e6038f8d262f87366fe3bb33013c116524141b9eb7610a8295b  infamous-lv2-8c0e11ecac624e014caba00e5cf4fb0ca2faa806.tar.gz
+"

@@ -1,0 +1,36 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# The LV2 plugins zynthian enables by default, as far as they are packaged: Alpine's packages and
+# the ones in nura/lv2/. State and plan: docs/nura-lv2-plugins.md (zynthian-ui).
+pkgname=zynthian-lv2-plugins
+pkgver=1
+pkgrel=0
+pkgdesc="LV2 plugins enabled by default in zynthian"
+url="https://github.com/zynthian/zynthian-ui"
+arch="noarch"
+license="GPL-3.0-or-later"
+depends="
+	abgate-lv2
+	amsynth-lv2
+	artyfx-lv2
+	bolliedelay-lv2
+	calf-lv2
+	infamous-lv2
+	invada-lv2
+	mda-lv2
+	mod-caps-lv2
+	mod-distortion-lv2
+	mod-mda-lv2
+	mod-pitchshifter-lv2
+	mod-tap-lv2
+	mod-utilities-lv2
+	shiro-lv2
+	swh-lv2
+	x42-plugins
+	ykchorus-lv2
+	zam-plugins-lv2
+	"
+options="!check"
+
+package() {
+	mkdir -p "$pkgdir"
+}

@@ -1,0 +1,34 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# OpenAV ArtyFX (URIs http://www.openavproductions.com/artyfx#...), enabled by default in zynthian
+# (zynthian-sys recipe install_openav-artyfx.sh); without the AVTK GUI and the SSE flags.
+pkgname=artyfx-lv2
+_commit=a2d0d5866f472a891ebd362dc053019e9b828223
+pkgver=1.3.1_git20260615
+pkgrel=0
+pkgdesc="OpenAV ArtyFX LV2 plugins"
+url="https://github.com/openAVproductions/openAV-ArtyFX"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="cmake samurai lv2-dev libsndfile-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/openAVproductions/openAV-ArtyFX/archive/$_commit.tar.gz"
+builddir="$srcdir/openAV-ArtyFX-$_commit"
+options="!check" # no tests
+
+build() {
+	CXXFLAGS="$CXXFLAGS -fpermissive" \
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=None \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DRELEASE_BUILD=OFF \
+		-DBUILD_GUI=OFF \
+		-DBUILD_SSE=OFF \
+		-DCMAKE_POLICY_VERSION_MINIMUM=3.5
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+}
+sha512sums="
+0e2eb5a59e377f4f91fb87ca8a2e4100a7fc8fc41aef35426266ea4b9970935e3dbfbce29580fab2c57240e62de80f7e802929d7a047163e923034993b6802ef  artyfx-lv2-a2d0d5866f472a891ebd362dc053019e9b828223.tar.gz
+"

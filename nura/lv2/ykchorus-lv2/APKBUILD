@@ -1,0 +1,40 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# YK Chorus (URI https://chrisarndt.de/plugins/ykchorus), enabled by default in zynthian
+# (zynthian-sys recipe install_ykchorus.sh). DPF is a git submodule: second source at its commit.
+pkgname=ykchorus-lv2
+_commit=ee0e362f8ef30b55a440715e4da3bfb3dad6a30f
+_dpf=077fcf5758ed6038bfe6e7aee1e407aa02e807b2
+pkgver=0_git20240527
+pkgrel=0
+pkgdesc="YK Chorus LV2 plugin"
+url="https://github.com/SpotlightKid/ykchorus"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/SpotlightKid/ykchorus/archive/$_commit.tar.gz
+	dpf-$_dpf.tar.gz::https://github.com/DISTRHO/DPF/archive/$_dpf.tar.gz"
+builddir="$srcdir/ykchorus-$_commit"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	rmdir dpf
+	mv "$srcdir"/DPF-$_dpf dpf
+}
+
+build() {
+	# The top-level 'all' builds DPF's GUI library first (needs pugl, another submodule): build
+	# only the plugin's DSP part as LV2, then generate its TTL
+	make -C plugins/YKChorus NOOPT=true HAVE_OPENGL=false lv2_dsp
+	make -C dpf/utils/lv2-ttl-generator
+	dpf/utils/generate-ttl.sh
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	cp -r bin/*.lv2 "$pkgdir"/usr/lib/lv2/
+}
+sha512sums="
+93e734d14b2c1dcaaefc4e8fb20b768da1863933cd7cd8f1589df42eb986bbaca005b7ef2988aaae12aeef079f14e7a9717b6369ba8498c671e4332a88aaff4f  ykchorus-lv2-ee0e362f8ef30b55a440715e4da3bfb3dad6a30f.tar.gz
+7e911abccfb8a232062fb72e9ff4fc84e053be329df034b40dd00a9b5cbf91a718db506fd838ded3ad69ada2553e48021ca912591369bfea9f6ee217319b3703  dpf-077fcf5758ed6038bfe6e7aee1e407aa02e807b2.tar.gz
+"

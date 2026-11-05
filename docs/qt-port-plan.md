@@ -44,15 +44,16 @@ Reference: `~/bastel/github/zrythm`, `tools/nura/postmarketos-ui-zrythm/` and `s
    which is tied to the minor version. So: package PySide6 6.12 for Nura, with only the modules
    needed (below).
 3. **Native Wayland in the existing cage kiosk.** One full-screen window, no plugin windows: cage
-   is enough (labwc is for Zrythm's plugin windows). Rotation as now; scale 2 with `wlr-randr` if
-   cage allows it, otherwise `QT_SCALE_FACTOR=2`. This takes XWayland and its glamor problem out
-   of the picture.
+   is enough (labwc is for Zrythm's plugin windows). cage rotates the panel but leaves the output
+   scale at 1; the kiosk script sets it with `wlr-randr` for the Qt UI (`ZYNTHIAN_OUTPUT_SCALE`,
+   default 1.5: 1280×800 logical pixels on the Duet). This takes XWayland and its glamor problem
+   out of the picture.
 4. **Side by side with the Tk UI.** A new entry point `zynthian_qt_main.py`; the launcher picks
    it with `ZYNTHIAN_UI=qt`. The Tk UI stays the default until the Qt UI covers everyday use.
    `zynthian_gui_config` only creates Tk when the program is `zynthian_main.py`, so the Qt entry
    point can use the existing configuration as it is.
-5. **QML in logical pixels for 960×600** (and 1024×600), scaling by the output scale; no
-   per-widget scale factors as in the Tk UI.
+5. **QML in logical pixels**, laid out for 960×600 to 1280×800 (scale 2 or 1.5 on the Duet; 1024×600
+   on other screens), scaling by the output scale; no per-widget scale factors as in the Tk UI.
 
 ## Layout
 
@@ -252,5 +253,5 @@ Python app imports.
   now; moving the settings out of `zyngui` (phase 1 of the earlier plan) is the clean fix.
 - **Upstream**: upstream is Tk; the Qt UI is a fork unless upstream wants it. The list providers
   and the clean backend boundary are useful upstream either way.
-- **Scale in cage**: if cage doesn't take an output scale, `QT_SCALE_FACTOR` does the same for
-  one app; check fractional values if 960×600 turns out too small.
+- **Scale in cage**: solved: cage takes an output scale from `wlr-randr`, fractional values work
+  (1.5 is the default; checked on the Duet).

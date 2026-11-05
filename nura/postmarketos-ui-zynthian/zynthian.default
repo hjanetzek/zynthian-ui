@@ -3,3 +3,7 @@
 
 # UI: qt (Qt Quick, native Wayland) or tk (Tkinter through XWayland)
 ZYNTHIAN_UI=qt
+
+# Output scale for the Qt UI (wlr-randr --scale, default 1.5; 2 for a larger UI; empty: leave
+# cage's scale 1). The Tk UI always runs at scale 1.
+#ZYNTHIAN_OUTPUT_SCALE=1.5

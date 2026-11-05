@@ -158,6 +158,16 @@ class ChainControl(QObject):
         self._page = -1
         self.setPage(page)
 
+    @Property(bool, notify=processorsChanged)
+    def isMidi(self):
+        chain = self.chain_manager.get_active_chain()
+        return bool(chain and chain.is_midi())
+
+    @Property(bool, notify=processorsChanged)
+    def isAudio(self):
+        chain = self.chain_manager.get_active_chain()
+        return bool(chain and chain.is_audio())
+
     @Property("QVariantList", notify=processorsChanged)
     def processors(self):
         current = self.ui.current_processor

@@ -107,6 +107,11 @@ Item {
             visible: root.cc.widgetType === "euclid"
             view: root.cc.euclidView
         }
+        OrganelleView {
+            anchors.fill: parent
+            visible: root.cc.widgetType === "organelle"
+            view: root.cc.organelleView
+        }
     }
 
     // Controller pages

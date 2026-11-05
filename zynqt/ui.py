@@ -25,6 +25,7 @@ from zynqt.bridge import SignalBridge
 from zynqt.chain_edit import ChainEdit
 from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
+from zynqt.screens.control import ChainControl
 
 # Screens with their own QML (the others are selector screens, zynqt.screens)
 QML_SCREENS = ("mixer", "chain_control")
@@ -71,6 +72,9 @@ class ZynUI(QObject):
 
         self.chain_edit = ChainEdit(self.state_manager)
         self.list_screens = {}
+        self.chain_control_screen = ChainControl(self, self)
+        # Screens with their own QML and Python object (build when shown, hide when left)
+        self.qml_screen_objects = {"chain_control": self.chain_control_screen}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
@@ -202,24 +206,35 @@ class ZynUI(QObject):
         """The selector screen shown (None for screens with their own QML)"""
         return self.list_screens.get(self.current_screen)
 
+    @Property(QObject, constant=True)
+    def chainControl(self):
+        return self.chain_control_screen
+
     @Slot(str)
     def showScreen(self, name):
         self.show_screen(name)
+
+    def _set_current_screen(self, name):
+        """Switch to name: hide the old screen object, build the new one"""
+        old = self.qml_screen_objects.get(self.current_screen)
+        if old and name != self.current_screen:
+            old.hide()
+        screen = self.list_screens.get(name) or self.qml_screen_objects.get(name)
+        if screen:
+            screen.build()
+        if name != self.current_screen:
+            self.current_screen = name
+            self.currentScreenChanged.emit()
 
     def show_screen(self, name, history=True):
         if name not in QML_SCREENS and name not in self.list_screens:
             logging.warning(f"Qt UI has no screen '{name}' (yet)")
             self.show_info(f"'{name}' is not in the Qt UI yet.")
             return
-        screen = self.list_screens.get(name)
-        if screen:
-            screen.build()
-        if name != self.current_screen:
-            if history:
-                self.screen_history.append(self.current_screen)
-                del self.screen_history[:-20]
-            self.current_screen = name
-            self.currentScreenChanged.emit()
+        if history and name != self.current_screen:
+            self.screen_history.append(self.current_screen)
+            del self.screen_history[:-20]
+        self._set_current_screen(name)
 
     def replace_screen(self, name):
         """Show name instead of the current screen (BACK skips the current one)"""
@@ -237,15 +252,11 @@ class ZynUI(QObject):
         if self._confirm_action:
             self.confirmNo()
             return
-        screen = self.list_screens.get(self.current_screen)
+        screen = self.list_screens.get(self.current_screen) or self.qml_screen_objects.get(self.current_screen)
         if screen and screen.back():
             return
         if self.screen_history:
-            name = self.screen_history.pop()
-            if name in self.list_screens:
-                self.list_screens[name].build()
-            self.current_screen = name
-            self.currentScreenChanged.emit()
+            self._set_current_screen(self.screen_history.pop())
 
     def _navigate(self, what):
         """Arrows and SELECT: the confirm dialog, the selector screen shown, or the QML screen"""
@@ -253,7 +264,7 @@ class ZynUI(QObject):
             if what == "select":
                 self.confirmYes()
             return
-        screen = self.list_screens.get(self.current_screen)
+        screen = self.list_screens.get(self.current_screen) or self.qml_screen_objects.get(self.current_screen)
         if screen:
             screen.navigate(what)
         else:
@@ -500,7 +511,7 @@ class ZynUI(QObject):
         self.showScreen("main_menu")
 
     def cuia_chain_control(self, params=None):
-        self.showScreen("chain_control")
+        self.chain_control()
 
     def cuia_menu(self, params=None):
         if self.current_screen == "main_menu":

@@ -1,0 +1,196 @@
+# Starting the Qt Quick port: implementation plan
+
+Status: plan, 2026-11-05. Follows [ui-reimplementation-plan.md](ui-reimplementation-plan.md),
+which chose Qt Quick (QML) with the Python backend in-process (PySide6). This plan covers how to
+start: what to build first, how it runs on the Lenovo Duet, and what decides the open questions.
+
+## Why now
+
+- Zrythm's Qt Quick UI runs fast and draws correctly on the Duet (native Wayland, OpenGL ES on
+  Panfrost), while Tk under XWayland needs glamor turned off to draw correctly
+  ([nura-display.md](nura-display.md)) and takes 37–76 ms per screen switch.
+- The Zrythm port (`~/bastel/github/zrythm/tools/nura`) already packages Qt 6.12 for Nura and has
+  it installed on the Duet: `qt6-qtbase` (with the Wayland platform plugin),
+  `qt6-qtdeclarative` (Qt Quick, Quick Controls), `qt6-qtwayland`, `qt6-qtsvg`,
+  `qt6-qtshadertools`, `qt6-qtcanvaspainter`.
+
+## What Zrythm shows on this device
+
+Reference: `~/bastel/github/zrythm`, `tools/nura/postmarketos-ui-zrythm/` and `src/gui/`.
+
+- **Session:** a native Wayland client (`QT_QPA_PLATFORM=wayland`, no XWayland), in labwc. The
+  session script rotates the panel from its DRM "panel orientation" (`drm_info` + `wlr-randr
+  --transform 90`) and sets output scale 2: 1920×1200 becomes 960×600 logical pixels, close to
+  the 1024×600 that zynthian's layouts are made for.
+- **Rendering:** Qt's default RHI backend (OpenGL ES 3.1 on Panfrost); `QSG_RHI_BACKEND=vulkan`
+  as an option.
+- **Meters:** plain QML `Rectangle`s with a gradient, their height bound to a level property of a
+  C++ object (`Meter.qml`, `MeterProcessor`); no custom drawing.
+- **Dense drawing** (waveforms, MIDI clips, grids, spectrum): C++ items on Qt Canvas Painter
+  (`QCanvasPainterItem` and `QCanvasPainterItemRenderer`, new in Qt 6.12), drawn on the GPU in the
+  render thread.
+- **Touch:** lists scroll by touch with `Flickable`/`ListView`; drag handlers that must not move
+  the list need care (see the commits "scroll by touch" in Zrythm's history).
+
+## Decisions
+
+1. **PySide6, in-process.** The engine side (`zyngine`, state and chain managers, controllers,
+   the zynlibs) stays as it is, in the same process. QML views bind to Python `QObject`s and list
+   models. Engine callbacks arrive on other threads; they become Qt signals, delivered to the GUI
+   thread as queued connections.
+2. **PySide6 must match the device's Qt (6.12).** Alpine's `py3-pyside6` is 6.11.1, built
+   monolithically against all of Qt 6.11 (3D, WebView, Location, …) and pulls in Qt 6.11 modules
+   next to the device's 6.12 base, plus libclang. PySide and Qt modules use Qt's private API,
+   which is tied to the minor version. So: package PySide6 6.12 for Nura, with only the modules
+   needed (below).
+3. **Native Wayland in the existing cage kiosk.** One full-screen window, no plugin windows: cage
+   is enough (labwc is for Zrythm's plugin windows). Rotation as now; scale 2 with `wlr-randr` if
+   cage allows it, otherwise `QT_SCALE_FACTOR=2`. This takes XWayland and its glamor problem out
+   of the picture.
+4. **Side by side with the Tk UI.** A new entry point `zynthian_qt_main.py`; the launcher picks
+   it with `ZYNTHIAN_UI=qt`. The Tk UI stays the default until the Qt UI covers everyday use.
+   `zynthian_gui_config` only creates Tk when the program is `zynthian_main.py`, so the Qt entry
+   point can use the existing configuration as it is.
+5. **QML in logical pixels for 960×600** (and 1024×600), scaling by the output scale; no
+   per-widget scale factors as in the Tk UI.
+
+## Layout
+
+```
+zynthian_qt_main.py          entry point: QGuiApplication, QQmlApplicationEngine, backend start
+zynqt/
+  app.py                     start-up and shutdown (state manager, snapshot, MIDI, autoconnect),
+                             signal handlers, the main loop
+  ui.py                      ZynUI: the object the engine side sees as zynthian_gui_config.zyngui
+                             (screens, current_screen, show_screen, CUIA dispatch)
+  bridge.py                  zynsigman -> Qt signals (queued into the GUI thread)
+  models/                    QObjects and QAbstractListModels: chains, processors, controllers,
+                             presets/banks, snapshots, mixer strips, list screens
+  input.py                   zynswitch/zynpot callbacks, keyboard, OSC CUIA (port 1370)
+  qml/
+    Main.qml                 window, top bar, screen stack, V5 touch keypad
+    components/              List, InfoPane, Controller (knob/slider), Fader, Meter, Keypad, ...
+    screens/                 MainMenu, Mixer, ChainControl, Selector, ...
+nura/pyside6/APKBUILD        PySide6 6.12 for Nura (see Packaging)
+```
+
+## Milestones
+
+Each milestone ends with something that runs on the Duet and on the desktop.
+
+### M0: spike (1–2 weeks)
+
+Goal: decide that PySide6 + Qt Quick works on the Duet, and how fast.
+
+- Package PySide6 6.12 for Nura (see Packaging) and install it on the Duet. Fallback if that
+  fails or takes too long: a C++ Qt Quick front end that embeds CPython (pybind11) and builds
+  like Zrythm against the system Qt; decide at the end of M0.
+- A mock app, no zynthian backend: a mixer with 16 strips (fader, mute/solo, two meters each,
+  fed by a 60 Hz timer), a list with 200 items and an info pane (kinetic scrolling), the V5
+  touch keypad.
+- Run it in the cage kiosk as a native Wayland client: rotation, scale 2, touch (taps, list
+  scrolling, fader drag), multitouch on two faders.
+- Measure: CPU of the app and of cage while the meters run (target: under 10 % of a core, Tk
+  today: zynthian 22 % on the mixer), frame times (`QSG_RENDER_TIMING=1`), start-up time and
+  memory, idle CPU with nothing changing (should be close to 0).
+- Check the threaded render loop is used (`QSG_INFO=1`) and Python stays out of the frame path:
+  meters update through property bindings, not Python per frame.
+
+Exit: numbers in this document; PySide6 or the C++ fallback chosen.
+
+### M1: backend in a Qt process (1–2 weeks)
+
+- `zynthian_qt_main.py` starts the backend like `zynthian_gui.start_task` and
+  `zynthian_headless.py`: control I/O configuration, state manager, last-state or default
+  snapshot, MIDI, autoconnect, busy state. The Qt event loop runs in the main thread; the engine
+  threads stay as they are.
+- `ZynUI` as `zynthian_gui_config.zyngui`: the engine side calls into the UI in ~20 places
+  (`get_alt_mode`, `current_screen`, `screens[...]` in the controller drivers for the sequencer).
+  First as stubs that log; the controller drivers that need the sequencer screens stay disabled
+  until those screens exist.
+- `bridge.py`: register for the zynsigman signals the views need (chain manager, processors,
+  mixer, state manager) and re-emit them as Qt signals.
+- CUIA over OSC (port 1370) dispatched to `ZynUI`, so the Qt UI can be driven like the Tk UI from
+  the start (testing with `oscsend`).
+- Clean exit on SIGTERM (stopping tinydm), which the Tk UI under X11 doesn't do reliably.
+
+Exit: the Qt app loads the last snapshot, engines play, OSC CUIAs reach it; window shows a
+status bar (busy, xruns, audio levels from zynmixer).
+
+### M2: first screens (3–4 weeks)
+
+The screens used every day, in this order:
+
+1. **Mixer**: strips from the chain manager, fader, balance, mute/solo/rec, meters. Levels come
+   from zynmixer (`update_dpm_states` into its `dpm` array): read in a Qt timer at frame rate in
+   Python (one call for all strips), exposed as properties the meter `Rectangle`s bind to. If
+   that costs too much Python time, a small C++ QML item reads the zynmixer library directly.
+2. **List screens** (selector + info pane): main menu, admin, engine/bank/preset selection,
+   chain options, audio/MIDI routing, options and confirm dialogs. One QML component; the data
+   comes from list providers (below).
+3. **Chain control**: chain sidebar, controller pages, the four controllers (knob/slider), the
+   processor list.
+4. **Top bar, touch keypad, keyboard** (text entry).
+
+**List providers.** The Tk selector screens mix list logic (`fill_list`, `select_action`, back
+actions) with Tk widgets (`zynthian_gui_selector` is a `tkinter.Frame`). Move that logic, screen
+by screen as it is ported, into UI-independent classes that produce `list_data` and handle
+selection; the Tk screens keep working on top of them, and the Qt list model wraps the same
+classes. This keeps both UIs in step and is worth proposing upstream (testable without a
+display).
+
+Exit: everyday use (load a snapshot, add a chain, pick a preset, mix, tweak controllers) works
+with the Qt UI on the Duet, by touch.
+
+### M3: towards parity
+
+As in [ui-reimplementation-plan.md](ui-reimplementation-plan.md), phases 3–4: launcher/zynpad,
+pattern editor, arranger, engine widgets (audio file, envelope, filter, …), MIDI learn flows,
+hardware kits (encoders, switches, LEDs), small screens. Dense views (pattern editor, waveforms,
+meters if needed) as C++ items on Qt Canvas Painter, as in Zrythm, registered as a QML module the
+Python app imports.
+
+## Packaging
+
+- **`nura/pyside6/`**: start from aports' `py3-pyside6` recipe (it builds shiboken6 and PySide6),
+  set the version to 6.12.x to match the Qt 6.12 recipes in Zrythm's `tools/nura/qt6/`, and
+  limit the modules (`MODULES=Core;Gui;Qml;Quick;QuickControls2;OpenGL;Svg`, plus `Network` if
+  needed). The shiboken generator needs libclang at build time, only in the build chroot; under
+  pmbootstrap it runs in qemu, which is slow but a one-time cost. Check that PySide6 6.12
+  supports Python 3.14 (the Duet's Python).
+- **Qt packages**: depend on Zrythm's Qt 6.12 packages, built in the same pmbootstrap work
+  directory or shared through its local repository. Once Alpine ships Qt 6.12 and a matching
+  PySide6, drop both copies.
+- **Kiosk**: `postmarketos-ui-zynthian` gets the Qt launcher (environment:
+  `QT_QPA_PLATFORM=wayland`, `QT_WAYLAND_DISABLE_WINDOWDECORATION=1`, optional
+  `QSG_RHI_BACKEND`), `ZYNTHIAN_UI=qt|tk` in a defaults file as Zrythm's `/etc/default/zrythm`,
+  and a restart loop like `zrythm-kiosk`.
+
+## Development setup
+
+- Desktop: PySide6 from PyPI through uv (`uv pip install pyside6`; the wheels bundle their own
+  Qt), running against the desktop install from `desktop/`. Develop QML with live reloading
+  (`QQmlApplicationEngine` reloading on file change, or `qml` preview for components).
+- Keep the QML to what PySide6/Qt 6.11 and 6.12 both have (no Canvas Painter from QML), so the
+  desktop wheels and the device run the same code.
+- Device: `nura/deploy.sh` for packages; for QML and Python, copy files and restart the session
+  as now. Screenshots with grim (native Wayland, no XWayland detour).
+- Tests: list providers and models with pytest, without a display; QML with `qmltestrunner` where
+  useful.
+
+## Risks and open questions
+
+- **PySide6 6.12 for musl/aarch64**: not packaged anywhere yet; the build (libclang, qemu) may
+  need patches. Fallback: the C++ front end embedding CPython (M0 decides).
+- **Python in the GUI thread**: model updates and property changes run Python. Keep per-frame
+  work out of Python (meters, animations in QML or C++); batch model updates.
+- **Threading**: the backend calls UI code from its threads today (tkinter marshals the calls
+  into its thread). Under Qt every such call must go through a signal or
+  `QMetaObject.invokeMethod`; calling QObjects from other threads directly crashes at random.
+- **The engine side imports `zyngui`**: 25 files in `zyngine`/`zynautoconnect` use
+  `zynthian_gui_config` (mostly settings, ~20 calls into the UI object). `ZynUI` covers this for
+  now; moving the settings out of `zyngui` (phase 1 of the earlier plan) is the clean fix.
+- **Upstream**: upstream is Tk; the Qt UI is a fork unless upstream wants it. The list providers
+  and the clean backend boundary are useful upstream either way.
+- **Scale in cage**: if cage doesn't take an output scale, `QT_SCALE_FACTOR` does the same for
+  one app; check fractional values if 960×600 turns out too small.

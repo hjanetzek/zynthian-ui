@@ -19,6 +19,8 @@ pkgdesc="Monique monosynth (LV2)"
 url="https://github.com/surge-synthesizer/monique-monosynth"
 arch="aarch64 x86_64"
 license="GPL-3.0-only OR MIT"
+# linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
+# kernel headers too
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -30,6 +32,7 @@ makedepends="
 	libxext-dev
 	libxinerama-dev
 	libxrandr-dev
+	linux-headers
 	samurai
 	"
 source="$pkgname-$_commit.tar.gz::https://github.com/surge-synthesizer/monique-monosynth/archive/$_commit.tar.gz

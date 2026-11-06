@@ -13,6 +13,8 @@ url="https://surge-synthesizer.github.io"
 arch="aarch64 x86_64"
 license="GPL-3.0-or-later"
 depends="$pkgname-data=$pkgver-r$pkgrel"
+# linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
+# kernel headers too
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -24,6 +26,7 @@ makedepends="
 	libxext-dev
 	libxinerama-dev
 	libxrandr-dev
+	linux-headers
 	python3
 	samurai
 	"

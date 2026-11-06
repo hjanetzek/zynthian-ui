@@ -19,6 +19,8 @@ pkgdesc="Odin 2 semi-modular synthesizer (LV2)"
 url="https://github.com/TheWaveWarden/odin2"
 arch="aarch64 x86_64"
 license="GPL-3.0-or-later AND OFL-1.1"
+# linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
+# kernel headers too
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -30,6 +32,7 @@ makedepends="
 	libxext-dev
 	libxinerama-dev
 	libxrandr-dev
+	linux-headers
 	lv2-dev
 	mesa-dev
 	samurai

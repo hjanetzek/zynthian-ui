@@ -14,6 +14,8 @@ pkgdesc="ChowMatrix delay tree effect (LV2)"
 url="https://github.com/Chowdhury-DSP/ChowMatrix"
 arch="aarch64 x86_64"
 license="BSD-3-Clause"
+# linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
+# kernel headers too
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -25,6 +27,7 @@ makedepends="
 	libxext-dev
 	libxinerama-dev
 	libxrandr-dev
+	linux-headers
 	lv2-dev
 	samurai
 	"

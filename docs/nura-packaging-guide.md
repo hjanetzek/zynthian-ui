@@ -106,6 +106,7 @@ GitHub's archive tarballs don't contain git submodules, and pmbootstrap builds h
 |---|---|
 | `int32_t`, `uint8_t` not declared (C++) | `-include cstdint` (GCC 13+ no longer includes it indirectly) |
 | `std::exchange` not a member of `std` (older JUCE) | `-include utility` |
+| `... has no member named ...` `[-Wtemplate-body]` | GCC 15 checks templates that are never instantiated and makes it an error: `-Wno-template-body` |
 | implicit `int`, implicit function declarations, incompatible pointer types (old C) | `-std=gnu17 -fpermissive` (GCC 14 made these errors; GCC 15 defaults to C23) |
 | unresolved `inline` helper at load time ("symbol not found") | `-fgnu89-inline`: GNU89 `inline` code; Alpine's `-Os` doesn't inline every call, so no external definition exists (glibc distributions build with `-O2` and don't see it) |
 | `Compatibility with CMake < 3.5 has been removed` (CMake 4) | `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` |

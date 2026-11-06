@@ -1,0 +1,144 @@
+# Packaging plugins and engines for Nura: problems and patterns
+
+Status: 2026-11-06. What went wrong while packaging zynthian's LV2 plugins, Pure Data externals
+and engines for Nura (postmarketOS, aarch64, musl, GCC 15), and how the packages in `nura/lv2/`,
+`nura/pd/` and `nura/engines/` deal with it. Read this before packaging the next plugin; the
+state of the plugins themselves is in [nura-lv2-plugins.md](nura-lv2-plugins.md).
+
+## Workflow
+
+- **Build on the Duet with abuild**, not under qemu: seconds to minutes per package, no sudo on
+  the host. `abuild checksum && abuild -r` in a copy of the package directory, then
+  `sudo apk add -u --repository ~/.local/share/abuild/aports <pkg>` (`-u`: `apk add` alone keeps
+  an installed older pkgrel). The images are built from the same APKBUILDs with pmbootstrap.
+- **One build at a time.** Two abuild runs of the same package share `src/`, the log and the
+  `.makedepends-<pkg>` virtual package: the one that ends first removes the build dependencies
+  of the other (seen: `meson: not found` in `package()` after a successful compile). Queue builds
+  (one after another, keep going on failure) instead of starting a second one.
+- **Long builds in the background, without a time limit.** Killing the local ssh client kills the
+  remote abuild (SIGHUP). If one is orphaned: find its PID and `kill` it; never `pkill -f` a
+  pattern that also appears in your own ssh command line (it kills that shell). Afterwards remove
+  leftover `.makedepends-*` virtual packages (`apk info | grep '^\.makedepends'`).
+- **`rootpkg` doesn't index**: after re-running only the packaging step
+  (`abuild deps && abuild rootpkg`), run `abuild index` before `apk add`.
+- **The network can be missing** right after the Duet resumes ("bad address", checksum failed):
+  wait for DNS (`getent hosts github.com`), then retry. Transient DNS failures also happen
+  mid-session; retry before debugging.
+- **Installing build dependencies can upgrade the system.** `mesa-dev` and other `-dev` packages
+  pin exact versions, so installing them (directly, or through Qt's `-dev` packages) upgrades Mesa
+  and systemd. `apk add --simulate` first, and check for `Upgrading`. Packages installed outside
+  the distribution (Qt 6.12 from the Zrythm build) need their own `-dev` packages from the
+  pmbootstrap repository (`~/postmarketos/kick-pi4/packages/edge/aarch64/`), or apk falls back to
+  Alpine's older version and downgrades.
+- **After installing plugins**, zynthian must rescan (`zynthian_lv2.py engines` with zynthian's
+  environment; see nura-lv2-plugins.md), then restart the session
+  (`sudo systemctl --no-block restart tinydm`; without `--no-block` it dies with the ssh session).
+
+## Sources
+
+GitHub's archive tarballs don't contain git submodules, and pmbootstrap builds have no network.
+
+- **Prefer a release tarball that includes the submodules** when the project publishes one:
+  GxPlugins (`gxplugins_1.0_src.tar.bz2`, 43 submodules), Surge XT (`surge-src-1.3.4.tar.gz` in
+  `surge-synthesizer/releases-xt`), Guitarix (`guitarix2-*.tar.xz`). Avoid "Nightly" assets: they
+  are replaced.
+- **Otherwise one source per submodule**: `nura/tools/gh-submodule-sources.py OWNER/REPO REF`
+  resolves the submodules recursively and prints the `_vars`, the `source` entries and the
+  `prepare()` moves (outer submodules first). It uses the GitHub API: 60 requests per hour without
+  a token, so run it with `GITHUB_TOKEN=$(gh auth token)`. Submodules outside GitHub (Eigen on
+  GitLab) it only reports: add those by hand (`https://gitlab.com/OWNER/REPO/-/archive/SHA/REPO-SHA.tar.gz`).
+- **CMake FetchContent** (JC303) downloads at configure time: give each dependency as a source and
+  pass `-DFETCHCONTENT_FULLY_DISCONNECTED=ON -DFETCHCONTENT_SOURCE_DIR_<NAME>=...` (the name as
+  declared, upper case).
+- **Debian's source and patches** are a good base for old, unmaintained projects (EQ10Q, QMidiArp,
+  Invada, SooperLooper): the `.orig` tarball and `debian/patches/` from deb.debian.org's pool,
+  minus the patches for the GUI or packaging we don't build. Their patches can have CRLF files;
+  copy them as they are.
+- **Old DPF**: DPF's `generate-ttl.sh` from before ~2021 finds its generator relative to `$0`
+  after a `cd`: call it by absolute path (`"$builddir"/dpf/utils/generate-ttl.sh`). Some old DPF
+  versions build but don't instantiate (SHIRO): build against a newer DPF, with
+  `DISTRHO_PLUGIN_USES_MODGUI 0`.
+
+## Build: what to switch off
+
+- **GUIs**: zynthian doesn't open plugin GUIs, and GUI toolkits drag in X11, GTK, NTK or Qt.
+  - DPF: build `lv2_dsp` per plugin (`make -C plugins/X NOOPT=true HAVE_OPENGL=false lv2_dsp`),
+    then `make -C dpf/utils/lv2-ttl-generator` and `dpf/utils/generate-ttl.sh`. If the plugin
+    declares `DISTRHO_PLUGIN_HAS_UI 1`, set it to 0 in `prepare()`, or the TTL names a UI binary
+    that isn't built.
+  - waf/make projects: `--no-lv2-gui`, `nogui`, `--without-gui`, `--disable-*uis`.
+  - DISTRHO-Ports: `-Dlinux-headless=true`.
+  - JUCE plugins (CMake): the GUI is part of the plugin binary and can't be left out, so the X11,
+    freetype and fontconfig headers are build dependencies (JUCE loads libX11 only when the editor
+    opens). Build only the `<Target>_LV2` target and set the `FORMATS` list to LV2.
+- **modgui**: MOD's web GUI resources (images, HTML) are useless on Nura; remove the `modgui/`
+  directories in `package()` (70 MB for Guitarix and GxPlugins), keep `modgui.ttl` (the manifest
+  refers to it).
+- **x86 flags**: many Makefiles add `-msse -mfpmath=sse` or `-march=...` from `/proc/cpuinfo` or
+  unconditionally: `NOOPT=true` (DPF/MOD), `SSE_CFLAGS=` (GxPlugins), `--disable-sse` (Guitarix),
+  `BUILD_SSE=OFF` (ArtyFX), empty `CPU=`/`PLATFORM=` (Dexed: Cortex-A53 and `-mcmodel=tiny`).
+- **Build-time measurements**: MOD's pitch shifters generate FFTW wisdom during the build (slow
+  and only valid for the build machine): ship it empty.
+- **Command-line make variables override `+=`**: `make CXXFLAGS=...` replaces the Makefile's own
+  flags (include paths lost: `gx_pluginlv2.h: No such file`). Pass extra flags in the environment
+  (`CXXFLAGS="$CXXFLAGS -include cstdint" make ...`), which the Makefile then appends to.
+- **Data**: SoundFonts, samples and preset libraries go to a `-data` subpackage (FluidPlug,
+  AVL drums), so images can leave them out; split further if part of it is optional (Surge XT:
+  factory content needed, third-party patches optional).
+
+## musl
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `__int16_t` and friends unknown | glibc-internal type names | the standard names (`sed 's/__\(u\{0,1\}int[0-9]*_t\)/\1/g'`) and `#include <stdint.h>` (mod-caps-lv2) |
+| `execinfo.h: No such file` | no `backtrace()` in musl; every JUCE version includes it | a stub header in `prepare()` (`backtrace()` returns 0) and `-I` to it; see the JUCE packages |
+| `stat64`/`fstat64` incomplete type | musl 1.2.4+ has the LFS64 names only with `_LARGEFILE64_SOURCE` | `-D_LARGEFILE64_SOURCE` |
+| `_NL_IDENTIFICATION_LANGUAGE`, `_NL_ADDRESS_LANG_AB`, ... undeclared | glibc locale items (JUCE's `getUserLanguage()`) | define them as items of a category musl doesn't have (`0x60000`...): `nl_langinfo()` returns "" |
+| `static_cast<char>(NULL)` invalid | `NULL` is `nullptr` in C++ on musl | `0` (sed) |
+| `fts.h: No such file` | fts is a separate library | `musl-fts-dev`, `LIBS=-lfts` |
+| `soundcard.h`, `linux/...` missing | kernel headers aren't pulled in implicitly | `linux-headers` |
+| `st_atimespec` | the code picks BSD field names unless `_POSIX_C_SOURCE` is defined, which glibc defines implicitly and musl doesn't | take the POSIX branch on Linux too (`\|\| defined(__linux__)`, pd-hcs) |
+| a symbol "not found" when the plugin loads | see "C99 inline" below | |
+
+## GCC 14/15 and current C/C++
+
+| Symptom | Fix |
+|---|---|
+| `int32_t`, `uint8_t` not declared (C++) | `-include cstdint` (GCC 13+ no longer includes it indirectly) |
+| `std::exchange` not a member of `std` (older JUCE) | `-include utility` |
+| implicit `int`, implicit function declarations, incompatible pointer types (old C) | `-std=gnu17 -fpermissive` (GCC 14 made these errors; GCC 15 defaults to C23) |
+| unresolved `inline` helper at load time ("symbol not found") | `-fgnu89-inline`: GNU89 `inline` code; Alpine's `-Os` doesn't inline every call, so no external definition exists (glibc distributions build with `-O2` and don't see it) |
+| `-Werror` in the project's flags | remove it, or the project's switch (`SURGE_SKIP_WERROR`) |
+
+## Pure Data externals
+
+- Pd 0.55+ no longer declares `error()` and `COSTABSIZE`; pd still exports `error` and the 512-entry
+  `cos_table`: a compat header via `-include`.
+- Pd 0.57 asserts that the main signal inlet field is a `t_float` (a `double` field fails).
+- cyclone loaded with `-lib` doesn't add its own directory to the search path: the puredata engine
+  adds every directory in `/usr/lib/pd/extra` with `-path`.
+- iemlib: one binary per object as symlinks to the library.
+- pd-lib-builder is a submodule of most externals: an extra source.
+
+## Testing
+
+- `nura/tools/lv2-coverage.py --missing --load` on the device: which of zynthian's enabled plugins
+  are installed, and a `dlopen(RTLD_NOW)` of every LV2 library (finds unresolved symbols).
+- lilv's instantiate without host features fails for every plugin that requires `urid:map` or
+  `options` (most DPF, JUCE, x42 plugins): that says nothing. Start those in jalv on PipeWire:
+  `timeout 6 jalv -n test -i URI </dev/null`, exit status 0 and no "Failed to instantiate".
+- A crash only at shutdown (jalv exits on EOF) may not show under gdb (timing); the core dump is in
+  `coredumpctl`. Plugin libraries are stripped, so the trace names only the library and offset.
+- Engines that aren't plugins (SooperLooper, setBfree, ZynAddSubFX): start them as the engine does
+  (the command in `zyngine/zynthian_engine_*.py`), check their JACK ports (`pw-link -io`) and their
+  control protocol (OSC ping), then load a chain in zynthian.
+- zynthian enables an engine only if its program is found (`engine2program` and `shutil.which`
+  in the chain manager): install the binary in `PATH`.
+
+## Licences and names
+
+- Take the licence from the project's licence file, not from GitHub's detection (`NOASSERTION`
+  for dual licences: Monique is `GPL-3.0-only OR MIT`; Odin 2 includes an OFL font).
+- `pkgver` for untagged projects: `0_gitYYYYMMDD` (the commit date), `_commit` pinned.
+- Name LV2 packages `<project>-lv2`, and add them to the meta package `zynthian-lv2-plugins`
+  (bump its pkgrel); keep optional data packages out of the meta.

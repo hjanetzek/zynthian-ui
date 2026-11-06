@@ -148,6 +148,9 @@ missing symbols and crashes; `lv2lint` for the TTL.
 
 ### Phase 1: lessons
 
+The patterns from all phases (workflow, sources, musl, GCC, testing) are collected in
+[nura-packaging-guide.md](nura-packaging-guide.md).
+
 Built with abuild on the Duet itself (the target: aarch64, musl), which takes seconds to minutes per
 package and needs no sudo on the host; pmbootstrap builds the same APKBUILDs for images. Setup on
 the device: `sudo apk add alpine-sdk`, `sudo addgroup $USER abuild`, `abuild-keygen -a -n -i`; then

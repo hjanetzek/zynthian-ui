@@ -41,6 +41,10 @@ Item {
         height: 48
         spacing: 6
         ToolButton { text: root.pe.playing ? "■ Stop" : "▶ Play"; width: 120; on: root.pe.playing; onTapped: root.pe.togglePlayback() }
+        ToolButton {
+            text: "\u25cf Rec"; width: 90; on: root.pe.recording; onColor: "#a02020"
+            onTapped: root.pe.toggleRecording()
+        }
         ToolButton { text: "Undo"; onTapped: root.pe.undo() }
         ToolButton { text: "Redo"; onTapped: root.pe.redo() }
         ToolButton { text: root.pe.ccMode ? "Notes" : "CC"; width: 80; onTapped: root.pe.toggleCcMode() }
@@ -365,11 +369,12 @@ Item {
         id: button
         property alias text: label.text
         property bool on: false
+        property color onColor: "#206030"
         signal tapped
         width: 100
         height: parent.height
         radius: 4
-        color: tap.pressed ? Theme.keyText : (on ? "#206030" : Theme.keyBackground)
+        color: tap.pressed ? Theme.keyText : (on ? onColor : Theme.keyBackground)
         Text {
             id: label
             anchors.centerIn: parent

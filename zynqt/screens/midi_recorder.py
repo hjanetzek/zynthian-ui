@@ -34,6 +34,23 @@ class MidiRecorder(SelectorScreen):
         entries = [rec] + stop + [loop] + list_data_entries(midi_file_rows(zynthian_paths.ex_data_dir, 1))
         self.set_entries(entries)
 
+    # Transport keys here: the MIDI recorder and player (zynthian_gui_midi_recorder)
+
+    def cuia_toggle_record(self, params=None):
+        self.state_manager.toggle_midi_record()
+        self.fill()
+        return True
+
+    def cuia_stop(self, params=None):
+        self.state_manager.stop_midi_playback()
+        self.fill()
+        return True
+
+    def cuia_toggle_play(self, params=None):
+        self.state_manager.toggle_midi_playback()
+        self.fill()
+        return True
+
     def toggle_loop(self):
         zynthian_gui_config.midi_play_loop = not zynthian_gui_config.midi_play_loop
         libsmf.setLoop(zynthian_gui_config.midi_play_loop)

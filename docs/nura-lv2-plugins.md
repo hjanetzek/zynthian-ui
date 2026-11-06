@@ -1,7 +1,7 @@
 # LV2 plugins on Nura: state and plan
 
-Status: 2026-11-06, measured on the Lenovo Duet (Nura edge, aarch64, musl). Phases 1 to 4 of
-the plan done, phase 5 in part: 252 of the 313 default plugins installed and loading (from 36 before).
+Status: 2026-11-06, measured on the Lenovo Duet (Nura edge, aarch64, musl). Phases 1 to 5 of
+the plan done, phase 6 nearly: 281 of the 313 default plugins installed and loading (from 36 before).
 
 zynthian's default engine configuration (`zynthian-sys/config/engine_config.json`) lists 1300
 LV2 plugins, **313 of them enabled by default** (the rest are installed on ZynthianOS but
@@ -32,7 +32,7 @@ cd /usr/share/zynthian/zynthian-ui/zyngine && python3 ./zynthian_lv2.py engines
 with zynthian's environment (`ZYNTHIAN_DIR`, `ZYNTHIAN_LIB_DIR`, `PYTHONPATH` as in
 `/usr/bin/zynthian`, then `desktop/zynthian_desktop_env.sh`), then restart the session.
 
-## Installed: 252 of 313
+## Installed: 281 of 313
 
 All pulled in by the meta package `zynthian-lv2-plugins` (`nura/lv2/`), which
 `postmarketos-ui-zynthian` depends on. From Alpine:
@@ -74,6 +74,14 @@ Packaged in `nura/lv2/` (phase 1, built and tested on the Duet):
 | `gxplugins-lv2` | 25 | GxPlugins 1.0 (43 pedals and amps from the release source with its submodules) plus GxDistortionPlus and MOD's GxSwitchlessWah; `make mod` with `-include cstdint` |
 | `eq10q-lv2` | 8 | EQ10Q 2.2, Debian's source and patches, without the GTK GUI |
 | `qmidiarp-lv2` | 2 | QMidiArp 0.7.5 (Arp, LFO, Seq), Debian's source; no application or UIs, so no Qt |
+| `distrho-ports-lv2` | 15 | DISTRHO-Ports master (JUCE 5), linux-headless: TAL Dub-3, Filter-2, Reverb I–III, Vocoder-II, NoiseMaker, Vex, OB-Xd, The Pilgrim, Luftikus, Temper, dRowAudio Distortion/Distortion Shaper/Flanger (Flanger segfaults in jalv: to check) |
+| `dexed-lv2` | 1 | dcoredump's native LV2 Dexed, against lvtk 1.2.0's headers |
+| `chow-centaur-lv2`, `chow-phaser-lv2`, `chow-tape-model-lv2` | 4 | CHOW (JUCE, LV2 only) |
+| `chow-kick-lv2`, `chow-matrix-lv2`, `chow-multitool-lv2`, `byod-lv2` | (4) | further CHOW plugins, not in zynthian's engine config: zynthian adds them disabled (enable in the engine settings) |
+| `synthv1-lv2`, `samplv1-lv2`, `padthv1-lv2` | 3 | rncbc's synths 1.5.1, Qt 6 (build needs Qt 6.12's `-dev` packages; the plugins need a display even headless) |
+| `mimid-lv2` | 1 | MiMi-d (DPF, DSP only), zynthian branch |
+| `monique-lv2`, `kr106-lv2`, `ripplerx-lv2`, `odin2-lv2` | 4 | JUCE synths, LV2 only |
+| `jc303-lv2` | 1 | JC303 0.13.0; its URI lost the trailing slash zynthian's config has (`.../JC303/`): the rescan adds it under the new URI |
 
 Before 2026-11-05 the kiosk package depended on `calf` instead of `calf-lv2` (Alpine puts the LV2
 plugins in a subpackage): none of the Calf plugins were installed. Fixed in `abd64c11`.
@@ -82,20 +90,19 @@ Available in Alpine but **not** in zynthian's defaults (all disabled there): `ls
 (0 of 194 enabled), `airwindows-lv2` (0 of 187), `noise-repellent`, `bankstown-lv2`. Not
 installed.
 
-## Missing: 61
+## Missing: 32
 
 None of these are packaged in Alpine. Source: how ZynthianOS gets them (Debian/KXStudio package
 from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a prebuilt binary).
 
 | Project | Missing | Type | ZynthianOS source | Build | Notes |
 |---|---|---|---|---|---|
-| Guitarix | 1 | GxVoxTonebender | `gx_voxtb` is neither in Guitarix 0.47 nor in GxPlugins 1.0 | | source to find (an older Guitarix or MOD fork?) |
-| DISTRHO-Ports (JUCE) | 6 | TAL effects, Vex | Debian `distrho-plugin-ports-lv2`, recipe `install_distrho_ports.sh` | meson, JUCE (legacy) | long build |
-| Dusk Audio | 6 | effects, synth | prebuilt only (`install_dusk_*_prebuilt.sh`) | JUCE | sources to check; prebuilt glibc binaries can't run on musl |
-| CHOW | 4 | effects (Centaur, Phaser, Tape) | recipes (source and prebuilt) | JUCE, cmake | |
-| rncbc synths | 3 | padthv1, samplv1, synthv1 | Debian `*-lv2` | cmake, Qt | the LV2 plugin links its Qt Widgets UI: needs Qt 6 dev packages matching the device's Qt (6.12 from the Zrythm build, Alpine has 6.11) |
-| Synths (JUCE and others) | ~20 | Surge XT, Monique, Odin2, Vaporizer2, OB-Xd, Dexed, Helm, TAL-NoiseMaker, JC303, KR-106, RipplerX, MiMi-d, Mutated Instruments, Triceratops, Foo YC20, SO-kl5, Fabla, … | recipes, some prebuilt only | mostly JUCE, cmake | long builds; check each on aarch64/musl |
-| Single plugins | ~22 | AIDA-X, Neural Amp Modeler, Aether, Argotlunar2, Temper, Roboverb, Ratatouille, TalentedHack, Regrader, SAFE, gula, Luftikus, ChaosChimp, Granulator (Faust), AMS Bitgrinder, The Pilgrim, Punk Console, Calf Wavetable, … | Debian / recipes / prebuilt | various | AIDA-X and NAM need RTNeural/Eigen and are CPU-heavy |
+| Surge XT | 1 | synth | release source with submodules | cmake, JUCE | packaged (`surge-xt-lv2`, data split), building |
+| Dusk Audio | 6 | effects | prebuilt only (`install_dusk_*_prebuilt.sh`) | JUCE | sources to check; glibc binaries can't run on musl |
+| Synths | 7 | Helm, Vaporizer2, Triceratops, Foo YC20, Fabla, SO-kl5, Mutated Instruments | recipes, Vaporizer2 from openSUSE debs | make/waf/cmake; Fabla needs NTK, Foo YC20 Faust 0.9.73 | |
+| Neural | 3 | AIDA-X, Neural Amp Modeler, Ratatouille | recipes | cmake, RTNeural/Eigen | CPU-heavy |
+| Single plugins | 13 | Aether, Argotlunar2, AMS Bitgrinder, Calf Wavetable, ChaosChimp, Granulator (Faust), Punk Console, Regrader, Roboverb, SAFE EQ, TalentedHack, The Vibey (gula), MOD Arpeggiator | Debian / recipes | various | |
+| Others | 2 | GxVoxTonebender (source not found), FluidGM (no SoundFont in zynthian's FluidPlug fork) | | | |
 
 (The full list, plugin by plugin: regenerate with the measurement above; the table groups it.)
 
@@ -138,8 +145,8 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | 2. DPF family | DPF-Plugins, Dragonfly Reverb, string-machine, MiniOPL3 (**done**) | ~20 | DSP only per plugin, as ykchorus |
 | 3. Guitarix (**done**) | Guitarix (`--mod-lv2 --no-standalone`), GxPlugins, GxDistortionPlus, GxSwitchlessWah | 58 of 59 | half a day: needed only libsigc++ and `<cstdint>`, no Boost/glibmm for the LV2-only build |
 | 4. Instruments with data (**done**) | FluidPlug, avldrums, setBfree (also as engine) | 26 | SoundFonts in optional `-data` packages, not in images |
-| 5. EQ10Q, QMidiArp (**done**), rncbc synths | EQ10Q, QMidiArp, padthv1/samplv1/synthv1 | ~13 | EQ10Q and QMidiArp: minutes, Debian's sources; rncbc synths open (Qt 6.12 dev packages) |
-| 6. JUCE | DISTRHO-Ports (TAL, Vex), CHOW, Surge XT, Odin2, OB-Xd, Dexed, Helm, Monique, Vaporizer2, … | ~30 | 1–2 weeks: long builds (under qemu: hours each), JUCE on musl, check each |
+| 5. EQ10Q, QMidiArp, rncbc synths (**done**) | EQ10Q, QMidiArp, padthv1/samplv1/synthv1 | ~13 | EQ10Q and QMidiArp: minutes, Debian's sources; rncbc synths open (Qt 6.12 dev packages) |
+| 6. JUCE (**done** but Surge XT) | DISTRHO-Ports (TAL, Vex), CHOW, Surge XT, Odin2, OB-Xd, Dexed, Helm, Monique, Vaporizer2, … | ~30 | 1–2 weeks: long builds (under qemu: hours each), JUCE on musl, check each |
 | 7. Neural and the rest | AIDA-X, NAM, Dusk (if sources), single plugins | ~25 | case by case |
 
 After each phase: build, install on the Duet, rescan, measure coverage, and load each new plugin

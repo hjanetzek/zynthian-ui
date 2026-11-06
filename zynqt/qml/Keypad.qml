@@ -8,6 +8,8 @@ Item {
 
     property int keyHeight: 100
 
+    signal keyPressed      // any key (the overlay keypad stays while keys are used)
+
     // Labels by key index (zynthian_gui_touchkeypad_v5.buttons)
     readonly property var labels: ["OPT\nADMIN", "MIX\nLEVEL", "CTRL\nPRSET", "ZS3\nSHOT",
         "ALT\nHELP", "METRO", "PAD\nSTEP", "F1", "REC", "STOP", "PLAY", "F2", "BACK\nNO", "▲",
@@ -70,7 +72,7 @@ Item {
         TapHandler {
             id: tap
             gesturePolicy: TapHandler.ReleaseWithinBounds
-            onPressedChanged: zyn.pushSwitch(k.key, pressed)
+            onPressedChanged: { zyn.pushSwitch(k.key, pressed); root.keyPressed() }
         }
     }
 }

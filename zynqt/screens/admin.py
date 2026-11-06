@@ -117,6 +117,9 @@ class Admin(SelectorScreen):
                        lambda x: self.pick("Toggle Control", [(v, v) for v in s.MIXER_TOGGLES], cfg.mixer_toggle,
                                            lambda v: (s.set_mixer_toggle(v), self.ui.mixer_settings_changed())),
                        icon="settings.png", info="The mixer strips' second button."))
+        e.append(entry(_check(self.ui.keypadDocked) + "Docked Touch Keypad", toggle(self.ui.toggleKeypadDocked),
+                       icon="settings.png", info="The touch keys beside the screens. Off: an overlay, brought "
+                       "up by a tap or swipe down on the top bar (for small screens)."))
         e.append(entry(_check(cfg.preset_preload) + "Preset Preload", toggle(s.toggle_preset_preload),
                        icon="settings.png", info="Load presets when they are selected in the list."))
 

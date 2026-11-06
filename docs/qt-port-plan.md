@@ -1,6 +1,6 @@
 # Starting the Qt Quick port: implementation plan
 
-Status: plan, 2026-11-05; M0 done, M1 started (`zynthian_qt_main.py`, `zynqt/`). Follows [ui-reimplementation-plan.md](ui-reimplementation-plan.md),
+Status: 2026-11-06; M0, M1 and M2 done (M2 except ZynVoice), M3 nearly done; the Qt UI is the Duet's kiosk (`zynthian_qt_main.py`, `zynqt/`). What's left: "Next steps" below. Follows [ui-reimplementation-plan.md](ui-reimplementation-plan.md),
 which chose Qt Quick (QML) with the Python backend in-process (PySide6). This plan covers how to
 start: what to build first, how it runs on the Lenovo Duet, and what decides the open questions.
 
@@ -169,20 +169,17 @@ display).
 Exit: everyday use (load a snapshot, add a chain, pick a preset, mix, tweak controllers) works
 with the Qt UI on the Duet, by touch.
 
-**Status (2026-11-05).** On the desktop and the Duet (as a native Wayland client in labwc):
-mixer, chain control (with sidebar: chain options, MIDI/audio routing, processor options), adding
-chains (type, engine, MIDI channel, bank, preset), snapshots, ZS3, tempo, audio levels, admin
-settings (all desktop entries except ZynVoice), MIDI devices and their options, recording and
-transport keys, audio and MIDI player, chain manager, moving chains and processors, MIDI CC and note
-range/transpose, on-screen keyboard, the V5 keypad with the wiring configuration's switch actions.
-M3 started: the launcher (mixer in launcher mode) with its phrase menu, the pattern editor
-(notes with their settings: offset, stutter, play/stutter frequency and chance; CC view, chord
-entry; QML items, smooth on the Duet), the waveform view of audio file processors (QML Shape).
-Pattern files and MIDI file import/export with a file picker in the options screen. MIDI learn:
-controller options (chain/global learn, CC mode and range, unlearn), bindings on the controllers,
-ZS3 program change learning, note range learning (b67093b4). X-Y touchpad (f71915da).
-Not ported yet: ZynVoice. All engine widgets are ported (SooperLooper for its current engine; better as the LV2
-plugin, see nura-builds' docs/lv2-plugins.md).
+**Status (2026-11-06).** On the desktop and the Duet (native Wayland client; the default kiosk
+session, `kiosk-session zynthian`): mixer, chain control (with sidebar: chain options, MIDI/audio
+routing, processor options), adding chains (type, engine, MIDI channel, bank, preset), snapshots,
+ZS3 (with program change learning), tempo, audio levels, admin settings (all desktop entries
+except ZynVoice), MIDI devices and their options, audio and MIDI recorder/player, chain manager,
+moving chains and processors, MIDI CC and note range/transpose, on-screen keyboard, value editor.
+Touch keypad (V5 layout) docked or as an overlay from the top edge, translucent over a blurred
+screen (status area or Admin switches). The wiring configuration's switch actions: short / bold /
+long and push actions with auto repeat (arrows, METRO), PROGRAM_CHANGE (F1–F4); the transport keys
+per screen as in Tk (pattern editor, MIDI recorder, audio file and SooperLooper widgets, audio
+player file list). M3 (below) is done except the hardware kits and small screens.
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
 
@@ -198,25 +195,35 @@ mattered for the Qt numbers: one QML view per selector screen, kept while hidden
 updates in place instead of resets (the main menu grid took ~290 ms when its delegates and
 images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch times.
 
-**Next steps** (2026-11-05):
+**Next steps** (2026-11-06): what's left.
 
-1. Qt UI as the Duet's kiosk (`kiosk-session zynthian`, see nura/README.md) and everyday use.
-2. Remaining M2 gaps: ZynVoice (needs a TTS engine on the device). PipeWire integration of the
-   audio routing (hardware ports, main output, numbering; see docs/upstream-candidates.md) is
-   only patched over so far. Move list logic out of the Tk screens into shared modules where it
-   isn't trivial, as for snapshots and MIDI config.
-3. Touch (postponed; multitouch faders already work): swipe vs. tap in lists, long-press timing,
-   drag sensitivity.
-4. M3: launcher (9f3d00c8), phrase menu (ee070fcf), pattern editor notes (1b575e6a, plain QML
-   items: measure on the Duet before deciding on a C++ item), CC view and chords (3a6778ac).
-   Waveform view (9e603dc5), envelope and filter (786a9315), plugin widgets. Next:
-   Euclidean sequencer (af8f6395), Organelle and SooperLooper widgets done; pattern editor block
-   selection/copy/cut/paste (bf7af4d3), per-note settings (6e811e2b), pattern files and MIDI file import/export (2cb7bf28), MIDI learn (b67093b4), X-Y touchpad (f71915da);
-   launcher pads kept
-   instantiated (41c97752: creating them made the switch slow). The arranger is not ported: upstream has it switched off
-   (zynthian_gui.py creates no arranger screen; zynseq: "until arranger is reinstated").
-5. Upstream: split the shared modules into self-contained commits, fix the bugs noted in
-   [upstream-candidates.md](upstream-candidates.md), pytest for the shared modules.
+1. **ZynVoice** (speech): needs a TTS engine on Nura (Tk uses flite voices,
+   `ZYNTHIAN_TTS_VOICE`); then the screens announce as in Tk. Until then admin shows it as not
+   ported and TTS_TOGGLE_ENABLE says so.
+2. **Hardware kits** (M3): encoders (zynpot callbacks: none in the Qt UI yet), LEDs (`wsleds`:
+   none), and the controller drivers that use the Tk screens (`zyngui.screens["pattern_editor" /
+   "mixer" / "launcher"]` in APC40, Launchpad, ... drivers; `ZynUI.screens` is empty, so those
+   parts do nothing). Needs a kit or a control device to test with; on the Duet only MIDI
+   controllers.
+3. **PipeWire integration** of the audio routing (hardware port names, main output, numbering;
+   Pure Data's MIDI ports): only patched over so far, see docs/upstream-candidates.md.
+4. **Touch polish** (postponed): swipe vs. tap in lists, long-press timing, drag sensitivity.
+5. **Small screens / SPI kits** (M3): layouts for 320×240 and 480×320 and the software renderer
+   (see below); the Tk UI stays the fallback there.
+6. **Performance on the Duet with the M3 screens**: CPU per thread (docs/performance-measurement.md)
+   while playing; the launcher switch (41c97752) and the pattern editor (smooth with QML items)
+   were checked by hand. C++ items for dense views only if a measurement asks for them.
+7. **Shared modules and upstream**: settings out of `zyngui` (the engine side imports
+   `zynthian_gui_config`), the remaining list logic out of the Tk screens; split the shared
+   modules into self-contained commits (docs/upstream-candidates.md says which to fold
+   together), pytest for them, the "open" bugs there. Pushing and PR #1 are paused.
+
+Done since the first plan (commits in docs/upstream-candidates.md and the git log): the M3
+launcher with phrase menu, pattern editor (notes and their settings, CC view, chords, block
+edit, undo, pattern files, MIDI file import/export, MIDI recording), all engine widgets (audio
+file waveform, envelope, filter, plugin widgets, Euclidean sequencer, Organelle, SooperLooper),
+MIDI learn, X-Y touchpad. The arranger is not ported: upstream has it switched off.
+
 
 ### M3: towards parity
 
@@ -225,6 +232,8 @@ pattern editor, arranger, engine widgets (audio file, envelope, filter, …), MI
 hardware kits (encoders, switches, LEDs), small screens. Dense views (pattern editor, waveforms,
 meters if needed) as C++ items on Qt Canvas Painter, as in Zrythm, registered as a QML module the
 Python app imports.
+
+Status (2026-11-06): all of it except the hardware kits and small screens; no C++ items needed so far.
 
 ## Raspberry Pi kits with SPI displays
 
@@ -268,6 +277,9 @@ Test to settle it: the mixer with running meters on an SPI kit, software rendere
 
 ## Packaging
 
+Status (2026-11-06): done. PySide6 6.12 and the kiosk are packaged (the PySide6, LV2, Pure Data and
+jalv recipes moved to nura-builds, aports/); the notes below are how it was planned.
+
 - **`nura/pyside6/`**: start from aports' `py3-pyside6` recipe (it builds shiboken6 and PySide6),
   set the version to 6.12.x to match the Qt 6.12 recipes in Zrythm's `tools/nura/qt6/`, and
   limit the modules (`MODULES=Core;Gui;Qml;Quick;QuickControls2;OpenGL;Svg`, plus `Network` if
@@ -296,13 +308,14 @@ Test to settle it: the mixer with running meters on an SPI kit, software rendere
 
 ## Risks and open questions
 
-- **PySide6 6.12 for musl/aarch64**: not packaged anywhere yet; the build (libclang, qemu) may
-  need patches. Fallback: the C++ front end embedding CPython (M0 decides).
+- **PySide6 6.12 for musl/aarch64**: resolved: built and packaged for Nura (M0).
 - **Python in the GUI thread**: model updates and property changes run Python. Keep per-frame
   work out of Python (meters, animations in QML or C++); batch model updates.
 - **Threading**: the backend calls UI code from its threads today (tkinter marshals the calls
   into its thread). Under Qt every such call must go through a signal or
   `QMetaObject.invokeMethod`; calling QObjects from other threads directly crashes at random.
+  Handled: zynsigman signals reach the GUI thread through `bridge.py` (queued), CUIAs through
+  the CUIA thread's queued signal; new engine callbacks have to go the same way.
 - **The engine side imports `zyngui`**: 25 files in `zyngine`/`zynautoconnect` use
   `zynthian_gui_config` (mostly settings, ~20 calls into the UI object). `ZynUI` covers this for
   now; moving the settings out of `zyngui` (phase 1 of the earlier plan) is the clean fix.

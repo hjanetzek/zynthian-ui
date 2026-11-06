@@ -1,0 +1,46 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# EQ10Q: parametric EQs, compressors, gates (URIs http://eq10q.sourceforge.net/...; zynthian
+# enables 8 of them, Debian's eq10q on ZynthianOS). Debian's source and patches (prefix, no SSE
+# flags, the distribution's flags, LV2 types, pow10, CMake 4, no GTK GUI); the TTLs still name the
+# GtkUI, which hosts skip when its binary is missing.
+pkgname=eq10q-lv2
+pkgver=2.2
+pkgrel=0
+_debver=2.2~repack0
+pkgdesc="EQ10Q equalizer and dynamics LV2 plugins (no GUI)"
+url="https://eq10q.sourceforge.net"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="cmake fftw-dev lv2-dev samurai"
+source="https://deb.debian.org/debian/pool/main/e/eq10q/eq10q_$_debver.orig.tar.gz
+	01-fix_prexix.patch
+	02-remove_sse_flags.patch
+	03-fix_flags.patch
+	04-spelling.patch
+	05-pow10.patch
+	0006-Fix-lv2-types.patch
+	07-Prevent-gui-build.patch
+	cmake-4.patch
+	"
+builddir="$srcdir/eq10q-$pkgver"
+options="!check" # no tests
+
+build() {
+	cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=None
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+}
+sha512sums="
+b1452edea2595bff9ee9953fd3d860a53b0e042d31b1e3d041a92b9f4fbf865c2ed1a43a7703d4bd813ad582c483b2f12b86fcf4e7ba196e1a613aa0c97d4864  eq10q_2.2~repack0.orig.tar.gz
+41efdb6bd579a617eda4f3aadf2b6324a55e3dbabe78bad03870fb932e81638d1dd12cfe8ac10e1ae71303d60990b9d8d4a665198b40338e76af2e63a02a961b  01-fix_prexix.patch
+bfe50cad8cda370d01bc19c7451b0363582aaad4b00a22057e72acc458af28c4bbfc74c5abd109ac6f6ab1d898c502d280540dd3523836ea129df0f78cb4ccee  02-remove_sse_flags.patch
+a8a844a056df0fac2298ab57b538edcfeee007c5a25438f20d68f964f1f9a88e1acf816394882945d986c805a58c3bb2b6a342c2bc60d16fffc6912cb5edf495  03-fix_flags.patch
+4ae4545c80564c646488fa14ee28faae76fc124a1c807c879d14512ce286d6cd8fcff67c79553425253b808df9ab2cbd72726141f9e79bbc34ef474e7ad06acd  04-spelling.patch
+6f1812adddf49b6b85cef4255890d26966b744b9fdcd41c57e1b6b4798eb6ac3ace92a2a2dde2b2eab1cae67920479f0b56f8ce6e70b424659a8df17d784ea5f  05-pow10.patch
+1ba726c1142346a990b3ae7291e6b02c8e0f75166c9cee6796813e6eec6cff95f8dcd5390f456c70f54da8f1dad0600d8c136c0e2bb9d97362292f1a2c1f525f  0006-Fix-lv2-types.patch
+9cc090ece8e719cf1fd0d0ea01008faa17ecfc65a82d5a0857217bcc37f78a06337942fb129f2a6492dbe201cf26d674e8a4ea3ed6b4dded34c7caaeaf29ff60  07-Prevent-gui-build.patch
+70a539ae7bc03c181fe08715afc9e0a940eef7c251a68bba45d9b1394eea06be559a56d3093a945b969697a1d9b853eb83a4926208de39b0fb6ab420e5015a59  cmake-4.patch
+"

@@ -1,0 +1,24 @@
+From 2a7419dcbd534cd29a0f7aee38e88f50c940b294 Mon Sep 17 00:00:00 2001
+From: Bastian Germann <bage@debian.org>
+Date: Sat, 14 Oct 2023 23:28:45 +0200
+Subject: [PATCH] Prevent gui build
+
+---
+ CMakeLists.txt | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 857897d..e30ebac 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -18,7 +18,6 @@ set (LV2_BUNDLE "sapistaEQv2.lv2") #LV2 Bundel dir
+ set(EXECUTABLE_OUTPUT_PATH "${PROJECT_SOURCE_DIR}/bin")
+ set(LIBRARY_OUTPUT_PATH "${PROJECT_SOURCE_DIR}/bin")
+ 
+-add_subdirectory(gui) 
+ add_subdirectory(dsp)
+ 
+ #===========================BUILD EQ10Q ALL DSP FILES=============================================
+-- 
+2.42.0
+

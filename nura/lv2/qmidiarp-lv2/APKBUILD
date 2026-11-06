@@ -1,0 +1,38 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# QMidiArp's LV2 MIDI plugins: arpeggiator, LFO, step sequencer (URIs
+# https://git.code.sf.net/p/qmidiarp/...; zynthian enables Arp and LFO, recipe install_qmidiarp.sh).
+# Debian's source. Plugins only: no standalone application and no plugin UIs, so no Qt.
+pkgname=qmidiarp-lv2
+pkgver=0.7.5
+pkgrel=0
+pkgdesc="QMidiArp arpeggiator, LFO and sequencer LV2 plugins (no GUIs)"
+url="https://qmidiarp.sourceforge.net"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="lv2-dev"
+source="https://deb.debian.org/debian/pool/main/q/qmidiarp/qmidiarp_$pkgver+ds.orig.tar.xz"
+builddir="$srcdir/qmidiarp-$pkgver"
+options="!check" # no tests
+
+build() {
+	./configure \
+		--build=$CBUILD \
+		--host=$CHOST \
+		--prefix=/usr \
+		--enable-lv2plugins \
+		--disable-lv2pluginuis \
+		--disable-lv2rtkpluginuis \
+		--disable-buildapp \
+		--disable-alsa \
+		--disable-translations
+	make
+}
+
+package() {
+	make DESTDIR="$pkgdir" install
+	# only the plugins
+	rm -rf "$pkgdir"/usr/share
+}
+sha512sums="
+e9b85d32c57b7e1f02c23118a17f14c961f4137c289e9737230efb7c20b6bf7be1acb952e9e7bbdeb4f73d35ada11c87bc6bfde83dcc6958a351428d9d63f5bc  qmidiarp_0.7.5+ds.orig.tar.xz
+"

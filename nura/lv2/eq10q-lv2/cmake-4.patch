@@ -1,0 +1,13 @@
+Description: Fix FTBFS with CMake 4
+Author: Adrian Bunk <bunk@debian.org>
+Bug-Debian: https://bugs.debian.org/1112874
+
+--- eq10q-2.2~repack0.orig/CMakeLists.txt
++++ eq10q-2.2~repack0/CMakeLists.txt
+@@ -1,5 +1,5 @@
+ ##EQ10Q TopLevel CMake
+-cmake_minimum_required(VERSION 2.8)
++cmake_minimum_required(VERSION 3.5)
+ PROJECT(eq10q)
+ 
+ ##ADD_DEFINITIONS(-Wall -O3 -fPIC -finline-functions -finline-functions-called-once  -msse -mfpmath=sse -std=c99)

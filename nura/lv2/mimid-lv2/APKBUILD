@@ -1,0 +1,45 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# MiMi-d, a monophonic/polyphonic analog-modelling synth (URI https://butoba.net/homepage/mimid.html;
+# zynthian's recipe install_mimid.sh: polluxsynth/audio-plugins, branch zynthian). A DPF plugin:
+# DPF (a git submodule) is a second source; DSP only (lv2_dsp), then the TTL generator and the
+# project's fixup (parameter designations), and its presets bundle.
+pkgname=mimid-lv2
+_commit=f71fcc087a8deaeda116c9266d01d57948ae9f6b
+_dpf=4238e1c7f0351bbe488d79f0899c540543ac7583
+_branch=zynthian # the branch zynthian builds (nura/tools/check-updates.py compares against it)
+pkgver=0_git20260918
+pkgrel=2
+pkgdesc="MiMi-d analog-modelling synthesizer (LV2)"
+url="https://github.com/polluxsynth/audio-plugins"
+arch="all"
+license="GPL-2.0-or-later"
+# bash: DPF's utils/generate-ttl.sh; dash and GNU sed: the fixup script relies on dash's echo
+# (backslash escapes, as /bin/sh on Debian) and GNU sed's "a\" (busybox ash and sed leave literal
+# \n and \t in the TTL)
+makedepends="bash dash lv2-dev sed"
+subpackages="$pkgname-doc"
+source="$pkgname-$_commit.tar.gz::https://github.com/polluxsynth/audio-plugins/archive/$_commit.tar.gz
+	dpf-$_dpf.tar.gz::https://github.com/DISTRHO/DPF/archive/$_dpf.tar.gz"
+builddir="$srcdir/audio-plugins-$_commit"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	rm -rf dpf
+	mv "$srcdir"/DPF-$_dpf dpf
+}
+
+build() {
+	make -C plugins/mimid NOOPT=true HAVE_OPENGL=false lv2_dsp
+	make -C dpf/utils/lv2-ttl-generator
+	dpf/utils/generate-ttl.sh
+	dash plugins/mimid/Utils/add-designation-params.sh bin/MiMi-d.lv2/MiMi-d_dsp.ttl
+}
+
+package() {
+	make DESTDIR="$pkgdir" PREFIX=/usr install
+}
+sha512sums="
+b422c476024ca30d9c28c089001eb0157fb1705e15c9124eedf87279c949d1b6251d5ffb0a630fe43b1fc0680cc73617eb498d8fbe57c32d04160c93b02d05c1  mimid-lv2-f71fcc087a8deaeda116c9266d01d57948ae9f6b.tar.gz
+56d7f907422c283584183fe9f23d984533e6f9841d30123a5d27b79760daa6114971fd95a85606652c9b12b5dd2fbcb36739a82f5199ff0a676a8f9a5f4c656b  dpf-4238e1c7f0351bbe488d79f0899c540543ac7583.tar.gz
+"

@@ -1,0 +1,45 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# rncbc's padthv1, a polyphonic additive synthesizer (PADsynth) (URI http://padthv1.sourceforge.net/lv2; Debian's
+# padthv1-lv2 on ZynthianOS). LV2 only (no JACK application, NSM or OSC). The plugin links its Qt 6
+# Widgets UI, so it needs Qt 6 development files matching the device's Qt (6.12 on Nura).
+pkgname=padthv1-lv2
+pkgver=1.5.1
+pkgrel=0
+pkgdesc="padthv1 polyphonic additive synthesizer (PADsynth) (LV2)"
+url="https://padthv1.sourceforge.io"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="
+	cmake
+	fftw-dev
+	lv2-dev
+	qt6-qtbase-dev
+	qt6-qtsvg-dev
+	samurai
+	"
+source="padthv1-$pkgver.tar.gz::https://github.com/rncbc/padthv1/archive/v$pkgver.tar.gz"
+builddir="$srcdir/padthv1-$pkgver"
+options="!check" # no tests
+
+build() {
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DCONFIG_QT6=ON \
+		-DCONFIG_JACK=OFF \
+		-DCONFIG_ALSA_MIDI=OFF \
+		-DCONFIG_LIBLO=OFF \
+		-DCONFIG_NSM=OFF \
+		-DCONFIG_LV2=ON
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+	# only the plugin (no application without JACK)
+	rm -rf "$pkgdir"/usr/share "$pkgdir"/usr/bin
+}
+sha512sums="
+8148ea06172d797c70bcce87edd670132c94a7597efee09038627c0b5d51d249201ca079b1909d6a2dcb88adf2c6c16c3c762d10f0a2bce7e2f44c9c225564d9  padthv1-1.5.1.tar.gz
+"

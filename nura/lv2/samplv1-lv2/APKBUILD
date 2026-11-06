@@ -1,0 +1,47 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# rncbc's samplv1, a polyphonic sampler synthesizer (URI http://samplv1.sourceforge.net/lv2; Debian's
+# samplv1-lv2 on ZynthianOS). LV2 only (no JACK application, NSM or OSC). The plugin links its Qt 6
+# Widgets UI, so it needs Qt 6 development files matching the device's Qt (6.12 on Nura).
+pkgname=samplv1-lv2
+pkgver=1.5.1
+pkgrel=0
+pkgdesc="samplv1 polyphonic sampler synthesizer (LV2)"
+url="https://samplv1.sourceforge.io"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="
+	cmake
+	fftw-dev
+	libsndfile-dev
+	lv2-dev
+	qt6-qtbase-dev
+	qt6-qtsvg-dev
+	rubberband-dev
+	samurai
+	"
+source="samplv1-$pkgver.tar.gz::https://github.com/rncbc/samplv1/archive/v$pkgver.tar.gz"
+builddir="$srcdir/samplv1-$pkgver"
+options="!check" # no tests
+
+build() {
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DCONFIG_QT6=ON \
+		-DCONFIG_JACK=OFF \
+		-DCONFIG_ALSA_MIDI=OFF \
+		-DCONFIG_LIBLO=OFF \
+		-DCONFIG_NSM=OFF \
+		-DCONFIG_LV2=ON
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+	# only the plugin (no application without JACK)
+	rm -rf "$pkgdir"/usr/share "$pkgdir"/usr/bin
+}
+sha512sums="
+c7ac48b9abfc1c641652b43a7ceebd216c574cdd69b52ccb45c587274e8e0b1bf9e9651c5bdafd75777a8e53759f074c5f0909d568e380bd5eb043a578693bb9  samplv1-1.5.1.tar.gz
+"

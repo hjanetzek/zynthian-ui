@@ -1,0 +1,80 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# RipplerX (URI https://github.com/tiagolr/ripplerx; zynthian's recipe install_ripplerx.sh).
+# JUCE and the other git submodules are extra sources (nura/tools/gh-submodule-sources.py). LV2
+# only. The plugin has its JUCE GUI built in, so it needs X11 and freetype headers to build (JUCE
+# loads X11 only when the editor opens).
+pkgname=ripplerx-lv2
+pkgver=1.5.19
+pkgrel=0
+_commit=7da35e4cc97b90eeed64856fb3d7202142c54881
+_libs_juce=5179690ff7384503f5f1bf90a5e84278aa8472ea
+_libs_mts_esp=2d7c013ebf4a076c35811e62293e8f819d053a91
+pkgdesc="RipplerX physically modelled percussion synthesizer (LV2)"
+url="https://github.com/tiagolr/ripplerx"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/tiagolr/ripplerx/archive/$_commit.tar.gz
+	libs_juce-${_libs_juce}.tar.gz::https://github.com/juce-framework/JUCE/archive/${_libs_juce}.tar.gz
+	libs_mts_esp-${_libs_mts_esp}.tar.gz::https://github.com/ODDSound/MTS-ESP/archive/${_libs_mts_esp}.tar.gz
+	"
+builddir="$srcdir/ripplerx-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf libs/JUCE && mv "$srcdir"/JUCE-${_libs_juce} libs/JUCE
+	rm -rf libs/MTS-ESP && mv "$srcdir"/MTS-ESP-${_libs_mts_esp} libs/MTS-ESP
+	sed -i 's/COPY_PLUGIN_AFTER_BUILD TRUE/COPY_PLUGIN_AFTER_BUILD FALSE/' CMakeLists.txt
+	default_prepare
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release -DBUILD_STANDALONE=OFF
+	# at most 3 jobs: the JUCE translation units need ~1 GB each (the Duet has 4 GB)
+	cmake --build build --parallel 3 --target RipplerX_LV2
+}
+
+package() {
+	local d
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	for d in $(find build -type d -path '*/LV2/*.lv2' -prune); do
+		cp -r "$d" "$pkgdir"/usr/lib/lv2/
+	done
+}
+sha512sums="
+da5c04bf8d105919e08c89aae4555a18192944a3e1b76bc8c8899fb4dda5f7c119f0ce5d4f529c91512e8ada86d27a1d8ca41d5ab79c1c97d855465a98cceca3  ripplerx-lv2-7da35e4cc97b90eeed64856fb3d7202142c54881.tar.gz
+b928215e2b741eb2fe420bb3579ce7225bed07468e6bfea31d07ec258196a808a1de001b8954349f2572b5a06e2d067aec0dfc9616b78984c618ca1d55d79b46  libs_juce-5179690ff7384503f5f1bf90a5e84278aa8472ea.tar.gz
+32e5f90783de62b240a094996105fabd6d6c387f8ce15076ab8f7c67098427132db4e5f19c5256d3506921153cecac4059b8f710b01d81f5e9da04351c3aed65  libs_mts_esp-2d7c013ebf4a076c35811e62293e8f819d053a91.tar.gz
+"

@@ -1,0 +1,123 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# BYOD (Build Your Own Distortion), ChowDSP's modular guitar distortion (not in zynthian's engine config).
+# JUCE and the other git submodules are extra sources (nura/tools/gh-submodule-sources.py). LV2
+# only. The plugin has its JUCE GUI built in, so it needs X11 and freetype headers to build (JUCE
+# loads X11 only when the editor opens).
+pkgname=byod-lv2
+pkgver=1.3.0
+pkgrel=0
+_commit=3562e3cd4dc569d526aa4610da7a17f79ab5211f
+_modules_juce=a8ae6edda6d3be78a139ec5e429dc57ef047e82a
+_modules_chowdsp_utils=b1ac3eb802171e65d22151fbadce81d1f300616d
+_modules_rtneural=04cb333bc4b174760958a77c7ce076eae38fe8e4
+_modules_rtneural_modules_xsimd=a00c81f7b9e808a42aedcf7da2fbb1f9a636da34
+_modules_magic_enum=1b1194bcd5e0f62047a43161689bae593b12e607
+_modules_sst_cpputils=5bdc7f885a96e93e8fdf929f5464058ade3384a3
+_modules_clap_juce_extensions=f417137a5132dfe9274a926a4f21dfc56e363d5d
+_modules_clap_juce_extensions_clap_libs_clap=e292447bd0dbb265ef091178bfed9e29617ebb5b
+_modules_clap_juce_extensions_clap_libs_clap_helpers=8626fdfb0921a070ac2f6aff35b61ea338cf555b
+_modules_chowdsp_wdf=7a3c85e47346af7765c23c8855b032f6c0bcdedb
+_modules_ea_variant=3fce49cfca50ba3b05026d41ffc4911a8e653378
+_modules_melatonin_perfetto=3961e6f8bc7898344c043f7abe2ecb52701b2e18
+_modules_math_approx=0c68d4d17242d707ba07fa7f1901692b7ed72d58
+pkgdesc="BYOD build-your-own guitar distortion (LV2)"
+url="https://github.com/Chowdhury-DSP/BYOD"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/Chowdhury-DSP/BYOD/archive/$_commit.tar.gz
+	modules_juce-${_modules_juce}.tar.gz::https://github.com/juce-framework/JUCE/archive/${_modules_juce}.tar.gz
+	modules_chowdsp_utils-${_modules_chowdsp_utils}.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_utils/archive/${_modules_chowdsp_utils}.tar.gz
+	modules_rtneural-${_modules_rtneural}.tar.gz::https://github.com/jatinchowdhury18/RTNeural/archive/${_modules_rtneural}.tar.gz
+	modules_rtneural_modules_xsimd-${_modules_rtneural_modules_xsimd}.tar.gz::https://github.com/xtensor-stack/xsimd/archive/${_modules_rtneural_modules_xsimd}.tar.gz
+	modules_magic_enum-${_modules_magic_enum}.tar.gz::https://github.com/Neargye/magic_enum/archive/${_modules_magic_enum}.tar.gz
+	modules_sst_cpputils-${_modules_sst_cpputils}.tar.gz::https://github.com/surge-synthesizer/sst-cpputils/archive/${_modules_sst_cpputils}.tar.gz
+	modules_clap_juce_extensions-${_modules_clap_juce_extensions}.tar.gz::https://github.com/jatinchowdhury18/clap-juce-extensions/archive/${_modules_clap_juce_extensions}.tar.gz
+	modules_clap_juce_extensions_clap_libs_clap-${_modules_clap_juce_extensions_clap_libs_clap}.tar.gz::https://github.com/free-audio/clap/archive/${_modules_clap_juce_extensions_clap_libs_clap}.tar.gz
+	modules_clap_juce_extensions_clap_libs_clap_helpers-${_modules_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz::https://github.com/free-audio/clap-helpers/archive/${_modules_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz
+	modules_chowdsp_wdf-${_modules_chowdsp_wdf}.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_wdf/archive/${_modules_chowdsp_wdf}.tar.gz
+	modules_ea_variant-${_modules_ea_variant}.tar.gz::https://github.com/eyalamirmusic/Variant/archive/${_modules_ea_variant}.tar.gz
+	modules_melatonin_perfetto-${_modules_melatonin_perfetto}.tar.gz::https://github.com/sudara/melatonin_perfetto/archive/${_modules_melatonin_perfetto}.tar.gz
+	modules_math_approx-${_modules_math_approx}.tar.gz::https://github.com/Chowdhury-DSP/math_approx/archive/${_modules_math_approx}.tar.gz
+	"
+builddir="$srcdir/BYOD-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf modules/JUCE && mv "$srcdir"/JUCE-${_modules_juce} modules/JUCE
+	rm -rf modules/chowdsp_utils && mv "$srcdir"/chowdsp_utils-${_modules_chowdsp_utils} modules/chowdsp_utils
+	rm -rf modules/RTNeural && mv "$srcdir"/RTNeural-${_modules_rtneural} modules/RTNeural
+	rm -rf modules/RTNeural/modules/xsimd && mv "$srcdir"/xsimd-${_modules_rtneural_modules_xsimd} modules/RTNeural/modules/xsimd
+	rm -rf modules/magic_enum && mv "$srcdir"/magic_enum-${_modules_magic_enum} modules/magic_enum
+	rm -rf modules/sst-cpputils && mv "$srcdir"/sst-cpputils-${_modules_sst_cpputils} modules/sst-cpputils
+	rm -rf modules/clap-juce-extensions && mv "$srcdir"/clap-juce-extensions-${_modules_clap_juce_extensions} modules/clap-juce-extensions
+	rm -rf modules/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_modules_clap_juce_extensions_clap_libs_clap} modules/clap-juce-extensions/clap-libs/clap
+	rm -rf modules/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_modules_clap_juce_extensions_clap_libs_clap_helpers} modules/clap-juce-extensions/clap-libs/clap-helpers
+	rm -rf modules/chowdsp_wdf && mv "$srcdir"/chowdsp_wdf-${_modules_chowdsp_wdf} modules/chowdsp_wdf
+	rm -rf modules/ea_variant && mv "$srcdir"/Variant-${_modules_ea_variant} modules/ea_variant
+	rm -rf modules/melatonin_perfetto && mv "$srcdir"/melatonin_perfetto-${_modules_melatonin_perfetto} modules/melatonin_perfetto
+	rm -rf modules/math_approx && mv "$srcdir"/math_approx-${_modules_math_approx} modules/math_approx
+	default_prepare
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release 
+	# at most 3 jobs: the JUCE translation units need ~1 GB each (the Duet has 4 GB)
+	cmake --build build --parallel 3 --target BYOD_LV2
+}
+
+package() {
+	local d
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	for d in $(find build -type d -path '*/LV2/*.lv2' -prune); do
+		cp -r "$d" "$pkgdir"/usr/lib/lv2/
+	done
+}
+sha512sums="
+a572107c21898858af2d2f1cfa50b0cd9a44ac22a03542cb65869454983acba79aece7a05427dd0db63b43ab82f33750c9795fa7601e32903ca4e0c3b15b2a2f  byod-lv2-3562e3cd4dc569d526aa4610da7a17f79ab5211f.tar.gz
+7e63866df9b848f415d45c8a2828155a699447b906295ee4c2df8087b48dfbc9411da4fc5d4634ea0d307039a9349cb0c8d66fc49d364435e64b889f759a592e  modules_juce-a8ae6edda6d3be78a139ec5e429dc57ef047e82a.tar.gz
+05e1201bcd99b2fc6b2383fda03d061430da67a6a4ee8738664276404cbf0f60bee81e39ed681cb8acb15863fae31f124acb40bf4692556e3373e95cbc03c4fc  modules_chowdsp_utils-b1ac3eb802171e65d22151fbadce81d1f300616d.tar.gz
+fc1d27f15e7465f15eef94fb80432068fdf742ea9a2a7c31844ece68436ab60ac8e0de35a8b07344aa82a2ea5e92eea4e6bebe7772e7d9833bb4f3b433eeb17a  modules_rtneural-04cb333bc4b174760958a77c7ce076eae38fe8e4.tar.gz
+c2314ac43a71e5274f66e8e8da5d533c0a3edd25d8306672091a12db627862e069503c1e94ad8283bd127624ce6a02be7bb84870cc0c2a5391b5643d5be9479e  modules_rtneural_modules_xsimd-a00c81f7b9e808a42aedcf7da2fbb1f9a636da34.tar.gz
+dd9c0e0e605baa063be93208380a50f402c2c52517404d67f8d0314b2f69ef44a35fd87aa4fc47d11a54894256613d30264f1292c0ae174c7a945f0b013f540d  modules_magic_enum-1b1194bcd5e0f62047a43161689bae593b12e607.tar.gz
+ff531fab7899e91324a25670ac263cdb20565a8678e9f18357132de6ba2f842591a34ef3674f9ff35f4eccef7653cb1b04b5b49ab64e6a2439e9601a57d48fc7  modules_sst_cpputils-5bdc7f885a96e93e8fdf929f5464058ade3384a3.tar.gz
+c66c32c3aeec8a347e6f95646f19f94d6c9064bacd3c416c9ec8bbd5f2b9f17bb8fb0d0a83fbfe5de0e713ecd7a33322f45cb70e07007377011c2ce51c75d8a5  modules_clap_juce_extensions-f417137a5132dfe9274a926a4f21dfc56e363d5d.tar.gz
+6e0ae80639da00728356dab58de6007932109d68209af4b8e7d02a829060dd861018dd593288644d17f04fccb188847f186cec6e4e1e75716c85235354e9896f  modules_clap_juce_extensions_clap_libs_clap-e292447bd0dbb265ef091178bfed9e29617ebb5b.tar.gz
+c30ba8939e3514e6a07cecd30b3e16060f395ef13344007e965da98afbb5dc3b4a705e0a88897833525047d1b68e106cc7294c69822bb7439bd5a51c3f8d1b34  modules_clap_juce_extensions_clap_libs_clap_helpers-8626fdfb0921a070ac2f6aff35b61ea338cf555b.tar.gz
+e4dc56dac5a371200cc62f6ca00e2701d02f1507972abf1c716060a51cf219dc5d707eaf61748f9c40e76a49fa33920f137420aa13cfe26c0f19a2c5dac13999  modules_chowdsp_wdf-7a3c85e47346af7765c23c8855b032f6c0bcdedb.tar.gz
+b1406795866de4c8e79cd193924f9fb1eab72a657ed8b5f705fa125d2ac46083c1e16bfc0461d69d39b9e45a6494229243428f68d1df7ad1f8017669c77bc62d  modules_ea_variant-3fce49cfca50ba3b05026d41ffc4911a8e653378.tar.gz
+86fd3d7eae687672e335ed8cd184df74257d77aff2db4307544af4230559d3c3a6cd41fc36b4c03fd854affaced7b18c5cbc4c87bbccba6f852858f5c9171055  modules_melatonin_perfetto-3961e6f8bc7898344c043f7abe2ecb52701b2e18.tar.gz
+6ce4904568d01f2a23bbccf10e06fbb998a5f6c6af9428b56d9081052e97e92b2c54ee80001026559c57e79ae438055be8c1e1fe3156317b70f5172b7541c227  modules_math_approx-0c68d4d17242d707ba07fa7f1901692b7ed72d58.tar.gz
+"

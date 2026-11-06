@@ -35,6 +35,9 @@ state of the plugins themselves is in [nura-lv2-plugins.md](nura-lv2-plugins.md)
   chroot): `/bin/sh: .../generate-lv2.sh: not found` is a `#!/bin/bash` script without bash.
   Check the shebangs of the scripts the build runs (DPF's `generate-ttl.sh`, DISTRHO-Ports'
   `generate-lv2.sh`: bash) and list every tool the build calls.
+- **Rebuilding without a pkgrel bump installs nothing**: `apk add -u` keeps an installed package of
+  the same version, so a fix tested that way tests the old files. Bump pkgrel for every rebuild
+  that is installed and tested.
 - **Memory**: JUCE's amalgamated translation units need about 1 GB each; with 8 jobs on the Duet's
   4 GB the compiler is killed (`Killed signal terminated program cc1plus`). `cmake --build build
   --parallel 3` for the JUCE packages.
@@ -126,6 +129,18 @@ GitHub's archive tarballs don't contain git submodules, and pmbootstrap builds h
 | `lv2/lv2plug.in/ns/lv2core/lv2.h: No such file` (old JUCE LV2 wrappers, old plugins) | LV2 1.18 moved the headers to `lv2/core`, `lv2/atom`, ...: a symlink tree with the old paths in an `-I` directory (chow-matrix-lv2) |
 | `jack/jack.h: No such file` (JUCE) | JUCE's audio device module builds JACK support on Linux: `jack-dev` |
 | `-Werror` in the project's flags | remove it, or the project's switch (`SURGE_SKIP_WERROR`) |
+
+## BusyBox
+
+Alpine's `/bin/sh` is BusyBox ash, and `sed`, `grep`, `find`, `install` are BusyBox applets unless
+the GNU packages are installed. Scripts written for Debian (dash as `/bin/sh`, GNU tools) can work
+differently:
+
+- `echo` with backslashes: dash interprets escapes, ash doesn't. MiMi-d's fixup script left literal
+  `\n` and `\t` in the TTL ("bad verb"): run it with `dash` (makedepends) and GNU `sed`.
+- `install` options and `sed -i` edge cases (FluidPlug's install block, after a careless edit);
+  `sed` `a\` text with escapes needs GNU sed.
+- When a generated file is broken, look at it (`cat -A`) before suspecting the compiler.
 
 ## Pure Data externals
 

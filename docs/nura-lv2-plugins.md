@@ -145,8 +145,8 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | 2. DPF family | DPF-Plugins, Dragonfly Reverb, string-machine, MiniOPL3 (**done**) | ~20 | DSP only per plugin, as ykchorus |
 | 3. Guitarix (**done**) | Guitarix (`--mod-lv2 --no-standalone`), GxPlugins, GxDistortionPlus, GxSwitchlessWah | 58 of 59 | half a day: needed only libsigc++ and `<cstdint>`, no Boost/glibmm for the LV2-only build |
 | 4. Instruments with data (**done**) | FluidPlug, avldrums, setBfree (also as engine) | 26 | SoundFonts in optional `-data` packages, not in images |
-| 5. EQ10Q, QMidiArp, rncbc synths (**done**) | EQ10Q, QMidiArp, padthv1/samplv1/synthv1 | ~13 | EQ10Q and QMidiArp: minutes, Debian's sources; rncbc synths open (Qt 6.12 dev packages) |
-| 6. JUCE (**done** but Surge XT) | DISTRHO-Ports (TAL, Vex), CHOW, Surge XT, Odin2, OB-Xd, Dexed, Helm, Monique, Vaporizer2, … | ~30 | 1–2 weeks: long builds (under qemu: hours each), JUCE on musl, check each |
+| 5. EQ10Q, QMidiArp, rncbc synths (**done**) | EQ10Q, QMidiArp, padthv1/samplv1/synthv1 | ~13 | EQ10Q and QMidiArp: minutes, Debian's sources; rncbc synths with Qt 6.12's dev packages |
+| 6. JUCE (**done** but Surge XT) | DISTRHO-Ports (TAL, Vex), CHOW, Surge XT, Odin2, OB-Xd, Dexed, Helm, Monique, Vaporizer2, … | ~30 | one day on the Duet: JUCE needs the same musl/GCC 15 fixes in each (see nura-packaging-guide.md) |
 | 7. Neural and the rest | AIDA-X, NAM, Dusk (if sources), single plugins | ~25 | case by case |
 
 After each phase: build, install on the Duet, rescan, measure coverage, and load each new plugin

@@ -7,6 +7,7 @@ GUI thread, where it is dispatched to a cuia_<name>() method.
 """
 
 import logging
+import os
 from queue import Empty
 from threading import Thread
 from time import monotonic
@@ -51,6 +52,7 @@ class ZynUI(QObject):
     busyChanged = Signal()
     startedChanged = Signal()
     altModeChanged = Signal()
+    keypadDockedChanged = Signal()
     infoChanged = Signal()
     confirmChanged = Signal()
     keyboardChanged = Signal()
@@ -69,6 +71,9 @@ class ZynUI(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # Touch keypad docked beside the screens, or hidden and shown as an overlay from the top
+        # edge (small screens); saved as ZYNTHIAN_TOUCH_SHOWN
+        self._keypad_docked = os.environ.get("ZYNTHIAN_TOUCH_SHOWN", "1") != "0"
         self.state_manager = zynthian_state_manager()
         self.chain_manager = self.state_manager.chain_manager
         self.cuia_queue = self.state_manager.cuia_queue
@@ -268,6 +273,19 @@ class ZynUI(QObject):
     @Property(QObject, constant=True)
     def patternEditor(self):
         return self.pattern_editor
+
+    @Property(bool, notify=keypadDockedChanged)
+    def keypadDocked(self):
+        return self._keypad_docked
+
+    @Slot()
+    def toggleKeypadDocked(self):
+        self._keypad_docked = not self._keypad_docked
+        self.keypadDockedChanged.emit()
+        try:
+            zynconf.save_config({"ZYNTHIAN_TOUCH_SHOWN": str(int(self._keypad_docked))})
+        except Exception as e:
+            logging.warning(f"Can't save the keypad setting: {e}")
 
     @Property(QObject, constant=True)
     def controlXY(self):

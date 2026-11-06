@@ -1,14 +1,14 @@
 # Kiosk UI for postmarketOS/Nura: boots straight into zynthian (cage, XWayland, PipeWire).
 pkgname=postmarketos-ui-zynthian
 pkgver=1
-pkgrel=9
+pkgrel=11
 pkgdesc="zynthian synthesizer platform as a kiosk (Wayland, cage)"
 arch="noarch"
 url="https://github.com/zynthian/zynthian-ui"
 license="GPL-3.0-or-later"
 options="!check pmb:drm pmb:support-systemd"
-# Engines: those packaged by Alpine (jalv and sfizz are in testing). zynaddsubfx, setBfree,
-# Aeolus, sooperlooper and linuxsampler are not packaged yet.
+# Engines: those packaged by Alpine (jalv and sfizz are in testing), and ZynAddSubFX and setBfree
+# (nura/engines/). Aeolus, sooperlooper and linuxsampler are not packaged yet.
 # LV2 plugins: zynthian-lv2-plugins (nura/lv2/), the plugins zynthian enables by default as far as
 # they are packaged; state and the missing ones: docs/nura-lv2-plugins.md. Pure Data for the
 # puredata engine: zynthian-puredata (nura/pd/).
@@ -20,10 +20,12 @@ depends="
 	pipewire-jack
 	pipewire-tools
 	postmarketos-base-ui-cage
+	setbfree
 	sfizz
 	wlr-randr
 	zynthian-lv2-plugins
 	zynthian-puredata
+	zynaddsubfx
 	zynthian-ui
 	"
 backup="etc/default/zynthian"
@@ -35,6 +37,7 @@ source="
 	xwayland-noglamor
 	kiosk-session
 	zynthian.default
+	90-zynthian-touch-rotation.rules
 	"
 
 package() {
@@ -48,13 +51,16 @@ package() {
 	# Switching between kiosk sessions (zynthian Qt/Tk, Zrythm, ...) and the UI setting
 	install -Dm755 "$srcdir"/kiosk-session -t "$pkgdir"/usr/bin/
 	install -Dm644 "$srcdir"/zynthian.default "$pkgdir"/etc/default/zynthian
+	# Touch input rotated with the output on devices whose panel has no orientation (Pixel 3)
+	install -Dm644 "$srcdir"/90-zynthian-touch-rotation.rules -t "$pkgdir"/usr/lib/udev/rules.d/
 }
 
 sha512sums="
-61683d1d0705294ceabcba93d06315e1c634e1b0859eda097083382da097117c64c03b51e6cd3899b393da4718832a13d5923df12ec180c544a2489418daacc6  zynthian.sh
+8f74e4e0530a503e6b0659f27f546cf177c35008388b57adff8be077f6286f4bb1197d208632903087dd2f10d232ace556e18a3a92a78f0b4eac7579d9213716  zynthian.sh
 af9d55c4a9f2e4db40effe75dc6b01811a22778865e7792c00a30f5ba2e737c2930c688f6ede9e5751ea05f4a4c8e0354811b214cc0394bfc41b35be785a4449  50-zynthian-realtime.conf
 9429e540ad1d01dc4eb04db3ee626323f5e9fa0992ca2d515908732d57d6aca38f60475efd9e0057b4e7aa900dfbcb93f054798b4b66600ba1a081442cf6e025  zynthian-xwayland.sh
 c87b65ee5b9a3154fcdcb0e4004b439e1c1b13c98aefc144e149a51d5d6f08aae23cbd76ae455008d0cb3c18a9fb015feedd34cb2a53e39bd775ad232686957a  xwayland-noglamor
 c5178e56129cd30884368198bbcc759b97f4ef9aed355e4715ffcdc34408608400c005c4f2b0b4a058d47e9951d58850a55f5149b64bae756ce40af6b6468e6c  kiosk-session
-9b74dfee857bb2b5154f8a40ca572244c48c3d69b34cf0985ee5bc32dfabeafe993c404062d2fd45bdad76b47349ac886cdc8127bf9580941b0eddb344ea2053  zynthian.default
+d1bb05fbf7157feef5424e9dfdfe3d6b092b76d8963335446aad564c4229507302da3b487955246b8b5a7462d97d66fbe17725c614ff93498f489eb69d83ded4  zynthian.default
+2d6c5238e95f3d53908b6dd178752a763dd82db56ecf56d59c466548c104844d996861c6740046737a6ac1a2856068abf781f70aca2d697ff4ec1599d989fe07  90-zynthian-touch-rotation.rules
 "

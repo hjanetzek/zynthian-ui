@@ -1,0 +1,7 @@
+# Touchscreens rotated with the kiosk's output rotation (ZYNTHIAN_OUTPUT_TRANSFORM, default per
+# device in /etc/cage-ui/zynthian.sh): cage rotates the output but not touch input, so libinput
+# gets the matching calibration matrix. With another ZYNTHIAN_OUTPUT_TRANSFORM in
+# /etc/default/zynthian, override this file in /etc/udev/rules.d/ with the matrix for it.
+
+# Pixel 3 (google-blueline): transform 90, the panel's left side up: 90 degrees clockwise
+ACTION=="add|change", KERNEL=="event*", ATTRS{name}=="stmfts", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"

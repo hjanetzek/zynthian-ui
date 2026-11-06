@@ -138,6 +138,13 @@ GitHub's archive tarballs don't contain git submodules, and pmbootstrap builds h
 - zynthian enables an engine only if its program is found (`engine2program` and `shutil.which`
   in the chain manager): install the binary in `PATH`.
 
+## Keeping up with upstream
+
+`GITHUB_TOKEN=$(gh auth token) nura/tools/check-updates.py [--all]` checks each package's main
+GitHub source: pinned commits against the default branch (or `_branch=` in the APKBUILD, e.g.
+MiMi-d's `zynthian` branch), tags against the latest release and newest tag. Debian, SourceForge
+and website tarballs are skipped, submodules aren't checked. Packages with updates are marked `*`.
+
 ## Licences and names
 
 - Take the licence from the project's licence file, not from GitHub's detection (`NOASSERTION`

@@ -619,6 +619,8 @@ hotplug_audio_enabled = get_env_int('ZYNTHIAN_HOTPLUG_AUDIO', 0)
 disabled_audio_in = os.environ.get('ZYNTHIAN_HOTPLUG_AUDIO_DISABLED_IN', "").split(',')
 disabled_audio_out = os.environ.get('ZYNTHIAN_HOTPLUG_AUDIO_DISABLED_OUT', 'headphones,b1,b2').split(',')
 pfl_output = os.environ.get('ZYNTHIAN_PFL_OUTPUT', "None")
+# Main mix bus output: hardware playback port names separated by "|"; empty: the first two
+main_output = os.environ.get('ZYNTHIAN_AUDIO_MAIN_OUTPUT', "")
 
 # ------------------------------------------------------------------------------
 # Text To Speech Options

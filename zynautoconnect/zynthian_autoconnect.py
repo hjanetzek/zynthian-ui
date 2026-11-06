@@ -1126,7 +1126,11 @@ def audio_autoconnect():
                                 jackname += f":input_{proc.mixer_chan:02d}"
                             routes[jackname] = route
         for dst in routes:
-            if dst in sidechain_ports:
+            mapped = map_hw_audio_dst(dst)
+            if mapped is not None:
+                # The main output setting, or system:playback_N without "system" ports (PipeWire)
+                dst_ports = mapped
+            elif dst in sidechain_ports:
                 # This is an exact match so we do want to route exactly this
                 dst_ports = jclient.get_ports(f"^{dst}$", is_input=True, is_audio=True)
             else:
@@ -1195,9 +1199,10 @@ def audio_autoconnect():
 
     # Replicate main output to headphones
     hp_ports = jclient.get_ports("Headphones:playback", is_input=True, is_audio=True)
-    if len(hp_ports) >= 2:
-        required_routes[hp_ports[0].name] = required_routes[hw_audio_dst_ports[0].name]
-        required_routes[hp_ports[1].name] = required_routes[hw_audio_dst_ports[1].name]
+    main_ports = get_main_output_ports()
+    if len(hp_ports) >= 2 and main_ports:
+        required_routes[hp_ports[0].name] = required_routes[main_ports[0].name]
+        required_routes[hp_ports[1].name] = required_routes[main_ports[-1].name]
 
     # Enable zynmixer internal normalised routes and remove corresponding jack graph connections
     if "zynmixer_bus:input_00a" in required_routes and "zynmixer_bus:input_00b" in required_routes:
@@ -1240,6 +1245,46 @@ def audio_autoconnect():
 
     # Release Mutex Lock
     release_lock()
+
+
+# The main mix bus's default output (zynthian_chain.reset): the first two hardware outputs
+MAIN_OUTPUT_DEFAULT = "^system:playback_1$|^system:playback_2$"
+
+
+def _port_regex(name):
+    """A jack port name as an exact-match regular expression"""
+    return "^" + "".join("\\" + c if c in ".^$*+?()[]{}|\\" else c for c in name) + "$"
+
+
+def get_main_output_ports():
+    """The main mix bus's output ports: the configured ones (ZYNTHIAN_AUDIO_MAIN_OUTPUT: port names
+    separated by "|") when present, else the first two hardware outputs"""
+    names = [n for n in zynthian_gui_config.main_output.split("|") if n]
+    if names:
+        ports = []
+        for name in names:
+            ports += jclient.get_ports(_port_regex(name), is_input=True, is_audio=True)
+        if len(ports) == len(names):
+            return ports
+    return get_hw_audio_dst_ports()[:2]
+
+
+def map_hw_audio_dst(dst):
+    """The ports of a chain output that names hardware outputs by zynthian's conventions, or None
+    to resolve dst as it is: the main default output -> the main output setting;
+    "system:playback_N" when there are no "system" ports (PipeWire names them after the device)
+    -> the N-th hardware output"""
+    if dst == MAIN_OUTPUT_DEFAULT:
+        return get_main_output_ports()
+    if "system:playback_" not in dst or jclient.get_ports("system:playback", is_input=True, is_audio=True):
+        return None
+    hw_ports = get_hw_audio_dst_ports()
+    ports = []
+    for n in re.findall(r"system:playback_(\d+)", dst):
+        i = int(n) - 1
+        if 0 <= i < len(hw_ports) and hw_ports[i] not in ports:
+            ports.append(hw_ports[i])
+    return ports
 
 
 def get_hw_audio_dst_ports():

@@ -135,6 +135,41 @@ def pfl_output_labels():
     return labels
 
 
+def _port_label(port):
+    try:
+        return port.aliases[0]
+    except Exception:
+        return port.name
+
+
+def main_output_choices():
+    """Choices for the main mix bus output: (label, value); value "" is the default (the first two
+    hardware outputs), else the port names joined by "|" (ZYNTHIAN_AUDIO_MAIN_OUTPUT)"""
+    ports = zynautoconnect.get_hw_audio_dst_ports()
+    choices = [("Default (first two outputs)", "")]
+    for i in range(0, len(ports) - 1, 2):
+        choices.append((f"{i + 1}+{i + 2} ({_port_label(ports[i])} + {_port_label(ports[i + 1])})",
+                        f"{ports[i].name}|{ports[i + 1].name}"))
+    return choices
+
+
+def main_output_label():
+    """The current main output setting as shown"""
+    value = zynthian_gui_config.main_output
+    if not value:
+        return "Default"
+    for label, v in main_output_choices():
+        if v == value:
+            return label.split(" ")[0]
+    return value.replace("|", " + ") + " (missing: using the default)"
+
+
+def set_main_output(value):
+    zynthian_gui_config.main_output = value
+    zynconf.save_config({"ZYNTHIAN_AUDIO_MAIN_OUTPUT": value})
+    zynautoconnect.request_audio_connect(True)
+
+
 def set_pfl_output(label):
     zynthian_gui_config.pfl_output = label
     zynconf.save_config({"ZYNTHIAN_PFL_OUTPUT": label})

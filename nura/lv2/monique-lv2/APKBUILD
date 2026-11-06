@@ -61,6 +61,8 @@ prepare() {
 	rm -rf libs/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_libs_clap_juce_extensions_clap_libs_clap} libs/clap-juce-extensions/clap-libs/clap
 	rm -rf libs/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_libs_clap_juce_extensions_clap_libs_clap_helpers} libs/clap-juce-extensions/clap-libs/clap-helpers
 	sed -i 's/set(MONIQUE_JUCE_FORMATS CLAP VST3 Standalone)/set(MONIQUE_JUCE_FORMATS)/' CMakeLists.txt
+	# no LTO: CI's runner kills the LTO link (61 serial LTRANS jobs) with signal 9, twice
+	sed -i '/juce::juce_recommended_lto_flags/d' CMakeLists.txt
 	default_prepare
 	# LV2 only
 	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \

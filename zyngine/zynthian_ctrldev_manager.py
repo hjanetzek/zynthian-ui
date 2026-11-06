@@ -68,6 +68,29 @@ def setup_user_ctrldev_package():
 setup_user_ctrldev_package()
 
 # ------------------------------------------------------------------------------
+# More driver folders
+# ------------------------------------------------------------------------------
+# $ZYNTHIAN_CTRLDEV_PATH: folders (separated by ":") with drivers that are not in
+# zyngine/ctrldev, e.g. a driver package's own folder or a development checkout.
+# They become part of the package zyngine.ctrldev, so their modules (and helper
+# packages in them) import as if they were in zyngine/ctrldev. Scanned after
+# zyngine/ctrldev; a module name that exists there already is not loaded again.
+
+extra_ctrldev_dirs = [d for d in os.environ.get("ZYNTHIAN_CTRLDEV_PATH", "").split(":") if d]
+
+
+def setup_extra_ctrldev_dirs():
+    import zyngine.ctrldev
+    for dpath in extra_ctrldev_dirs:
+        if not os.path.isdir(dpath):
+            logging.warning(f"Driver folder '{dpath}' in ZYNTHIAN_CTRLDEV_PATH doesn't exist")
+        elif dpath not in zyngine.ctrldev.__path__:
+            zyngine.ctrldev.__path__.append(dpath)
+
+
+setup_extra_ctrldev_dirs()
+
+# ------------------------------------------------------------------------------
 # Zynthian Control Device Manager Class
 # ------------------------------------------------------------------------------
 
@@ -101,10 +124,13 @@ class zynthian_ctrldev_manager():
         # Find and load new driver modules
         for dirname in self.ctrldev_dirnames:
             if dirname == "ctrldev_user" and not os.path.exists(f"{self.ctrldev_path_base}/{dirname}"):
-                dpath = user_ctrldev_dir
+                dpaths = [user_ctrldev_dir]
             else:
-                dpath = f"{self.ctrldev_path_base}/{dirname}"
-            for module_path in glob.glob(f"{dpath}/*.py"):
+                dpaths = [f"{self.ctrldev_path_base}/{dirname}"]
+            if dirname == "ctrldev":
+                dpaths += extra_ctrldev_dirs
+            module_paths = [module_path for dpath in dpaths for module_path in glob.glob(f"{dpath}/*.py")]
+            for module_path in module_paths:
                 module_name = Path(module_path).stem
                 if not module_name.startswith("__") and not module_name.startswith("zynthian_ctrldev_base") and module_name not in self.driver_classes:
                     try:

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # ******************************************************************************
-# ZYNTHIAN PROJECT: Zynthian Control Device Driver
+# ZYNTHIAN PROJECT: Zynthian Autoconnector
 #
-# DrivenByMoss on zynthian: tests of the PipeWire MIDI port names (zynautoconnect)
+# Tests of the names of PipeWire's MIDI bridge ports (zynthian_pipewire_ports.py)
 #
 # Copyright (C) 2026 Hannes Janetzek
 #
@@ -23,20 +23,24 @@
 # ******************************************************************************
 
 """zynautoconnect/zynthian_pipewire_ports.py: the uids and device IDs of PipeWire's MIDI bridge
-ports, which the dbm drivers (and all other ctrldev drivers) are matched by. The port names are
+ports, which the ctrldev drivers are matched by. The port names are
 those PipeWire showed on a PC with a Launch Control XL connected (pw-link -o and the JACK port
 order, 2026-11-06). The Launch Control XL has two ports: the controls ("Launch Contro", the ALSA
 name "Launch Control XL Launch Contro" truncated by PipeWire) and HUI; ALSA, JACK and the uids
-number them in this order."""
+number them in this order.
+
+Run from the zynthian-ui checkout (plain Python, no JACK)::
+
+    python3 zynautoconnect/test_zynthian_pipewire_ports.py
+"""
 
 import importlib.util
 import unittest
-
-from zyngine.ctrldev.dbm_zynthian.tests import zynstubs
+from pathlib import Path
 
 # Loaded by path: the package zynautoconnect imports JACK
 _spec = importlib.util.spec_from_file_location(
-    "zynthian_pipewire_ports", zynstubs.UI_DIR / "zynautoconnect" / "zynthian_pipewire_ports.py")
+    "zynthian_pipewire_ports", Path(__file__).resolve().parent / "zynthian_pipewire_ports.py")
 ports = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ports)
 
@@ -66,17 +70,13 @@ class PipewirePortsTest(unittest.TestCase):
         self.assertIsNone(ports.split_pipewire_midi_port("Midi-Bridge:odd"))
 
     def test_launch_control_xl_has_the_zynthianos_device_id(self):
-        """The controls port is IN 1 (ZynthianOS: rawmidi input 0), the driver's dev_id; HUI is IN 2."""
-        from zyngine.ctrldev.dbm_zynthian.tests import zynstubs as stubs
-        stubs.install()
-        from zyngine.ctrldev.zynthian_ctrldev_dbm_launchcontrol_xl import zynthian_ctrldev_dbm_launchcontrol_xl as driver
+        """The controls port is IN 1 (ZynthianOS: rawmidi input 0); HUI is IN 2."""
         uid, name = ports.pipewire_midi_port_name(LCXL_IN, CAPTURE)
         self.assertEqual(uid, "PW:Launch Control XL/Launch Control XL IN 1")
         self.assertEqual(name, "Launch Control XL 1")
-        self.assertEqual(driver.dev_ids, [uid.split("/", 1)[1]], "zynautoconnect.get_midi_in_devid matches the driver")
+        self.assertEqual(uid.split("/", 1)[1], "Launch Control XL IN 1", "zynautoconnect.get_midi_in_devid")
         hui_uid, hui_name = ports.pipewire_midi_port_name(LCXL_HUI, CAPTURE)
         self.assertEqual(hui_uid, "PW:Launch Control XL/Launch Control XL IN 2")
-        self.assertNotIn(hui_uid.split("/", 1)[1], driver.dev_ids, "No driver on the HUI port")
         self.assertEqual(hui_name, "Launch Control XL 2")
         out_uid, _ = ports.pipewire_midi_port_name(LCXL_IN.replace("(capture)", "(playback)"), PLAYBACK)
         self.assertEqual(ports.dev_out_uid(uid), out_uid, "dev_in_2_dev_out finds the controls output, not HUI's")

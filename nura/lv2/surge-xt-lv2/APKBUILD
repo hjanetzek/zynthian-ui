@@ -1,0 +1,98 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Surge XT (URI https://surge-synthesizer.github.io/lv2/surge-xt; zynthian's recipe
+# install_surge_xt.sh: SURGE_BUILD_LV2, SURGE_EXPOSE_PRESETS). The release source contains the
+# submodules. LV2 only (no standalone, VST3, CLAP, effects bank or tests). The plugin has its JUCE
+# GUI built in, so it needs X11 and freetype headers to build (JUCE loads X11 only when the editor
+# opens). Data split: the factory patches, wavetables, skins and presets in -data (needed),
+# the third-party patches and wavetables (334 MB) in the optional -data-3rdparty.
+pkgname=surge-xt-lv2
+pkgver=1.3.4
+pkgrel=0
+pkgdesc="Surge XT hybrid synthesizer (LV2)"
+url="https://surge-synthesizer.github.io"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+depends="$pkgname-data=$pkgver-r$pkgrel"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	python3
+	samurai
+	"
+subpackages="$pkgname-data:_data:noarch $pkgname-data-3rdparty:_data_3rdparty:noarch"
+source="https://github.com/surge-synthesizer/releases-xt/releases/download/$pkgver/surge-src-$pkgver.tar.gz"
+builddir="$srcdir/surge"
+options="!check" # tests not built
+
+prepare() {
+	default_prepare
+	# the pluginval targets query surge-fx, which isn't built (SURGE_BUILD_FX=OFF)
+	sed -i 's|^\(\s*include(cmake/pluginval.cmake)\)|#\1|' src/CMakeLists.txt
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers (and <cstdint> for the
+	# tuning library)
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -include cstdint -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DSURGE_BUILD_LV2=TRUE \
+		-DSURGE_EXPOSE_PRESETS=TRUE \
+		-DSURGE_SKIP_STANDALONE=TRUE \
+		-DSURGE_SKIP_VST3=TRUE \
+		-DSURGE_SKIP_WERROR=TRUE \
+		-DSURGE_BUILD_FX=OFF \
+		-DSURGE_BUILD_TESTRUNNER=OFF \
+		-DSURGE_BUILD_CLAP=OFF
+	# at most 3 jobs: the JUCE translation units need ~1 GB each (the Duet has 4 GB)
+	cmake --build build --parallel 3
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+	# the CLI and other formats if any slipped through
+	rm -rf "$pkgdir"/usr/bin "$pkgdir"/usr/lib/vst3 "$pkgdir"/usr/lib/clap
+}
+
+_data() {
+	pkgdesc="$pkgdesc (factory patches, wavetables, skins)"
+	amove usr/share/surge-xt
+	# the third-party content goes to -data-3rdparty
+	mkdir -p "$srcdir"/3rdparty
+	mv "$subpkgdir"/usr/share/surge-xt/patches_3rdparty "$subpkgdir"/usr/share/surge-xt/wavetables_3rdparty \
+		"$srcdir"/3rdparty/
+}
+
+_data_3rdparty() {
+	pkgdesc="$pkgdesc (third-party patches and wavetables)"
+	depends="$pkgname-data=$pkgver-r$pkgrel"
+	mkdir -p "$subpkgdir"/usr/share/surge-xt
+	mv "$srcdir"/3rdparty/* "$subpkgdir"/usr/share/surge-xt/
+}
+sha512sums="
+0cebb1645fd992cfac0236361bdd4c6a0b8ea702c2823971c90e159cbfa18fce163b2adf5cf99c118779cc42b25a0f189ee5f9dc59cec6bcccea9d46e0436480  surge-src-1.3.4.tar.gz
+"

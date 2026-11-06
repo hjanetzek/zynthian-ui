@@ -21,7 +21,7 @@ from zyngine.zynthian_engine_sooperlooper import (
     zynthian_engine_sooperlooper, SL_STATE_RECORDING, SL_STATE_OVERDUBBING, SL_STATE_MULTIPLYING,
     SL_STATE_INSERTING, SL_STATE_REPLACING, SL_STATE_DELAYING, SL_STATE_SUBSTITUTING, SL_STATE_OFF,
     SL_STATE_MUTED, SL_STATE_PAUSED, SL_STATE_OFF_MUTED, SL_STATE_PLAYING_ONCE, SL_STATE_REC_STARTING,
-    SL_STATE_REC_STOPPING)
+    SL_STATE_REC_STOPPING, SL_STATE_PLAYING, SL_STATE_TRIGGER_PLAY)
 
 MAX_LOOPS = zynthian_engine_sooperlooper.MAX_LOOPS
 BUTTONS = ['record', 'overdub', 'multiply', 'replace', 'substitute', 'insert', 'undo', 'redo', 'trigger',
@@ -118,3 +118,39 @@ def press_button(processor, btn):
     if processor.controllers_dict["selected_loop_cc"].value == 0 and btn in processor.engine.SL_LOOP_SEL_PARAM:
         btn += f":{processor.engine.selected_loop}"
     processor.controllers_dict[btn].toggle()
+
+
+def alt_transport(action, processor, monitors):
+    """The REC / STOP / PLAY keys in ALT mode (zynthian_widget_sooperlooper cuia_toggle_record /
+    cuia_stop / cuia_toggle_play): REC records or ends the selected loop's current recording mode,
+    STOP toggles multiply, PLAY mutes / unmutes (and unpauses). action: "record", "stop" or
+    "toggle_play". True if handled."""
+    state = monitors.get('state', 0)
+    ctrls = processor.controllers_dict
+    if action == "record":
+        if state in (SL_STATE_REC_STARTING, SL_STATE_RECORDING, SL_STATE_REC_STOPPING):
+            btn = "record"
+        elif state in (SL_STATE_PLAYING, SL_STATE_OVERDUBBING):
+            btn = "overdub"
+        elif state == SL_STATE_MULTIPLYING:
+            btn = "multiply"
+        elif state == SL_STATE_INSERTING:
+            btn = "insert"
+        elif state == SL_STATE_REPLACING:
+            btn = "replace"
+        else:
+            btn = "record"
+        ctrls[btn].toggle()
+        return True
+    if action == "stop":
+        ctrls['multiply'].toggle()
+        return True
+    if action == "toggle_play":
+        if state == SL_STATE_MUTED:
+            ctrls['mute'].set_value(0, True)
+        elif state in (SL_STATE_PLAYING, SL_STATE_TRIGGER_PLAY, SL_STATE_PLAYING_ONCE):
+            ctrls['mute'].set_value(1, True)
+        if state == SL_STATE_PAUSED:
+            ctrls['pause'].set_value(0, True)
+        return True
+    return False

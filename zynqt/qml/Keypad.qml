@@ -7,6 +7,7 @@ Item {
     id: root
 
     property int keyHeight: 100
+    property bool translucent: false   // overlay: the (blurred) screen shows through
 
     signal keyPressed      // any key (the overlay keypad stays while keys are used)
 
@@ -56,8 +57,11 @@ Item {
 
         property int key
 
-        color: tap.pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground
-        border.color: Theme.background
+        color: {
+            const c = tap.pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground
+            return root.translucent ? Qt.rgba(c.r, c.g, c.b, tap.pressed ? 0.85 : 0.55) : c
+        }
+        border.color: root.translucent ? Qt.rgba(1, 1, 1, 0.15) : Theme.background
         border.width: 1
 
         Text {

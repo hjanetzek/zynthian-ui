@@ -6,7 +6,7 @@
 pkgname=fluidplug-lv2
 _commit=697be3d063da50c05962ade38588b99f97955205
 pkgver=0_git20210207
-pkgrel=1
+pkgrel=2
 pkgdesc="SoundFonts as LV2 instrument plugins (FluidPlug)"
 url="https://github.com/zynthian/FluidPlug"
 arch="all"
@@ -16,8 +16,8 @@ source="$pkgname-$_commit.tar.gz::https://github.com/zynthian/FluidPlug/archive/
 builddir="$srcdir/FluidPlug-$_commit"
 subpackages="$pkgname-data"
 # The SoundFonts in -data: large, not in device images (not in zynthian-lv2-plugins);
-# installing this package pulls them in
-depends="$pkgname-data"
+# installing this package pulls them in (install_if in -data: a depends on the own subpackage is
+# a cycle for pmbootstrap)
 options="!check" # no tests
 
 prepare() {
@@ -50,6 +50,7 @@ package() {
 data() {
 	pkgdesc="$pkgdesc (SoundFonts)"
 	depends=""
+	install_if="$pkgname=$pkgver-r$pkgrel"
 	local f
 	cd "$pkgdir"
 	for f in usr/lib/lv2/*/FluidPlug.sf2; do

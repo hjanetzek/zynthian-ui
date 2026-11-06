@@ -3,18 +3,17 @@
 # install_surge_xt.sh: SURGE_BUILD_LV2, SURGE_EXPOSE_PRESETS). The release source contains the
 # submodules. LV2 only (no standalone, VST3, CLAP, effects bank or tests). The plugin has its JUCE
 # GUI built in, so it needs X11 and freetype headers to build (JUCE loads X11 only when the editor
-# opens). Data split: the factory patches, wavetables, skins and presets in -data (needed; the meta package
-# zynthian-lv2-plugins pulls it in),
+# opens). Data split: the factory patches, wavetables, skins and presets in -data (needed: installed with the
+# plugin by install_if),
 # the third-party patches and wavetables (334 MB) in the optional -data-3rdparty.
 pkgname=surge-xt-lv2
 pkgver=1.3.4
-pkgrel=2
+pkgrel=3
 pkgdesc="Surge XT hybrid synthesizer (LV2)"
 url="https://surge-synthesizer.github.io"
 arch="aarch64 x86_64"
 license="GPL-3.0-or-later"
-# no depends on -data: pmbootstrap can't order a package that depends on its own subpackage
-# ("cyclical build dependency"); zynthian-lv2-plugins depends on surge-xt-lv2-data instead
+# -data comes with it by install_if (a depends on the own subpackage is a cycle for pmbootstrap)
 # linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
 # kernel headers too
 makedepends="
@@ -85,6 +84,7 @@ package() {
 
 _data() {
 	pkgdesc="$pkgdesc (factory patches, wavetables, skins)"
+	install_if="$pkgname=$pkgver-r$pkgrel"
 	amove usr/share/surge-xt
 	# the third-party content goes to -data-3rdparty
 	mkdir -p "$srcdir"/3rdparty
@@ -94,6 +94,8 @@ _data() {
 
 _data_3rdparty() {
 	pkgdesc="$pkgdesc (third-party patches and wavetables)"
+	# optional: nothing depends on it, no install_if (a subpackage depending on a sibling is fine for
+	# pmbootstrap; only the main package depending on its own subpackage is a cycle)
 	depends="$pkgname-data=$pkgver-r$pkgrel"
 	mkdir -p "$subpkgdir"/usr/share/surge-xt
 	mv "$srcdir"/3rdparty/* "$subpkgdir"/usr/share/surge-xt/

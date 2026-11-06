@@ -146,10 +146,19 @@ GitHub's archive tarballs don't contain git submodules, and pmbootstrap builds h
 
 ## Packaging
 
-- **A package must not depend on its own subpackage** (`depends="$pkgname-data"`): abuild on
-  the Duet accepts it, pmbootstrap can't order it ("cyclical build dependency: can't build ...",
-  "Can't resolve build order"). Let the meta package (or the user) depend on the `-data`
-  subpackage instead (surge-xt-lv2). Subpackages also inherit the main package's `depends`.
+- **Data subpackages**, named by what installs them:
+  - `<pkg>-data`: data the plugin needs (Surge XT's factory patches, FluidPlug's and AVL's
+    SoundFonts). It comes with the main package by `install_if="$pkgname=$pkgver-r$pkgrel"` in
+    the subpackage, and resets `depends=""` (subpackages inherit the main package's `depends`).
+    Not `depends="$pkgname-data"` in the main package: abuild accepts it, pmbootstrap can't order
+    a package that depends on its own subpackage ("cyclical build dependency: can't build ...",
+    "Can't resolve build order"). A subpackage depending on a sibling is fine.
+  - `<pkg>-data-<what>` (`surge-xt-lv2-data-3rdparty`): optional data, which nothing depends on and
+    no `install_if` pulls in; installed by hand (later by zynthian's admin menu). It may depend on
+    `<pkg>-data`.
+  - Images: whatever the meta packages pull in, with the `-data` of those packages. A plugin whose
+    data is too big for images (FluidPlug, AVL drums) stays out of the meta packages; if it should
+    be in images without its data, its data becomes `-data-<what>` instead.
 - Bundle and file names can contain spaces (`Ultramaster KR-106.lv2`): copy with
   `find ... -exec cp -r {} dest \;`, not `for d in $(find ...)`.
 - Optional parts of a build can reference targets that are switched off (Surge XT's pluginval

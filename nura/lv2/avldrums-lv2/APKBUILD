@@ -5,7 +5,7 @@
 # and without x42's default x86 optimization flags.
 pkgname=avldrums-lv2
 pkgver=0.7.6
-pkgrel=1
+pkgrel=2
 pkgdesc="x42 AVL Drumkits LV2 plugin"
 url="https://x42-plugins.com/x42/x42-avldrums"
 arch="all"
@@ -15,8 +15,8 @@ source="$pkgname-$pkgver.tar.gz::https://github.com/x42/avldrums.lv2/archive/v$p
 builddir="$srcdir/avldrums.lv2-$pkgver"
 subpackages="$pkgname-data"
 # The SoundFonts in -data: large, not in device images (not in zynthian-lv2-plugins);
-# installing this package pulls them in
-depends="$pkgname-data"
+# installing this package pulls them in (install_if in -data: a depends on the own subpackage is
+# a cycle for pmbootstrap)
 options="!check" # no tests
 
 _make() {
@@ -35,6 +35,7 @@ package() {
 data() {
 	pkgdesc="$pkgdesc (SoundFonts)"
 	depends=""
+	install_if="$pkgname=$pkgver-r$pkgrel"
 	local f
 	cd "$pkgdir"
 	for f in usr/lib/lv2/*/*.sf2; do

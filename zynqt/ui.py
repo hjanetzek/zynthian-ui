@@ -24,6 +24,7 @@ from zyngine.zynthian_state_manager import zynthian_state_manager
 from zyngui import zynthian_gui_config
 
 from zynqt.bridge import SignalBridge
+from zynqt.power import battery_status
 from zynqt.chain_edit import ChainEdit
 from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
@@ -256,6 +257,13 @@ class ZynUI(QObject):
                   "midi": bool(sm.status_midi), "midiRecorder": bool(sm.status_midi_recorder),
                   "audioPlayer": bool(sm.status_audio_player),
                   "overtemp": bool(sm.status_overtemp)}
+        # Battery: read every 5 s (sysfs), shown while there is a system battery
+        self._battery_ticks = getattr(self, "_battery_ticks", 0) - 1
+        if self._battery_ticks <= 0:
+            self._battery_ticks = 25
+            self._battery = battery_status()
+        if self._battery is not None:
+            status["battery"], status["batteryAc"] = self._battery
         if status != self._status:
             self._status = status
             self.statusChanged.emit()

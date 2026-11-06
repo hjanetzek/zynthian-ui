@@ -41,6 +41,22 @@ Window {
             keypadHide.restart()
     }
 
+    // Overlay keypad: the screens under it blurred (KeypadBlur, only while shown), translucent keys
+    Loader {
+        x: screens.x
+        y: screens.y
+        width: screens.width
+        height: screens.height
+        z: 19
+        active: root.keypadOverlay
+        source: "KeypadBlur.qml"
+        onLoaded: {
+            item.source = screens
+            item.sideWidth = Qt.binding(() => keypad.width)
+            item.bottomHeight = Qt.binding(() => keypad.keyHeight)
+        }
+    }
+
     Keypad {
         id: keypad
 
@@ -51,6 +67,7 @@ Window {
         width: 192
         z: 20
         visible: root.keypadDocked || root.keypadOverlay
+        translucent: !root.keypadDocked
         onKeyPressed: if (root.keypadOverlay) keypadHide.restart()
     }
 

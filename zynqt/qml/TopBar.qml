@@ -5,11 +5,30 @@ Rectangle {
     id: root
 
     property string title
+    property bool overlayHint: false   // undocked keypad: the title brings it up
+
+    signal titleTapped
+    signal titleSwipedDown
+    signal statusTapped
 
     readonly property var status: zyn.status
     readonly property var mainLevels: mainMeters.levels
 
     color: Theme.background
+
+    Item {
+        id: titleArea
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.right: statusRow.left
+        TapHandler { onTapped: root.titleTapped() }
+        DragHandler {
+            target: null
+            xAxis.enabled: false
+            onTranslationChanged: if (active && translation.y > 20) root.titleSwipedDown()
+        }
+    }
 
     Text {
         anchors.verticalCenter: parent.verticalCenter
@@ -17,7 +36,7 @@ Rectangle {
         anchors.leftMargin: 8
         anchors.right: statusRow.left
         elide: Text.ElideRight
-        text: root.title
+        text: (root.overlayHint ? "☰ " : "") + root.title
         color: Theme.text
         font.pixelSize: 28
         font.family: Theme.fontFamily
@@ -25,6 +44,8 @@ Rectangle {
 
     Column {
         id: statusRow
+
+        TapHandler { onTapped: root.statusTapped() }
 
         anchors.right: parent.right
         anchors.rightMargin: 6

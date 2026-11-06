@@ -39,6 +39,7 @@ from threading import Thread, Lock
 import zynconf
 from zyncoder.zyncore import lib_zyncore
 from zyngui import zynthian_gui_config
+from zynautoconnect import zynthian_pipewire_ports
 
 # -------------------------------------------------------------------------------
 # Configure logging
@@ -269,7 +270,8 @@ def dev_in_2_dev_out(zmip):
         if name == "ttymidi:MIDI_in":
             name = "ttymidi:MIDI_out"
         else:
-            name = name.replace("IN", "OUT")
+            # Only the direction of the device ID, not every "IN" of the name
+            name = zynthian_pipewire_ports.dev_out_uid(name) or name
         for i, port in enumerate(devices_out):
             if port.aliases[0] == name:
                 return i
@@ -1542,6 +1544,16 @@ def build_midi_port_name(port):
         return f"AUBIO:in", "Audio\u2794MIDI"
     elif port.name.startswith("BLE_MIDI:"):
         return port.aliases[0], port.aliases[1]
+    elif zynthian_pipewire_ports.is_pipewire_midi_port(port.name):
+        # PipeWire (pipewire-jack): no ALSA aliases, uid and device ID from the port name
+        try:
+            siblings = [p.name for p in jclient.get_ports("Midi-Bridge:", is_midi=True,
+                                                          is_output=port.is_output, is_input=port.is_input)]
+        except Exception:
+            siblings = []
+        names = zynthian_pipewire_ports.pipewire_midi_port_name(port.name, siblings)
+        if names:
+            return names
 
     idx = 0
 

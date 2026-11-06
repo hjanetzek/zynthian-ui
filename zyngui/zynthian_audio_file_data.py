@@ -71,6 +71,37 @@ def clippy_info(processor, zctrl, zynseq_obj):
     return (zynseq_obj.scene, note - 1, processor.midi_chan)
 
 
+def transport(action, processor, eng_type, clip_info, state_manager):
+    """The REC / STOP / PLAY keys on an audio file processor's widget (zynthian_widget_audio_file
+    cuia_toggle_record / cuia_stop / cuia_play / cuia_toggle_play). action: "record", "stop",
+    "play" or "toggle_play". True if handled, else the global transport applies."""
+    libseq = state_manager.zynseq.libseq
+    if clip_info:
+        # Clippy: its clip's sequence; recording is the global audio recorder
+        if action == "record":
+            state_manager.audio_recorder.toggle_recording()
+        elif action == "stop":
+            libseq.setPlayState(clip_info[0], clip_info[1], clip_info[2], 0)
+        elif action == "toggle_play":
+            libseq.togglePlayState(clip_info[0], clip_info[1], clip_info[2])
+        else:
+            return False
+        return True
+    if eng_type == ENG_CHAIN_AP:
+        ctrls = processor.controllers_dict
+        if action == "stop":
+            ctrls["transport"].set_value(0)
+            ctrls["position"].set_value(0)
+        elif action == "play":
+            ctrls["transport"].set_value(127)
+        elif action == "toggle_play":
+            ctrls["transport"].toggle()
+        else:
+            return False
+        return True
+    return False
+
+
 def clippy_values(processor, clip_info):
     """The clip's view values from its controllers: dict zoom, crop_start, crop_end, warp, beats,
     gain (as zynthian_widget_audio_file.get_clippy_values)"""

@@ -44,6 +44,9 @@ state of the plugins themselves is in [nura-lv2-plugins.md](nura-lv2-plugins.md)
   repository, `https://github.com/hjanetzek/nura-builds/releases/download`, with its key in
   `/etc/apk/keys`, so abuild installs them as makedepends like CI). What stays installed and can
   still hide a missing makedepends: bash, python3, git (zynthian needs them).
+  Add a makedepends only for a cause you have seen (the error, or the build log compiling the
+  file that needs it: `juce_opengl.cpp` for mesa-dev, xsimd for linux-headers), not to every
+  similar package on suspicion.
 - **Rebuilding without a pkgrel bump installs nothing**: `apk add -u` keeps an installed package of
   the same version, so a fix tested that way tests the old files. Bump pkgrel for every rebuild
   that is installed and tested.

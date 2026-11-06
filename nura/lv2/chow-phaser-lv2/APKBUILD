@@ -13,8 +13,6 @@ pkgdesc="ChowPhaser mono and stereo phaser (LV2)"
 url="https://github.com/jatinchowdhury18/ChowPhaser"
 arch="aarch64 x86_64"
 license="BSD-3-Clause"
-# linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
-# kernel headers too; mesa-dev: juce_opengl (GL/glx.h)
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -26,9 +24,7 @@ makedepends="
 	libxext-dev
 	libxinerama-dev
 	libxrandr-dev
-	linux-headers
 	lv2-dev
-	mesa-dev
 	samurai
 	"
 source="$pkgname-$_commit.tar.gz::https://github.com/jatinchowdhury18/ChowPhaser/archive/$_commit.tar.gz

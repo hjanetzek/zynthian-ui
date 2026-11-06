@@ -22,7 +22,7 @@ pkgdesc="JC303 TB-303 bass line synthesizer (LV2)"
 url="https://github.com/midilab/jc303"
 arch="aarch64 x86_64"
 license="GPL-3.0-or-later"
-# linux-headers: xsimd (in RTNeural) includes <asm/hwcap.h> for CPU detection
+# linux-headers: xsimd (bundled) includes <asm/hwcap.h>
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -35,7 +35,6 @@ makedepends="
 	libxinerama-dev
 	libxrandr-dev
 	linux-headers
-	mesa-dev
 	samurai
 	"
 source="$pkgname-$pkgver.tar.gz::https://github.com/midilab/jc303/archive/v$pkgver.tar.gz

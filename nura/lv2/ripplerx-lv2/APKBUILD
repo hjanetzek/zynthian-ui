@@ -13,8 +13,6 @@ pkgdesc="RipplerX physically modelled percussion synthesizer (LV2)"
 url="https://github.com/tiagolr/ripplerx"
 arch="aarch64 x86_64"
 license="GPL-3.0-or-later"
-# linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
-# kernel headers too; mesa-dev: juce_opengl (GL/glx.h)
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -26,8 +24,6 @@ makedepends="
 	libxext-dev
 	libxinerama-dev
 	libxrandr-dev
-	linux-headers
-	mesa-dev
 	samurai
 	"
 source="$pkgname-$_commit.tar.gz::https://github.com/tiagolr/ripplerx/archive/$_commit.tar.gz

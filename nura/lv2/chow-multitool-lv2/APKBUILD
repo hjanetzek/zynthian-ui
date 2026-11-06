@@ -20,8 +20,7 @@ pkgdesc="ChowMultiTool EQ, band splitter, signal generator and more (LV2)"
 url="https://github.com/Chowdhury-DSP/ChowMultiTool"
 arch="aarch64 x86_64"
 license="GPL-3.0-or-later"
-# linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
-# kernel headers too; mesa-dev: juce_opengl (GL/glx.h)
+# linux-headers: xsimd (bundled) includes <asm/hwcap.h>
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -34,7 +33,6 @@ makedepends="
 	libxinerama-dev
 	libxrandr-dev
 	linux-headers
-	mesa-dev
 	samurai
 	"
 source="$pkgname-$_commit.tar.gz::https://github.com/Chowdhury-DSP/ChowMultiTool/archive/$_commit.tar.gz

@@ -5,6 +5,7 @@
 ./run_tests.sh -k controller   # extra arguments go to pytest
 ./run_tests.sh gui             # under xvfb, so tests marked `gui` run without a display
 ./run_tests.sh native          # only tests/native; builds the native libraries first if needed
+./run_tests.sh dbm             # the DrivenByMoss drivers' tests (tests/dbm, own runner, not pytest): need DBM_PYTHON_DIR/DBM_LIBRARY or the drivenbymoss package
 ```
 
 Setup once: `pip install -r requirements-dev.txt` (inside the project `venv`). For the native layer:

@@ -22,6 +22,9 @@ REPO = Path(__file__).resolve().parents[2]
 KNOWN_CORE_TO_UI_IMPORTS = {
     "zyngine/ctrldev/zynthian_ctrldev_akai_apc_40_mk2.py",
     "zyngine/ctrldev/zynthian_ctrldev_akai_apc_key25_mk2.py",
+    "zyngine/ctrldev/dbm_zynthian/add_chain.py",
+    "zyngine/ctrldev/dbm_zynthian/browser.py",
+    "zyngine/ctrldev/zynthian_ctrldev_base_dbm.py",
     "zyngine/ctrldev/zynthian_ctrldev_base_ui.py",
     "zyngine/ctrldev/zynthian_ctrldev_launchkey_mini_mk3.py",
     "zyngine/ctrldev/zynthian_ctrldev_launchkey_mk3_88.py",

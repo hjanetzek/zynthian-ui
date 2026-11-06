@@ -21,6 +21,36 @@ MODULES = sorted(p.stem for p in CTRLDEV.glob("zynthian_ctrldev_*.py")
 IDEV_IN, IDEV_OUT = 1, 2
 
 
+def dbm_missing():
+    """Why the DrivenByMoss drivers (zynthian_ctrldev_dbm_*) can't load here, or None: they need the
+    drivenbymoss package or DBM_PYTHON_DIR / DBM_LIBRARY (tests/dbm has their own tests)."""
+    try:
+        importlib.import_module("zyngine.ctrldev.dbm_zynthian")
+    except (ImportError, OSError) as e:
+        return f"DrivenByMoss not available ({e})"
+    return None
+
+
+DBM_MISSING = dbm_missing()
+
+
+def is_dbm(module_name):
+    return module_name.startswith("zynthian_ctrldev_dbm_")
+
+
+def driver_params(known_broken=None):
+    params = []
+    for m in MODULES:
+        if is_dbm(m) and DBM_MISSING:
+            params.append(pytest.param(m, marks=pytest.mark.skip(reason=DBM_MISSING)))
+        elif known_broken and m in known_broken:
+            exc, reason = known_broken[m]
+            params.append(pytest.param(m, marks=pytest.mark.xfail(strict=True, raises=exc, reason=reason)))
+        else:
+            params.append(m)
+    return params
+
+
 def midi_sweep():
     """Channel messages are always 3 bytes, as the state manager delivers them (zynmidi_read() slices a 32-bit
     word), so 2-byte messages arrive padded with a 0."""
@@ -108,10 +138,11 @@ def load_class(module_name):
 def test_every_driver_module_is_found_by_the_manager(state_manager):
     """The manager's discovery loads a class for every driver module (an import error would drop it silently)."""
     found = set(state_manager.ctrldev_manager.driver_classes)
-    assert set(MODULES) <= found, f"not loaded: {sorted(set(MODULES) - found)}"
+    expected = {m for m in MODULES if not (is_dbm(m) and DBM_MISSING)}
+    assert expected <= found, f"not loaded: {sorted(set(MODULES) - found)}"
 
 
-@pytest.mark.parametrize("module_name", MODULES)
+@pytest.mark.parametrize("module_name", driver_params())
 def test_driver_declares_what_it_drives(state_manager, module_name):
     cls = load_class(module_name)
     assert isinstance(cls.dev_ids, list) and all(isinstance(d, str) for d in cls.dev_ids)
@@ -151,18 +182,7 @@ KNOWN_BROKEN = {
 }
 
 
-def lifecycle_params():
-    params = []
-    for m in MODULES:
-        if m in KNOWN_BROKEN:
-            exc, reason = KNOWN_BROKEN[m]
-            params.append(pytest.param(m, marks=pytest.mark.xfail(strict=True, raises=exc, reason=reason)))
-        else:
-            params.append(m)
-    return params
-
-
-@pytest.mark.parametrize("module_name", lifecycle_params())
+@pytest.mark.parametrize("module_name", driver_params(KNOWN_BROKEN))
 def test_driver_lifecycle(driver_env, zyncore, module_name):
     state_manager, zynsigman = driver_env
     cls = load_class(module_name)

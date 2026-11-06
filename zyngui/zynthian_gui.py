@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import ffmpeg
 import logging
@@ -138,8 +139,8 @@ class zynthian_gui:
     SCREEN_HMODE_RESET = 3
 
     def __init__(self):
-        self.capture_dir_sdc = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/capture"
-        self.ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
+        self.capture_dir_sdc = zynthian_paths.my_data_dir + "/capture"
+        self.ex_data_dir = zynthian_paths.ex_data_dir
 
         self.ignore_next_touch_release = False
 
@@ -730,8 +731,17 @@ class zynthian_gui:
             if not dummy_show:
                 self.hide_screens(exclude=screen)
             zynsigman.send(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SCREEN, screen=screen)
+            screen_changed = True
+        else:
+            screen_changed = False
 
         self.screen_lock.release()
+
+        # The (touch keypad) LEDs depend on the screen: update them with it, not up to 0.2 s later
+        if screen_changed:
+            for wsleds in (self.wsleds, self.wsleds_v5touch):
+                if wsleds:
+                    wsleds.refresh()
 
     def show_modal(self, screen=None):
         self.show_screen(screen, hmode=zynthian_gui.SCREEN_HMODE_ADD)
@@ -1129,6 +1139,10 @@ class zynthian_gui:
             screen_name = "control"
         else:
             screen_name = "chain_control"
+            if (reset and not force_bank_preset and self.current_screen == "chain_control"
+                    and self.screens["chain_control"].is_reset_state(chain_id)):
+                # Already showing it (e.g. CTRL pressed again): rebuilding it only flickers
+                return
             if reset:
                 # TODO => Refact current_processor code!
                 # Avoid chain_control reset changing current processor:

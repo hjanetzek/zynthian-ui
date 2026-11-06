@@ -24,6 +24,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import shutil
@@ -212,7 +213,7 @@ def get_pianoteq_binary_info():
         'jackname': 'Pianoteq'
     }
     if check_pianoteq_binary():
-        version_pattern = re.compile(" version ([0-9]+\.[0-9]+\.[0-9]+)", re.IGNORECASE)
+        version_pattern = re.compile(r" version ([0-9]+\.[0-9]+\.[0-9]+)", re.IGNORECASE)
         stage_pattern = re.compile(" stage ", re.IGNORECASE)
         pro_pattern = re.compile(" pro ", re.IGNORECASE)
         trial_pattern = re.compile(" trial ", re.IGNORECASE)
@@ -260,7 +261,7 @@ def get_pianoteq_binary_info():
         if info['product'] == "STANDARD":
             lkey = get_pianoteq_config_value('LKey')
             if len(lkey) > 0:
-                lkey_product_pattern = re.compile(" Pianoteq \d* (\w*)")
+                lkey_product_pattern = re.compile(r" Pianoteq \d* (\w*)")
                 m = lkey_product_pattern.search(lkey[0])
                 if m:
                     info['product'] = m.group(1).upper()
@@ -297,7 +298,7 @@ def create_pianoteq_config():
                                                            info['version'][0], info['version'][1]),
                             PIANOTEQ_CONFIG_FILE)
             except:
-                shutil.copy(os.environ.get('ZYNTHIAN_DATA_DIR', "/zynthian/zynthian-data") +
+                shutil.copy(zynthian_paths.data_dir +
                             "/pianoteq/Pianoteq.prefs", PIANOTEQ_CONFIG_FILE)
 
 
@@ -521,7 +522,7 @@ def save_midi_mapping(file):
 # Pianoteq module constants & parameter configuration/initialization
 # ------------------------------------------------------------------------------
 
-PIANOTEQ_SW_DIR = os.environ.get('ZYNTHIAN_SW_DIR', '/zynthian/zynthian-sw') + '/pianoteq'
+PIANOTEQ_SW_DIR = zynthian_paths.sw_dir + '/pianoteq'
 PIANOTEQ_BINARY = PIANOTEQ_SW_DIR + '/pianoteq'
 PIANOTEQ_CONFIG_DIR = os.path.expanduser('~') + '/.config/Modartt'
 PIANOTEQ_DATA_DIR = os.path.expanduser('~') + '/.local/share/Modartt/Pianoteq'

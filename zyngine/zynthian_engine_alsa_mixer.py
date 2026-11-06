@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import copy
@@ -30,6 +31,7 @@ import logging
 import alsaaudio
 from subprocess import check_output
 
+import zynconf
 from zyncoder.zyncore import lib_zyncore
 from zyngine.zynthian_engine import zynthian_engine
 from zyngine.zynthian_controller import zynthian_controller
@@ -41,7 +43,7 @@ from zyngine.zynthian_controller import zynthian_controller
 
 class zynthian_engine_alsa_mixer(zynthian_engine):
 
-    sys_dir = os.environ.get('ZYNTHIAN_SYS_DIR', "/zynthian/zynthian-sys")
+    sys_dir = zynthian_paths.sys_dir
     soundcard_name = os.environ.get('SOUNDCARD_NAME', "Unknown")
 
     # ---------------------------------------------------------------------------
@@ -219,6 +221,15 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         try:
             is_log = False
             mixer_ctrl_names = sorted(set(alsaaudio.mixers(device=device)))
+            if ctrl_list:
+                # Each alsaaudio.Mixer() opens the card and loads all its elements: skip the
+                # controls no symbol in the list can stand for before opening them (phone
+                # codecs have >1000 routing controls: minutes at startup otherwise)
+                wanted = set(ctrl_list)
+                def is_wanted(ctrl_name):
+                    base = ctrl_name.replace(' ', '_')
+                    return any(s == base or s.startswith(base + "_") for s in wanted)
+                mixer_ctrl_names = [c for c in mixer_ctrl_names if is_wanted(c)]
             for ctrl_name in mixer_ctrl_names:
                 idx = 0  # ALSA array index
                 try:
@@ -603,6 +614,9 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         self.device = f"hw:{self.device_name}"
 
         try:
+            if zynconf.desktop_mode:
+                # Raspberry Pi onboard audio; the zynthian-sys script isn't installed
+                raise Exception("desktop mode")
             cmd = self.sys_dir + "/sbin/get_rbpi_audio_device.sh"
             self.rbpi_device_name = check_output(cmd, shell=True).decode("utf-8")
         except:

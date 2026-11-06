@@ -43,7 +43,8 @@ class touchkeypad_button_colors:
     def __init__(self, wsleds):
         self.wsleds = wsleds
         self.zyngui = wsleds.zyngui
-        self.led_status = [None] * 20
+        self.led_status = [None] * 20   # Colors set since the last show()
+        self.shown_status = [None] * 20 # What show() last drew on each button
         # A wanna-be abstraction: derive a named "mode" from the requested colors
         self.mode_map = {}
         self.mode_map[wsleds.wscolor_default] = 'default'
@@ -52,20 +53,10 @@ class touchkeypad_button_colors:
         self.mode_map[wsleds.wscolor_active2] = 'active2'
 
     def __setitem__(self, index, color):
+        # Like the NeoPixel strip: store the color, show() draws it. An update often sets an LED
+        # twice (e.g. F1-F4: first for ALT mode, then by the current screen); drawing every
+        # write made the buttons flicker between both colors.
         self.led_status[index] = color
-        mode = self.mode_map.get(color, None)
-        # request color change on the onscreen touchkeypad
-        if isinstance(color, int):
-            color = f"#{color:06x}" # color conversion to hex cod
-        # tkinter is not able to set RGBA/alpha color,
-        # so we need to blend the foreground color with the background color
-        if zynthian_gui_config.zyngui:
-            fgcolor = self.hex_to_rgb(color)
-            bgcolor = self.hex_to_rgb(self.wsleds.wscolor_off)
-            blended = self.ablend(1-self.wsleds.brightness, fgcolor, bgcolor)
-            color = self.rgb_to_hex(blended)
-        zynthian_gui_config.touch_keypad.set_button_color(LED2BUTTON[index], color, mode)
-
 
     def __getitem__(self, index):
         try:
@@ -75,8 +66,29 @@ class touchkeypad_button_colors:
 
 
     def show(self):
-        # nothing to do here
-        pass
+        """Draw the buttons whose color or label changed since the last show()"""
+        touch_keypad = zynthian_gui_config.touch_keypad
+        if not zynthian_gui_config.zyngui or not touch_keypad:
+            return
+        # The ALT labels (F5-F8, ...) follow the ALT mode, not the button's color
+        alt = bool(self.zyngui.get_alt_mode())
+        brightness = self.wsleds.brightness
+        for index, color in enumerate(self.led_status):
+            if color is None:
+                continue
+            state = (color, alt, brightness)
+            if self.shown_status[index] == state:
+                continue
+            self.shown_status[index] = state
+            mode = self.mode_map.get(color, None)
+            if isinstance(color, int):
+                color = f"#{color:06x}" # color conversion to hex cod
+            # tkinter is not able to set RGBA/alpha color,
+            # so we need to blend the foreground color with the background color
+            fgcolor = self.hex_to_rgb(color)
+            bgcolor = self.hex_to_rgb(self.wsleds.wscolor_off)
+            blended = self.ablend(1 - brightness, fgcolor, bgcolor)
+            touch_keypad.set_button_color(LED2BUTTON[index], self.rgb_to_hex(blended), mode, alt)
 
     def ablend(self, a, fg, bg):
         """

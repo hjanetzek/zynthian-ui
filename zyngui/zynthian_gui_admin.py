@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import signal
@@ -38,6 +39,7 @@ import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
+from zyngui import zynthian_admin_settings
 
 # -------------------------------------------------------------------------------
 # Zynthian Admin GUI Class
@@ -46,8 +48,8 @@ from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 
 class zynthian_gui_admin(zynthian_gui_selector_info):
 
-    data_dir = os.environ.get('ZYNTHIAN_DATA_DIR', "/zynthian/zynthian-data")
-    sys_dir = os.environ.get('ZYNTHIAN_SYS_DIR', "/zynthian/zynthian-sys")
+    data_dir = zynthian_paths.data_dir
+    sys_dir = zynthian_paths.sys_dir
 
     def __init__(self):
         self.commands = None
@@ -66,7 +68,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
         self.state_manager = self.zyngui.state_manager
 
-        if self.state_manager.allow_rbpi_headphones():
+        if not zynconf.desktop_mode and self.state_manager.allow_rbpi_headphones():
             self.default_rbpi_headphones()
 
     def refresh_status(self):
@@ -88,7 +90,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
     def build_view(self):
         self.update_available = self.state_manager.update_available
-        if not self.refresh_wifi_thread:
+        if not self.refresh_wifi_thread and not zynconf.desktop_mode:
             self.refresh_wifi = True
             self.refresh_wifi_thread = Thread(target=self.refresh_wifi_task, name="wifi_refresh")
             self.refresh_wifi_thread.start()
@@ -162,7 +164,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         #self.list_data.append((self.audio_levels, 0, "Audio Levels", ["Show audio levels view.", "meters.png"]))
         self.list_data.append((self.pfl, 0, f"PFL Output ({zynthian_gui_config.pfl_output})", ["Select the audio output device for pre-fader listening.", "headphones.png"]))
         self.list_data.append((self.show_tts, 0, "ZynVoice", ["Text to speech accessibility options", "audio_options.png"]))
-        if self.state_manager.allow_rbpi_headphones():
+        if not zynconf.desktop_mode and self.state_manager.allow_rbpi_headphones():
             if zynthian_gui_config.rbpi_headphones:
                 self.list_data.append((self.stop_rbpi_headphones, 0, "\u2612 RBPi Headphones",
                                        ["RBPi onboard headphone output (Lo-Fi) is enabled", "headphones.png"]))
@@ -193,17 +195,19 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
         self.list_data.append((self.network_info, 0, "Network Info",
                                ["Show network details, e.g. IP address, etc.", "network.png"]))
-        self.list_data.append((self.wifi_config, 0, f"Wi-Fi Config ({self.wifi_status})",
-                               ["Configure Wi-Fi connections.", "wifi.png"]))
-        self.wifi_index = len(self.list_data) - 1
-        if zynconf.is_service_active("vncserver0"):
-            self.list_data.append((self.state_manager.stop_vncserver, 0, "\u2612 VNC Server",
-                                   ["Display zynthian UI and processors' native GUI via VNC.\n This uses more CPU. It is advised to disable during performance.", "network.png"]))
-        else:
-            self.list_data.append((self.state_manager.start_vncserver, 0, "\u2610 VNC Server",
-                                   ["Display zynthian UI and processors' native GUI via VNC.\n This uses more CPU. It is advised to disable during performance.", "network.png"]))
-        self.list_data.append((self.bluetooth, 0, "Bluetooth",
-                               ["Scan, enable and configure Bluetooth devices.\n\nMust enable Bluetooth here to access BLE MIDI devices. Also supports HID devices.", "bluetooth.png"]))
+        # On a desktop, Wi-Fi, VNC and Bluetooth are managed by the host system
+        if not zynconf.desktop_mode:
+            self.list_data.append((self.wifi_config, 0, f"Wi-Fi Config ({self.wifi_status})",
+                                   ["Configure Wi-Fi connections.", "wifi.png"]))
+            self.wifi_index = len(self.list_data) - 1
+            if zynconf.is_service_active("vncserver0"):
+                self.list_data.append((self.state_manager.stop_vncserver, 0, "\u2612 VNC Server",
+                                       ["Display zynthian UI and processors' native GUI via VNC.\n This uses more CPU. It is advised to disable during performance.", "network.png"]))
+            else:
+                self.list_data.append((self.state_manager.start_vncserver, 0, "\u2610 VNC Server",
+                                       ["Display zynthian UI and processors' native GUI via VNC.\n This uses more CPU. It is advised to disable during performance.", "network.png"]))
+            self.list_data.append((self.bluetooth, 0, "Bluetooth",
+                                   ["Scan, enable and configure Bluetooth devices.\n\nMust enable Bluetooth here to access BLE MIDI devices. Also supports HID devices.", "bluetooth.png"]))
 
         self.list_data.append((None, 0, "> USER INTERFACE"))
         self.list_data.append((self.visible_chains, 0, f"Visible Chains ({zynthian_gui_config.visible_mixer_strips})",
@@ -236,9 +240,10 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         if "brightness_config" in self.zyngui.screens and self.zyngui.screens["brightness_config"].get_num_zctrls() > 0:
             self.list_data.append((self.zyngui.brightness_config, 0, "Brightness",
                                    ["Adjust display and LED brightness.", "bright_settings.png"]))
-        self.list_data.append((self.zyngui.calibrate_touchscreen, 0, "Calibrate Touchscreen",
-                               ["Show touchscreen calibration.\nTouch each crosshair until it changes color.\nScreen closes after 15s of inactivity.",
-                                "settings.png"]))
+        if not zynconf.desktop_mode:  # Writes the system's X11 configuration
+            self.list_data.append((self.zyngui.calibrate_touchscreen, 0, "Calibrate Touchscreen",
+                                   ["Show touchscreen calibration.\nTouch each crosshair until it changes color.\nScreen closes after 15s of inactivity.",
+                                    "settings.png"]))
         self.list_data.append((self.zyngui.cuia_screen_clean, 0, "Clean Screen",
                                ["10s countdown with no touch trigger. Allows screen to be cleaned without triggering any action.", "settings.png"]))
 
@@ -378,30 +383,12 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
     def pfl(self, t='S'):
         logging.info("PFL routing")
-        ports = zynautoconnect.get_hw_audio_dst_ports()
-        port_count = len(ports)
-        labels = ["None"]
-        for i in range(0, port_count, 2):
-            try:
-                name1 = ports[i].aliases[0]
-                name2 = ports[i+1].aliases[0]
-            except:
-                name1 = ports[i].name
-                name2 = ports[i+1].name
-            labels.append(f"{i+1} ({name1})")
-            labels.append(f"{i+2} ({name2})")
-            labels.append(f"{i+1}+{i+2} ({name1}+{name2})")
         self.enable_param_editor(self, "PFL Output",
-                {'labels': labels, 'value': zynthian_gui_config.pfl_output},
+                {'labels': zynthian_admin_settings.pfl_output_labels(), 'value': zynthian_gui_config.pfl_output},
                 self.pfl_cb)
 
     def pfl_cb(self, value):
-        label = self.param_editor_zctrl.get_value2label(value)
-        zynthian_gui_config.pfl_output = label
-        zynconf.save_config({
-            "ZYNTHIAN_PFL_OUTPUT": zynthian_gui_config.pfl_output
-        })
-        zynautoconnect.request_audio_connect(True)
+        zynthian_admin_settings.set_pfl_output(self.param_editor_zctrl.get_value2label(value))
         self.update_list()
 
     def show_tts(self, t='S'):
@@ -451,26 +438,10 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
     def get_hotplug_menu_options(self):
         options = {}
-        if zynthian_gui_config.hotplug_audio_enabled:
-            options[f"\u2612 Hotplug Audio"] = ["disable_hotplug", ["Toggle USB hotplug audio enable.", None]]
-            options["Input Devices"] = None
-            for device in zynautoconnect.get_alsa_audio_devices(False, "hotplug"):
-                if device in zynthian_gui_config.disabled_audio_in:
-                    options[f"\u2610 {device} in"] = ["enable_input", ["Toggle enable USB input audio device.", None]]
-                else:
-                    options[f"\u2612 {device} in"] = ["disable_input", ["Toggle enable USB input audio device.", None]]
-            options["Output Devices"] = None
-            devices = zynautoconnect.get_alsa_audio_devices(True, "hotplug")
-            if devices:
-                for device in devices:
-                    if device in zynthian_gui_config.disabled_audio_out:
-                        options[f"\u2610 {device} out"] = ["enable_output", ["Toggle enable USB audio output device.", None]]
-                    else:
-                        options[f"\u2612 {device} out"] = ["disable_output", ["Toggle enable USB audio output device.", None]]
-            else:
-                options["No available soundcard outputs - check ZynVoice"] = ["tts", ["No free audio outputs. Select to navigate to ZynVoice config.", None]]
-        else:
-            options[f"\u2610 Hotplug Audio"] = ["enable_hotplug", ["Toggle USB hotplug audio enable.", None]]
+        self.hotplug_devices = {}
+        for label, action, device, info in zynthian_admin_settings.hotplug_options():
+            options[label] = [action, [info, None]] if action else None
+            self.hotplug_devices[label] = device
         return options
 
     def hotplug_audio_menu(self):
@@ -478,36 +449,15 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         self.zyngui.show_screen('option')
 
     def hotplug_audio_cb(self, option, value):
-        zynautoconnect.pause()
-        match value:
-            case "enable_hotplug":
-                self.zyngui.state_manager.start_busy("hotplug", "Enabling hotplug audio")
-                zynautoconnect.enable_hotplug()
-            case "disable_hotplug":
-                self.zyngui.state_manager.start_busy("hotplug", "Disabling hotplug audio")
-                zynautoconnect.disable_hotplug()
-            case "enable_input":
-                self.zyngui.state_manager.start_busy("hotplug", f"Enabling {option[2:]}")
-                zynautoconnect.enable_audio_input_device(option[2:-3])
-            case "disable_input":
-                self.zyngui.state_manager.start_busy("hotplug", f"Disabling {option[2:]}")
-                zynautoconnect.enable_audio_input_device(option[2:-3], False)
-            case "enable_output":
-                self.zyngui.state_manager.start_busy("hotplug", f"Enabling {option[2:]}")
-                zynautoconnect.enable_audio_output_device(option[2:-4])
-            case "disable_output":
-                self.zyngui.state_manager.start_busy("hotplug", f"Disabling {option[2:]}")
-                zynautoconnect.enable_audio_output_device(option[2:-4], False)
-            case "tts":
-                self.show_tts()
-                return
+        if value == "tts":
+            self.show_tts()
+            return
+        zynthian_admin_settings.hotplug_apply(value, self.hotplug_devices.get(option), self.zyngui.state_manager)
         self.zyngui.screens['option'].config("Hotplug Audio", self.get_hotplug_menu_options(), self.hotplug_audio_cb, False)
         self.zyngui.show_screen('option')
-        self.zyngui.state_manager.end_busy("hotplug")
-        zynautoconnect.resume()
 
     def toggle_dpm(self):
-        zynthian_gui_config.enable_dpm = not zynthian_gui_config.enable_dpm
+        zynthian_admin_settings.toggle_dpm()
         self.update_list()
 
     def visible_chains(self):
@@ -522,33 +472,15 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
     def mixer_toggle(self):
         self.enable_param_editor(self, "Toggle Control",
-                                 {'labels': ['solo', 'pfl', 'mono', 'phase', 'ms', 'record'], 'value': zynthian_gui_config.mixer_toggle},
+                                 {'labels': zynthian_admin_settings.MIXER_TOGGLES, 'value': zynthian_gui_config.mixer_toggle},
                                  self.mixer_toggle_cb)
 
     def toggle_snapshot_mixer_settings(self):
-        if zynthian_gui_config.snapshot_mixer_settings:
-            logging.info("Mixer Settings on Snapshots OFF")
-            zynthian_gui_config.snapshot_mixer_settings = False
-        else:
-            logging.info("Mixer Settings on Snapshots ON")
-            zynthian_gui_config.snapshot_mixer_settings = True
-
-        # Update Config
-        zynconf.save_config({
-            "ZYNTHIAN_UI_SNAPSHOT_MIXER_SETTINGS": str(int(zynthian_gui_config.snapshot_mixer_settings))
-        })
+        zynthian_admin_settings.toggle_snapshot_mixer_settings()
         self.update_list()
 
     def toggle_preset_preload(self):
-        if zynthian_gui_config.preset_preload:
-            logging.info("Preset Preload OFF")
-            zynthian_gui_config.preset_preload = False
-        else:
-            logging.info("Preset Preload ON")
-            zynthian_gui_config.preset_preload = True
-
-        # Save config
-        zynconf.save_config({"ZYNTHIAN_UI_PRESET_PRELOAD": str(int(zynthian_gui_config.preset_preload))})
+        zynthian_admin_settings.toggle_preset_preload()
         self.update_list()
 
     def bluetooth(self):
@@ -573,21 +505,17 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         self.restart_gui()
 
     def visible_chains_cb(self, value):
-        zynconf.save_config({"ZYNTHIAN_UI_VISIBLE_MIXER_STRIPS": str(value)})
-        zynthian_gui_config.visible_mixer_strips = value
+        zynthian_admin_settings.set_visible_mixer_strips(value)
         self.zyngui.screens["mixer"].update_layout()
         self.update_list()
 
     def visible_launchers_cb(self, value):
-        zynconf.save_config({"ZYNTHIAN_UI_VISIBLE_LAUNCHERS": str(value)})
-        zynthian_gui_config.visible_launchers = value
+        zynthian_admin_settings.set_visible_launchers(value)
         self.zyngui.screens["mixer"].update_layout()
         self.update_list()
 
     def mixer_toggle_cb(self, value):
-        val = self.param_editor_zctrl.value2label[str(value)]
-        zynconf.save_config({"ZYNTHIAN_UI_MIXER_TOGGLE": val})
-        zynthian_gui_config.mixer_toggle = val
+        zynthian_admin_settings.set_mixer_toggle(self.param_editor_zctrl.value2label[str(value)])
         self.update_list()
 
     # -------------------------------------------------------------------------
@@ -611,13 +539,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
                                  self.set_chanpress_cc_cb)
 
     def set_chanpress_cc_cb(self, value):
-        zynthian_gui_config.midi_chanpress_cc = value
-        self.state_manager.init_midi_filter()
-
-        # Update Config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_CHANPRESS_CC": str(int(zynthian_gui_config.midi_chanpress_cc))
-        })
+        zynthian_admin_settings.set_chanpress_cc(value, self.state_manager)
         self.update_list()
 
     # -------------------------------------------------------------------------
@@ -635,64 +557,19 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
     # -------------------------------------------------------------------------
 
     def toggle_active_midi_channel(self):
-        if lib_zyncore.get_active_midi_chan():
-            logging.info("Active MIDI channel OFF")
-            zynthian_gui_config.active_midi_channel = False
-        else:
-            logging.info("Active MIDI channel ON")
-            zynthian_gui_config.active_midi_channel = True
-
-        lib_zyncore.set_active_midi_chan(
-            zynthian_gui_config.active_midi_channel)
-
-        # Save config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_ACTIVE_CHANNEL": str(int(zynthian_gui_config.active_midi_channel))
-        })
+        zynthian_admin_settings.toggle_active_midi_channel()
         self.update_list()
 
     def toggle_usbmidi_by_port(self):
-        if zynthian_gui_config.midi_usb_by_port:
-            logging.info("MIDI-USB devices by port OFF")
-            zynthian_gui_config.midi_usb_by_port = False
-        else:
-            logging.info("MIDI-USB devices by port ON")
-            zynthian_gui_config.midi_usb_by_port = True
-
-        zynautoconnect.update_hw_midi_ports(True)
-
-        # Save config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_USB_BY_PORT": str(int(zynthian_gui_config.midi_usb_by_port))
-        })
+        zynthian_admin_settings.toggle_usbmidi_by_port()
         self.update_list()
 
     def toggle_prog_change_zs3(self):
-        if zynthian_gui_config.midi_prog_change_zs3:
-            logging.info("ZS3 Program Change OFF")
-            zynthian_gui_config.midi_prog_change_zs3 = False
-        else:
-            logging.info("ZS3 Program Change ON")
-            zynthian_gui_config.midi_prog_change_zs3 = True
-
-        # Save config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_PROG_CHANGE_ZS3": str(int(zynthian_gui_config.midi_prog_change_zs3))
-        })
+        zynthian_admin_settings.toggle_prog_change_zs3()
         self.update_list()
 
     def toggle_bank_change(self):
-        if zynthian_gui_config.midi_bank_change:
-            logging.info("MIDI Bank Change OFF")
-            zynthian_gui_config.midi_bank_change = False
-        else:
-            logging.info("MIDI Bank Change ON")
-            zynthian_gui_config.midi_bank_change = True
-
-        # Save config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_BANK_CHANGE": str(int(zynthian_gui_config.midi_bank_change))
-        })
+        zynthian_admin_settings.toggle_bank_change()
         self.update_list()
 
     def show_cv_config(self):

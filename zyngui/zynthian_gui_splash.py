@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import tkinter
 from PIL import Image, ImageDraw, ImageFont
 import logging
@@ -60,7 +61,7 @@ class zynthian_gui_splash(zynthian_gui_fullscreen_modal):
         pos_x = self.width / 2 - strlen / 2
         pos_y = int(self.height / 10)
         try:
-            config_dir = os.environ.get("ZYNTHIAN_CONFIG_DIR")
+            config_dir = zynthian_paths.config_dir
             boot_file = f"{config_dir}/img/fb_zynthian_boot.jpg"
             fpath = f"{config_dir}/img/fb_zynthian_message.jpg"
 

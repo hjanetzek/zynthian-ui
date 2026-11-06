@@ -25,6 +25,7 @@
 # ******************************************************************************
 
 
+from zynconf import zynthian_paths
 import copy
 import tkinter
 import logging
@@ -42,6 +43,9 @@ from zynlibs.zynaudioplayer import *
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_base import zynthian_gui_base
 from zyngui.zynthian_gui_dpm import zynthian_gui_dpm
+from zyngui.zynthian_launcher_data import (pad_info, toggle_pad, phrase_menu_options, phrase_title, follow_info,
+                                           follow_choices, duration_to_index, DURATION_LABELS, LOOP_COUNT_CHOICES,
+                                           loops_to_play_options, toggle_play_flag, set_phrase_value)
 from zyngine.zynthian_signal_manager import zynsigman
 
 logging.getLogger('PIL').setLevel(logging.WARNING)
@@ -219,273 +223,50 @@ class zynthian_gui_launcher_pad():
 
         self.canvas.itemconfig(self.pad, outline="yellow")
 
-    def get_pattern_length(self, beats, bpb):
-        if not bpb:
-            bpb = 4
-        if bpb > 1:
-            bars = beats // bpb
-        else:
-            bars = 0
-        extra_beats = beats % bpb
-        if extra_beats == 0:
-            beats_text = ""
-        else:
-            beats_text = f"{extra_beats}♩"
-        if bars == 0:
-            bars_text = ""
-        else:
-            bars_text = f"{bars}"
-        if bars and extra_beats:
-            return f"{bars_text} + {beats_text}"
-        else:
-            return bars_text + beats_text
-
-    def get_clippy_file(self):
-        try:
-            return self.chain.get_clippy_processor().controllers_dict[f"file {self.phrase + 1}"].get_value()
-        except:
-            return None
-
-    def get_clippy_timesig(self):
-        try:
-            return self.chain.get_clippy_processor().controllers_dict[f"beats {self.phrase + 1}"].get_value() // 4
-        except:
-            return None
-
     def draw(self, force=False):
         """ Update the launcher button elements"""
 
-        mode_text = ""
-        timesig_text = ""
-        tempo_text = ""
-        color_mode = self.gui_mixer.legend_txt_color
-        color_text = self.gui_mixer.legend_txt_color
-        try:
-            state_phrase = self.gui_mixer.zynseq.state["scenes"][self.gui_mixer.zynseq.scene]["phrases"][self.phrase]
-            if self.chain.chain_id == 0:
-                state_seq = state_phrase
-            elif self.chain.midi_chan is None or self.chain.midi_chan > 31:
-                state_seq = False  # This will raise an exception later and draw empty block
-            else:
-                state_seq = state_phrase["sequences"][self.chain.midi_chan]
+        info = pad_info(self.gui_mixer.zynseq, self.chain, self.phrase, self.gui_mixer.legend_txt_color,
+                        self.gui_mixer.moving_phrase)
+        # Don't draw if state didn't change
+        if not force and info["state"] is not None and self.last_state == info["state"]:
+            return
+        self.last_state = info["state"]
 
-            # Don't draw if state didn't change
-            if not force and self.last_state is not None and self.last_state == state_seq:
-                return
+        if self.chain.chain_id == 0:
+            # Side loop info
+            for item in (self.loop1_top, self.loop1_bottom, self.loop1_text,
+                         self.loop2_top, self.loop2_bottom, self.loop2_text):
+                self.canvas.itemconfig(item, state=tkinter.HIDDEN)
+            loop_items = ((self.loop1_top, self.loop1_bottom, self.loop1_text),
+                          (self.loop2_top, self.loop2_bottom, self.loop2_text))
+            for (part, c1, c2, ltext), (loop_top, loop_bottom, loop_text) in zip(info["loops"], loop_items):
+                if part in ("top", "both"):
+                    self.canvas.itemconfig(loop_top, state=tkinter.NORMAL, fill=c1)
+                if part in ("bottom", "both"):
+                    self.canvas.itemconfig(loop_bottom, state=tkinter.NORMAL, fill=c2)
+                if part == "top":
+                    self.canvas.itemconfig(loop_text, state=tkinter.NORMAL, text=ltext)
 
-            self.last_state = copy.copy(state_seq)      # NOTE: Better deepcopy?
-
-            name = state_seq["name"]
-            # If not asigned name => generate default name on-the-fly
-            if not name:
-                if self.chain.chain_id == 0:
-                    # Main chain
-                    name = f"{self.phrase + 1}"
-                else:
-                    # QUESTION: Is MIDI chan same as group? ANSWER: Only until arranger is reinstated. => Understood! ;-)
-                    name = f"{zynseq.CHANNEL_CHARS[self.chain.midi_chan]}{self.phrase + 1}"
-
-
-            disabled = state_seq["repeat"] == 0
-            empty = False
-
-            # Moving phrase
-            if self.gui_mixer.moving_phrase and self.phrase == self.gui_mixer.zynseq.phrase:
-                if self.phrase == 0:
-                    title = f"⇓ {name[:6]}"
-                elif self.phrase == self.gui_mixer.zynseq.phrases - 1:
-                    title = f"⇑ {name[:6]}"
-                else:
-                    title = f"⇕ {name[:6]}"
-            # Normal draw
-            else:
-                title = name[:7]
-
-            # Chain launcher =>
-            if self.chain.chain_id:
-                # Zynstep pattern
-                if state_seq["group"] < 16:
-                    try:
-                        #pattern = state_seq["tracks"][0]["patns"]["0"]
-                        #n_beats = self.gui_mixer.zynseq.libseq.getBeatsInPattern(pattern)
-                        n_beats = state_seq["nBeats"]
-                        timesig_text = self.get_pattern_length(n_beats, state_phrase["bpb"])
-                        try:
-                            #empty = len(self.gui_mixer.zynseq.state["patns"][str(pattern)]["events"]) == 0
-                            empty = (state_seq["nEvents"] == 0)
-                        except:
-                            empty = True
-                    except Exception as e:
-                        logging.error(e)
-                        disabled = True
-                # Clippy
-                else:
-                    if self.get_clippy_file():
-                        empty = False
-                        timesig = self.get_clippy_timesig()
-                        if timesig is not None:
-                            timesig_text = str(timesig)
-                        else:
-                            timesig_text = "1"
-                    else:
-                        empty = True
-                        timesig = "1"
-
-                if state_seq["repeat"] == 1:
-                    mode_text = "↦"
-                elif state_seq["repeat"] == 255:
-                    mode_text = "↻"
-                elif state_seq["repeat"] > 1:
-                    mode_text = "x" + str(state_seq["repeat"])
-
-                # Launcher background color
-                if empty:
-                    color = zynthian_gui_config.PAD_COLOUR_EMPTY
-                else:
-                    color = zynthian_gui_config.LAUNCHER_COLOUR[state_seq["group"]]["rgb"]
-
-            # Phrase launcher =>
-            else:
-                color = zynthian_gui_config.PAD_COLOUR_PHRASE
-
-                # Side Loop Info
-                loop_info = self.gui_mixer.zynseq.get_phrase_loop_info_all(self.phrase)
-                self.canvas.itemconfig(self.loop1_top, state=tkinter.HIDDEN)
-                self.canvas.itemconfig(self.loop1_bottom, state=tkinter.HIDDEN)
-                self.canvas.itemconfig(self.loop2_text, state=tkinter.HIDDEN)
-                self.canvas.itemconfig(self.loop2_top, state=tkinter.HIDDEN)
-                self.canvas.itemconfig(self.loop2_bottom, state=tkinter.HIDDEN)
-                self.canvas.itemconfig(self.loop2_text, state=tkinter.HIDDEN)
-                if loop_info:
-                    for i, linfo in enumerate(reversed(loop_info)):
-                        if i == 0:
-                            loop_top = self.loop1_top
-                            loop_bottom = self.loop1_bottom
-                            loop_text = self.loop1_text
-                            c1 = c2 = "#5050FF"
-                        elif i == 1:
-                            loop_top = self.loop2_top
-                            loop_bottom = self.loop2_bottom
-                            loop_text = self.loop2_text
-                            c1 = c2 = "#40C040"
-                        else:
-                            logging.warning("Loop at level {i} not displayable!")
-                        if state_seq["followAction"] == zynseq.FOLLOW_ACTION_NONE:
-                            c2 = "#" + "".join(f"{int(int(c1[i:i+2],16)*0.85):02x}" for i in (1,3,5))
-                        if linfo[0] == self.phrase:
-                            self.canvas.itemconfig(loop_top, state=tkinter.NORMAL, fill=c1)
-                            repeat = state_seq["followRepeat"]
-                            if repeat:
-                                ltext = f"{repeat}"
-                            else:
-                                ltext = "∞"
-                            self.canvas.itemconfig(loop_text, state=tkinter.NORMAL, text=ltext)
-                        elif linfo[0] - linfo[1] == self.phrase:
-                            self.canvas.itemconfig(loop_bottom, state=tkinter.NORMAL, fill=c2)
-                        else:
-                            self.canvas.itemconfig(loop_top, state=tkinter.NORMAL, fill=c1)
-                            self.canvas.itemconfig(loop_bottom, state=tkinter.NORMAL, fill=c2)
-
-                # Duration in bars) => 255=auto
-                try:
-                    if state_seq["repeat"] == 255:
-                        #mode_text = "a"
-                        pass
-                    elif state_seq["repeat"] > 0:
-                        mode_text = f"{state_seq['repeat']}"
-                except:
-                    pass
-
-                # Flow info
-                match state_seq["followAction"]:
-                    case zynseq.FOLLOW_ACTION_NONE:
-                        mode_text += "↻"
-                    case zynseq.FOLLOW_ACTION_RELATIVE:
-                        offset = state_seq["followParam"]
-                        if offset < 0:
-                            mode_text += "↑"
-                        elif offset == 0:
-                            mode_text += "↻"
-                        elif offset == 1:
-                            mode_text += f"↓"
-                        elif offset > 1:
-                            mode_text += f"↓{offset}"
-
-                # Timesig (Beats per Bar)
-                try:
-                    if state_seq["bpb"]:
-                        timesig_text = f"{state_seq['bpb']}/4"
-                except:
-                    pass
-
-                # Tempo info
-                if "tempo" in state_seq:
-                    tempo = state_seq["tempo"]
-                    if tempo:
-                        tempo_text = f"{tempo:.1f}"
-
-            if disabled:
-                color = zynthian_gui_config.PAD_COLOUR_DISABLED
-                color_mode = zynthian_gui_config.PAD_COLOUR_STATE_DISABLED
-                color_text = zynthian_gui_config.PAD_COLOUR_STATE_DISABLED
-                color_state = zynthian_gui_config.PAD_COLOUR_STATE_DISABLED
-                state_text = ""
-            else:
-                # Play state
-                match state_seq["state"]:
-                    case zynseq.SEQ_PLAYING:
-                        color_state = zynthian_gui_config.PAD_COLOUR_PLAYING
-                        state_text = "▶"
-                    case zynseq.SEQ_STARTING:
-                        color_state = zynthian_gui_config.PAD_COLOUR_STARTING
-                        state_text = "▶"
-                    case zynseq.SEQ_STOPPING:
-                        color_state = zynthian_gui_config.PAD_COLOUR_STOPPING
-                        state_text = "▶"
-                    case zynseq.SEQ_STOPPING_SYNC:
-                        color_state = zynthian_gui_config.PAD_COLOUR_STOPPING
-                        state_text = "▶"
-                    case zynseq.SEQ_CHILD_PLAYING:
-                        color_state = zynthian_gui_config.PAD_COLOUR_STOPPED
-                        state_text = "▶"
-                    case zynseq.SEQ_CHILD_STOPPING:
-                        color_state = zynthian_gui_config.PAD_COLOUR_STOPPING
-                        state_text = "▶"
-                    case zynseq.SEQ_STOPPED:
-                        color_state = zynthian_gui_config.PAD_COLOUR_STOPPED
-                        state_text = "⏹"
-                    case _:
-                        color_mode = zynthian_gui_config.PAD_COLOUR_STATE_DISABLED
-                        color_text = zynthian_gui_config.PAD_COLOUR_STATE_DISABLED
-                        color_state = zynthian_gui_config.PAD_COLOUR_STATE_DISABLED
-                        state_text = "?"
-        except:
-            #logging.exception(traceback.format_exc())
-            title = ""
-            color = zynthian_gui_config.PAD_COLOUR_DISABLED
-            color_mode = zynthian_gui_config.PAD_COLOUR_STATE_DISABLED
-            color_text = zynthian_gui_config.PAD_COLOUR_STATE_DISABLED
-            color_state = zynthian_gui_config.PAD_COLOUR_STATE_DISABLED
-            state_text = ""
-
-        self.canvas.itemconfig(self.pad, fill=color)
+        title = info["title"]
+        self.canvas.itemconfig(self.pad, fill=info["color"])
         if len(title) > 3:
             font_title = self.gui_mixer.font_clip_title_small
         else:
             font_title = self.gui_mixer.font_clip_title
-        self.canvas.itemconfig(self.title, text=title, fill=color_text, font=font_title)
-        self.canvas.itemconfig(self.play_state, text=state_text, fill=color_state)
+        self.canvas.itemconfig(self.title, text=title, fill=info["text_color"], font=font_title)
+        self.canvas.itemconfig(self.play_state, text=info["state_text"], fill=info["state_color"])
         if self.chain.chain_id:
             # Chain sequence launcher
-            self.canvas.itemconfig(self.mode_text, text=mode_text, fill=color_text, state=tkinter.NORMAL)
-            self.canvas.itemconfig(self.timesig, text=timesig_text, fill=color_text, state=tkinter.NORMAL)
+            self.canvas.itemconfig(self.mode_text, text=info["mode_text"], fill=info["text_color"], state=tkinter.NORMAL)
+            self.canvas.itemconfig(self.timesig, text=info["timesig_text"], fill=info["text_color"], state=tkinter.NORMAL)
             self.canvas.itemconfig(self.tempo, state=tkinter.HIDDEN)
             self.canvas.itemconfig(self.mode_icon, state=tkinter.HIDDEN)
         else:
             # Phrase launcher
-            self.canvas.itemconfig(self.mode_text, text=mode_text, fill=color_mode, state=tkinter.NORMAL)
-            self.canvas.itemconfig(self.timesig, text=timesig_text, fill=color_text, state=tkinter.NORMAL)
-            self.canvas.itemconfig(self.tempo, text=tempo_text, fill=color_text, state=tkinter.NORMAL)
+            self.canvas.itemconfig(self.mode_text, text=info["mode_text"], fill=info["mode_color"], state=tkinter.NORMAL)
+            self.canvas.itemconfig(self.timesig, text=info["timesig_text"], fill=info["text_color"], state=tkinter.NORMAL)
+            self.canvas.itemconfig(self.tempo, text=info["tempo_text"], fill=info["text_color"], state=tkinter.NORMAL)
             self.canvas.itemconfig(self.mode_icon, state=tkinter.HIDDEN)
 
     def on_clip_release(self, event):
@@ -503,13 +284,7 @@ class zynthian_gui_launcher_pad():
             self.on_clip_long_press()
 
     def on_clip_short_press(self):
-        if self.chain.chain_id:
-            midi_chan = self.chain.midi_chan
-        else:
-            midi_chan = 32
-        if midi_chan is None or midi_chan > 32:
-            return
-        self.gui_mixer.zynseq.libseq.togglePlayState(self.gui_mixer.zynseq.scene, self.phrase, midi_chan)
+        toggle_pad(self.gui_mixer.zynseq, self.chain, self.phrase)
 
     def on_clip_bold_press(self):
         if self.chain.chain_id:
@@ -843,6 +618,8 @@ class zynthian_gui_mixer_strip():
         """ Function to draw the DPM level meter for a mixer strip
         """
 
+        if not self.has_mixer_widgets():
+            return
         dpm = self.chain.zynmixer_proc.zynmixer.dpm[self.chain.zynmixer_proc.mixer_chan]
         self.dpm_a.refresh(dpm.a, dpm.a_hold, dpm.mono)
         self.dpm_b.refresh(dpm.b, dpm.b_hold, dpm.mono)
@@ -853,11 +630,19 @@ class zynthian_gui_mixer_strip():
             self.over_id = self.canvas.after(4000, lambda: self.canvas.itemconfig(self.mute_text, fill=self.gui_mixer.button_txcol))
 
 
+    def has_mixer_widgets(self):
+        """True if the strip has its audio mixer widgets (fader, balance, toggle, mute, DPM, ...). A strip built
+        while its chain had no mixer processor yet (e.g. while loading a snapshot) has none
+        until it is rebuilt."""
+        return hasattr(self, "fader_overlay")
+
     def draw_balance(self):
         """
         Draws the mixer strip balance indication
         """
 
+        if not self.has_mixer_widgets():
+            return
         balance = self.chain.zynmixer_proc.controllers_dict["balance"].value
         if balance is None:
             return
@@ -871,6 +656,8 @@ class zynthian_gui_mixer_strip():
 
     """Draws the mixer strip level"""
     def draw_level(self):
+        if not self.has_mixer_widgets():
+            return
         level = self.chain.zynmixer_proc.controllers_dict["level"].value
         if level is not None:
             self.canvas.coords(self.fader_overlay,
@@ -898,6 +685,8 @@ class zynthian_gui_mixer_strip():
         self.canvas.coords(self.clip_progress, self.x, self.gui_mixer.legend_y, x1, self.gui_mixer.legend_y + self.clip_progress_height)
 
     def draw_toggle(self):
+        if not self.has_mixer_widgets():
+            return
         txcolor = self.gui_mixer.button_txcol
         font = self.gui_mixer.font
         text = self.chain.zynmixer_proc.controllers_dict[zynthian_gui_config.mixer_toggle].name
@@ -915,6 +704,8 @@ class zynthian_gui_mixer_strip():
         self.canvas.itemconfig(self.toggle_text, text=text, font=font, fill=txcolor)
 
     def draw_mute(self):
+        if not self.has_mixer_widgets():
+            return
         txcolor = self.gui_mixer.button_txcol
         font = self.gui_mixer.font_icons
         if self.chain.zynmixer_proc.controllers_dict["mute"].value:
@@ -1232,6 +1023,7 @@ class zynthian_gui_mixer(zynthian_gui_base):
         self.bpb = 4
         self.beat = 0
         self.chain_strips = [] # List of channel strips excluding main mixbus, indexed by strip position
+        self.layout_key = None # Layout the strips were built for, see get_layout_key()
         self.state_changed = True
         self.press_event = None
         self.dragging = False # True if click/touch dragging
@@ -1415,15 +1207,24 @@ class zynthian_gui_mixer(zynthian_gui_base):
         self.mode_icons = {}
         for f in ("empty", "loopsync", "oneshot", "oneshotall"):
             try:
-                img = Image.open(f"/zynthian/zynthian-ui/icons/zynpad_mode_{f}.png")
+                img = Image.open(f"{zynthian_paths.ui_dir}/icons/zynpad_mode_{f}.png")
                 self.mode_icons[f] = ImageTk.PhotoImage(img.resize(iconsize))
             except:
                 self.mode_icons[f] = empty_icon
+
+    def get_layout_key(self):
+        """What the strips' layout depends on: geometry, chains and their mixer processors"""
+        chains = tuple((id(chain), chain.chain_id, id(chain.zynmixer_proc),
+                        chain.zynmixer_proc.eng_code if chain.zynmixer_proc else None)
+                       for chain in self.chain_manager.chains.values())
+        return (self.width, self.height, self.strip_width, self.launcher_height, self.zynseq.phrases,
+                self.chain_manager.get_pinned_pos(), self.chain_manager.get_pinned_count(), chains)
 
     def build_mixer(self):
         """ Draw chain strips"""
 
         self.state_changed = True
+        self.layout_key = self.get_layout_key()
 
         # Create mixer strip UI objects
         self.chan2strip = {}
@@ -1514,13 +1315,14 @@ class zynthian_gui_mixer(zynthian_gui_base):
 
     def build_view(self):
         """ Function to handle showing display"""
-        #try:
-        #    self.build_mixer() #TODO: Don't do full rebuild
-        #except Exception as e:
-        #    logging.warning(e)
-        #self.set_launcher_mode()
-
-        self.build_mixer()
+        # Rebuild the strips only if their layout changed since they were built, else
+        # refresh their contents (a full rebuild creates ~400 canvas items: ~80 ms on ARM)
+        if self.chain_strips and self.layout_key == self.get_layout_key():
+            self.refresh_mixer_controls()
+            self.refresh_launchers(force=True)
+            self.set_launcher_mode()
+        else:
+            self.build_mixer()
         self.set_title()
         if zynthian_gui_config.enable_dpm:
             self.state_manager.zynmixer_chan.enable_dpm(True)
@@ -1822,7 +1624,7 @@ class zynthian_gui_mixer(zynthian_gui_base):
         self.highlighted_strip.canvas.itemconfig(self.highlighted_strip.legend_strip_midi_bg, fill=self.legend_bg_color_hl)
         self.left_canvas.itemconfig("fader_overlay", fill=self.fader_color)
         self.right_canvas.itemconfig("fader_overlay", fill=self.fader_color)
-        if self.highlighted_strip.chain.zynmixer_proc:
+        if self.highlighted_strip.chain.zynmixer_proc and self.highlighted_strip.has_mixer_widgets():
             self.highlighted_strip.canvas.itemconfig(self.highlighted_strip.fader_overlay, fill=self.fader_color_hl)
         self.highlight_launcher()
 
@@ -2050,91 +1852,16 @@ class zynthian_gui_mixer(zynthian_gui_base):
         self.set_launcher_mode(not self.launcher_mode)
 
     def phrase_menu(self):
-        try:
-            if self.highlighted_strip.chan == zynseq.PHRASE_CHANNEL:
-                info = self.zynseq.state["scenes"][self.zynseq.scene]["phrases"][self.zynseq.phrase]
-            else:
-                info = self.zynseq.state["scenes"][self.zynseq.scene]["phrases"][self.zynseq.phrase]["sequences"][self.highlighted_strip.chan]
-        except Exception as e:
-            info = None
-        if not info:
+        menu = phrase_menu_options(self.zynseq, self.highlighted_strip.chan)
+        if not menu:
             return
-        options = {}
-        phrase = self.zynseq.phrase
-        name = info["name"]
-        repeat = info["repeat"]
-        follow_action = info["followAction"]
-        follow_phrase = phrase + info["followParam"]
-        title = f"Phrase options"
-        if name:
-            title += f": {name}"
-        #options["> Phrase Options"] = None
-        if repeat == 0:
-            options["Duration (DISABLED)"] = repeat
-        else:
-            if repeat == 255:
-                options["Duration (AUTO)"] = repeat
-            else:
-                if repeat == 1:
-                    unit = "bar"
-                else:
-                    unit = "bars"
-                options[f"Duration ({repeat} {unit})"] = repeat
-            if follow_action == zynseq.FOLLOW_ACTION_NONE:
-                options[f"Automate => NONE"] = 0
-            elif follow_action == zynseq.FOLLOW_ACTION_RELATIVE:
-                offset, follow_name = self.get_follow_info(follow_phrase)
-                flags = info["playFlags"]
-                options[f"Automate => {follow_name}"] = offset
-                if follow_phrase < phrase:
-                    loop_count = info["followRepeat"]
-                    if loop_count:
-                        options[f"  Loop count ({loop_count})"] = loop_count
-                    else:
-                        options[f"  Loop count (∞)"] = loop_count
-                loop_info = self.zynseq.get_phrase_loop_info()
-                if loop_info:
-                    if loop_info[2] > 0:
-                        if flags:
-                            skip_loops = ",".join(str(i + 1) for i in range(loop_info[2]) if not (flags >> i) & 1)
-                        else:
-                            skip_loops = "ALL"
-                        if skip_loops == "":
-                            skip_loops = "NONE"
-                    else:
-                        if flags & 1:
-                            skip_loops = "NONE"
-                        else:
-                            skip_loops = "ALL"
-                    options[f"  Loops to play ({skip_loops})"] = flags
-            if 'tempo' not in info or info['tempo'] == 0.0:
-                options[f"Tempo (NONE)"] = False
-            else:
-                options[f"Tempo ({info['tempo']:.1f})"] = info['tempo']
-                options["Remove tempo"] = self.zynseq.phrase
-            if "bpb" not in info or not info["bpb"]:
-                options[f"Beats per bar (NONE)"] = 0
-            else:
-                options[f"Beats per bar ({info['bpb']})"] = info["bpb"]
-        if name:
-            options[f"Rename ({name})"] = name
-        else:
-            options[f"Rename"] = ""
-        options["> MANAGE"] = None
-        options["Insert phrase"] = phrase
-        options["Clone phrase"] = phrase
-        if self.zynseq.phrases > 1:
-            options["Move phrase"] = phrase
-            options["Delete phrase"] = phrase
-
+        title, rows = menu
+        options = {label: value for key, label, value in rows}
         self.zyngui.screens['option'].config(title, options, self.phrase_menu_cb, close_on_select=False)
         self.zyngui.show_screen('option')
 
     def get_phrase_title(self, phrase):
-        title = self.zynseq.state["scenes"][self.zynseq.scene]["phrases"][phrase]["name"]
-        if not title:
-            title = f"Phrase {phrase + 1}"
-        return title
+        return phrase_title(self.zynseq, phrase)
 
     def get_follow_info(self, phrase):
         """ Get the offset and text representing the follow action
@@ -2142,23 +1869,7 @@ class zynthian_gui_mixer(zynthian_gui_base):
             phrase: Index of phrase
         Returns: Tuple (offset, title)
         """
-
-        offset = phrase - self.zynseq.phrase
-        match offset:
-            case 0:
-                title = "NONE"
-            case -1:
-                title = f"{self.get_phrase_title(phrase)} (PREV)"
-            case 1:
-                title = f"{self.get_phrase_title(phrase)} (NEXT)"
-            case _:
-                title = f"{self.get_phrase_title(phrase)} ({offset:+})"
-        if offset < 0:
-            title = "LOOP from " + title
-        elif offset > 1:
-            title = "JUMP to " + title
-
-        return (offset, title)
+        return follow_info(self.zynseq, phrase)
 
     def phrase_menu_cb(self, option, params):
         option_screen = self.zyngui.screens["option"]
@@ -2203,19 +1914,10 @@ class zynthian_gui_mixer(zynthian_gui_base):
             self.phrase_menu()
             option_screen.select(index - 1)
         elif option.startswith("Duration"):
-            labels = ["DISABLED", "AUTO", "1 bar"]
-            for i in range(2, 255):
-                labels.append(f"{i} bars")
-            if params == 255:
-                value = 1
-            elif params:
-                value = params + 1
-            else:
-                value = 0
             option_screen.enable_param_editor(option_screen, "duration", {
                 'name': 'Duration',
-                'value': value,
-                'labels': labels,
+                'value': duration_to_index(params),
+                'labels': DURATION_LABELS,
             }, assert_cb=self.cb_assert_param_editor)
         elif option.startswith("Beats per bar"):
             labels = []
@@ -2229,12 +1931,9 @@ class zynthian_gui_mixer(zynthian_gui_base):
                 'value': params
             }, assert_cb=self.cb_assert_param_editor)
         elif option.startswith("Automate"):
-            ticks = []
-            labels = []
-            for phrase in range(self.zynseq.phrases):
-                offset, title = self.get_follow_info(phrase)
-                ticks.append(offset)
-                labels.append(title)
+            choices = follow_choices(self.zynseq)
+            ticks = [offset for offset, title in choices]
+            labels = [title for offset, title in choices]
             option_screen.enable_param_editor(option_screen, "automate", {
                 "name": "Automate",
                 "labels": labels,
@@ -2242,31 +1941,13 @@ class zynthian_gui_mixer(zynthian_gui_base):
                 "value": params
             }, assert_cb=self.cb_assert_param_editor)
         elif option.startswith("  Loops to play"):
-            val = params
-            loop_info = self.zynseq.get_phrase_loop_info()
-            options = {}
-            if loop_info:
-                if loop_info[2] > 0:
-                    for i in range(loop_info[2]):
-                        if val & 1:
-                            options[f"\u2610 {i + 1}"] = (i, params, True)
-                        else:
-                            options[f"\u2612 {i + 1}"] = (i, params, False)
-                        val >>= 1
-                elif loop_info[2] == 0:
-                    if val & 1:
-                        options[f"\u2612 Skip Always"] = (0, params, True)
-                    else:
-                        options[f"\u2610 Skip Always"] = (0, params, False)
+            options = dict(loops_to_play_options(self.zynseq, params))
             if options:
                 self.zyngui.screens['option'].config("Loops to play", options, self.play_flag_cb, close_on_select=False)
                 self.zyngui.show_screen('option')
         elif option.startswith("  Loop count"):
-            ticks = [0]
-            labels = ["∞"]
-            for i in range(2, 33):
-                ticks.append(i)
-                labels.append(f"{i}")
+            ticks = [v for v, label in LOOP_COUNT_CHOICES]
+            labels = [label for v, label in LOOP_COUNT_CHOICES]
             option_screen.enable_param_editor(option_screen, "loop_count", {
                 "name": "Loop count",
                 "ticks": ticks,
@@ -2275,13 +1956,7 @@ class zynthian_gui_mixer(zynthian_gui_base):
             }, assert_cb=self.cb_assert_param_editor)
 
     def play_flag_cb(self, option, params):
-        if params[2]:
-            # Reset flag
-            flags = params[1] & ~(1 << params[0])
-        else:
-            # Set flag
-            flags = params[1] | (1 << params[0])
-        self.zynseq.set_sequence_param(self.zynseq.scene, self.zynseq.phrase, zynseq.PHRASE_CHANNEL, "playFlags", flags)
+        flags = toggle_play_flag(self.zynseq, params)
         self.phrase_menu_cb("  Loops to play", flags)
 
     def remove_phrase(self, phrase):
@@ -2337,47 +2012,8 @@ class zynthian_gui_mixer(zynthian_gui_base):
     def send_controller_value(self, zctrl):
         """ Handle param editor value change """
 
-        phrase = self.zynseq.phrase
-        chan = self.highlighted_strip.chain.midi_chan
-        if chan is None:
-            chan = zynseq.PHRASE_CHANNEL
-        match zctrl.symbol:
-            case "tempo":
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, zynseq.PHRASE_CHANNEL, "tempo", zctrl.value)
-                if "CL" in self.chain_manager.zyngines:
-                    # Warp clips in this phrase to match tempo ...
-                    self.zyngui.state_manager.start_busy("clippy_rewarp_phrase", "Re-warping audio clips...")
-                    self.chain_manager.zyngines["CL"].rewarp_phrase(phrase)
-                    self.zyngui.state_manager.end_busy("clippy_rewarp_phrase")
-            case "bpb":
-                #self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "bpb", zctrl.value)
-                self.zynseq.libseq.setPhraseBPB(self.zynseq.scene, phrase, zctrl.value)
-                self.zynseq.refresh_state()
-            case "duration":
-                if zctrl.value == 1:
-                    value = 255
-                elif zctrl.value > 1:
-                    value = zctrl.value - 1
-                else:
-                    value = 0
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "repeat", value)
-            case "automate":
-                if zctrl.value == 0:
-                    followAction = zynseq.FOLLOW_ACTION_NONE
-                    followParam = 0
-                else:
-                    followAction = zynseq.FOLLOW_ACTION_RELATIVE
-                    followParam = zctrl.value
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "followAction", followAction)
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "followParam", followParam)
-                if followParam < 0:
-                    # Set (unset) loop contents to automate NEXT
-                    for p in range(phrase + followParam, phrase):
-                        if self.zynseq.state["scenes"][self.zynseq.scene]["phrases"][p]["followAction"] == zynseq.FOLLOW_ACTION_NONE:
-                            self.zynseq.set_sequence_param(self.zynseq.scene, p, zynseq.PHRASE_CHANNEL, "followAction", zynseq.FOLLOW_ACTION_RELATIVE)
-                            self.zynseq.set_sequence_param(self.zynseq.scene, p, zynseq.PHRASE_CHANNEL, "followParam", 1)
-            case "loop_count":
-                self.zynseq.set_sequence_param(self.zynseq.scene, phrase, chan, "followRepeat", zctrl.value)
+        set_phrase_value(self.zynseq, self.chain_manager, self.zyngui.state_manager,
+                         self.highlighted_strip.chain.midi_chan, zctrl.symbol, zctrl.value)
 
 
     # --------------------------------------------------------------------------

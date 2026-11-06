@@ -31,6 +31,7 @@ from tkinter import font
 import zynautoconnect
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_base import zynthian_gui_base
+from zyngui.zynthian_chain_graph import build_chain_graph, node_kind
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_chain_manager import NUDGE_UP, NUDGE_DOWN, NUDGE_LEFT, NUDGE_RIGHT
 
@@ -294,36 +295,6 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
         #self.select_node(node["pos"])
         self.on_select(t=press_type)
 
-    def _add_node(self, chain_idx, row, title, chain_id, proc="", slot=None, idx=None):
-        """ Adds a node to the graph
-
-        Args:
-            chain_idx: The chain where the node will be added.
-            row: The row where the node will be added.
-            title: The title of the node.
-            chain_id: The chain id of the node.
-            proc_id: The processor of the node or string describing node type. None for non-processor nodes.
-        """
-
-        while len(self.nodes) <= chain_idx:
-            self.nodes.append([])
-        while len(self.nodes[chain_idx]) <= row:
-            self.nodes[chain_idx].append([])
-        if type(proc) == str:
-            proc_type = proc
-        else:
-            proc_type = proc.type
-        self.nodes[chain_idx][row].append({
-            "title": title,  # Title shown in GUI
-            "chain_id": chain_id,  # zynthian chain_id (not necessarily display position)
-            "proc": proc,  # Processor object or symbol for non-processor nodes
-            "slot": slot,  # Processor slot
-            "idx": idx,  # Index of (parallel) processor within slot
-            "pos": [chain_idx, row, len(self.nodes[chain_idx][row])],  # Position of node within graph
-            "is_dst": proc_type in ("MIDI Synth", "Audio Effect", "MIDI Tool", "Special", "midi_key_range", "add_midi_proc", "midi_output", "audio_out"),
-            "is_src": proc_type in ("MIDI Synth", "Audio Generator", "Audio Effect", "MIDI Tool", "Special", "midi_key_range", "midi_input", "add_midi_proc", "audio_in")
-        })
-
     def fit_text_to_box(self, text, min_font_size=6):
         """ Ensure wrapped text fits inside a rectangle.
 
@@ -390,57 +361,7 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
         Args:
             proc: The processor to select. (None to use current selection)
         """
-        self.nodes = []
-
-        self.rows = 0
-        for chain_idx, chain in enumerate(self.chain_manager.chains.values()):
-            chain_id = chain.chain_id
-            row = 0
-
-            # Add chain option button
-            self._add_node(chain_idx, row, chain.get_name(), chain_id, "chain_options")
-            row += 1
-            # Add MIDI input
-            if chain.is_midi():
-                self._add_node(chain_idx, row, "MIDI Input", chain_id, "midi_input")
-                row += 1
-                #self._add_node(chain_idx, row, "Key Range & Transpose", chain_id, "midi_key_range")
-                #row += 1
-            # Add MIDI processors
-            for slot_idx, slot in enumerate(chain.midi_slots):
-                for proc_idx, processor in enumerate(slot):
-                    self._add_node(chain_idx, row, processor.get_name(), chain_id, processor, slot_idx, proc_idx)
-                if self.nodes[chain_idx][row]:
-                    row += 1
-            # Add MIDI output
-            if chain.synth_slots:
-                # Add synth
-                for slot_idx, slot in enumerate(chain.synth_slots):
-                    for proc_idx, processor in enumerate(slot):
-                        self._add_node(chain_idx, row, processor.get_name(), chain_id, processor, slot_idx, proc_idx)
-                    if self.nodes[chain_idx][row]:
-                        row += 1
-            elif chain.is_midi():
-                #if not chain.midi_slots:
-                #    self._add_node(chain_idx, row, "+", chain_id, "add_midi_proc")
-                #    row += 1
-                self._add_node(chain_idx, row, "MIDI Output", chain_id, "midi_output")
-                row += 1
-            # Add audio input
-            if chain.audio_thru and chain.zynmixer_proc and chain.zynmixer_proc.eng_code != "MR":
-                self._add_node(chain_idx, row, "Audio Input", chain_id, "audio_in")
-                row += 1
-            # Add audio processors
-            for slot_idx, slot in enumerate(chain.audio_slots):
-                for proc_idx, processor in enumerate(slot):
-                    self._add_node(chain_idx, row, processor.get_name(), chain_id, processor, slot_idx, proc_idx)
-                if self.nodes[chain_idx][row]:
-                    row += 1
-            # Add audio output
-            if chain.is_audio():
-                self._add_node(chain_idx, row, "Audio Output", chain_id, "audio_out")
-                row += 1
-            self.rows = max(self.rows, row)
+        self.nodes, self.rows = build_chain_graph(self.chain_manager)
         self._draw_graph(proc)
 
     def bypass_cb(self, zctrl):
@@ -476,24 +397,9 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
             self.bypass2node[proc] = node
         except:
             disabled = False
-        if type(proc) is str:
-            match proc:
-                case "midi_input" | "note_range" | "add_midi_proc" | "midi_output" | "midi_key_range":
-                    bg_col = c_midi
-                case "audio_in" | "audio_out":
-                    bg_col = c_audio
-        else:
-            match proc.type:
-                case "MIDI Input" | "MIDI Output" | "MIDI Tool":
-                    bg_col = c_midi
-                case "MIDI Synth" | "Audio Generator":
-                    bg_col = c_synth
-                case "Audio Input" | "Audio Output" | "Audio Effect":
-                    bg_col = c_audio
-                case "Special":
-                    bg_col = c_special
-            if disabled:
-                fg_col = "#b0b0b0"
+        bg_col = {"midi": c_midi, "synth": c_synth, "audio": c_audio, "special": c_special}.get(node_kind(node), bg_col)
+        if disabled and type(proc) is not str:
+            fg_col = "#b0b0b0"
         node["id"] = self.canvas.create_rectangle(
             x, y, x + self.BLOCK_WIDTH, y + self.BLOCK_HEIGHT,
             fill=bg_col, outline=bg_col, tags="node"
@@ -788,6 +694,14 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
         if self.zyngui.tts:
             self.zyngui.tts.announce("Move chain")
 
+    def nudge_moving_chain(self, offset):
+        pos = self.chain_manager.nudge_chain(offset)
+        # None if the chain can't move (e.g. the main chain): keep the selection, a None index
+        # broke every later redraw and hide(), so no other screen could be shown anymore
+        if pos is not None:
+            self.selected_node[0] = pos
+            self.build_graph()
+
     def end_moving_chain(self):
         if not self.moving_chain:
             return
@@ -849,8 +763,7 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
             if self.chain_manager.nudge_processor(chain_id, self.moving_proc, NUDGE_LEFT):
                 self.build_graph(self.moving_proc)
         elif self.moving_chain:
-            self.selected_node[0] = self.chain_manager.nudge_chain(-1)
-            self.build_graph()
+            self.nudge_moving_chain(-1)
         else:
             col -= 1
             if col < 0:
@@ -875,8 +788,7 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
             if self.chain_manager.nudge_processor(chain_id, self.moving_proc, NUDGE_RIGHT):
                 self.build_graph(self.moving_proc)
         elif self.moving_chain:
-            self.selected_node[0] = self.chain_manager.nudge_chain(+1)
-            self.build_graph()
+            self.nudge_moving_chain(+1)
         else:
             col += 1
             if col >= len(self.nodes[chain_idx][row]):
@@ -897,8 +809,7 @@ class zynthian_gui_chain_manager(zynthian_gui_base):
                 self.arrow_up()
             return
         if self.moving_chain:
-            self.selected_node[0] = self.chain_manager.nudge_chain(dval)
-            self.build_graph()
+            self.nudge_moving_chain(dval)
             return
 
         chain_idx, row, col = self.selected_node

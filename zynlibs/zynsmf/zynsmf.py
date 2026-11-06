@@ -24,6 +24,7 @@
 # ********************************************************************
 
 import ctypes
+from zynconf import zynthian_paths
 from _ctypes import dlclose
 from os.path import dirname, realpath
 import os
@@ -88,7 +89,7 @@ def init():
     global libsmf
     try:
         libsmf = ctypes.cdll.LoadLibrary(
-            dirname(realpath(__file__)) + "/build/libzynsmf.so")
+            zynthian_paths.native_lib("libzynsmf.so", dirname(realpath(__file__)) + "/build"))
         libsmf.addSmf.restype = ctypes.c_ulong
         libsmf.unload.argtypes = [ctypes.c_ulong]
         libsmf.removeSmf.argtypes = [ctypes.c_ulong]

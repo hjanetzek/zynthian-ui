@@ -39,6 +39,9 @@ from zyngui import zynthian_gui_config
 from zyngui.multitouch import MultitouchTypes
 from zyngui.zynthian_gui_pated_base import *
 from zyngui.zynthian_gui_base import zynthian_gui_base
+from zyngui.zynthian_pated_data import (scale_names, get_custom_keymap, load_keymap, default_note_evdata,
+                                        SCALES, CHORD_MODES, CHORDS, diatonic_chord, STUT_VFX_OPTIONS,
+                                        STUT_RMP_OPTIONS, PLAY_FREQ_OPTIONS, STUT_FREQ_OPTIONS, note_label)
 
 # ------------------------------------------------------------------------------
 
@@ -60,107 +63,8 @@ EDIT_PARAM_STUT_CHANCE = 9  # Edit note stutter chance
 EDIT_PARAM_LAST = 9         # Index of last parameter
 EDIT_PARAM_LAST_MULTI = 1   # Index of last multi-edit parameter
 
-STUT_VFX_OPTIONS = (
-    "FLAT",
-    "FADE-IN",
-    "FADE-OUT"
-)
-STUT_RMP_OPTIONS = (
-    "NONE",
-    "SPEED-UP",
-    "SPEED-DOWN"
-)
-PLAY_FREQ_OPTIONS = (
-    "NEVER",
-    "ALWAYS",
-    "PLAY/2",
-    "SKIP/2",
-    "PLAY/3",
-    "SKIP/3",
-    "PLAY/4",
-    "SKIP/4",
-    "PLAY/5",
-    "SKIP/5",
-    "PLAY/6",
-    "SKIP/6",
-    "PLAY/7",
-    "SKIP/7",
-    "PLAY/8",
-    "SKIP/8"
-)
-STUT_FREQ_OPTIONS = (
-    "NEVER",
-    "ALWAYS",
-    "STUT/2",
-    "SKIP/2",
-    "STUT/3",
-    "SKIP/3",
-    "STUT/4",
-    "SKIP/4",
-    "STUT/5",
-    "SKIP/5",
-    "STUT/6",
-    "SKIP/6",
-    "STUT/7",
-    "SKIP/7",
-    "STUT/8",
-    "SKIP/8"
-)
-
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 NOTE_PRONOUNCE = ["C", "C Sharp", "D", "D Sharp", "E", "F", "F Sharp", "G", "G Sharp", "A", "A Sharp", "B"]
-SCALES = {
-    "major": [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23],
-    "minor": [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19, 20, 22]
-}
-
-CHORD_MODES = [
-    "Single note",
-    "Chord",
-    "Diatonic triads, major key",
-    "Diatonic 7ths, major key",
-    "Diatonic triads, minor key",
-    "Diatonic 7ths, minor key"
-]
-
-CHORDS = [
-    # Triads
-    ["Major", [0, 4, 7]],
-    ["Minor", [0, 3, 7]],
-    ["Diminished", [0, 3, 6]],
-    ["Augmented", [0, 4, 8]],
-    # Seventh chords
-    ["Major 7th", [0, 4, 7, 11]],  # (maj7)
-    ["Minor 7th", [0, 3, 7, 10]],  # (m7)
-    ["Dominant 7th", [0, 4, 7, 10]],  # (7)
-    ["Half-Diminished 7th", [0, 3, 6, 10]],  # (m7♭5)
-    ["Diminished 7th", [0, 3, 6, 9]],  # (dim7)
-    ["Minor-Major 7th", [0, 3, 7, 11]],  # (m(maj7))
-    ["Augmented Major 7th", [0, 4, 8, 11]],  # (+maj7)
-    ["Augmented 7th", [0, 4, 8, 10]],  # (+7)
-    # Extended chords
-    ["Major 9th", [0, 4, 7, 11, 14]],  # (maj9)
-    ["Dominant 9th", [0, 4, 7, 10, 14]],  # (9)
-    ["Minor 9th", [0, 3, 7, 10, 14]],  # (m9)
-    ["Minor-Major 9th", [0, 3, 7, 11, 14]],  # (m(maj9))
-    ["Dominant 11th", [0, 4, 7, 10, 14, 17]],  # (11)
-    ["Minor 11th", [0, 3, 7, 10, 14, 17]],  # (m11)
-    ["Dominant 13th", [0, 4, 7, 10, 14, 17, 21]],  # (13)
-    ["Minor 13th", [0, 3, 7, 10, 14, 17, 21]],  # (m13)
-    # Suspended chords
-    ["Suspended 2nd", [0, 2, 7]],  # (sus2)
-    ["Suspended 4th", [0, 5, 7]],  # (sus4)
-    ["7sus4", [0, 5, 7, 10]],
-    # Add chords
-    ["Add9", [0, 4, 7, 14]],
-    ["Minor Add9", [0, 3, 7, 14]],  # (madd9)
-    # 6th chords
-    ["Major 6th", [0, 4, 7, 9]],  # (6)
-    ["Minor 6th", [0, 3, 7, 9]],  # (m6)
-    # Altered 7th chords
-    ["Half-Diminished Dominant", [0, 4, 6, 10]]  # (7♭5)
-]
-
 # ------------------------------------------------------------------------------
 # Zynthian Step-Sequencer Pattern Note Editor GUI Class
 # ------------------------------------------------------------------------------
@@ -231,25 +135,7 @@ class zynthian_gui_pated_notes(zynthian_gui_pated_base):
     get_row_from_note = get_row_from_evnum
 
     def get_diatonic_chord(self, trigger_note):
-        chord = []
-        match self.chord_mode:
-            case 2 | 3:
-                scale_template = SCALES["major"]
-            case 4 | 5:
-                scale_template = SCALES["minor"]
-            case _:
-                return []
-        if self.chord_mode in [3, 5]:
-            chord_len = 4
-        else:
-            chord_len = 3
-        scale_offset = trigger_note % 12 + self.diatonic_scale_tonic
-        if scale_offset not in scale_template:
-            return []  # Trigger note not in diatonic scale
-        note_offset = scale_template.index(scale_offset)
-        for i in range(chord_len):
-            chord.append(scale_template[note_offset + 2 * i] - scale_template[note_offset])
-        return chord
+        return diatonic_chord(self.chord_mode, self.diatonic_scale_tonic, trigger_note)
 
     def play_note(self, note):
         if self.zynseq.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence) == zynseq.SEQ_STOPPED:
@@ -461,127 +347,18 @@ class zynthian_gui_pated_notes(zynthian_gui_pated_base):
     # Function to get list of scales
     # returns: List of available scales
     def get_scales(self):
-        # Load scales
-        data = []
-        try:
-            with open(CONFIG_ROOT + "/scales.json") as json_file:
-                data = json.load(json_file)
-        except:
-            logging.warning("Unable to open scales.json")
-        res = []
-        # Look for a custom keymap, defaults to chromatic
-        custom_keymap = self.get_custom_keymap()
-        if custom_keymap:
-            res.append(f"Custom - {custom_keymap[0]}")
-        else:
-            res.append(f"Custom - None")
-        for scale in data:
-            res.append(scale['name'])
-        return res
+        return scale_names(self.zyngui.chain_manager, self.channel)
 
     # Search for a custom map and return a tuple with [map_name, filepath / engine]
     def get_custom_keymap(self):
-        synth_proc = self.zyngui.chain_manager.get_synth_processor(self.channel)
-        if synth_proc:
-            # Ask the synth processor for a keymap
-            try:
-                keymap_name = synth_proc.get_keymap_name()
-            except:
-                keymap_name = None
-            if keymap_name:
-                return [keymap_name, synth_proc]
-            # else, try to find a midnam file
-            else:
-                map_name = None
-                preset_path = synth_proc.get_presetpath()
-                try:
-                    with open(CONFIG_ROOT + "/keymaps.json") as json_file:
-                        data = json.load(json_file)
-                        for pat in data:
-                            if pat in preset_path:
-                                map_name = data[pat]
-                                break
-                    if map_name:
-                        keymap_fpath = CONFIG_ROOT + f"/{map_name}.midnam"
-                        if os.path.isfile(keymap_fpath):
-                            return [map_name, keymap_fpath]
-                        else:
-                            logging.warning(f"Keymap file {keymap_fpath} doesn't exist.")
-                except:
-                    logging.warning("Unable to load keymaps.json")
-        else:
-            logging.info(f"MIDI channel {self.channel} has not synth processors.")
+        return get_custom_keymap(self.zyngui.chain_manager, self.channel)
 
     # Function to populate keymap array
     # returns Name of scale / map
     def load_keymap(self):
-        self.keymap = []
-
-        scale = self.zynseq.libseq.getScale()
-        tonic = self.zynseq.libseq.getTonic()
-
-        # Try to load custom keymap
-        if scale == 0:
-            map_info = self.get_custom_keymap()
-            if map_info:
-                map_name = map_info[0]
-                # map_info[1] is the filename of a midnam file
-                if isinstance(map_info[1], str) and map_info[1].endswith(".midnam"):
-                    keymap_fpath = map_info[1]
-                    logging.info(f"Loading keymap {map_name} for MIDI channel {self.channel}...")
-                    try:
-                        xml = minidom.parse(keymap_fpath)
-                        notes = xml.getElementsByTagName('Note')
-                        for note in notes:
-                            try:
-                                colour = note.attributes['Colour'].value
-                            except:
-                                colour = "white"
-                            self.keymap.append({'note': int(note.attributes['Number'].value),
-                                                'name': note.attributes['Name'].value,
-                                                'colour': colour})
-                        return map_name
-                    except Exception as e:
-                        logging.error(f"Can't load '{keymap_fpath}' => {e}")
-                # map[1] is an engine to ask for a custom keymap
-                else:
-                    try:
-                        self.keymap = map_info[1].get_keymap()
-                        return map_name
-                    except:
-                        pass
-
-        # Not custom map loaded => Setup a scale keymap
-
-        # Setup specific scale
-        if scale > 1:
-            try:
-                with open(CONFIG_ROOT + "/scales.json") as json_file:
-                    data = json.load(json_file)
-                if scale <= len(data):
-                    scale -= 1  # Offset by -1 because the 0 is used for custom keymap
-                    for octave in range(0, 9):
-                        for offset in data[scale]['scale']:
-                            note = tonic + offset + octave * 12
-                            if note > 127:
-                                break
-                            self.keymap.append({"note": note, "name": "{}{}".format(NOTE_NAMES[note % 12], note // 12 - 1)})
-                    return data[scale]['name']
-            except Exception as e:
-                logging.error(f"Can't load 'scales.json' => {e}")
-
-        # Setup chromatic scale
-        for note in range(0, 128):
-            new_entry = {"note": note}
-            key = note % 12
-            if key in (1, 3, 6, 8, 10):  # Black notes
-                new_entry.update({"colour": "black"})
-            else:
-                new_entry.update({"colour": "white"})
-            if key == 0:  # 'C'
-                new_entry.update({"name": "C{}".format(note // 12 - 1)})
-            self.keymap.append(new_entry)
-        return "Chromatic"
+        name, self.keymap = load_keymap(self.zyngui.chain_manager, self.channel,
+                                        self.zynseq.libseq.getScale(), self.zynseq.libseq.getTonic())
+        return name
 
     # -------------------------------------------------------------------------
     # Touch event management
@@ -1005,16 +782,7 @@ class zynthian_gui_pated_notes(zynthian_gui_pated_base):
             label_anchor = tkinter.CENTER
             label_x = (coord[0] + coord[2]) // 2
 
-        label_txt = None
-        if evdata.play_freq > 1:
-            label_txt = PLAY_FREQ_OPTIONS[evdata.play_freq]
-        elif evdata.play_chance < 1.0:
-            label_txt = f"{round(100 * evdata.play_chance)}%"
-        elif evdata.stut_speed > 0:
-            if evdata.stut_freq > 1:
-                label_txt = STUT_FREQ_OPTIONS[evdata.stut_freq]
-            elif evdata.stut_chance < 1.0:
-                label_txt = f"{round(100 * evdata.stut_chance)}%"
+        label_txt = note_label(evdata)
         if label_txt:
             label_y = (coord[1] + coord[3]) // 2
             self.grid_canvas.create_text(label_x, label_y,
@@ -1396,11 +1164,9 @@ class zynthian_gui_pated_notes(zynthian_gui_pated_base):
 
 
     def get_default_note_evdata(self):
-        evdata = zynseq.event_data()
-        evdata.set_values(0, self.offset, self.duration, 0x90, 0, self.velocity, 0, 0,
-                          self.stut_speed, self.stut_velfx, self.stut_ramp,
-                          self.play_freq, self.stut_freq, self.play_chance, self.stut_chance)
-        return evdata
+        return default_note_evdata(self.duration, self.velocity, self.offset, self.stut_speed, self.stut_velfx,
+                                   self.stut_ramp, self.play_freq, self.stut_freq, self.play_chance,
+                                   self.stut_chance)
 
     # Function to add an event
     # step: step number (column)

@@ -30,6 +30,7 @@ import logging
 # Zynthian specific modules
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
+from zyngui.zynthian_widget_data import gx_eq_bands, gx_eq_levels, gx_eq_drag
 
 # ------------------------------------------------------------------------------
 # Zynthian Widget Class for "GxGraphicEQ" (11 band Graphic EQ)
@@ -96,22 +97,10 @@ class zynthian_widget_GxGraphicEQ(zynthian_widget_base.zynthian_widget_base):
 
     def set_processor(self, processor):
         super().set_processor(processor)
-        match processor.engine.plugin_url:
-            case "http://guitarix.sourceforge.net/plugins/gx_graphiceq_#_graphiceq_":
-                self.band_freqs = [31, 62, 125, 250, 500, 1000, 2000, 4000,
-                                   8000, 16000, 20000]
-                self.band_labels = [">31Hz", "62Hz", "125Hz", "250Hz", "500Hz",
-                                    "1KHz", "2KHz", "4KHz", "8KHz", "16KHz", "<20KHz"]
-            case "http://guitarix.sourceforge.net/plugins/gx_barkgraphiceq_#_barkgraphiceq_":
-                self.band_freqs = [50, 150, 250, 350, 450, 570, 700, 840, 1000,
-                                   1170, 1370, 1600, 1850, 2150, 2500, 2900, 3400,
-                                   4000, 4800, 5800, 7000, 8500, 10500, 13500]
-                self.band_labels = ["50Hz", "150Hz", "250Hz", "350Hz", "450Hz", "570Hz",
-                                    "700Hz", "840Hz", "1K", "1.17K", "1.37K", "1.6K",
-                                    "1.85K", "2.15K", "2.5K", "2.9K", "3.4K", "4K",
-                                    "4.8K", "5.8K", "7K", "8.5K", "10.5K", "13.5K"]
-            case _:
-                return
+        bands = gx_eq_bands(processor)
+        if not bands:
+            return
+        self.band_freqs, self.band_labels = bands
         self.n_bands = len(self.band_freqs)
         self.create_gui()
         self.update_geometry()
@@ -143,47 +132,22 @@ class zynthian_widget_GxGraphicEQ(zynthian_widget_base.zynthian_widget_base):
     def refresh_gui(self):
         x0 = self.padx
         x1 = x0 + self.bar_width
-        y0 = self.height - int(30 * self.height / 52)
-        for i in range(self.n_bands):
-            try:
-                val = self.monitors[f"V{i + 1}"]
-                # -40.0 <= val <= 4.0
-                if self.n_bands == 24:
-                    bar_y0 = y0
-                    bar_y1 = self.height - int((30 + val) * self.height / 52)
-                    #logging.debug(f"V{i + 1} = {val} ")
-                # 0 <= val <= 1.0
-                else:
-                    bar_y0 = self.height
-                    bar_y1 = self.height - int(val * self.height)
-
-            except:
-                bar_y0 = bar_y1 = 0
-            try:
-                gain = self.processor.controllers_dict[f"G{i + 1}"].value
-                #logging.debug(f"G{i + 1} = {gain}")
-                tick_y0 = self.height - int((30 + gain) * self.height / 52)
-                tick_y1 = tick_y0 - self.tick_height
-            except:
-                tick_y0 = tick_y1 = 0
-
+        for i, (bar0, bar1, tick) in enumerate(gx_eq_levels(self.processor, self.monitors, self.n_bands)):
+            bar_y0 = self.height - int(bar0 * self.height)
+            bar_y1 = self.height - int(bar1 * self.height)
+            tick_y0 = self.height - int(tick * self.height)
+            tick_y1 = tick_y0 - self.tick_height
             self.widget_canvas.coords(self.mon_bars[i], x0 + 2, bar_y0, x1 - 2, bar_y1)
             self.widget_canvas.coords(self.mon_ticks[i], x0, tick_y0, x1, tick_y1)
             x0 = x1
             x1 += self.bar_width
-
 
     def on_canvas_press(self, event):
         self.on_canvas_drag(event)
 
     def on_canvas_drag(self, event):
         n = (event.x + self.bar_width // 2) // self.bar_width
-        try:
-            drag_zctrl = self.processor.controllers_dict[f"G{n}"]
-        except:
-            return
-        gain = 52 * (self.height - event.y) // self.height - 30
-        drag_zctrl.set_value(gain)
+        gx_eq_drag(self.processor, n - 1, (self.height - event.y) / self.height)
 
     def on_canvas_release(self, event):
         pass

@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import json
@@ -48,11 +49,11 @@ class zynthian_basic_engine:
     # Data dirs
     # ---------------------------------------------------------------------------
 
-    ui_dir = os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui")
-    config_dir = os.environ.get('ZYNTHIAN_CONFIG_DIR', "/zynthian/config")
-    data_dir = os.environ.get('ZYNTHIAN_DATA_DIR', "/zynthian/zynthian-data")
-    my_data_dir = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data")
-    ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
+    ui_dir = zynthian_paths.ui_dir
+    config_dir = zynthian_paths.config_dir
+    data_dir = zynthian_paths.data_dir
+    my_data_dir = zynthian_paths.my_data_dir
+    ex_data_dir = zynthian_paths.ex_data_dir
 
     # ---------------------------------------------------------------------------
     # Initialization
@@ -66,6 +67,11 @@ class zynthian_basic_engine:
         self.proc_exit = False
         self.command = command
         self.command_env = os.environ.copy()
+        # Engines' interactive shells are driven through pexpect. With a terminal type set
+        # (from a terminal or a desktop session; ZynthianOS's systemd service has none),
+        # readline switches on bracketed paste and prefixes its prompt with "\x1b[?2004h",
+        # so the prompt never matches (fluidsynth timed out on postmarketOS).
+        self.command_env['TERM'] = "dumb"
         self.command_prompt = prompt
         self.command_cwd = cwd
         self.ignore_not_on_gui = False

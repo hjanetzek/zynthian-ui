@@ -23,6 +23,7 @@
 #
 # ********************************************************************
 
+from zynconf import zynthian_paths
 import ctypes
 import logging
 from os.path import dirname, realpath
@@ -151,7 +152,7 @@ class event_data(ctypes.Structure):
 
     def set_values(self, pos, os, dur, cmd, v1s, v2s, v1e, v2e, sspd, svfx, srmp, pf, sf, pc, sc):
         self.position = pos
-        self.osffset = os
+        self.offset = os
         self.duration = dur
         self.command = cmd
         self.val1_start = v1s
@@ -188,10 +189,10 @@ class zynseq(zynthian_engine):
     def __init__(self, state_manager=None, proc=None):
         self.state_manager = state_manager
         self.proc = proc
-        self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_tempo.py"
+        self.custom_gui_fpath = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_tempo.py"
 
         try:
-            self.libseq = ctypes.cdll.LoadLibrary(dirname(realpath(__file__))+"/build/libzynseq.so")
+            self.libseq = ctypes.cdll.LoadLibrary(zynthian_paths.native_lib("libzynseq.so", dirname(realpath(__file__)) + "/build"))
             self.libseq.getSequenceName.restype = ctypes.c_char_p
 
             self.libseq.addNote.argtypes = [ctypes.c_uint32, ctypes.c_uint8, ctypes.c_uint8, ctypes.c_float, ctypes.c_float]
@@ -253,6 +254,31 @@ class zynseq(zynthian_engine):
             self.libseq.getPatternAt.restype = ctypes.c_uint32
             self.libseq.convertPattern.argtypes = [ctypes.c_char_p]
             self.libseq.convertPattern.restype = ctypes.c_char_p
+
+            # Functions returning uint8_t: without restype ctypes reads an int, whose upper bits
+            # aren't defined; "no value" (255) came back as -1, so getControlValue() <= 127 was
+            # true for steps without a CC event
+            for func in ("getNoteVelocity", "getControlValue", "getControlValueEnd", "getNoteStutterSpeed",
+                         "getNoteStutterVelfx", "getNoteStutterRamp", "getNotePlayFreq", "getNoteStutterFreq",
+                         "getProgramChange", "getNoteAtIndex", "getInputRest", "getTonic", "getRefNote",
+                         "getQuantizeNotes", "getScene", "getNumScenes", "getTrackOutput", "getChannel",
+                         "getSequenceMode", "getPlayState", "getSequenceRepeat", "getSequenceGroup",
+                         "getTimeSigAt", "getMidiLearnSequence", "getBpb", "getDefaultBpb", "getMetronomeMode",
+                         "getExtClockPPQN", "getNumPhrases", "getPhraseBPB"):
+                try:
+                    getattr(self.libseq, func).restype = ctypes.c_uint8
+                except AttributeError:
+                    pass   # declared in zynseq.h but not in every build (getMidiLearnSequence)
+            # Functions returning bool: the same (only the low byte is defined)
+            for func in ("isModified", "setState", "load", "undoPattern", "redoPattern", "undoPatternAll",
+                         "redoPatternAll", "isMidiRecord", "addNote", "addControl", "addProgramChange",
+                         "isPatternModified", "isPatternEmpty", "getInterpolateCC", "setScene", "addPattern",
+                         "isMuted", "isEmpty", "hasSequenceChanged", "selectSequence", "isSolo",
+                         "isChannelEnabled"):
+                try:
+                    getattr(self.libseq, func).restype = ctypes.c_bool
+                except AttributeError:
+                    pass
 
             # Sequence functions
             self.libseq.setSequenceTempo.argtypes = [ctypes.c_uint8, ctypes.c_uint8, ctypes.c_uint8, ctypes.c_float]
@@ -523,6 +549,8 @@ class zynseq(zynthian_engine):
     # Returns: True on success
     def save_pattern(self, patnum, filename):
         try:
+            # self.state is only read on some changes (snapshots): edits since then were missing
+            self.refresh_state(send=False)
             state = {
                 "schema_version": self.state_manager.get_schema(),
                 "patn": self.state["patns"][str(patnum)]

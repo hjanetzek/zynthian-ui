@@ -23,6 +23,7 @@
 #
 # *****************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import copy
@@ -39,9 +40,9 @@ class zynthian_processor:
     # Data dirs
     # ---------------------------------------------------------------------------
 
-    data_dir = os.environ.get('ZYNTHIAN_DATA_DIR', "/zynthian/zynthian-data")
-    my_data_dir = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data")
-    ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/usb0")
+    data_dir = zynthian_paths.data_dir
+    my_data_dir = zynthian_paths.my_data_dir
+    ex_data_dir = zynthian_paths.ex_data_dir
 
     # ------------------------------------------------------------------------
     # Initialization
@@ -369,6 +370,9 @@ class zynthian_processor:
             preset_id = preset_info[0]
             preset_name = preset_info[2]
             preset_index = self.find_preset_index_by_id(preset_id)
+            # Favourites are keyed by the id's string (zynthian_engine.toggle_preset_fav); some
+            # engines' ids are lists (FluidSynth), which can't be dict keys
+            preset_id = str(preset_id)
         else:
             return False
 

@@ -23,7 +23,9 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import logging
+import tkinter
 import importlib
 from pathlib import Path
 
@@ -33,15 +35,16 @@ from zyngine.zynthian_signal_manager import zynsigman
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_base import zynthian_gui_base
 from zyngui.zynthian_gui_selector import zynthian_gui_selector
+from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info, create_info_widgets
+from zyngui.zynthian_widget_data import screen_type as widget_screen_type
 from zyngui.zynthian_gui_controller import zynthian_gui_controller
+from zyngui.zynthian_midi_learn_data import (MIDI_LEARNING_DISABLED, MIDI_LEARNING_CHAIN, MIDI_LEARNING_GLOBAL,
+                                             CC_MODES, cc_mode_label, set_cc_mode, unlearn_label, zynstep_cc)
 
 # ------------------------------------------------------------------------------
 # Zynthian Instrument Controller GUI Class
 # ------------------------------------------------------------------------------
 
-MIDI_LEARNING_DISABLED = 0
-MIDI_LEARNING_CHAIN = 1
-MIDI_LEARNING_GLOBAL = 2
 
 
 class zynthian_gui_control(zynthian_gui_selector):
@@ -60,6 +63,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         self.current_widget = None
         self.widget_zctrl = None
 
+        self.info_widgets = None
         self.screen_info = None
         self.screen_name = None
         self.screen_type = None
@@ -130,6 +134,34 @@ class zynthian_gui_control(zynthian_gui_selector):
             else:
                 zctrl.grid_remove()
         self.update_layout()
+
+    # --------------------------------------------------------------------------
+    # Hosting: chain options, audio/MIDI routing shown in this screen's list (see
+    # zynthian_gui_selector.host_list), with an info pane over the controllers
+    # --------------------------------------------------------------------------
+
+    def can_host_list(self, guest):
+        return (isinstance(guest, zynthian_gui_selector_info) and guest.zsel_hidden
+                and self.layout['columns'] == 2 and self.layout['list_pos'] == (0, 0)
+                and guest.layout['list_pos'] == self.layout['list_pos'])
+
+    def get_list_widgets(self):
+        if self.info_widgets is None:
+            self.info_widgets = create_info_widgets(self.main_frame, self.listbox)
+        return self.info_widgets
+
+    def host_list(self, guest):
+        if guest:
+            self.hide_widgets()
+            info_canvas = self.get_list_widgets()["info_canvas"]
+            info_canvas.configure(height=self.height)
+            info_canvas.grid(row=0, column=self.layout['list_pos'][1] + 1, rowspan=self.layout['rows'],
+                             sticky="news", padx=(2, 2), pady=(2, 2))
+            # Above the controllers (Canvas.tkraise raises canvas items)
+            tkinter.Misc.tkraise(info_canvas)
+        super().host_list(guest)
+        if not guest and self.info_widgets:
+            self.info_widgets["info_canvas"].grid_remove()
 
     def refresh(self):
         self.update_list()
@@ -238,18 +270,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         return False
 
     def get_screen_type(self):
-        self.widget_zctrl = None
-        for zctrl in self.zcontrollers:
-            if hasattr(zctrl, "envelope"):
-                self.screen_type = "envelope"
-                break
-            elif hasattr(zctrl, "filter"):
-                self.screen_type = "filter"
-                break
-            elif zctrl.is_path and zctrl.path_file_types and (set(zctrl.path_file_types) & {"wav", "aiff", "flac", "mp3", "ogg"}):
-                self.screen_type = "audio_file"
-                self.widget_zctrl = zctrl
-                break
+        self.screen_type, self.widget_zctrl = widget_screen_type(self.zcontrollers)
         return self.screen_type
 
     def fill_listbox(self):
@@ -267,7 +288,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         self.purge_widgets()
 
         if self.screen_type:
-            module_path = f"/zynthian/zynthian-ui/zyngui/zynthian_widget_{self.screen_type}.py"
+            module_path = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_{self.screen_type}.py"
         elif processor.engine.custom_gui_fpath:
             module_path = processor.engine.custom_gui_fpath
         else:
@@ -318,14 +339,18 @@ class zynthian_gui_control(zynthian_gui_selector):
 
     # Display widget and hide other ones
     def display_widget(self, widget_name):
+        if self.list_guest:
+            # Scheduled before another screen's list was shown here
+            return
         # Display widget and hide other ones
         for k, widget in self.widgets.items():
             if k == widget_name:
-                self.listbox.grid_remove()
                 lb_rows = self.layout['rows'] - widget.rows
                 if lb_rows > 0:
-                    self.listbox.grid(rowspan=lb_rows)
-                    self._select_listbox(self.index, see=True)
+                    if self.set_listbox_rows(lb_rows):
+                        self._select_listbox(self.index, see=True)
+                else:
+                    self.listbox.grid_remove()
                 widget.grid(row=self.layout['list_pos'][0] + lb_rows,
                             column=self.layout['list_pos'][1],
                             rowspan=widget.rows, padx=self.padx, sticky="news")
@@ -341,8 +366,17 @@ class zynthian_gui_control(zynthian_gui_selector):
             widget.grid_remove()
             widget.hide()
         self.set_current_widget(None)
-        self.listbox.grid_remove()
-        self.listbox.grid(rowspan=4)
+        self.set_listbox_rows(4)
+
+    def set_listbox_rows(self, rows):
+        """Let the list span rows grid rows. Only if that changes, and without removing it from
+        the grid first: removing and re-adding it on every selection showed the black frame
+        behind it for a moment (flicker). Returns True if the list's rows changed."""
+        info = self.listbox.grid_info()
+        if info and int(info.get("rowspan", 0)) == rows:
+            return False
+        self.listbox.grid(rowspan=rows)
+        return True
 
     def purge_widgets(self):
         """
@@ -826,44 +860,19 @@ class zynthian_gui_control(zynthian_gui_selector):
                     else:
                         options["\u2610 Debounce"] = i
                 elif ml:
-                    match zctrl.midi_cc_mode:
-                        case -1:
-                            options["Relative Mode learning..."] = i
-                            options["CC Value Range"] = i
-                        case 0:
-                            if zctrl.range_reversed:
-                                options["Absolute Reverse"] = i
-                            else:
-                                options["Absolute Mode"] = i
-                            options["CC Value Range"] = i
-                        case _:
-                            options[f"Relative Mode {zctrl.midi_cc_mode}"] = i
+                    options[cc_mode_label(zctrl)] = i
+                    if zctrl.midi_cc_mode <= 0:
+                        options["CC Value Range"] = i
                 if zctrl.processor:
                     options[f"Chain learn..."] = i
                 options[f"Global learn..."] = i
-                zynstep_ml = self.chain_manager.get_midi_learn_from_zctrl(zctrl, abs=False, chain=False, zynstep=True)
-                if zynstep_ml:
-                    ccnum = zynstep_ml[0] & 0x7f
-                else:
-                    ccnum = "NONE"
-                options[f"ZynStep CC [{ccnum}]"] = i
+                ccnum = zynstep_cc(self.chain_manager, zctrl)
+                options[f"ZynStep CC [{'NONE' if ccnum is None else ccnum}]"] = i
             else:
                 title = "Control unlearn"
 
-            if ml:
-                cc = ml[0] & 0x7f
-                chan = (ml[0] >> 8) & 0xff
-                if chan < 16:
-                    ml_text = f"CH{chan + 1}, CC{cc}"
-                else:
-                    ml_text = f"CC{cc}"
-                match ml[1]:
-                    case "abs":
-                        zmip = (ml[0] >> 16) & 0xff
-                        dev_name = zynautoconnect.get_midi_in_devid(zmip)
-                        options[f"Unlearn [{dev_name}, {ml_text}]"] = zctrl
-                    case "chain":
-                        options[f"Unlearn [{ml_text}]"] = zctrl
+            if ml and (label := unlearn_label(ml)):
+                options[label] = zctrl
             options["Unlearn all controls"] = ""
 
             if keep_selection:
@@ -939,21 +948,12 @@ class zynthian_gui_control(zynthian_gui_selector):
                     self.zgui_controllers[param].zctrl.midi_cc_debounce = 1
                 self.controller_options(param, keep_selection=True)
             elif parts[0] in ["Relative", "Absolute"]:
-                options = {
-                    "Absolute Mode": [(param, 0), ["Controller sends absolute value:\n0—127", None]],
-                    "Absolute Reverse": [(param, 0), ["Controller sends reversed absolute value:\n127—0", None]],
-                    "Relative Mode 1 (55—63, 64—73)": [(param, 1),  ["Down: 55—63\nUp:65—73\nWITH speed-up", None]],
-                    "Relative Mode 2 (118—127, 1—9)": [(param, 2), ["Down: 118—127\nUp:1—9\nWITH speed-up", None]],
-                    "Relative Mode 3 (7—15, 17—24)": [(param, 3), ["Down:7—15\nUp:17—24\nWITH speed-up", None]],
-                    "Relative Mode 4 (0—63, 64—127)": [(param, 4), ["Down:0—63\nUp:64—127\nNO speed-up", None]],
-                    "Learn Relative Mode": [(param, -1), ["Auto-detected from user's actions", None]]
-                }
+                options = {label: [(param, mode), [info, None]] for label, mode, _, info in CC_MODES}
                 self.zyngui.screens['option'].config("Select CC mode", options, self.set_cc_mode)
                 self.zyngui.show_screen('option')
 
     def set_cc_mode(self, option, param):
-        self.zgui_controllers[param[0]].zctrl.midi_cc_mode_set(param[1])
-        self.zgui_controllers[param[0]].zctrl.range_reversed = "Reverse" in option
+        set_cc_mode(self.zgui_controllers[param[0]].zctrl, param[1], "Reverse" in option)
         self.controller_options(param[0], keep_selection=True)
 
     def zynstep_midi_cc_cb(self, ccnum, i):

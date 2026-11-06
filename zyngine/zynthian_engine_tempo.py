@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import logging
 from time import monotonic
 from collections import deque
@@ -62,7 +63,7 @@ class zynthian_engine_tempo(zynthian_engine):
         self.type = "Tempo"
         self.name = "Tempo"
         self.nickname = "TP"
-        self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_tempo.py"
+        self.custom_gui_fpath = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_tempo.py"
         self.processor = proc
 
         self.audio_out = []

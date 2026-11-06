@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import sys
 import logging
@@ -579,7 +580,7 @@ if touch_navigation:
     wiring_layout_custom_profile = os.environ.get("ZYNTHIAN_WIRING_LAYOUT_CUSTOM_PROFILE", "")
     if len(zynswitches_pins) < 24:
         #not wiring_layout_custom_profile.lower().startswith("v5") and not wiring_layout_custom_profile.lower().endswith("v5"):
-        config_dir = os.environ.get("ZYNTHIAN_CONFIG_DIR", "/zynthian/config")
+        config_dir = zynthian_paths.config_dir
         zynconf.load_plain_envars(f"{config_dir}/wiring-profiles/v5", True)
         # Modify zynswitches wiring configuration to work with V5 keypad
         if len(zynswitches_pins) >= 4:
@@ -765,6 +766,54 @@ for i, value in enumerate(LAUNCHER_COLOUR):
 # X11 Related Stuff
 # ------------------------------------------------------------------------------
 
+def init_zyncore():
+    """Initialise the zyncore library, the control I/O (switches, encoders, ...) and the MIDI
+    configuration. Called at start by the UI (zynthian_main.py, zynqt)."""
+    global lib_zyncore, num_zynswitches, last_zynswitch_index, num_zynpots
+
+    # ------------------------------------------------------------------------------
+    # Initialize ZynCore low-level library
+    # ------------------------------------------------------------------------------
+
+    from zyncoder.zyncore import lib_zyncore_init
+
+    # ------------------------------------------------------------------------------
+    # Initialize and config control I/O subsystem: switches, analog I/O, ...
+    # ------------------------------------------------------------------------------
+    try:
+        lib_zyncore = lib_zyncore_init()
+    except Exception as e:
+        logging.error(f"lib_zyncore: {e.args[0]} ({e.args[1]})")
+        exit(200 + e.args[1])
+
+    try:
+        num_zynswitches = lib_zyncore.get_num_zynswitches()
+        last_zynswitch_index = lib_zyncore.get_last_zynswitch_index()
+        num_zynpots = lib_zyncore.get_num_zynpots()
+    except Exception as e:
+        logging.warning(f"Can't init control I/O subsytem: {e}")
+        num_zynswitches = 0
+        last_zynswitch_index = -1
+        num_zynpots = 0
+        #exit(200)
+
+    config_zynswitch_timing()
+    config_custom_switches()
+    config_zynpot2switch()
+    config_zynaptik()
+    config_zyntof()
+
+    # ------------------------------------------------------------------------------
+    # Load MIDI config
+    # ------------------------------------------------------------------------------
+
+    try:
+        set_midi_config()
+        set_mmc_config()
+    except Exception as e:
+        logging.error("ERROR configuring MIDI: {}".format(e))
+
+
 if "zynthian_main.py" in sys.argv[0]:
     import tkinter
     from PIL import Image, ImageTk
@@ -859,6 +908,22 @@ if "zynthian_main.py" in sys.argv[0]:
         if not font_size:
             font_size = int(display_width / 40)
 
+        # UI scale (desktop/kiosk): a factor for the font size, or "auto" to scale it with the
+        # screen height, relative to 600 px (the 1024x600 layout the font sizes are made for).
+        # Tk sizes fonts in points from the DPI the display reports; XWayland reports 96 dpi
+        # whatever the panel, so on a high-DPI screen the fonts come out small.
+        ui_scale = os.environ.get('ZYNTHIAN_UI_SCALE', "").strip()
+        if ui_scale == "auto":
+            ui_scale = display_height / 600
+        else:
+            try:
+                ui_scale = float(ui_scale)
+            except ValueError:
+                ui_scale = 1.0
+        if ui_scale > 0 and ui_scale != 1.0:
+            font_size = max(1, round(font_size * ui_scale))
+            logging.info(f"UI scale {ui_scale:.2f} => font size {font_size}")
+
         # Topbar variables
         if screen_width >= 800:
             topbar_height = screen_height // 12
@@ -875,10 +940,13 @@ if "zynthian_main.py" in sys.argv[0]:
         # Setup Root Frame for the GUI
         # ------------------------------------------------------------------------------
 
+        # Background behind the screens: what shows for a moment while switching screens, before
+        # the new screen is drawn. The panel color (grey), as most screens, so it doesn't flash.
+        top.configure(bg=color_panel_bg)
         root_frame = tkinter.Frame(top,
                                   width=screen_width,
                                   height=screen_height,
-                                  bg="#000000")
+                                  bg=color_panel_bg)
 
         # Configure columns
         root_frame.grid_propagate(False)
@@ -935,47 +1003,7 @@ if "zynthian_main.py" in sys.argv[0]:
     except Exception as e:
         logging.error("ERROR initializing Tkinter graphic framework => {}".format(e))
 
-    # ------------------------------------------------------------------------------
-    # Initialize ZynCore low-level library
-    # ------------------------------------------------------------------------------
-
-    from zyncoder.zyncore import lib_zyncore_init
-
-    # ------------------------------------------------------------------------------
-    # Initialize and config control I/O subsystem: switches, analog I/O, ...
-    # ------------------------------------------------------------------------------
-    try:
-        lib_zyncore = lib_zyncore_init()
-    except Exception as e:
-        logging.error(f"lib_zyncore: {e.args[0]} ({e.args[1]})")
-        exit(200 + e.args[1])
-
-    try:
-        num_zynswitches = lib_zyncore.get_num_zynswitches()
-        last_zynswitch_index = lib_zyncore.get_last_zynswitch_index()
-        num_zynpots = lib_zyncore.get_num_zynpots()
-    except Exception as e:
-        logging.warning(f"Can't init control I/O subsytem: {e}")
-        num_zynswitches = 0
-        last_zynswitch_index = -1
-        num_zynpots = 0
-        #exit(200)
-
-    config_zynswitch_timing()
-    config_custom_switches()
-    config_zynpot2switch()
-    config_zynaptik()
-    config_zyntof()
-
-    # ------------------------------------------------------------------------------
-    # Load MIDI config
-    # ------------------------------------------------------------------------------
-
-    try:
-        set_midi_config()
-        set_mmc_config()
-    except Exception as e:
-        logging.error("ERROR configuring MIDI: {}".format(e))
+    init_zyncore()
 
 # ------------------------------------------------------------------------------
 # Zynthian GUI object

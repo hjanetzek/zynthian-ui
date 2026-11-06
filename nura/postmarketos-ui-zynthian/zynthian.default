@@ -1,0 +1,21 @@
+# Settings for the zynthian kiosk session (/etc/cage-ui/zynthian.sh), read when the session
+# starts: kiosk-session switches them, or edit and run sudo systemctl restart tinydm.
+
+# UI: qt (Qt Quick, native Wayland) or tk (Tkinter through XWayland)
+ZYNTHIAN_UI=qt
+
+# Output scale for the Qt UI (wlr-randr --scale; default 1.5, Pixel 3: 1.8; 2 for a larger UI;
+# empty: leave cage's scale 1). The Tk UI always runs at scale 1.
+#ZYNTHIAN_OUTPUT_SCALE=1.5
+
+# Output rotation (wlr-randr --transform: normal, 90, 180, 270, flipped, ...) for panels without a
+# DRM panel orientation; default: none, Pixel 3: 90 (landscape). Empty: leave cage's rotation.
+#ZYNTHIAN_OUTPUT_TRANSFORM=90
+
+# CPUs kept out of idle states slower than 10 us (all but WFI), applied as root before each
+# session (/usr/libexec/zynthian/zynthian-cpu-setup): the audio graph's wake-ups on cores in deep
+# idle states show as DSP load. Default per device (Pixel 3: 4-7, the fast cores); empty: none.
+#ZYNTHIAN_IDLE_CPUS=4-7
+
+# CPU frequency governor for all CPUs (e.g. performance, ondemand, schedutil); empty: leave it.
+#ZYNTHIAN_GOVERNOR=

@@ -663,6 +663,14 @@ int onJackXrun(void* /*pArgs*/) {
 
 void end() {
     DPRINTF("zynseq exit\n");
+    // Stop the JACK process callback first. end() runs from atexit(), before the
+    // destructors of global objects (g_vTicks, ...); a callback still running
+    // after them writes to freed memory (seen with PipeWire's JACK).
+    if (g_pJackClient) {
+        jack_deactivate(g_pJackClient);
+        jack_client_close(g_pJackClient);
+        g_pJackClient = nullptr;
+    }
     freeState();
 }
 

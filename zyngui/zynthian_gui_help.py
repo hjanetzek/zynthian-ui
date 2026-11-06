@@ -22,12 +22,22 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import logging
 import tkinter
 from pathlib import Path
-from bs4 import BeautifulSoup
-from tkinterweb import HtmlFrame
+
+# The help viewer needs tkinterweb (with its Tkhtml library) and bs4. Without
+# them (e.g. not packaged for the system) the help screen is unavailable.
+try:
+    from bs4 import BeautifulSoup
+    from tkinterweb import HtmlFrame
+    help_available = True
+except ImportError as e:
+    logging.warning(f"Help viewer not available => {e}")
+    help_available = False
+    HtmlFrame = tkinter.Frame  # Placeholder, so the class below can be defined
 
 
 # Zynthian specific modules
@@ -40,7 +50,7 @@ from zyngui import zynthian_gui_config
 
 class zynthian_gui_help(HtmlFrame):
 
-    help_dir = os.environ.get('ZYNTHIAN_HELP_DIR', "/zynthian/zynthian-help")
+    help_dir = zynthian_paths.help_dir
 
     # Scale for touch swipe action after-roll
     touch_swipe_roll_scale = [1, 0, 1, 1, 2, 2, 2, 4, 4, 4, 4, 4]  # 1, 0, 1, 0, 1, 0, 1, 0,
@@ -425,3 +435,65 @@ class zynthian_gui_help(HtmlFrame):
             self.zyngui.tts.announce(tts, False, False, False)
 
 # -------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# Stand-in without the help viewer
+# ------------------------------------------------------------------------------
+
+if not help_available:
+
+    class zynthian_gui_help(tkinter.Frame):
+        """Same interface as the help viewer, shows nothing."""
+
+        help_dir = zynthian_paths.help_dir
+
+        def __init__(self):
+            self.shown = False
+            self.zyngui = zynthian_gui_config.zyngui
+            super().__init__(zynthian_gui_config.top)
+
+        def load_file(self, fpath):
+            logging.warning(f"Help viewer not available, can't show {fpath}")
+
+        def set_html(self, html):
+            logging.warning("Help viewer not available")
+
+        def build_view(self):
+            return True
+
+        def hide(self):
+            self.shown = False
+
+        def show(self):
+            self.shown = True
+
+        def back_action(self):
+            return False
+
+        def zynpot_cb(self, i, dval):
+            return True
+
+        def switch(self, i, t):
+            return False
+
+        def switch_select(self, t='S'):
+            pass
+
+        def arrow_up(self):
+            pass
+
+        def arrow_down(self):
+            pass
+
+        def arrow_left(self):
+            pass
+
+        def arrow_right(self):
+            pass
+
+        def refresh_loading(self):
+            pass
+
+        def plot_zctrls(self):
+            pass

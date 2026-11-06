@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import copy
 import shutil
@@ -75,7 +76,7 @@ class zynthian_engine_audioplayer(zynthian_engine):
         self.dur = 0.0
         self.zoom = 1.0
 
-        self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_audio_file.py"
+        self.custom_gui_fpath = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_audio_file.py"
 
         self.allow_preset_preload = False
 
@@ -93,6 +94,8 @@ class zynthian_engine_audioplayer(zynthian_engine):
     # ---------------------------------------------------------------------------
 
     def start(self):
+        # The jack client is closed when the engine stops (unused), opened again here
+        zynaudioplayer.init()
         self.jackname = zynaudioplayer.get_jack_client_name()
         zynsigman.register_queued(zynsigman.S_AUDIO_RECORDER, zynsigman.SS_AUDIO_RECORDER_STATE, self.update_rec)
         zynsigman.register_queued(zynsigman.S_AUDIO_PLAYER, zynsigman.SS_AUDIO_PLAYER_STATE, self.update_play)

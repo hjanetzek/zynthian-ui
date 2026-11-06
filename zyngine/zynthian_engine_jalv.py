@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import sys
@@ -617,9 +618,11 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
     # Custom plugin info
     # ------------------------------------------------------------------------------
 
-    if "Raspberry Pi 4" in os.environ.get('RBPI_VERSION'):
+    rbpi_version = os.environ.get('RBPI_VERSION', "")
+    if not rbpi_version or "Raspberry Pi 4" in rbpi_version:
+        # Not a Raspberry Pi (desktop) => as capable as a Pi 4
         rpi = "RPi4"
-    elif "Raspberry Pi 3" in os.environ.get('RBPI_VERSION'):
+    elif "Raspberry Pi 3" in rbpi_version:
         rpi = "RPi3"
     else:
         rpi = "RPi2"
@@ -689,9 +692,9 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
     }
 
     plugin2native_presets_dir = {
-        "TAL U-No-LX-V2": "/zynthian/zynthian-my-data/presets/TAL-U-No-LX",
-        "Vavra": "/zynthian/zynthian-my-data/presets/Vavra",
-        "Xenia": "/zynthian/zynthian-my-data/presets/Xenia"
+        "TAL U-No-LX-V2": f"{zynthian_paths.my_data_dir}/presets/TAL-U-No-LX",
+        "Vavra": f"{zynthian_paths.my_data_dir}/presets/Vavra",
+        "Xenia": f"{zynthian_paths.my_data_dir}/presets/Xenia"
     }
 
     # ---------------------------------------------------------------------------

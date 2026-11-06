@@ -31,6 +31,7 @@ from glob import glob
 from os.path import isfile, isdir, join, basename, dirname, splitext
 
 # Zynthian specific modules
+from zyngine.zynthian_snapshot_files import zynthian_snapshot_files
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 
 # ------------------------------------------------------------------------------
@@ -46,75 +47,25 @@ class zynthian_gui_snapshot(zynthian_gui_selector_info):
         super().__init__('Bank', default_icon="snapshot.png")
         self.sm = self.zyngui.state_manager
         self.cm = self.zyngui.chain_manager
+        # File names, banks and lists: shared with the Qt UI
+        self.files = zynthian_snapshot_files(self.sm)
 
         self.check_bankless_mode()
 
     def is_not_empty_snapshot(self):
-        return self.cm.get_chain_count() > 1 or self.cm.get_processor_count() > 0
+        return self.files.is_not_empty_snapshot()
 
     def get_snapshot_fpath(self, f):
-        if f in ["last_state.zss", "default.zss"]:
-            return join(self.sm.snapshot_dir, f)
-        return join(self.sm.snapshot_dir, self.sm.snapshot_bank, f)
+        return self.files.get_snapshot_fpath(f)
 
     def get_next_program(self, offset):
-        """Get the next available program number
-        offset : Minimum program number to return
-        Returns : Next available program mumber as integer or None if none available
-        """
-
-        files = os.listdir(self.get_snapshot_fpath(''))
-        files.sort()
-        for filename in files:
-            if offset > 127:
-                return None
-            program = self.get_midi_number(filename)
-            if type(program) != int:
-                continue
-            if program < offset:
-                continue
-            if program == offset:
-                offset += 1
-        return offset
+        return self.files.get_next_program(offset)
 
     def get_parts_from_path(self, path):
-        """Get an list of parts of a snapshot filename
-
-        path : Full path and filename of snapshot file
-        Returns : List of parts: [program, display name, filename, path] or None for invalid path
-        """
-
-        if path[-4:].lower() != '.zss':
-            return None
-
-        filename = os.path.basename(path)
-        name = filename[:-4].replace(';', '>', 1).replace(';', '/')
-
-        # Check if prefix is program-
-        try:
-            program = int(filename.split('-')[0])
-            name = name.split('-', 1)[1]
-        except:
-            program = None
-
-        return [program, name, filename, path]
+        return self.files.get_parts_from_path(path)
 
     def get_path_from_parts(self, parts):
-        """Get full path and filename from parts
-
-        parts : List of parts [program, display name, filename, path]
-        returns : Valid filename or None if invalid parts
-        """
-
-        if type(parts) != list or len(parts) != 4:
-            return None
-
-        name = parts[1] + '.zss'
-        if type(parts[0]) == int and 0 <= parts[0] < 128:
-            name = format(parts[0], "03") + '-' + name
-        path = self.get_snapshot_fpath(name.replace('>', ';').replace('/', ';'))
-
-        return path
+        return self.files.get_path_from_parts(parts)
 
     def change_index_offset(self, i):
         self.index = self.index - self.index_offset + i
@@ -123,82 +74,19 @@ class zynthian_gui_snapshot(zynthian_gui_selector_info):
             self.index = 0
 
     def check_bankless_mode(self):
-        bank_dirs = [d for d in os.listdir(
-            self.sm.snapshot_dir) if d[0] != "." and os.path.isdir(join(self.sm.snapshot_dir, d))]
-        n_banks = len(bank_dirs)
-        # If no banks, create the first one and choose it.
-        if n_banks == 0:
-            os.makedirs(f"{self.sm.snapshot_dir}/000")
-            self.bankless_mode = True
-        # If only one bank, choose it.
-        elif n_banks == 1:
-            self.bankless_mode = True
-            self.sm.snapshot_bank = bank_dirs[0]
-        # If more than 1, multibank mode
-        else:
-            self.bankless_mode = False
+        self.bankless_mode = self.files.check_bankless_mode()
 
     def load_bank_list(self):
-        self.list_data = []
-        i = 0
-        if isfile(self.sm.default_snapshot_fpath):
-            self.list_data.append(
-                (self.sm.default_snapshot_fpath, i, "Default", ["Default snapshot", "snapshot_default.png"]))
-            i = i + 1
-        if isfile(self.sm.last_state_snapshot_fpath):
-            self.list_data.append(
-                (self.sm.last_state_snapshot_fpath, i, "Last State", ["Last state snapshot", "snapshot_default.png"]))
-            i = i + 1
-        self.list_data.append(("NEW_BANK", i, "New Bank", ["Create an empty bank", "folder_new.png"]))
-        i = i + 1
-        self.change_index_offset(i)
-
-        for dpath in sorted(glob(f"{self.sm.snapshot_dir}/[0-9][0-9][0-9]*")):
-            if isdir(dpath):
-                bank_name = basename(dpath)
-                if bank_name.startswith('.'):
-                    continue
-
-                self.list_data.append((dpath, i, bank_name))
-                try:
-                    bank_number = self.get_midi_number(bank_name)
-                    logging.debug(f"Snapshot Bank '{bank_name}' => MIDI bank {bank_number}")
-                except:
-                    logging.warning(f"Snapshot Bank '{bank_name}' don't have a MIDI bank number")
-                if bank_name == self.sm.snapshot_bank:
-                    self.index = i
-                i = i + 1
+        self.list_data, index, offset = self.files.bank_list(None)
+        self.change_index_offset(offset)
+        if index is not None:
+            self.index = index
 
     def load_snapshot_list(self):
-        self.list_data = []
-        i = 0
-        if not self.bankless_mode:
-            self.list_data.append((self.sm.snapshot_dir, i, ".."))
-            i += 1
-        if self.is_not_empty_snapshot():
-            # TODO: Add better validation of populated state, e.g. sequences
-            self.list_data.append(("SAVE", i, "Save as new snapshot", ["Save current state as new snapshot", "snapshot_new.png"]))
-        if self.bankless_mode:
-            self.list_data.append(("NEW_BANK", i, "New Bank", ["Create an empty bank", "folder_new.png"]))
-            i += 1
-            self.list_data.append((None, None, "> Saved snapshots:"))
-            if isfile(self.sm.default_snapshot_fpath):
-                self.list_data.append((self.sm.default_snapshot_fpath, i, "Default", ["Default snapshot", "snapshot_default.png"]))
-                i += 1
-            if isfile(self.sm.last_state_snapshot_fpath):
-                self.list_data.append((self.sm.last_state_snapshot_fpath, i, "Last State", ["Last state snapshot", "snapshot_default.png"]))
-                i += 1
-        self.change_index_offset(i)
-        for fpath in sorted(glob(f"{self.sm.snapshot_dir}/{self.sm.snapshot_bank}/*.zss")):
-            if isfile(fpath):
-                title = basename(fpath)[:-4].replace(';', '>', 1).replace(';', '/')
-                self.list_data.append((fpath, i, title))
-                i += 1
-                if fpath == self.sm.last_snapshot_fpath:
-                    if self.bankless_mode:
-                        self.index = i + 1
-                    else:
-                        self.index = i
+        self.list_data, index, offset = self.files.snapshot_list(None)
+        self.change_index_offset(offset)
+        if index is not None:
+            self.index = index
 
     def fill_list(self):
         self.check_bankless_mode()
@@ -490,10 +378,7 @@ class zynthian_gui_snapshot(zynthian_gui_selector_info):
         #self.zyngui.close_screen()
 
     def get_midi_number(self, f):
-        try:
-            return int(f.split('-')[0])
-        except:
-            return None
+        return self.files.get_midi_number(f)
 
     def set_select_path(self):
         title = "Snapshots"

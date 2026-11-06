@@ -22,6 +22,7 @@
 #
 # ********************************************************************
 
+from zynconf import zynthian_paths
 import os
 import re
 import socket
@@ -166,10 +167,15 @@ ServerPort = {
 # Global variables
 # -------------------------------------------------------------------------------
 
-sys_dir = os.environ.get('ZYNTHIAN_SYS_DIR', "/zynthian/zynthian-sys")
-config_dir = os.environ.get('ZYNTHIAN_CONFIG_DIR', '/zynthian/config')
-my_data_dir = os.environ.get("ZYNTHIAN_MY_DATA_DIR", "/zynthian/zynthian-my-data")
+sys_dir = zynthian_paths.sys_dir
+config_dir = zynthian_paths.config_dir
+my_data_dir = zynthian_paths.my_data_dir
 config_fpath = config_dir + "/zynthian_envars.sh"
+
+# Running as an application on a desktop (or Nura) system instead of ZynthianOS:
+# zynthian doesn't own the system there, so it must not start or stop system
+# services, change power, display or network settings, or update the system.
+desktop_mode = os.environ.get("ZYNTHIAN_DESKTOP", "0") == "1"
 
 # -------------------------------------------------------------------------------
 # Config management
@@ -198,7 +204,7 @@ def load_config(set_env=True, fpath=None):
 
     # Load config varnames
     varnames = []
-    pattern = re.compile("^export ([^\s]*?)=")
+    pattern = re.compile(r"^export ([^\s]*?)=")
     for line in lines:
         res = pattern.match(line)
         if res:
@@ -239,7 +245,7 @@ def save_config(config, updsys=False, fpath=None):
     # Find and replace lines to update
     updated = []
     add_row = 0
-    pattern = re.compile("^export ([^\s]*?)=")
+    pattern = re.compile(r"^export ([^\s]*?)=")
     for i, line in enumerate(lines):
         res = pattern.match(line)
         if res:
@@ -307,9 +313,12 @@ def load_plain_envars(fpath, set_env=True):
 
 
 def update_sys():
+    if desktop_mode:
+        # update_zynthian_sys.sh reconfigures the whole system (boot, services, ...) as root
+        return
     try:
         os.environ['ZYNTHIAN_FLAG_MASTER'] = "NONE"
-        check_output(os.environ.get('ZYNTHIAN_SYS_DIR') + "/scripts/update_zynthian_sys.sh", shell=True)
+        check_output(zynthian_paths.sys_dir + "/scripts/update_zynthian_sys.sh", shell=True)
     except Exception as e:
         logging.error("Updating Sytem Config: %s" % e)
 
@@ -507,6 +516,9 @@ def is_process_running(procname):
 
 
 def is_service_active(service):
+    if desktop_mode:
+        # The system's services are not zynthian's
+        return False
     cmd = "systemctl is-active %s" % service
     try:
         result = check_output(cmd, shell=True).decode('utf-8', 'ignore')

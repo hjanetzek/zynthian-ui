@@ -29,6 +29,7 @@ import oyaml as yaml
 
 # Zynthian specific modules
 from zyngine.zynthian_engine import zynthian_engine
+from zyngui.zynthian_file_data import FEXT2DIRNAME, COLLECTIONS_DIR, root_dirnames, root_dirs
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 
@@ -40,23 +41,9 @@ from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 
 class zynthian_gui_file_selector(zynthian_gui_selector_info):
 
-    collections_dpath = zynthian_engine.data_dir + "/collections/"
+    collections_dpath = COLLECTIONS_DIR
 
-    fext2dirname = {
-        "aidax": [["Neural Models"], "file_model.png"],
-        "aidadspmodel": [["Neural Models"], "file_model.png"],
-        "nam": [["Neural Models"], "file_model.png"],
-        "nammodel": [["Neural Models"], "file_model.png"],
-        "json": [["Neural Models"], "file_model.png"],
-        "wav": [["IRs", "Samples", "Audio"], "file_audio.png"],
-        "flac": [["IRs", "Samples", "Audio"], "file_audio.png"],
-        "aiff": [["IRs", "Samples", "Audio"], "file_audio.png"],
-        "ogg": [["Samples", "Audio"], "file_audio.png"],
-        "mp3": [["Samples", "Audio"], "file_audio.png"],
-        "mid": [["Midi"], "file_midi.png"],
-        "scl": [["Tuning"], "file.png"],
-        "zpat": [["Patterns"], "file_midi.png"],
-    }
+    fext2dirname = FEXT2DIRNAME
 
     def __init__(self):
         self.cb_func = None
@@ -74,14 +61,7 @@ class zynthian_gui_file_selector(zynthian_gui_selector_info):
 
     @classmethod
     def get_root_dirnames(cls, fexts):
-        dirnames = []
-        for fext in fexts:
-            try:
-                for dirname in cls.fext2dirname[fext.lower()][0]:
-                    dirnames.append(dirname)
-            except:
-                pass
-        return set(dirnames)
+        return root_dirnames(fexts)
 
     @staticmethod
     def get_dirpath(path):
@@ -198,18 +178,11 @@ class zynthian_gui_file_selector(zynthian_gui_selector_info):
         # Config root dirs
         if dirnames is None:
             dirnames = self.get_root_dirnames(self.fexts)
-        # User files
-        for dirname in dirnames:
-            self.root_dirs.append((f"User {dirname}", zynthian_engine.my_data_dir + "/files/" + dirname))
-        # Collections
+        # User files, collections, system files
+        self.root_dirs = root_dirs(dirnames)
         for de in os.scandir(self.collections_dpath):
             if de.is_dir():
                 self.load_collection_info(de.name)
-                for dirname in dirnames:
-                    self.root_dirs.append((f"{de.name} {dirname}", de.path + "/" + dirname))
-        # System files
-        for dirname in dirnames:
-            self.root_dirs.append((f"System {dirname}", zynthian_engine.data_dir + "/files/" + dirname))
         if self.dirpath and not self.is_confined_to_root_dirs(self.dirpath):
             dpbname = os.path.basename(self.dirpath)
             self.root_dirs.append((f"Current ({dpbname})", self.dirpath))

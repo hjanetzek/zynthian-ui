@@ -23,6 +23,7 @@
 #
 # ********************************************************************
 
+from zynconf import zynthian_paths
 import math
 import ctypes
 import logging
@@ -55,10 +56,10 @@ class ZynMixer():
         self.mixbus = is_mixbus
         if is_mixbus:
             self.lib_zynmixer = ctypes.cdll.LoadLibrary(
-                f"/zynthian/zynthian-ui/zynlibs/zynmixer/build/libzynmixer_mixbus.so")
+                zynthian_paths.native_lib("libzynmixer_mixbus.so", f"{zynthian_paths.ui_dir}/zynlibs/zynmixer/build"))
         else:
             self.lib_zynmixer = ctypes.cdll.LoadLibrary(
-                f"/zynthian/zynthian-ui/zynlibs/zynmixer/build/libzynmixer.so")
+                zynthian_paths.native_lib("libzynmixer.so", f"{zynthian_paths.ui_dir}/zynlibs/zynmixer/build"))
 
         self.lib_zynmixer.addStrip.restype = ctypes.c_int8
         self.lib_zynmixer.removeStrip.argtypes = [ctypes.c_uint8]

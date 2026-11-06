@@ -24,8 +24,10 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import logging
+import shutil
 from subprocess import Popen
 from datetime import datetime
 
@@ -40,8 +42,8 @@ from zyngui import zynthian_gui_config
 
 class zynthian_audio_recorder:
 
-    capture_dir_sdc = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/capture"
-    ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
+    capture_dir_sdc = zynthian_paths.my_data_dir + "/capture"
+    ex_data_dir = zynthian_paths.ex_data_dir
 
     def __init__(self, state_manager):
         self.rec_proc = None
@@ -67,7 +69,9 @@ class zynthian_audio_recorder:
             # Already recording
             return False
 
-        cmd = ["/usr/local/bin/jack_capture", "--daemon", "--bitdepth", "16", "--bufsize", "30", "--maxbufsize", "120"]
+        # ZynthianOS installs jack_capture in /usr/local/bin, distributions in PATH
+        jack_capture = shutil.which("jack_capture") or "/usr/local/bin/jack_capture"
+        cmd = [jack_capture, "--daemon", "--bitdepth", "16", "--bufsize", "30", "--maxbufsize", "120"]
         single_chan = True
         for chain in self.state_manager.chain_manager.chains.values():
             if chain.zynmixer_proc and chain.zynmixer_proc.controllers_dict["record"].value:

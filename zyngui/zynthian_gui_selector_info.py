@@ -31,6 +31,23 @@ from PIL import Image, ImageTk
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_selector import zynthian_gui_selector
 
+
+def create_info_widgets(master, listbox):
+    """Info pane: canvas with an icon and a text, for zynthian_gui_selector_info.set_list_widgets"""
+    canvas = tkinter.Canvas(
+        master,
+        bd=0,
+        highlightthickness=0,
+        bg=zynthian_gui_config.color_bg)
+    icon = canvas.create_image(0, 0, anchor=tkinter.NW)
+    text = canvas.create_text(
+        0, 0,
+        anchor=tkinter.NW,
+        justify=tkinter.LEFT,
+        fill=zynthian_gui_config.color_panel_tx
+    )
+    return {"listbox": listbox, "info_canvas": canvas, "info_icon": icon, "info_text": text}
+
 # ------------------------------------------------------------------------------
 # Zynthian Selector with Extended Info GUI Class
 # ------------------------------------------------------------------------------
@@ -71,19 +88,18 @@ class zynthian_gui_selector_info(zynthian_gui_selector):
 
         super().__init__(selcap, wide=True, loading_anim=loading_anim, tiny_ctrls=tiny_ctrls, parent=parent, topbar=topbar)
 
-        self.info_canvas = tkinter.Canvas(
-            self.main_frame,
-            bd=0,
-            highlightthickness=0,
-            bg=zynthian_gui_config.color_bg)
-        self.info_icon = self.info_canvas.create_image(0, 0, anchor=tkinter.NW)
-        self.info_text = self.info_canvas.create_text(
-            0, 0,
-            anchor=tkinter.NW,
-            justify=tkinter.LEFT,
-            fill=zynthian_gui_config.color_panel_tx
-        )
+        self.set_list_widgets(create_info_widgets(self.main_frame, self.listbox))
         self.grid_info_canvas()
+
+    def get_list_widgets(self):
+        return {"listbox": self.listbox, "info_canvas": self.info_canvas,
+                "info_icon": self.info_icon, "info_text": self.info_text}
+
+    def set_list_widgets(self, widgets):
+        self.listbox = widgets["listbox"]
+        self.info_canvas = widgets["info_canvas"]
+        self.info_icon = widgets["info_icon"]
+        self.info_text = widgets["info_text"]
 
     def grid_info_canvas(self):
         self.info_canvas.grid(row=0, column=self.layout['list_pos'][1] + 1, rowspan=self.info_canvas_rowspan, sticky="news", padx=(2,2), pady=(2,2))
@@ -98,9 +114,10 @@ class zynthian_gui_selector_info(zynthian_gui_selector):
             self.update_info()
 
     def start_busy(self, clid, message=None, details=None, tts=True):
-        # Allow animation => Replace info canvas by animated logo
-        self.info_canvas.grid_remove()
-        self.grid_loading_canvas()
+        # Allow animation => Replace info canvas by animated logo (own widgets only, not while hosted)
+        if not self.hosted:
+            self.info_canvas.grid_remove()
+            self.grid_loading_canvas()
         # Call start busy to start animation
         self.zyngui.state_manager.start_busy(clid, message, details, tts)
 
@@ -108,8 +125,9 @@ class zynthian_gui_selector_info(zynthian_gui_selector):
         # Call end busy to stop animation
         self.zyngui.state_manager.end_busy(clid)
         # Restore info canvas
-        self.loading_canvas.grid_remove()
-        self.grid_info_canvas()
+        if not self.hosted:
+            self.loading_canvas.grid_remove()
+            self.grid_info_canvas()
 
     def get_info(self):
         try:
@@ -154,7 +172,11 @@ class zynthian_gui_selector_info(zynthian_gui_selector):
                 # If we would have to shrink the font-size to
                 # something unreadable to make it fit, shrink the image instead:
                 icon_size = (side_width // 2 - 2, side_width // 2 - 2)
-            icon = ImageTk.PhotoImage(img.resize(icon_size))
+            # Blended onto the info canvas' background: Tk draws images with transparency on X11
+            # by reading back and blending the background in software, on every redraw
+            img = img.convert("RGBA").resize(icon_size)
+            img = Image.alpha_composite(Image.new("RGBA", img.size, zynthian_gui_config.color_bg), img).convert("RGB")
+            icon = ImageTk.PhotoImage(img)
             if icon_fpath not in self.icons:
                 self.icons[icon_fpath] = [None, None]
             self.icons[icon_fpath][zynthian_gui_config.touch_shown] = icon

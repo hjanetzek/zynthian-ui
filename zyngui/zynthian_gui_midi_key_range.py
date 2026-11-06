@@ -29,6 +29,7 @@ import logging
 from zyncoder.zyncore import lib_zyncore
 from zyngine import zynthian_controller
 from zyngui import zynthian_gui_config
+from zyngui.zynthian_midi_learn_data import note_range_learn
 from zyngui.zynthian_gui_base import zynthian_gui_base
 from zyngui.zynthian_gui_controller import zynthian_gui_controller
 
@@ -367,19 +368,13 @@ class zynthian_gui_midi_key_range(zynthian_gui_base):
                     self.zyngui.tts.announce(f"Transpose: {zctrl.get_value2label()} semitones")
 
     def learn_note_range(self, num):
-        if self.learn_mode == -1:
-            if num < self.nhigh_zctrl.value:
-                self.nlow_zctrl.set_value(num)
-            else:
-                self.nhigh_zctrl.set_value(num)
-            self.learn_mode = num
-        else:
-            if num < self.learn_mode:
-                self.nlow_zctrl.set_value(num)
-                self.nhigh_zctrl.set_value(self.learn_mode)
-            else:
-                self.nlow_zctrl.set_value(self.learn_mode)
-                self.nhigh_zctrl.set_value(num)
+        self.learn_mode, low, high, done = note_range_learn(self.learn_mode, num, self.nlow_zctrl.value,
+                                                            self.nhigh_zctrl.value)
+        if low != self.nlow_zctrl.value:
+            self.nlow_zctrl.set_value(low)
+        if high != self.nhigh_zctrl.value:
+            self.nhigh_zctrl.set_value(high)
+        if done:
             self.zyngui.cuia_disable_midi_learn()
         self.update_piano()
 

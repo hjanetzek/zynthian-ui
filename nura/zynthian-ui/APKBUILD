@@ -1,0 +1,176 @@
+# zynthian user interface and engine manager for postmarketOS/Nura (desktop mode).
+#
+# Built from a local checkout of zynthian-ui (nura branch):
+#   pmbootstrap build --src=/path/to/zynthian-ui zynthian-ui
+# --src skips $source, so put the Python packages listed there into pmbootstrap's
+# distfiles cache first (nura/seed-distfiles.sh). The build then needs no network.
+#
+# Python packages that Alpine doesn't package are bundled in
+# /usr/share/zynthian/python (/usr/bin/zynthian adds it to PYTHONPATH):
+# pure-Python wheels and sdists from PyPI, and pyliblo3 built from source
+# (PyPI has only glibc wheels of 0.17.0; the 0.16.3 sdist needs Cython < 3).
+# tkinterweb (help viewer) is left out: its Tkhtml library isn't packaged.
+pkgname=zynthian-ui
+pkgver=2610_git20261102
+pkgrel=2
+pkgdesc="zynthian synthesizer platform: user interface and engine manager"
+url="https://github.com/zynthian/zynthian-ui"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+options="!check"
+depends="
+	bash
+	ffmpeg
+	lilv
+	py3-beautifulsoup4
+	py3-cffi
+	py3-dbus
+	py3-evdev
+	py3-levenshtein
+	py3-lilv
+	py3-numpy
+	py3-pexpect
+	py3-pyside6
+	py3-pillow
+	py3-psutil
+	py3-pyalsaaudio
+	py3-rdflib
+	py3-requests
+	py3-scipy
+	py3-typing-extensions
+	py3-udev
+	py3-usb
+	py3-websocket-client
+	py3-yaml
+	python3
+	python3-tkinter
+	rubberband
+	sox
+	so:libasound.so.2
+	so:libjack.so.0
+	so:libsndfile.so.1
+	zynthian-data
+	zynthian-sys-config
+	zyncoder
+	zynthian-jalv
+	"
+makedepends="
+	bash
+	cmake
+	cython
+	jack-dev
+	liblo-dev
+	libsamplerate-dev
+	libsndfile-dev
+	linux-headers
+	nlohmann-json
+	py3-pip
+	py3-setuptools
+	py3-wheel
+	python3-dev
+	rubberband-dev
+	samurai
+	"
+subpackages="$pkgname-dbg"
+_pyliblo3_commit=029b83a03b4f24d905f818591903411753901273
+_pywheels="
+	jack_client-0.5.7-py3-none-any.whl
+	soundfile-0.14.0-py2.py3-none-any.whl
+	alsa_midi-1.0.4-py3-none-any.whl
+	oyaml-1.0-py2.py3-none-any.whl
+	wavio-0.0.9-py3-none-any.whl
+	ffmpeg_python-0.2.0-py3-none-any.whl
+	pyrubberband-0.4.0-py3-none-any.whl
+	abletonparsing-0.1.3-py3-none-any.whl
+	future-1.0.0-py3-none-any.whl
+	"
+_pysdists="
+	sox-1.5.0.tar.gz
+	hwmon-1.0.tar.gz
+	pyliblo3-$_pyliblo3_commit.tar.gz
+	"
+source="
+	https://files.pythonhosted.org/packages/54/dd/ba4f56992e958a2b6a4a0603a7bf69f5de275538eee4041e77e1f9882719/jack_client-0.5.7-py3-none-any.whl
+	https://files.pythonhosted.org/packages/b1/d1/5e338af9ca6ed0786cd5bb03f6d60de1c325728c1189014f3b59aae7403c/soundfile-0.14.0-py2.py3-none-any.whl
+	https://files.pythonhosted.org/packages/1b/4b/762472e90fc105a0897964f719d40728e6830c91a0f80e1fe90463b05c45/alsa_midi-1.0.4-py3-none-any.whl
+	https://files.pythonhosted.org/packages/37/aa/111610d8bf5b1bb7a295a048fc648cec346347a8b0be5881defd2d1b4a52/oyaml-1.0-py2.py3-none-any.whl
+	https://files.pythonhosted.org/packages/87/9a/50c7b7107b98330d295f82a38a8d33210fb33ca472cbdd18dce4ca2fdaec/wavio-0.0.9-py3-none-any.whl
+	https://files.pythonhosted.org/packages/d7/0c/56be52741f75bad4dc6555991fabd2e07b432d333da82c11ad701123888a/ffmpeg_python-0.2.0-py3-none-any.whl
+	https://files.pythonhosted.org/packages/d8/88/238aa67e353012d8dd999372aedada3f627bc9895d5d2a5305e7ffb1affd/pyrubberband-0.4.0-py3-none-any.whl
+	https://files.pythonhosted.org/packages/cf/5e/f8e31535f6483801d8790c65871ea8416429234a578d46aee7e898b0166d/abletonparsing-0.1.3-py3-none-any.whl
+	https://files.pythonhosted.org/packages/da/71/ae30dadffc90b9006d77af76b393cb9dfbfc9629f339fc1574a1c52e6806/future-1.0.0-py3-none-any.whl
+	https://files.pythonhosted.org/packages/3d/a2/d8e0d8fd7abf509ead4a2cb0fb24e5758b5330166bf9223d5cb9f98a7e8d/sox-1.5.0.tar.gz
+	https://files.pythonhosted.org/packages/3d/3c/d1f552e63b2c1f4ea462c1f788801f88a64a22f3c59275a8596564abb5fe/hwmon-1.0.tar.gz
+	pyliblo3-$_pyliblo3_commit.tar.gz::https://github.com/gesellkammer/pyliblo3/archive/$_pyliblo3_commit.tar.gz
+	"
+builddir="$srcdir/$pkgname"
+
+# A source file: unpacked by abuild into $srcdir, or (with --src) from the distfiles cache
+_srcfile() {
+	if [ -e "$srcdir/$1" ]; then
+		echo "$srcdir/$1"
+	else
+		echo "$SRCDEST/$1"
+	fi
+}
+
+build() {
+	# With --src, abuild doesn't fetch $source: the files must be in the distfiles cache
+	local f
+	for f in $_pywheels $_pysdists; do
+		[ -e "$(_srcfile $f)" ] || die "$f missing from $SRCDEST: run nura/seed-distfiles.sh"
+	done
+
+	# Native libraries, without RPATH: they go to /usr/lib/zynthian and only use system libraries
+	local lib
+	for lib in zynsmf zynseq zynaudioplayer zynmixer zynclippy; do
+		cmake -S zynlibs/$lib -B zynlibs/$lib/build \
+			-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+			-DCMAKE_SKIP_RPATH=ON \
+			-DCMAKE_CXX_FLAGS="$CXXFLAGS -Wno-psabi" \
+			-DENABLE_OSC=0
+		cmake --build zynlibs/$lib/build
+	done
+
+	# Wheels of the bundled Python packages that come as source
+	local pysrc="$srcdir"/pysrc
+	rm -rf "$pysrc" "$srcdir"/pywheels
+	mkdir -p "$pysrc" "$srcdir"/pywheels
+	for f in $_pysdists; do
+		tar --no-same-owner -xzf "$(_srcfile $f)" -C "$pysrc"
+	done
+	for f in "$pysrc"/*/; do
+		python3 -m pip wheel --no-index --no-deps --no-build-isolation \
+			--wheel-dir "$srcdir"/pywheels "$f"
+	done
+}
+
+package() {
+	PREFIX=/usr ./desktop/install.sh ui "$pkgdir"
+
+	local f pydir="$pkgdir"/usr/share/zynthian/python
+	local wheels=
+	for f in $_pywheels; do
+		wheels="$wheels $(_srcfile $f)"
+	done
+	# shellcheck disable=SC2086 # list of files
+	python3 -m pip install --no-index --no-deps --no-compile --target "$pydir" \
+		$wheels "$srcdir"/pywheels/*.whl
+	rm -rf "$pydir"/bin # pyliblo3's command line tools
+	python3 -m compileall -q -d /usr/share/zynthian/python "$pydir"
+}
+
+sha512sums="
+43bae9f9891d0359f0c840891ef12834aa2172917587fe028273636d5fc9160efc44f203827feda7fb603d1a237175f1ba5412611cb556288ce51101981c85a9  jack_client-0.5.7-py3-none-any.whl
+bdbe5e7d7d7271aceb92f15e256d8708c10aa53221d8f2a72b96c30346d943184a8400edb61e5eb72e96a1dd6bad98885d9a598a0f8e0dcf5aa8c2bcb0205b0f  soundfile-0.14.0-py2.py3-none-any.whl
+75301069d039ed0a6ba5b050a707b122fffb7072206a992f0a67287ed79e11cce8e6489daa9e340beaf7b2871e870f0127b0282a0ada26a62de5e535b0bd9616  alsa_midi-1.0.4-py3-none-any.whl
+d33a3743b9d4c9cdf95ec2f5a55c3cb50f392b4775d3e94169f069805ee72e757b68758c7a12d9147c90d304f2fb149aa4480cceaba02693a1b858c9fc461569  oyaml-1.0-py2.py3-none-any.whl
+077c41c91305d24faaa6dda1cd315309c471817cf57c91913598eb073ef82c8569b7682a60365fe2d647dfcf7f8f13a63c695189a81f176f1e566e5a7eb6228d  wavio-0.0.9-py3-none-any.whl
+0cc09bc38bbae22744fafe17ed8d18cb17a304f82cd4ea9e311d945816e95c6ecff0deecc40c89066f670d8dc7e7149fd5f0952c4951b2a4e5f13e58c6ff7357  ffmpeg_python-0.2.0-py3-none-any.whl
+17ac98370b9d3b9f8f827453589b70f6713b781227a362d4cc34d79293de3701ea0319224be456505aaa06dd0dd8f619b09c6bec89d22476fe01f8be7c543cb2  pyrubberband-0.4.0-py3-none-any.whl
+d6e2c8d2321a2fae547be662a9a1f6f7cd5de076209d6747da588395a3a6bbb621dd989f45f669a56f2031dc4dbcc7450563eee2f9cc87ab117fe3d403a1dbd7  abletonparsing-0.1.3-py3-none-any.whl
+d130bfa136bd171b9972b5c281c578545f2a84a909fdf18a6d2d71dd12fb3d512a7a1fa5cf7300433adece1d306eb2f22d7278f4c90e744e04dc67ba627a82c0  future-1.0.0-py3-none-any.whl
+32e25b411c62a2c7d1b2e9351052707938c7f8ae39c7df80fc01a6509ee4fb908f4abeba8a4e6040b36cd04a9099b1f5d160b7f2b1854a9362cf13b2f0c1a284  sox-1.5.0.tar.gz
+fd06e30c529cef41f6b5746b341fdd33735c8c9bb09b68f71407f855ae193cd2a21fa396b26801a610d069635ac8a63b09dc8b1482fb692545dc0db454cef16b  hwmon-1.0.tar.gz
+89a5586f2eac5155877954c05febbb6ef7304dc8dd0b38b813cceac0dbd82a0779b1e6c869381dce95db63ca5945acd222508de1c8ee0fef2ba2babe83eab5cb  pyliblo3-029b83a03b4f24d905f818591903411753901273.tar.gz
+"

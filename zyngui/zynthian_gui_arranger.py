@@ -24,6 +24,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import tkinter
 import logging
 import tkinter.font as tkfont
@@ -343,8 +344,7 @@ class zynthian_gui_arranger(zynthian_gui_base.zynthian_gui_base):
 
     # Function to import SMF
     def select_smf(self, params=None):
-        file_list = zynthian_engine.get_filelist(os.environ.get(
-            'ZYNTHIAN_MY_DATA_DIR', '/zynthian/zynthian-my-data') + '/capture', 'mid')
+        file_list = zynthian_engine.get_filelist(zynthian_paths.my_data_dir + '/capture', 'mid')
         options = {}
         for i in file_list:
             options[i[4]] = i[0]

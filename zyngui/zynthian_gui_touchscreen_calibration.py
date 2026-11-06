@@ -23,6 +23,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import tkinter
 import logging
 import tkinter.font as tkFont
@@ -391,11 +392,10 @@ class zynthian_gui_touchscreen_calibration(zynthian_gui_fullscreen_modal):
                 # If we got here then we need to append this device to config
                 # For the record it is with deep reservation that I code this duplicate writing of files - I was only follwing orders!
                 try:
-                    os.mkdir(os.environ.get(
-                        "ZYNTHIAN_CONFIG_DIR") + "/touchscreen/")
+                    os.mkdir(zynthian_paths.config_dir + "/touchscreen/")
                 except:
                     pass  # directory already exists
-                with open(os.environ.get("ZYNTHIAN_CONFIG_DIR") + "/touchscreen/" + os.environ.get("DISPLAY_NAME"), "w") as f:
+                with open(zynthian_paths.config_dir + "/touchscreen/" + os.environ.get("DISPLAY_NAME"), "w") as f:
                     f.write('Section "InputClass" # Created %s\n' %
                             (datetime.now()))
                     f.write('	Identifier "calibration"\n')

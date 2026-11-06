@@ -22,6 +22,7 @@
 #
 # ******************************************************************************
 
+from zynconf import zynthian_paths
 import os
 import queue
 import shutil
@@ -122,6 +123,22 @@ class zynthian_engine_puredata(zynthian_engine):
             self.base_command = f"pd -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1"
         else:
             self.base_command = f"pd -nogui -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1"
+        # Patches declare zynthian's Organelle abstractions by their ZynthianOS path
+        # (/zynthian/zynthian-data/puredata/organelle); where the data is elsewhere (desktop,
+        # distribution packages), add this system's directory to pd's search path
+        organelle_dir = f"{zynthian_paths.data_dir}/puredata/organelle"
+        if organelle_dir != "/zynthian/zynthian-data/puredata/organelle" and os.path.isdir(organelle_dir):
+            self.base_command += f" -path \"{organelle_dir}\""
+            # Externals libraries (cyclone, iemlib, ggee, hcs, osc, ...): the patches declare some by
+            # folder, others only as library ("declare -lib cyclone"), which since cyclone 0.9 no
+            # longer adds the library's folder for its single objects ([split]). Add every library
+            # folder of pd's system "extra" directory (distribution packages, nura-builds' aports/pd)
+            for extra_dir in ("/usr/lib/pd/extra", "/usr/local/lib/pd/extra"):
+                if os.path.isdir(extra_dir):
+                    for lib in sorted(os.listdir(extra_dir)):
+                        lib_dir = os.path.join(extra_dir, lib)
+                        if os.path.isdir(lib_dir):
+                            self.base_command += f" -path \"{lib_dir}\""
 
         self.reset()
 
@@ -227,7 +244,7 @@ class zynthian_engine_puredata(zynthian_engine):
                 self.zctrl_config = self.default_organelle_zctrl_config
         elif self.preset_config and self.preset_config.get('use_euclidseq_widget', False):
             # Use EuclidSeq widget when flag is set
-            self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_euclidseq.py"
+            self.custom_gui_fpath = f"{zynthian_paths.ui_dir}/zyngui/zynthian_widget_euclidseq.py"
         else:
             # Don't use custom widget for other pd patches
             self.custom_gui_fpath = None

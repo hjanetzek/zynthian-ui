@@ -35,7 +35,10 @@ from select import select
 from time import monotonic
 from threading import Thread
 from subprocess import run, PIPE
-from tkinterweb import HtmlFrame
+try:
+    from tkinterweb import HtmlFrame
+except ImportError:
+    HtmlFrame = tkinter.Frame  # Without the help viewer
 from dataclasses import dataclass
 from collections import namedtuple
 from evdev import ecodes, InputDevice

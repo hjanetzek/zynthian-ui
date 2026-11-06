@@ -132,7 +132,7 @@ class zynthian_engine_puredata(zynthian_engine):
             # Externals libraries (cyclone, iemlib, ggee, hcs, osc, ...): the patches declare some by
             # folder, others only as library ("declare -lib cyclone"), which since cyclone 0.9 no
             # longer adds the library's folder for its single objects ([split]). Add every library
-            # folder of pd's system "extra" directory (distribution packages, nura/pd)
+            # folder of pd's system "extra" directory (distribution packages, nura-builds' aports/pd)
             for extra_dir in ("/usr/lib/pd/extra", "/usr/local/lib/pd/extra"):
                 if os.path.isdir(extra_dir):
                     for lib in sorted(os.listdir(extra_dir)):

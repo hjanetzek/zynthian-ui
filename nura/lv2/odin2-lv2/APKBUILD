@@ -1,0 +1,113 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Odin 2 (URI https://thewavewarden.com/odin2; zynthian's recipe install_odin2.sh). Uses
+# juce_opengl (mesa-dev).
+# JUCE and the other git submodules are extra sources (nura/tools/gh-submodule-sources.py). LV2
+# only. The plugin has its JUCE GUI built in, so it needs X11 and freetype headers to build (JUCE
+# loads X11 only when the editor opens).
+pkgname=odin2-lv2
+pkgver=2.4.1
+pkgrel=0
+_commit=265e9e227581357efb87ed7217381f8a40c5e2bf
+_libs_tuning_library=8eb7232ac24ac2f97a052063161c0c4f5fd763e3
+_libs_juce=2f980209cc4091a4490bb1bafc5d530f16834e58
+_libs_clap_juce_extensions=f11e8c3284e7ff2629534148cbd98da9f602bfea
+_libs_clap_juce_extensions_clap_libs_clap=84ad6fe9739d3070ed0eb05c24be303a899ab813
+_libs_clap_juce_extensions_clap_libs_clap_helpers=2bb43c18788c689708ead6f127a2d75e772ab389
+_libs_jucelv2=e825ad977cf4499a7bfa05b97b208236f8fd253b
+_libs_json=960b763ecd144f156d05ec61f577b04107290137
+pkgdesc="Odin 2 semi-modular synthesizer (LV2)"
+url="https://github.com/TheWaveWarden/odin2"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later AND OFL-1.1"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	lv2-dev
+	mesa-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/TheWaveWarden/odin2/archive/$_commit.tar.gz
+	libs_tuning_library-${_libs_tuning_library}.tar.gz::https://github.com/surge-synthesizer/tuning-library/archive/${_libs_tuning_library}.tar.gz
+	libs_juce-${_libs_juce}.tar.gz::https://github.com/juce-framework/JUCE/archive/${_libs_juce}.tar.gz
+	libs_clap_juce_extensions-${_libs_clap_juce_extensions}.tar.gz::https://github.com/free-audio/clap-juce-extensions/archive/${_libs_clap_juce_extensions}.tar.gz
+	libs_clap_juce_extensions_clap_libs_clap-${_libs_clap_juce_extensions_clap_libs_clap}.tar.gz::https://github.com/free-audio/clap/archive/${_libs_clap_juce_extensions_clap_libs_clap}.tar.gz
+	libs_clap_juce_extensions_clap_libs_clap_helpers-${_libs_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz::https://github.com/free-audio/clap-helpers/archive/${_libs_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz
+	libs_jucelv2-${_libs_jucelv2}.tar.gz::https://github.com/lv2-porting-project/JUCE/archive/${_libs_jucelv2}.tar.gz
+	libs_json-${_libs_json}.tar.gz::https://github.com/nlohmann/json/archive/${_libs_json}.tar.gz
+	"
+builddir="$srcdir/odin2-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf libs/tuning-library && mv "$srcdir"/tuning-library-${_libs_tuning_library} libs/tuning-library
+	rm -rf libs/JUCE && mv "$srcdir"/JUCE-${_libs_juce} libs/JUCE
+	rm -rf libs/clap-juce-extensions && mv "$srcdir"/clap-juce-extensions-${_libs_clap_juce_extensions} libs/clap-juce-extensions
+	rm -rf libs/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_libs_clap_juce_extensions_clap_libs_clap} libs/clap-juce-extensions/clap-libs/clap
+	rm -rf libs/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_libs_clap_juce_extensions_clap_libs_clap_helpers} libs/clap-juce-extensions/clap-libs/clap-helpers
+	rm -rf libs/JUCELV2 && mv "$srcdir"/JUCE-${_libs_jucelv2} libs/JUCELV2
+	rm -rf libs/json && mv "$srcdir"/json-${_libs_json} libs/json
+	default_prepare
+	# its JUCE's LV2 wrapper includes the LV2 headers by their pre-1.18 paths
+	# (lv2/lv2plug.in/ns/{lv2core,ext/*,extensions/*}): a symlink tree to the current ones
+	local d n ns="$srcdir"/musl-compat/lv2/lv2plug.in/ns
+	mkdir -p "$ns"/ext "$ns"/extensions
+	ln -s /usr/include/lv2/core "$ns"/lv2core
+	for d in /usr/include/lv2/*/; do
+		n=$(basename "$d")
+		case $n in
+		core) ;;
+		ui|units) ln -s "$d" "$ns"/extensions/$n ;;
+		*) ln -s "$d" "$ns"/ext/$n ;;
+		esac
+	done
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release -DODIN2_COPY_PLUGIN_AFTER_BUILD=OFF
+	# at most 3 jobs: the JUCE translation units need ~1 GB each (the Duet has 4 GB)
+	cmake --build build --parallel 3 --target Odin2_LV2
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	# bundle names can contain spaces ("Ultramaster KR-106.lv2")
+	find build -type d -path '*/LV2/*.lv2' -prune -exec cp -r {} "$pkgdir"/usr/lib/lv2/ \;
+}
+sha512sums="
+9c3fc49be6ac14ac2fe044d329b1d6274531e3afc4a85f87c9557f6dafe266077cccf5ea7806e52c805c33cb34c91089fe5a1747a789ab50cea138317fbb082f  odin2-lv2-265e9e227581357efb87ed7217381f8a40c5e2bf.tar.gz
+e6582f806b448768786119fb794b47ce2d7b88b9bc4e5fbe9bbd3c219a3574bc47a5bdd46558738e8668937f1086265ea6054a0287dfddf9b310ad742912672a  libs_tuning_library-8eb7232ac24ac2f97a052063161c0c4f5fd763e3.tar.gz
+0ef05c3900efe8942575f142ba131e4c6cb841f3e8478b1a50220cf4ffdbc82f359e4a83f3410fa7359f9beefc4a4cfe74debba314addc235699891ff3326145  libs_juce-2f980209cc4091a4490bb1bafc5d530f16834e58.tar.gz
+b42ca5751eb6a9d5e99767890ce0fcd7448f7f6ed4f1299981be9ab379cc607cdd873cbcd4136963b3e5fd2cec6e0e065a729addc69845680943cfd5dd80fe62  libs_clap_juce_extensions-f11e8c3284e7ff2629534148cbd98da9f602bfea.tar.gz
+ac63a448cd851a11e76901a108ed9b19c0a490ecefb0693519c0918dce214b5f23254c9c4e3a98b825707d6f5f7a16e0bb3d68e4c761e5497716246b52a8a2d8  libs_clap_juce_extensions_clap_libs_clap-84ad6fe9739d3070ed0eb05c24be303a899ab813.tar.gz
+a40c4c60dbc471383be12949cbfc2f812c36a0f2b46c278a5afbe12090d9761508532f29e1a3a023111328b3af7214b546403428478ab836fc1688bcbac7bcef  libs_clap_juce_extensions_clap_libs_clap_helpers-2bb43c18788c689708ead6f127a2d75e772ab389.tar.gz
+af3062bfc7a9069f1803e50513c546d3719f75aed1b1e926df460ffd1cb4370e96a1f75d5413d9897a6627c417de60d7fc7f908fd6c19155d3c073d196ae40ce  libs_jucelv2-e825ad977cf4499a7bfa05b97b208236f8fd253b.tar.gz
+a98165dc0f5a0f5448e3dda71102fc21dc8025c894ba34376219310a53cfb14f50f5cf2c1060e89f99d43c5cf2b13022e49d680ce6c3626154ce2365a026c159  libs_json-960b763ecd144f156d05ec61f577b04107290137.tar.gz
+"

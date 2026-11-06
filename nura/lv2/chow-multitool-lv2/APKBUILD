@@ -1,0 +1,105 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# ChowMultiTool: EQ, band splitter, brickwall, signal generator, ... (not in zynthian's engine
+# config). Eigen (a GitLab submodule) is an extra source too.
+# JUCE and the other git submodules are extra sources (nura/tools/gh-submodule-sources.py). LV2
+# only. The plugin has its JUCE GUI built in, so it needs X11 and freetype headers to build (JUCE
+# loads X11 only when the editor opens).
+pkgname=chow-multitool-lv2
+pkgver=1.1.0
+pkgrel=0
+_commit=09b831cf2339aca971ff6e7c6a80c329fa89b49f
+_modules_juce=69795dc8e589a9eb5df251b6dd994859bf7b3fab
+_modules_chowdsp_utils=eda8931719dde558bed10f4010fb3e5b2c67ec71
+_modules_clap_juce_extensions=e72d59a870ab6dea156d4912cbd004b715fca5f7
+_modules_clap_juce_extensions_clap_libs_clap=df8f16c69ba1c1a15fb105f0c5a2e5b9ac6be742
+_modules_clap_juce_extensions_clap_libs_clap_helpers=7b53a685e11465154b4ccba3065224dbcbf8a893
+_modules_chowdsp_wdf=36b5775555af21f0f417d2bc866ba7b4b2788614
+_modules_melatonin_inspector=785d1670add6364d9b7b75f8191a2d8875d8c823
+_eigen=3147391d946bb4b6c68edd901f2add6ac1f31f8c
+pkgdesc="ChowMultiTool EQ, band splitter, signal generator and more (LV2)"
+url="https://github.com/Chowdhury-DSP/ChowMultiTool"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/Chowdhury-DSP/ChowMultiTool/archive/$_commit.tar.gz
+	modules_juce-${_modules_juce}.tar.gz::https://github.com/juce-framework/JUCE/archive/${_modules_juce}.tar.gz
+	modules_chowdsp_utils-${_modules_chowdsp_utils}.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_utils/archive/${_modules_chowdsp_utils}.tar.gz
+	modules_clap_juce_extensions-${_modules_clap_juce_extensions}.tar.gz::https://github.com/free-audio/clap-juce-extensions/archive/${_modules_clap_juce_extensions}.tar.gz
+	modules_clap_juce_extensions_clap_libs_clap-${_modules_clap_juce_extensions_clap_libs_clap}.tar.gz::https://github.com/free-audio/clap/archive/${_modules_clap_juce_extensions_clap_libs_clap}.tar.gz
+	modules_clap_juce_extensions_clap_libs_clap_helpers-${_modules_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz::https://github.com/free-audio/clap-helpers/archive/${_modules_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz
+	modules_chowdsp_wdf-${_modules_chowdsp_wdf}.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_wdf/archive/${_modules_chowdsp_wdf}.tar.gz
+	modules_melatonin_inspector-${_modules_melatonin_inspector}.tar.gz::https://github.com/sudara/melatonin_inspector/archive/${_modules_melatonin_inspector}.tar.gz
+	eigen-$_eigen.tar.gz::https://gitlab.com/libeigen/eigen/-/archive/$_eigen/eigen-$_eigen.tar.gz
+	"
+builddir="$srcdir/ChowMultiTool-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf modules/JUCE && mv "$srcdir"/JUCE-${_modules_juce} modules/JUCE
+	rm -rf modules/chowdsp_utils && mv "$srcdir"/chowdsp_utils-${_modules_chowdsp_utils} modules/chowdsp_utils
+	rm -rf modules/clap-juce-extensions && mv "$srcdir"/clap-juce-extensions-${_modules_clap_juce_extensions} modules/clap-juce-extensions
+	rm -rf modules/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_modules_clap_juce_extensions_clap_libs_clap} modules/clap-juce-extensions/clap-libs/clap
+	rm -rf modules/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_modules_clap_juce_extensions_clap_libs_clap_helpers} modules/clap-juce-extensions/clap-libs/clap-helpers
+	rm -rf modules/chowdsp_wdf && mv "$srcdir"/chowdsp_wdf-${_modules_chowdsp_wdf} modules/chowdsp_wdf
+	rm -rf modules/melatonin_inspector && mv "$srcdir"/melatonin_inspector-${_modules_melatonin_inspector} modules/melatonin_inspector
+	rm -rf modules/eigen && mv "$srcdir"/eigen-$_eigen modules/eigen
+	default_prepare
+	# GCC 15's LTO crashes on it (internal compiler error in write_symbol): no JUCE LTO flags
+	find . -name CMakeLists.txt -not -path './modules/JUCE/*' \
+		-exec sed -i '/juce::juce_recommended_lto_flags/d' {} +
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release 
+	# at most 3 jobs: the JUCE translation units need ~1 GB each (the Duet has 4 GB)
+	cmake --build build --parallel 3 --target ChowMultiTool_LV2
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	# bundle names can contain spaces ("Ultramaster KR-106.lv2")
+	find build -type d -path '*/LV2/*.lv2' -prune -exec cp -r {} "$pkgdir"/usr/lib/lv2/ \;
+}
+sha512sums="
+75b9edcb50fe259b1261f4541b3e22322bf315c92ba84b8fdb1de1a4e7e3da2063f5c96dfcc86c9503c60987063c13985911a08e0be08b98b681ed29904906c3  chow-multitool-lv2-09b831cf2339aca971ff6e7c6a80c329fa89b49f.tar.gz
+590b087da60290afe5e64c7afedf0e43fb52710cdf22af6a0bbb3025b7de107609e5125f4ea19001e302afe2754dcf5f48903348d15861c2df54620bf8405ba6  modules_juce-69795dc8e589a9eb5df251b6dd994859bf7b3fab.tar.gz
+75a969b60e865dca73e9b4b707b947d35959508d0f023039703fe6d2a6b545126767ecfe945d1efe144c17c3342e2d15eecb32cdf235bd9d7e0118f47d0d510d  modules_chowdsp_utils-eda8931719dde558bed10f4010fb3e5b2c67ec71.tar.gz
+abb31814813a29d0b54b825bbc5f1fd712b3cfaa4b00df3f0d4c210257ccb3866fc61078fed06312baae37c86cd9100ce45d2ddde38922b191a4a557ef7830fc  modules_clap_juce_extensions-e72d59a870ab6dea156d4912cbd004b715fca5f7.tar.gz
+307c6c31268710a90460c47280611d72950bc6e8df121399aad913ff68269557396ed203e4f50a5835bcfaa6f3c80283133ea9f4695104af99cdcbeb47041226  modules_clap_juce_extensions_clap_libs_clap-df8f16c69ba1c1a15fb105f0c5a2e5b9ac6be742.tar.gz
+ebd98de0c70446e32ec3a2757ba1431d2aadb9135353d8da4c8965210a145d4f756941fea3e595df81d420d65516f13e9201b9c76560f8cbaa39d1de2b9cc237  modules_clap_juce_extensions_clap_libs_clap_helpers-7b53a685e11465154b4ccba3065224dbcbf8a893.tar.gz
+8f127cfe1e56409a062e4d87c4981002f150c459449d3d8e88eaf528ff244438e5c30fc036da20ed98dcd71e7dbe967f1d319bec9d64aa97f0f28902fa956ca4  modules_chowdsp_wdf-36b5775555af21f0f417d2bc866ba7b4b2788614.tar.gz
+d862ce2e587523d0f0a98f01c4cae9d3ddd8c7ca1cd4526d8243bb1e41d1f44fc4d21f10bc86699054f41005619fb1796d47d69ac04a8d0613abdc418c637619  modules_melatonin_inspector-785d1670add6364d9b7b75f8191a2d8875d8c823.tar.gz
+c16161558323c340bf48d18bb28e78f45a505ea0d9579ef746c78c5513b84af92db6435dd839573cc27c8558de83ad7c25b5d57e1b74677f3022c0dc4f6d3765  eigen-3147391d946bb4b6c68edd901f2add6ac1f31f8c.tar.gz
+"

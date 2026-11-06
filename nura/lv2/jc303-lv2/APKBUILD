@@ -1,0 +1,107 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# JC303, a Roland TB-303 emulation based on Open303 (URI http://github.com/midilab/JC303; zynthian's
+# recipe install_jc303.sh). Its CMake fetches JUCE, clap-juce-extensions, chowdsp_utils, RTNeural,
+# math_approx and Variant with
+# FetchContent at configure time: here they are extra sources at the pinned versions, given to
+# FetchContent as FETCHCONTENT_SOURCE_DIR_* (no network during the build). LV2 only. The plugin
+# has its JUCE GUI built in, so it needs X11 and freetype headers to build.
+pkgname=jc303-lv2
+pkgver=0.13.0
+pkgrel=0
+_juce=8.0.5
+_clapjuce=a3227c52fa082d2df33f4377ed1e050dd8a52595
+_clap=df8f16c69ba1c1a15fb105f0c5a2e5b9ac6be742
+_claphelpers=7b53a685e11465154b4ccba3065224dbcbf8a893
+_chowdsp=ffc70ba399f9afaeefb996eb14e55a1d487270b8
+# src/dsp/guitarml-byod fetches these
+_rtneural=04cb333bc4b174760958a77c7ce076eae38fe8e4
+_xsimd=a00c81f7b9e808a42aedcf7da2fbb1f9a636da34
+_mathapprox=0c68d4d17242d707ba07fa7f1901692b7ed72d58
+_variant=3fce49cfca50ba3b05026d41ffc4911a8e653378
+pkgdesc="JC303 TB-303 bass line synthesizer (LV2)"
+url="https://github.com/midilab/jc303"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	samurai
+	"
+source="$pkgname-$pkgver.tar.gz::https://github.com/midilab/jc303/archive/v$pkgver.tar.gz
+	juce-$_juce.tar.gz::https://github.com/juce-framework/JUCE/archive/$_juce.tar.gz
+	clap-juce-extensions-$_clapjuce.tar.gz::https://github.com/free-audio/clap-juce-extensions/archive/$_clapjuce.tar.gz
+	clap-$_clap.tar.gz::https://github.com/free-audio/clap/archive/$_clap.tar.gz
+	clap-helpers-$_claphelpers.tar.gz::https://github.com/free-audio/clap-helpers/archive/$_claphelpers.tar.gz
+	chowdsp_utils-$_chowdsp.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_utils/archive/$_chowdsp.tar.gz
+	rtneural-$_rtneural.tar.gz::https://github.com/jatinchowdhury18/RTNeural/archive/$_rtneural.tar.gz
+	xsimd-$_xsimd.tar.gz::https://github.com/xtensor-stack/xsimd/archive/$_xsimd.tar.gz
+	math_approx-$_mathapprox.tar.gz::https://github.com/Chowdhury-DSP/math_approx/archive/$_mathapprox.tar.gz
+	variant-$_variant.tar.gz::https://github.com/eyalamirmusic/Variant/archive/$_variant.tar.gz
+	"
+builddir="$srcdir/jc303-$pkgver"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	local c="$srcdir"/clap-juce-extensions-$_clapjuce
+	rm -rf "$c"/clap-libs/clap "$c"/clap-libs/clap-helpers
+	mv "$srcdir"/clap-$_clap "$c"/clap-libs/clap
+	mv "$srcdir"/clap-helpers-$_claphelpers "$c"/clap-libs/clap-helpers
+	rm -rf "$srcdir"/RTNeural-$_rtneural/modules/xsimd
+	mv "$srcdir"/xsimd-$_xsimd "$srcdir"/RTNeural-$_rtneural/modules/xsimd
+	default_prepare
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release \
+		-DFETCHCONTENT_FULLY_DISCONNECTED=ON \
+		-DFETCHCONTENT_SOURCE_DIR_JUCE="$srcdir"/JUCE-$_juce \
+		-DFETCHCONTENT_SOURCE_DIR_JUCE-CLAP-EXTENSIONS="$srcdir"/clap-juce-extensions-$_clapjuce \
+		-DFETCHCONTENT_SOURCE_DIR_CHOWDSP_UTILS="$srcdir"/chowdsp_utils-$_chowdsp \
+		-DFETCHCONTENT_SOURCE_DIR_RTNEURAL="$srcdir"/RTNeural-$_rtneural \
+		-DFETCHCONTENT_SOURCE_DIR_MATH_APPROX="$srcdir"/math_approx-$_mathapprox \
+		-DFETCHCONTENT_SOURCE_DIR_EA_VARIANT="$srcdir"/Variant-$_variant
+	# at most 3 jobs: the JUCE translation units need ~1 GB each (the Duet has 4 GB)
+	cmake --build build --parallel 3 --target JC303_LV2
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	# bundle names can contain spaces ("Ultramaster KR-106.lv2")
+	find build -type d -path '*/LV2/*.lv2' -prune -exec cp -r {} "$pkgdir"/usr/lib/lv2/ \;
+}
+sha512sums="
+7be9eb0c2f8eb6e588d73068e695d05d8bb7aa893a7dbbb6f3fddefbabc1adca79316d46dd0f9586042240bcf823cc8ceea31ca5d9e3c7e72360d05f169a87fb  jc303-lv2-0.13.0.tar.gz
+ed4011169824d9b2fdd17fefa12b47fe0d9ddcfc1664de29d7c5f75b31053c96c2a10718768fd838dd05cfa3be55cd0db9eb16c7fc58164c708a6587abd3e5e4  juce-8.0.5.tar.gz
+138268956d1b8c2af098033170d4c91e8424bf11ad2f7a15739b784cb861278628bc2c71ddff3b28500cc49fed0d13f6b2720ba918532b42c96960a0f0a137c8  clap-juce-extensions-a3227c52fa082d2df33f4377ed1e050dd8a52595.tar.gz
+307c6c31268710a90460c47280611d72950bc6e8df121399aad913ff68269557396ed203e4f50a5835bcfaa6f3c80283133ea9f4695104af99cdcbeb47041226  clap-df8f16c69ba1c1a15fb105f0c5a2e5b9ac6be742.tar.gz
+ebd98de0c70446e32ec3a2757ba1431d2aadb9135353d8da4c8965210a145d4f756941fea3e595df81d420d65516f13e9201b9c76560f8cbaa39d1de2b9cc237  clap-helpers-7b53a685e11465154b4ccba3065224dbcbf8a893.tar.gz
+3560b832adefd212a5f31b4d49a6fc9d8f8dd10866776672cb6b4bd89b4adb794cb7696e33fc8e9700a7561306ed6dc67b51ddaef5c5a68f50a9a6d073cd953e  chowdsp_utils-ffc70ba399f9afaeefb996eb14e55a1d487270b8.tar.gz
+fc1d27f15e7465f15eef94fb80432068fdf742ea9a2a7c31844ece68436ab60ac8e0de35a8b07344aa82a2ea5e92eea4e6bebe7772e7d9833bb4f3b433eeb17a  rtneural-04cb333bc4b174760958a77c7ce076eae38fe8e4.tar.gz
+c2314ac43a71e5274f66e8e8da5d533c0a3edd25d8306672091a12db627862e069503c1e94ad8283bd127624ce6a02be7bb84870cc0c2a5391b5643d5be9479e  xsimd-a00c81f7b9e808a42aedcf7da2fbb1f9a636da34.tar.gz
+6ce4904568d01f2a23bbccf10e06fbb998a5f6c6af9428b56d9081052e97e92b2c54ee80001026559c57e79ae438055be8c1e1fe3156317b70f5172b7541c227  math_approx-0c68d4d17242d707ba07fa7f1901692b7ed72d58.tar.gz
+b1406795866de4c8e79cd193924f9fb1eab72a657ed8b5f705fa125d2ac46083c1e16bfc0461d69d39b9e45a6494229243428f68d1df7ad1f8017669c77bc62d  variant-3fce49cfca50ba3b05026d41ffc4911a8e653378.tar.gz
+"

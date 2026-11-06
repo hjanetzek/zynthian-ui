@@ -1,0 +1,87 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Ultramaster KR-106 (URI https://kayrock.org/kr106; zynthian's recipe
+# install_Ultramaster_KR-106.sh).
+# JUCE and the other git submodules are extra sources (nura/tools/gh-submodule-sources.py). LV2
+# only. The plugin has its JUCE GUI built in, so it needs X11 and freetype headers to build (JUCE
+# loads X11 only when the editor opens).
+pkgname=kr106-lv2
+pkgver=2.5.13
+pkgrel=0
+_commit=bc15caee5843ab238a25d0969e68d57db2b1615f
+_libs_juce=501c07674e1ad693085a7e7c398f205c2677f5da
+_libs_clap_juce_extensions=e1f67893cc409a40c1154fa2e78c97046da24ce0
+_libs_clap_juce_extensions_clap_libs_clap=29ffcc273be7c7c651f6c9953b99e69700e2387a
+_libs_clap_juce_extensions_clap_libs_clap_helpers=a61bcdf0ecc2c8db1e80bfe8bf9cb7e8d9fd2bbc
+pkgdesc="Ultramaster KR-106 Juno-106 style synthesizer (LV2)"
+url="https://github.com/kayrockscreenprinting/ultramaster_kr106"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/kayrockscreenprinting/ultramaster_kr106/archive/$_commit.tar.gz
+	libs_juce-${_libs_juce}.tar.gz::https://github.com/juce-framework/JUCE/archive/${_libs_juce}.tar.gz
+	libs_clap_juce_extensions-${_libs_clap_juce_extensions}.tar.gz::https://github.com/free-audio/clap-juce-extensions/archive/${_libs_clap_juce_extensions}.tar.gz
+	libs_clap_juce_extensions_clap_libs_clap-${_libs_clap_juce_extensions_clap_libs_clap}.tar.gz::https://github.com/free-audio/clap/archive/${_libs_clap_juce_extensions_clap_libs_clap}.tar.gz
+	libs_clap_juce_extensions_clap_libs_clap_helpers-${_libs_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz::https://github.com/free-audio/clap-helpers/archive/${_libs_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz
+	"
+builddir="$srcdir/ultramaster_kr106-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf libs/JUCE && mv "$srcdir"/JUCE-${_libs_juce} libs/JUCE
+	rm -rf libs/clap-juce-extensions && mv "$srcdir"/clap-juce-extensions-${_libs_clap_juce_extensions} libs/clap-juce-extensions
+	rm -rf libs/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_libs_clap_juce_extensions_clap_libs_clap} libs/clap-juce-extensions/clap-libs/clap
+	rm -rf libs/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_libs_clap_juce_extensions_clap_libs_clap_helpers} libs/clap-juce-extensions/clap-libs/clap-helpers
+	sed -i 's/set(KR106_FORMATS AU VST3 LV2 Standalone)/set(KR106_FORMATS LV2)/' CMakeLists.txt
+	default_prepare
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release -DKR106_COPY_AFTER_BUILD=OFF
+	# at most 3 jobs: the JUCE translation units need ~1 GB each (the Duet has 4 GB)
+	cmake --build build --parallel 3 --target KR106_LV2
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	# bundle names can contain spaces ("Ultramaster KR-106.lv2")
+	find build -type d -path '*/LV2/*.lv2' -prune -exec cp -r {} "$pkgdir"/usr/lib/lv2/ \;
+}
+sha512sums="
+5ab46712534f3027f41c881591822691a683ea6908433f15e96b7a88573f130df3d52addc37fddf898d0866f19bd68106f522da970e16dab831ee3168dca51e5  kr106-lv2-bc15caee5843ab238a25d0969e68d57db2b1615f.tar.gz
+ca0693f0c34f3c3808409f4a85031c52e5ca9085896c03c05900421426ff863947e492c922c2c78fdfec32c71f7921a345ccd4dd23dc97f5698baf8e2cae64e4  libs_juce-501c07674e1ad693085a7e7c398f205c2677f5da.tar.gz
+cbcf5469a02c0356dd8a2d78ffad4cf0d52df128882ce14e54840d8d269a196572c70c67196f2ffd93e56c303e3d27d3bd53c7c934b44a792e2937584cc619fe  libs_clap_juce_extensions-e1f67893cc409a40c1154fa2e78c97046da24ce0.tar.gz
+003b726551d8db673e6cda71a5b4c90e6205db17f2a7fbd8e4c8d04ac85576cbbf53a657fe6cb4823ac130ea0408da17ab394e8337be5653baa04033ca7f29f2  libs_clap_juce_extensions_clap_libs_clap-29ffcc273be7c7c651f6c9953b99e69700e2387a.tar.gz
+ce30948ec694f1d7562adea93cff001e7ecf70ab5db5095584a38ce0b6621d2ef50f0ae407f9491939b884b6635258859c77f3879e1d29dbf4dbdf381c6e968c  libs_clap_juce_extensions_clap_libs_clap_helpers-a61bcdf0ecc2c8db1e80bfe8bf9cb7e8d9fd2bbc.tar.gz
+"

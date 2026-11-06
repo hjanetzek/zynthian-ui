@@ -1,0 +1,100 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Monique monosynth (URI https://surge-synthesizer.github.io/lv2/MoniqueMonosynth; zynthian's
+# recipe install_monique_monosynth.sh: BUILD_LV2).
+# JUCE and the other git submodules are extra sources (nura/tools/gh-submodule-sources.py). LV2
+# only. The plugin has its JUCE GUI built in, so it needs X11 and freetype headers to build (JUCE
+# loads X11 only when the editor opens).
+pkgname=monique-lv2
+pkgver=0_git20240730
+pkgrel=0
+_commit=df7d3395bce862847d40237350d0161a463dcc0d
+_libs_juce=4f43011b96eb0636104cb3e433894cda98243626
+_libs_oddsound_mts_mts_esp=0be85cfa338f6ed85019b22541dd4135869061ca
+_libs_sst_sst_plugininfra=0d3c84f16324c9da80d02bd421e945c87b661694
+_libs_sst_sst_plugininfra_libs_filesystem_ghc_filesystem=614bbe87b80435d87ab8791564370e0c1d13627d
+_libs_clap_juce_extensions=0a3e7a6494788ea525e95e12a8b6a51640dcdc3e
+_libs_clap_juce_extensions_clap_libs_clap=df8f16c69ba1c1a15fb105f0c5a2e5b9ac6be742
+_libs_clap_juce_extensions_clap_libs_clap_helpers=7b53a685e11465154b4ccba3065224dbcbf8a893
+pkgdesc="Monique monosynth (LV2)"
+url="https://github.com/surge-synthesizer/monique-monosynth"
+arch="aarch64 x86_64"
+license="GPL-3.0-only OR MIT"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/surge-synthesizer/monique-monosynth/archive/$_commit.tar.gz
+	libs_juce-${_libs_juce}.tar.gz::https://github.com/juce-framework/JUCE/archive/${_libs_juce}.tar.gz
+	libs_oddsound_mts_mts_esp-${_libs_oddsound_mts_mts_esp}.tar.gz::https://github.com/ODDSound/MTS-ESP/archive/${_libs_oddsound_mts_mts_esp}.tar.gz
+	libs_sst_sst_plugininfra-${_libs_sst_sst_plugininfra}.tar.gz::https://github.com/surge-synthesizer/sst-plugininfra/archive/${_libs_sst_sst_plugininfra}.tar.gz
+	libs_sst_sst_plugininfra_libs_filesystem_ghc_filesystem-${_libs_sst_sst_plugininfra_libs_filesystem_ghc_filesystem}.tar.gz::https://github.com/gulrak/filesystem/archive/${_libs_sst_sst_plugininfra_libs_filesystem_ghc_filesystem}.tar.gz
+	libs_clap_juce_extensions-${_libs_clap_juce_extensions}.tar.gz::https://github.com/free-audio/clap-juce-extensions/archive/${_libs_clap_juce_extensions}.tar.gz
+	libs_clap_juce_extensions_clap_libs_clap-${_libs_clap_juce_extensions_clap_libs_clap}.tar.gz::https://github.com/free-audio/clap/archive/${_libs_clap_juce_extensions_clap_libs_clap}.tar.gz
+	libs_clap_juce_extensions_clap_libs_clap_helpers-${_libs_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz::https://github.com/free-audio/clap-helpers/archive/${_libs_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz
+	"
+builddir="$srcdir/monique-monosynth-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf libs/JUCE && mv "$srcdir"/JUCE-${_libs_juce} libs/JUCE
+	rm -rf libs/oddsound-mts/MTS-ESP && mv "$srcdir"/MTS-ESP-${_libs_oddsound_mts_mts_esp} libs/oddsound-mts/MTS-ESP
+	rm -rf libs/sst/sst-plugininfra && mv "$srcdir"/sst-plugininfra-${_libs_sst_sst_plugininfra} libs/sst/sst-plugininfra
+	rm -rf libs/sst/sst-plugininfra/libs/filesystem/ghc-filesystem && mv "$srcdir"/filesystem-${_libs_sst_sst_plugininfra_libs_filesystem_ghc_filesystem} libs/sst/sst-plugininfra/libs/filesystem/ghc-filesystem
+	rm -rf libs/clap-juce-extensions && mv "$srcdir"/clap-juce-extensions-${_libs_clap_juce_extensions} libs/clap-juce-extensions
+	rm -rf libs/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_libs_clap_juce_extensions_clap_libs_clap} libs/clap-juce-extensions/clap-libs/clap
+	rm -rf libs/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_libs_clap_juce_extensions_clap_libs_clap_helpers} libs/clap-juce-extensions/clap-libs/clap-helpers
+	sed -i 's/set(MONIQUE_JUCE_FORMATS CLAP VST3 Standalone)/set(MONIQUE_JUCE_FORMATS)/' CMakeLists.txt
+	default_prepare
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-error=cpp: Monique builds with -Werror, and musl's <sys/errno.h> warns (#warning)
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body -Wno-error=cpp \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release -DBUILD_LV2=TRUE
+	# at most 3 jobs: the JUCE translation units need ~1 GB each (the Duet has 4 GB)
+	cmake --build build --parallel 3 --target MoniqueMonosynth_LV2
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	# bundle names can contain spaces ("Ultramaster KR-106.lv2")
+	find build -type d -path '*/LV2/*.lv2' -prune -exec cp -r {} "$pkgdir"/usr/lib/lv2/ \;
+}
+sha512sums="
+b80570706ab547df8bfe891e7b6af1dec1d9051c029f4236926d19908d638f1d7128648024b63de186b472bef82b7edf81a0b05e2803b44f776fb7bc0a53f2ba  monique-lv2-df7d3395bce862847d40237350d0161a463dcc0d.tar.gz
+7047309841032f69efb843a2bca02b9cbee859dd5ecca482dd44f2d1397afb716e5e19c69c7fa46a717770d41883e1c53e6c758763f86d0f9bf326427d8b27f1  libs_juce-4f43011b96eb0636104cb3e433894cda98243626.tar.gz
+b5f3197163f43611eb803683eabcd736515eb9cb38b79537e26b2d815aabd3d65ad909eb154a359fd8c71e256d61ae8f24ca2f3b8a13afd48526d8b2db5ccbd5  libs_oddsound_mts_mts_esp-0be85cfa338f6ed85019b22541dd4135869061ca.tar.gz
+f827614e003a4b5aced524baa85a84618fe6140bcb243f90d51c9c791ed5107eddf36d21ca25e442975577718a4817518b446ac225c69a869b5a3f6fd04756f3  libs_sst_sst_plugininfra-0d3c84f16324c9da80d02bd421e945c87b661694.tar.gz
+6190a994ce7296a7e0c29d1e079de9dbf5a16667f6339b52b4b2c537ba569f53fc12ee1c361ec1f38474c263a0b7aa995a95d41da9bf6cedc78c6231ce586b70  libs_sst_sst_plugininfra_libs_filesystem_ghc_filesystem-614bbe87b80435d87ab8791564370e0c1d13627d.tar.gz
+fa49f072930729e9323dfc1bda8feadf918934ce611e5abcd79508bc73032163b82ef9444ba7b5b5294c6e034327419b7d2d5b39d51f4e655c1a8e0258ffa882  libs_clap_juce_extensions-0a3e7a6494788ea525e95e12a8b6a51640dcdc3e.tar.gz
+307c6c31268710a90460c47280611d72950bc6e8df121399aad913ff68269557396ed203e4f50a5835bcfaa6f3c80283133ea9f4695104af99cdcbeb47041226  libs_clap_juce_extensions_clap_libs_clap-df8f16c69ba1c1a15fb105f0c5a2e5b9ac6be742.tar.gz
+ebd98de0c70446e32ec3a2757ba1431d2aadb9135353d8da4c8965210a145d4f756941fea3e595df81d420d65516f13e9201b9c76560f8cbaa39d1de2b9cc237  libs_clap_juce_extensions_clap_libs_clap_helpers-7b53a685e11465154b4ccba3065224dbcbf8a893.tar.gz
+"

@@ -219,10 +219,11 @@ The plugin packages depend on their data, so `apk add avldrums-lv2` installs a w
   image.
 - **SooperLooper:** zynthian runs SooperLooper as its own engine (`zynthian_engine_sooperlooper`:
   the `sooperlooper` binary, controlled over OSC, with the `zynthian_widget_sooperlooper` widget),
-  not as a plugin. Better to make it work with the SooperLooper LV2 version
+  not as a plugin. Packaged headless (`nura/engines/sooperlooper`: SooperLooper 1.7.9, Debian's
+  source and patches, without the wxWidgets GUI; `musl-fts` for `fts.h`), so the engine works on
+  Nura as on ZynthianOS. Later perhaps better to make it work with the SooperLooper LV2 version
   (`sooperlooper.lv2`, AUR `sooperlooper.lv2-git`) through the jalv engine: one fewer separate
-  program and OSC link, chains and snapshots like any other plugin, and no wxWidgets-era
-  package to build for Nura. Needs a look at what the engine and widget use (loop state,
+  program and OSC link, chains and snapshots like any other plugin. Needs a look at what the engine and widget use (loop state,
   positions, multiple loops) and whether the LV2 version exposes it as ports. Meanwhile the
   widget is ported to the Qt UI for the current engine (5bce848a; desktop: AUR `sooperlooper-headless`).
 - **Pure Data:** the puredata engine (`zynthian_engine_puredata`, patches in

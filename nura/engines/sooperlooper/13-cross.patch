@@ -1,0 +1,76 @@
+From: Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>
+Date: Mon, 26 Oct 2026 16:00:00 +0100
+Subject: Fix cross-compilation by guarding CoreMIDI check
+Description: Avoid AC_CHECK_FILE failure during cross-compilation
+ AC_CHECK_FILE refuses to check file existence when cross-compiling,
+ which causes configure to fail with "cannot check for file existence
+ when cross compiling" on the CoreMIDI framework path.  CoreMIDI is
+ macOS-only, so the check is meaningless on Linux and during cross-
+ builds.  Guard it with a cross_compiling check and restrict it to
+ darwin host systems.
+Last-Update: 2026-10-26
+Forwarded: https://github.com/essej/sooperlooper/pull/61
+
+---
+--- a/configure.ac
++++ b/configure.ac
+@@ -342,11 +342,23 @@
+         AM_CONDITIONAL(WITH_ALSA, test x$use_alsa_midi = xyes)
+ 
+       dnl  AC_CHECK_FILE(/System/Library/Frameworks/CoreMIDI.framework/Headers/CoreMIDI.h, 
+-	AC_CHECK_FILE(/System/Library/Frameworks/CoreMIDI.framework,       
+-                      [use_coremidi=yes
+-                       AUDIO_LIBS="-framework CoreMIDI -framework CoreFoundation -framework CoreServices -framework ApplicationServices -framework Accelerate"
+-                       AC_DEFINE([WITH_COREMIDI], 1, [Have CoreMIDI Headers])],
+-                       use_coremidi=no)
++	dnl CoreMIDI is macOS-only and AC_CHECK_FILE does not work when
++	dnl cross-compiling, so guard the check accordingly.
++	use_coremidi=no
++	if test "x$cross_compiling" != "xyes"; then
++	  case "$host_os" in
++	    darwin*)
++	      AC_CHECK_FILE(/System/Library/Frameworks/CoreMIDI.framework,
++	                    [use_coremidi=yes
++	                     AUDIO_LIBS="-framework CoreMIDI -framework CoreFoundation -framework CoreServices -framework ApplicationServices -framework Accelerate"
++	                     AC_DEFINE([WITH_COREMIDI], 1, [Have CoreMIDI Headers])],
++	                     use_coremidi=no)
++	      ;;
++	    *)
++	      use_coremidi=no
++	      ;;
++	  esac
++	fi
+         AM_CONDITIONAL(WITH_COREMIDI, test x$use_coremidi = xyes)
+         AC_SUBST(AUDIO_LIBS)
+ 
+--- a/libs/midi++/configure.ac
++++ b/libs/midi++/configure.ac
+@@ -213,11 +213,23 @@
+ AM_CONDITIONAL(WITH_ALSA, test x$use_alsa_midi = xyes)
+ 
+ dnl AC_CHECK_FILE(/System/Library/Frameworks/CoreMIDI.framework/Headers/CoreMIDI.h, 
+-AC_CHECK_FILE(/System/Library/Frameworks/CoreMIDI.framework, 
+-		[use_coremidi=yes
+-		AUDIO_LIBS="-framework CoreMIDI"
+-		AC_DEFINE([WITH_COREMIDI], 1, [Have CoreMIDI Headers])],
+-	use_coremidi=no)
++dnl CoreMIDI is macOS-only and AC_CHECK_FILE does not work when
++dnl cross-compiling, so guard the check accordingly.
++use_coremidi=no
++if test "x$cross_compiling" != "xyes"; then
++  case "$host_os" in
++    darwin*)
++      AC_CHECK_FILE(/System/Library/Frameworks/CoreMIDI.framework,
++              [use_coremidi=yes
++              AUDIO_LIBS="-framework CoreMIDI"
++              AC_DEFINE([WITH_COREMIDI], 1, [Have CoreMIDI Headers])],
++              use_coremidi=no)
++      ;;
++    *)
++      use_coremidi=no
++      ;;
++  esac
++fi
+ AM_CONDITIONAL(WITH_COREMIDI, test x$use_coremidi = xyes)
+ 
+ AC_SUBST(AUDIO_LIBS)

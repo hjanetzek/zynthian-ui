@@ -55,8 +55,9 @@ nura/seed-distfiles.sh ~/.config/pmbootstrap-zynthian.cfg
 ### Engines
 
 Alpine packages fluidsynth, calf, x42-plugins, mda-lv2 and pure-data; jalv, sfizz and a2jmidid
-are in `testing`. zynaddsubfx, setBfree, Aeolus, sooperlooper, linuxsampler and dragonfly-reverb
-are not packaged yet. The kiosk package depends on the first group (without pure-data and
+are in `testing`. ZynAddSubFX, setBfree and SooperLooper are packaged in `nura/engines/`,
+Dragonfly Reverb in `nura/lv2/`; Aeolus and linuxsampler are not packaged yet. The kiosk package
+depends on the first group and on these (without pure-data and
 a2jmidid: PipeWire bridges ALSA MIDI itself).
 
 zynthian-data contains prebuilt binaries for ZynthianOS (glibc, ARM): Pure Data externals and a

@@ -1,0 +1,67 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# SooperLooper, the looper zynthian runs as its own engine (zynthian_engine_sooperlooper: the
+# `sooperlooper` binary controlled over OSC; Debian's sooperlooper on ZynthianOS). Debian's source
+# and patches (no dmalloc, current liblo API, missing ALSA sequencer, cross); without the wxWidgets
+# GUI (slgui), as zynthian has its own widget.
+pkgname=sooperlooper
+pkgver=1.7.9
+pkgrel=0
+_debver=1.7.9+dfsg
+pkgdesc="Live looping sampler (headless, controlled over OSC)"
+url="https://sonosaurus.com/sooperlooper/"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="
+	alsa-lib-dev
+	autoconf
+	automake
+	fftw-dev
+	gettext-dev
+	jack-dev
+	libsamplerate-dev
+	libsigc++-dev
+	libsndfile-dev
+	libtool
+	liblo-dev
+	libxml2-dev
+	musl-fts-dev
+	ncurses-dev
+	rubberband-dev
+	"
+source="https://deb.debian.org/debian/pool/main/s/sooperlooper/sooperlooper_$_debver.orig.tar.xz
+	02-remove_dmalloc.patch
+	11-fix_liblo_OSC_API_compatibility.patch
+	12-handle-missing-alsa-sequencer.patch
+	13-cross.patch
+	"
+builddir="$srcdir/essej-sooperlooper-92515b2"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	sh ./autogen.sh
+}
+
+build() {
+	# C++11 as Debian builds it (old code, e.g. std::auto_ptr-era idioms)
+	export CXXFLAGS="$CXXFLAGS -std=gnu++11"
+	# fts(3) (libs/pbd/ftw.cc) is a separate library on musl
+	export LIBS="-lfts"
+	./configure \
+		--build=$CBUILD \
+		--host=$CHOST \
+		--prefix=/usr \
+		--without-gui
+	make
+}
+
+package() {
+	make DESTDIR="$pkgdir" install
+}
+sha512sums="
+5d2cdafa9ba7f5894b328b2e09b934271c0a22535833a49c66e0923d00470de4089daf9da7be4c295a5ffdfdee6bd4ebc52dc4ed7cdd4883ec05d582929c10bc  sooperlooper_1.7.9+dfsg.orig.tar.xz
+6708237f0130bf6ff4e622d21176f82c4e019188b95db395d920ce53203fa9e415a546b52ce34b37afbc01ae03a8b7d1fd51faaf5cb1d54d5d207ec7e0782578  02-remove_dmalloc.patch
+77ed9692b13686f46cb47e903e7cd8867d11b75007c96306d92949dee244aa4029739733eb192d88852084245d5c9bf5841d456a9ef4b49298db9ee0f79b215d  11-fix_liblo_OSC_API_compatibility.patch
+28558a9673e0ace991018173565be261340543711a1b7683b2e9f6c7c7ec736f941b7f2c74711064be7c0a2be4755cf6dd29d00b39d0e2b4a4ae97beaee8ae7c  12-handle-missing-alsa-sequencer.patch
+4a6181ac0c27aca5cf6c0e832a5fac9038ab853b848e2011641c3aacfee06d8e64264d4e02026cc2f1447abad3cb8a3b4a84fb3703e5fb6725e1a989118575e0  13-cross.patch
+"

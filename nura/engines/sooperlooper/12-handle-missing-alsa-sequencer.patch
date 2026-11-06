@@ -1,0 +1,124 @@
+From: Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>
+Date: Wed, 21 Oct 2026 23:50:00 +0200
+Subject: Handle unavailable ALSA sequencer gracefully
+
+Last-Update: 2026-10-21
+---
+ libs/midi++/alsa_sequencer_midiport.cc | 19 ++++++++++++++++++-
+ libs/midi++/midifactory.cc             |  6 ++++++
+ src/midi_bridge.cpp                    | 15 +++++++++++++--
+ 3 files changed, 37 insertions(+), 3 deletions(-)
+
+diff --git a/libs/midi++/alsa_sequencer_midiport.cc b/libs/midi++/alsa_sequencer_midiport.cc
+index e6447c1..6456333 100644
+--- a/libs/midi++/alsa_sequencer_midiport.cc
++++ b/libs/midi++/alsa_sequencer_midiport.cc
+@@ -74,6 +74,11 @@ ALSA_SequencerMidiPort::~ALSA_SequencerMidiPort ()
+ int ALSA_SequencerMidiPort::selectable () const
+ {
+ 	struct pollfd pfd[1];
++
++	if (!seq) {
++		return -1;
++	}
++
+ 	if (0 <= snd_seq_poll_descriptors (seq, pfd, 1, POLLIN | POLLOUT)) {
+ 		return pfd[0].fd;
+ 	}
+@@ -85,6 +90,11 @@ int ALSA_SequencerMidiPort::write (byte *msg, size_t msglen)
+ 	TR_FN ();
+ 	int R;
+ 	int totwritten = 0;
++
++	if (!seq) {
++		return -1;
++	}
++
+ 	snd_midi_event_reset_encode (encoder);
+ 	int nwritten = snd_midi_event_encode (encoder, msg, msglen, &SEv);
+ 	TR_VAL (nwritten);
+@@ -124,6 +134,11 @@ int ALSA_SequencerMidiPort::read (byte *buf, size_t max)
+ 	TR_FN();
+ 	int err;
+ 	snd_seq_event_t *ev;
++
++	if (!seq) {
++		return -1;
++	}
++
+ 	if (0 <= (err = snd_seq_event_input (seq, &ev))) {
+ 		TR_VAL(err);
+ 		err = snd_midi_event_decode (decoder, buf, max, ev);
+@@ -161,8 +176,10 @@ int ALSA_SequencerMidiPort::CreatePorts (PortRequest &req)
+ 			snd_seq_ev_set_source (&SEv, port_id);
+ 			snd_seq_ev_set_subs (&SEv);
+ 			snd_seq_ev_set_direct (&SEv);
+-		} else 
++		} else {
+ 			snd_seq_close (seq);
++			seq = 0;
++		}
+ 	}
+ 	return err;
+ }
+diff --git a/libs/midi++/midifactory.cc b/libs/midi++/midifactory.cc
+index b4c4d9c..10d352e 100644
+--- a/libs/midi++/midifactory.cc
++++ b/libs/midi++/midifactory.cc
+@@ -76,6 +76,12 @@ PortFactory::create_port (PortRequest &req)
+ 		return 0;
+ 	}
+ 
++	if (!port->ok()) {
++		req.status = PortRequest::Unknown;
++		delete port;
++		return 0;
++	}
++
+ 	req.status = PortRequest::OK;
+ 
+ 	return port;
+diff --git a/src/midi_bridge.cpp b/src/midi_bridge.cpp
+index faad745..f54ee75 100644
+--- a/src/midi_bridge.cpp
++++ b/src/midi_bridge.cpp
+@@ -86,6 +86,7 @@ MidiBridge::MidiBridge (string name, string oscurl, PortRequest & req)
+ 	_output_clock = false;
+ 	_getnext = false;
+ 	_feedback_out = false;
++	_ok = false;
+ 
+ 	_addr = lo_address_new_from_url (_oscurl.c_str());
+ 	if (lo_address_errno (_addr) < 0) {
+@@ -96,7 +97,12 @@ MidiBridge::MidiBridge (string name, string oscurl, PortRequest & req)
+ 
+ 	PortFactory factory;
+ 	
+-	if ((_port = factory.create_port (req)) == 0) {
++	if ((_port = factory.create_port (req)) == 0 || !_port->ok()) {
++		cerr << "failed to create MIDI port" << endl;
++		if (_port) {
++			delete _port;
++			_port = 0;
++		}
+ 		return;
+ 	}
+ 
+@@ -125,11 +131,16 @@ MidiBridge::MidiBridge (string name,  PortRequest & req)
+ 	_output_clock = false;
+ 	_getnext = false;
+ 	_feedback_out = false;
++	_ok = false;
+ 
+ 	PortFactory factory;
+ 	
+-	if ((_port = factory.create_port (req)) == 0) {
++	if ((_port = factory.create_port (req)) == 0 || !_port->ok()) {
+ 		cerr << "failed to create port" << endl;
++		if (_port) {
++			delete _port;
++			_port = 0;
++		}
+ 		return;
+ 	}
+ 

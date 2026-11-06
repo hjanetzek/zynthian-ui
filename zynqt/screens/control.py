@@ -12,6 +12,7 @@ from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
 from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
+from zyngui import zynthian_sooperlooper_data as sld
 from zyngui.zynthian_midi_learn_data import (MIDI_LEARNING_CHAIN, MIDI_LEARNING_DISABLED, MIDI_LEARNING_GLOBAL,
                                              binding, note_range_learn)
 from zynqt.models.audio_file import AudioFileView
@@ -429,6 +430,30 @@ class ChainControl(QObject):
             self.exit_midi_learn()
             return True
         return False
+
+    # Transport keys (zynthian_gui_control passes them to its widget): the audio player / clippy
+    # widget plays its file or clip; SooperLooper in ALT mode. Else the global transport.
+
+    def _transport(self, action):
+        if self._widget_type == "audio_file" and self.audio_view.processor is not None:
+            v = self.audio_view
+            return afd.transport(action, v.processor, v.eng_type, v.clip_info, self.ui.state_manager)
+        if self._widget_type == "sooperlooper" and self.ui.alt_mode and self.sl_view.processor is not None:
+            proc = self.sl_view.processor
+            return sld.alt_transport(action, proc, proc.engine.get_monitors_dict() or {})
+        return False
+
+    def cuia_toggle_record(self, params=None):
+        return self._transport("record")
+
+    def cuia_stop(self, params=None):
+        return self._transport("stop")
+
+    def cuia_play(self, params=None):
+        return self._transport("play")
+
+    def cuia_toggle_play(self, params=None):
+        return self._transport("toggle_play")
 
     # MIDI learn (zynthian_gui_control; the learning itself is in the state / chain managers)
 

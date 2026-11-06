@@ -1,0 +1,110 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Dusk Audio's JUCE plugins (URIs https://dusk-audio.github.io/plugins/...; zynthian enables DuskVerb):
+# 4K EQ, Multi-Comp, TapeMachine, Tape Echo, Multi-Q, Convolution Reverb, GrooveMind, DuskVerb,
+# DuskAmp (NeuralAmpModelerCore), Chord Analyzer (and MIDI), Spectrum Analyzer, against JUCE 8.0.4
+# as their CI does. The DAF ("2") versions are dusk-audio-lv2. Eigen (GitLab submodules of
+# NeuralAmpModelerCore and AudioDSPTools) are extra sources too.
+# JUCE and the other git submodules are extra sources (nura/tools/gh-submodule-sources.py). LV2
+# only. The plugin has its JUCE GUI built in, so it needs X11 and freetype headers to build (JUCE
+# loads X11 only when the editor opens).
+pkgname=dusk-audio-juce-lv2
+pkgver=0_git20261105
+pkgrel=0
+_commit=e96abd98d25abaf53f2a2d93abc8c3399fed30d2
+_external_neuralampmodelercore=29763dce4d8247ab70787b5b3b28e86b752d1472
+_external_neuralampmodelercore_dependencies_audiodsptools=0827c6c2fc0deced568536142ea86f189e0b98a1
+_external_clap_juce_extensions=e8de9e8571626633b8541a54c2406fccc4272767
+_external_clap_juce_extensions_clap_libs_clap=29ffcc273be7c7c651f6c9953b99e69700e2387a
+_external_clap_juce_extensions_clap_libs_clap_helpers=a61bcdf0ecc2c8db1e80bfe8bf9cb7e8d9fd2bbc
+_juce=8.0.4
+_eigen_nam=87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1
+_eigen_dsptools=6d829e766ff1b1ab867d93631163cbc63ed5798f
+pkgdesc="Dusk Audio JUCE LV2 plugins (DuskVerb, DuskAmp, Multi-Q, ...)"
+url="https://github.com/dusk-audio/dusk-audio-plugins"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+# linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
+# kernel headers too
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	linux-headers
+	lv2-dev
+	mesa-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/dusk-audio/dusk-audio-plugins/archive/$_commit.tar.gz
+	external_neuralampmodelercore-${_external_neuralampmodelercore}.tar.gz::https://github.com/sdatkinson/NeuralAmpModelerCore/archive/${_external_neuralampmodelercore}.tar.gz
+	external_neuralampmodelercore_dependencies_audiodsptools-${_external_neuralampmodelercore_dependencies_audiodsptools}.tar.gz::https://github.com/sdatkinson/AudioDSPTools/archive/${_external_neuralampmodelercore_dependencies_audiodsptools}.tar.gz
+	external_clap_juce_extensions-${_external_clap_juce_extensions}.tar.gz::https://github.com/free-audio/clap-juce-extensions/archive/${_external_clap_juce_extensions}.tar.gz
+	external_clap_juce_extensions_clap_libs_clap-${_external_clap_juce_extensions_clap_libs_clap}.tar.gz::https://github.com/free-audio/clap/archive/${_external_clap_juce_extensions_clap_libs_clap}.tar.gz
+	external_clap_juce_extensions_clap_libs_clap_helpers-${_external_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz::https://github.com/free-audio/clap-helpers/archive/${_external_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz
+	juce-$_juce.tar.gz::https://github.com/juce-framework/JUCE/archive/$_juce.tar.gz
+	eigen-$_eigen_nam.tar.gz::https://gitlab.com/libeigen/eigen/-/archive/$_eigen_nam/eigen-$_eigen_nam.tar.gz
+	eigen-$_eigen_dsptools.tar.gz::https://gitlab.com/libeigen/eigen/-/archive/$_eigen_dsptools/eigen-$_eigen_dsptools.tar.gz
+	"
+builddir="$srcdir/dusk-audio-plugins-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	static inline void backtrace_symbols_fd(void *const *buf, int size, int fd) { (void) buf; (void) size; (void) fd; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf external/NeuralAmpModelerCore && mv "$srcdir"/NeuralAmpModelerCore-${_external_neuralampmodelercore} external/NeuralAmpModelerCore
+	rm -rf external/NeuralAmpModelerCore/Dependencies/AudioDSPTools && mv "$srcdir"/AudioDSPTools-${_external_neuralampmodelercore_dependencies_audiodsptools} external/NeuralAmpModelerCore/Dependencies/AudioDSPTools
+	rm -rf external/clap-juce-extensions && mv "$srcdir"/clap-juce-extensions-${_external_clap_juce_extensions} external/clap-juce-extensions
+	rm -rf external/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_external_clap_juce_extensions_clap_libs_clap} external/clap-juce-extensions/clap-libs/clap
+	rm -rf external/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_external_clap_juce_extensions_clap_libs_clap_helpers} external/clap-juce-extensions/clap-libs/clap-helpers
+	local nam=external/NeuralAmpModelerCore
+	rm -rf $nam/Dependencies/eigen $nam/Dependencies/AudioDSPTools/Dependencies/eigen
+	mv "$srcdir"/eigen-$_eigen_nam $nam/Dependencies/eigen
+	mv "$srcdir"/eigen-$_eigen_dsptools $nam/Dependencies/AudioDSPTools/Dependencies/eigen
+	default_prepare
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DJUCE_PATH="$srcdir"/JUCE-$_juce -DBUILD_CLAP=OFF -DDUSK_COPY_AFTER_BUILD=OFF
+	cmake --build build --parallel 3 --target FourKEQ_LV2 MultiComp_LV2 TapeMachine_LV2 TapeEcho_LV2 MultiQ_LV2 ConvolutionReverb_LV2 GrooveMind_LV2 DuskVerb_LV2 DuskAmp_LV2 ChordAnalyzer_LV2 ChordAnalyzerMIDI_LV2 SpectrumAnalyzer_LV2
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	# bundle names can contain spaces
+	find build -type d -path '*/LV2/*.lv2' -prune -exec cp -r {} "$pkgdir"/usr/lib/lv2/ \;
+}
+sha512sums="
+4837c379ed8231c31a58c378e1a27f2f324da6c3c67db0858270dbc2cf509551754c25f45fe63bbe41b4a3623b315dc6c03576f51135abb20e7cca3ea3ac90d7  dusk-audio-juce-lv2-e96abd98d25abaf53f2a2d93abc8c3399fed30d2.tar.gz
+19bace71e24067b9bb7b436108ebb86ac564f06478244e67243395dcb793ae04f763b4c351f217acc2c32558343ad27225079efb6f12337aad6f95b56bc14cfa  external_neuralampmodelercore-29763dce4d8247ab70787b5b3b28e86b752d1472.tar.gz
+4dc0668571ba4e7d597d017c3ceebad2a7c6fe2599a8de5924d369a252ed55f61ca1ca93c0d39d0889963d25da808f61cb431cc21f8baee2f95b09715f0b81f1  external_neuralampmodelercore_dependencies_audiodsptools-0827c6c2fc0deced568536142ea86f189e0b98a1.tar.gz
+e9d3ee830226842ff2c54159db188aaa1a73ee1d8d935b7c865be77b5ebc0f75f6aef5d3c1399c2ad91113e0052ddf7386ac71e23f4a9c24012e41122495ab22  external_clap_juce_extensions-e8de9e8571626633b8541a54c2406fccc4272767.tar.gz
+003b726551d8db673e6cda71a5b4c90e6205db17f2a7fbd8e4c8d04ac85576cbbf53a657fe6cb4823ac130ea0408da17ab394e8337be5653baa04033ca7f29f2  external_clap_juce_extensions_clap_libs_clap-29ffcc273be7c7c651f6c9953b99e69700e2387a.tar.gz
+ce30948ec694f1d7562adea93cff001e7ecf70ab5db5095584a38ce0b6621d2ef50f0ae407f9491939b884b6635258859c77f3879e1d29dbf4dbdf381c6e968c  external_clap_juce_extensions_clap_libs_clap_helpers-a61bcdf0ecc2c8db1e80bfe8bf9cb7e8d9fd2bbc.tar.gz
+c1cb2f315c2b3b9c534d21b16d31e641661fbb9ad55b29a0949c038cb69cce65d35c8c669a400e33fdcedd7fc5ef578a1eba787826d525402330551c4d240fe6  juce-8.0.4.tar.gz
+456eee6b924761161a955a92555410711e4b50b8af98f453ff615e811bf3de27431b7ecfa5486eef700b90b6fca49f9d889d0e8e35f7c6f9514434c0a1171007  eigen-87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1.tar.gz
+bf79b8901e28157f8475f7e5a5348e10ccd040c7d43b1d8e998ae6dda0a41a5da99ea7695ecee928d46000e197ccae73026f6624647a46c151dab4770d43329a  eigen-6d829e766ff1b1ab867d93631163cbc63ed5798f.tar.gz
+"

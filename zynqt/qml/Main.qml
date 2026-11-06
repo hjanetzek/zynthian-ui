@@ -22,9 +22,9 @@ Window {
     color: Theme.background
     title: "zynthian"
 
-    // Touch keypad: docked (the screens beside and above it) or, undocked, an overlay brought up
-    // from the top edge (tap or swipe down on the title), hidden again 4 s after the last key or
-    // by another tap on the title. Tapping the status area docks / undocks it.
+    // Touch keypad: an overlay brought up from the top edge (tap or swipe down on the top bar),
+    // hidden again 4 s after the last key or by another tap on the top bar; or docked (the screens
+    // beside and above it: Admin > Docked Touch Keypad)
     readonly property bool keypadDocked: zyn.keypadDocked
     property bool keypadOverlay: false
     readonly property real screensLeft: keypadDocked ? keypad.width : 0
@@ -79,7 +79,6 @@ Window {
         overlayHint: !root.keypadDocked
         onTitleTapped: if (!root.keypadDocked) root.showKeypadOverlay(!root.keypadOverlay)
         onTitleSwipedDown: if (!root.keypadDocked) root.showKeypadOverlay(true)
-        onStatusTapped: zyn.toggleKeypadDocked()
         anchors.right: parent.right
         anchors.top: parent.top
         height: 50

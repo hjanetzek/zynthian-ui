@@ -59,6 +59,11 @@ def audio_out_list(chain_manager, playback_ports):
         list_data.append((None, None, "> AUDIO OUTPUT"))
         len_check = len(list_data)
         port_count = len(playback_ports)
+        if chain_manager.active_chain.chain_id == 0:
+            # The main output setting (Admin > Main Output: the first two outputs by default)
+            port_names.append(("Main output (Admin setting)", zynautoconnect.MAIN_OUTPUT_DEFAULT,
+                               ["Send the main mix to the outputs chosen in Admin > Main Output (by default the "
+                                "first two hardware outputs).", "audio_output.png"]))
         for i in range(0, port_count, 2):
             if playback_ports[i].aliases:
                 suffix = f" ({playback_ports[i].aliases[0]})"

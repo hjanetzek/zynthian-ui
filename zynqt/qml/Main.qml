@@ -22,19 +22,47 @@ Window {
     color: Theme.background
     title: "zynthian"
 
+    // Touch keypad: docked (the screens beside and above it) or, undocked, an overlay brought up
+    // from the top edge (tap or swipe down on the title), hidden again 4 s after the last key or
+    // by another tap on the title. Tapping the status area docks / undocks it.
+    readonly property bool keypadDocked: zyn.keypadDocked
+    property bool keypadOverlay: false
+    readonly property real screensLeft: keypadDocked ? keypad.width : 0
+    onKeypadDockedChanged: keypadOverlay = false
+
+    Timer {
+        id: keypadHide
+        interval: 4000
+        onTriggered: root.keypadOverlay = false
+    }
+    function showKeypadOverlay(show) {
+        keypadOverlay = show
+        if (show)
+            keypadHide.restart()
+    }
+
     Keypad {
         id: keypad
 
         anchors.left: parent.left
-        anchors.top: parent.top
+        // The overlay leaves the top bar free: its title hides the keypad again
+        anchors.top: root.keypadDocked ? parent.top : topBar.bottom
         anchors.bottom: parent.bottom
         width: 192
+        z: 20
+        visible: root.keypadDocked || root.keypadOverlay
+        onKeyPressed: if (root.keypadOverlay) keypadHide.restart()
     }
 
     TopBar {
         id: topBar
 
-        anchors.left: keypad.right
+        anchors.left: parent.left
+        anchors.leftMargin: root.screensLeft
+        overlayHint: !root.keypadDocked
+        onTitleTapped: if (!root.keypadDocked) root.showKeypadOverlay(!root.keypadOverlay)
+        onTitleSwipedDown: if (!root.keypadDocked) root.showKeypadOverlay(true)
+        onStatusTapped: zyn.toggleKeypadDocked()
         anchors.right: parent.right
         anchors.top: parent.top
         height: 50
@@ -44,11 +72,12 @@ Window {
     StackLayout {
         id: screens
 
-        anchors.left: keypad.right
+        anchors.left: parent.left
+        anchors.leftMargin: root.screensLeft
         anchors.right: parent.right
         anchors.top: topBar.bottom
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: keypad.keyHeight
+        anchors.bottomMargin: root.keypadDocked ? keypad.keyHeight : 0
         currentIndex: zyn.currentList ? 2
                       : (zyn.currentScreen === "mixer" || zyn.currentScreen === "launcher") ? 0
                       : zyn.currentScreen === "chain_manager" ? 3

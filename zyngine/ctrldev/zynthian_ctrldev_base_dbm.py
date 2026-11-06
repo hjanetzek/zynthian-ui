@@ -80,7 +80,8 @@ class zynthian_ctrldev_base_dbm(zynthian_ctrldev_base):
 
     def __init__(self, state_manager, idev_in, idev_out=None):
         super().__init__(state_manager, idev_in, idev_out)
-        self.model = ZynthianModel(self.chain_manager, palette=launcher_palette(), with_vu=self.with_vu)
+        self.model = ZynthianModel(self.chain_manager, palette=launcher_palette(), with_vu=self.with_vu,
+                                   zynseq=self.zynseq)
         self.bridge = None
         self.thread = None
         self.midi_queue = SimpleQueue()
@@ -152,16 +153,27 @@ class zynthian_ctrldev_base_dbm(zynthian_ctrldev_base):
         self.wake.set()
 
     def get_state(self):
+        """The core's document settings belong to the snapshot. zynthian stores driver states
+        per ZS3, so every ZS3 gets the current settings; only a snapshot load restores them."""
         if self.document:
             return {"dbm_document": self.document}
         return {}
 
     def set_state(self, state):
+        """Restore the document settings when a snapshot is loaded (load_snapshot recalls its
+        first ZS3 while it is busy with "load snapshot"); recalling a ZS3 leaves them as they are."""
         document = state.get("dbm_document") if state else None
-        if document is not None:
-            self.pending_document = document
-            self.document = document
-            self.wake.set()
+        if document is None or not self.is_loading_snapshot():
+            return
+        self.pending_document = document
+        self.document = document
+        self.wake.set()
+
+    def is_loading_snapshot(self):
+        try:
+            return self.state_manager.is_busy("load snapshot")
+        except AttributeError:
+            return True
 
     # ---------------------------------------------------------------------------
     # The tick thread: the only thread which calls into the core

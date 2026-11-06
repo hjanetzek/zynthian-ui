@@ -350,10 +350,16 @@ class ChainTrack:
 class ZynthianModel:
     """zynthian as the DAW of a ``dbm_host.Bridge`` (``ZynBridge``)."""
 
-    def __init__(self, chain_manager, palette=None, with_vu=True):
+    def __init__(self, chain_manager, palette=None, with_vu=True, zynseq=None):
         """``palette``: the colors of the MIDI channels 0..15 as "#RRGGBB" (zynthian_gui_config's
-        LAUNCHER_COLOUR); ``with_vu``: report the peak meters."""
+        LAUNCHER_COLOUR); ``with_vu``: report the peak meters; ``zynseq``: the sequencer, for the
+        transport (phase 2; None: no transport)."""
+        # Phase 2: the devices and the transport (imported here: they import this module)
+        from zyngine.ctrldev.dbm_zynthian.device import DeviceChain
+        from zyngine.ctrldev.dbm_zynthian.transport import ZynTransport
         self.chain_manager = chain_manager
+        self.devices = DeviceChain(self)
+        self.transport = ZynTransport(zynseq) if zynseq is not None else None
         self.palette = [hex_to_rgb(color) or GRAY for color in palette or []]
         self.with_vu = with_vu
         self.note_input = None

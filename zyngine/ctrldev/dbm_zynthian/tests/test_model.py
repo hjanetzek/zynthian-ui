@@ -97,7 +97,9 @@ class ReporterTest(unittest.TestCase):
 
     def test_first_report_is_complete(self):
         report = Host().report()
-        self.assertEqual(report["/host/features"], "valueInc valueReset immediately soloToggle")
+        self.assertEqual(report["/host/features"], "valueInc valueReset immediately soloToggle deviceCommands",
+                         "No transportCommands without zynseq")
+        self.assertEqual((report["/project/canUndo"], report["/project/canRedo"]), ("0", "0"))
         self.assertEqual(report["/track/offset"], "0")
         self.assertEqual(report["/track/count"], "4")
         self.assertEqual(report["/track/0/name"], "Synth")
@@ -114,7 +116,8 @@ class ReporterTest(unittest.TestCase):
         self.assertEqual(report["/fxtrack/0/name"], "Reverb")
         self.assertEqual(report["/master/name"], "Main")
         self.assertNotIn("/track/0/active", report, "No activation in zynthian")
-        self.assertNotIn("/play", report, "No transport in phase 1")
+        self.assertNotIn("/play", report, "No transport without zynseq")
+        self.assertEqual(report["/device/exists"], "0", "No processors in the chains")
 
     def test_only_changes(self):
         host = Host()

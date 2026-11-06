@@ -1321,6 +1321,11 @@ bool isSolo(uint8_t scene, uint8_t phrase, uint8_t sequence, uint16_t track);
 
 // ** Transport control **
 
+/** @brief  Get the state of the local transport
+    @retval uint8_t STOPPED, PLAYING, STARTING or STOPPING (constants.h)
+ **/
+uint8_t getTransportState();
+
 /** @brief  Start local transport rolling
     @param  id Id  of client requesting change
  **/

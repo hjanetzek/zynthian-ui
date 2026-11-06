@@ -32,8 +32,16 @@ DAW's. The host features are those of the registered handlers.
 
 Handled (phase 1): ``refresh``, ``bank``, ``track <p>/…`` and ``fxtrack <p>/…`` (select,
 volume, pan, mute, solo, solo/toggle, recarm, name, send/<s>/volume), ``track
-selectPrevious|selectNext``, ``master …``. Everything else is logged as not handled, e.g. the
-transport, scenes and slots, devices, ``send/<s>/active`` (zynthian's sends have no switch).
+selectPrevious|selectNext``, ``master …``.
+
+Phase 2: ``transport play|stop|restart|stopAndRewind|metronome|toggleMetronome|
+metronomeVolume[/inc]|tapTempo``, ``tempo <bpm>|+|-|++|--`` (with zynseq), and ``device …``: ``+``,
+``-``, ``page/+``, ``page/-``, ``selected``, ``parameterPage``, ``param/<i>/value`` (+ suffixes,
+``touch``, ``indicate``), ``bypass`` and ``select`` of the device and of ``sibling/<n>``,
+``<n>/bypass``; ``window``/``expand`` are accepted and ignored (zynthian has no device windows).
+
+Everything else is logged as not handled, e.g. scenes and slots, ``send/<s>/active`` (zynthian's
+sends have no switch), ``device remove|duplicate``, the Reaper-only transport forms.
 """
 
 import logging
@@ -41,6 +49,7 @@ from collections import deque
 
 from dbm_host import CommandHandler
 from dbm_host.commands import parse_index
+from dbm_host.reporter import NUM_SIBLINGS
 
 logger = logging.getLogger("dbm_zynthian")
 
@@ -48,6 +57,8 @@ logger = logging.getLogger("dbm_zynthian")
 LOG_SIZE = 200
 
 TRACK_FEATURES = ("valueInc", "valueReset", "immediately", "soloToggle")
+TRANSPORT_FEATURES = ("transportCommands",)
+DEVICE_FEATURES = ("deviceCommands",)
 
 
 class ZynCommandHandler(CommandHandler):
@@ -63,6 +74,10 @@ class ZynCommandHandler(CommandHandler):
         self.register("track", self._track, TRACK_FEATURES)
         self.register("fxtrack", self._fx_track)
         self.register("master", self._master)
+        self.register("device", self._device, DEVICE_FEATURES)
+        if self.daw.transport is not None and self.daw.transport.available:
+            self.register("transport", self._transport, TRANSPORT_FEATURES)
+            self.register("tempo", self._tempo)
 
     def configure(self):
         """No clip launcher navigator and no step grids yet (phase 3)."""
@@ -155,3 +170,99 @@ class ZynCommandHandler(CommandHandler):
         if sub[1] == "volume":
             return self.value_command(sends[index].volume, sub[2:], cmd)
         return False
+
+    # Transport (phase 2)
+
+    def _transport(self, cmd):
+        transport = self.daw.transport
+        c = cmd.command
+        if c == "play":
+            transport.play()
+        elif c in ("stop", "stopAndRewind"):
+            transport.stop()
+        elif c == "restart":
+            transport.restart()
+        elif c == "metronome":
+            transport.set_metronome(cmd.flag)
+        elif c == "toggleMetronome":
+            transport.set_metronome(not transport.metronome)
+        elif c == "metronomeVolume":
+            if cmd.increment:
+                transport.set_metronome_volume(transport.metronome_volume + cmd.number)
+            elif cmd.reset:
+                transport.set_metronome_volume(0.8)
+            else:
+                transport.set_metronome_volume(cmd.number)
+        elif c == "tapTempo":
+            transport.tap_tempo()
+        else:
+            return False
+        return True
+
+    def _tempo(self, cmd):
+        transport = self.daw.transport
+        if cmd.command in ("+", "-", "++", "--"):
+            transport.change_tempo(cmd.command)
+        elif cmd.command == "" and cmd.value is not None:
+            transport.set_tempo(cmd.number)
+        else:
+            return False
+        return True
+
+    # Devices (phase 2)
+
+    def _device(self, cmd):
+        chain = self.daw.devices
+        device = chain.cursor()
+        c = cmd.command
+        parts = cmd.parts
+        if c in ("+", "-"):
+            chain.select_neighbour(1 if c == "+" else -1)
+        elif c in ("page/+", "page/-"):
+            chain.scroll_siblings(1 if c == "page/+" else -1, NUM_SIBLINGS)
+        elif c == "selected":
+            index = chain.sibling_offset + int(cmd.number) - 1
+            devices = chain.devices()
+            if 0 <= index < len(devices):
+                chain.select(devices[index])
+        elif c == "parameterPage":
+            if device is not None:
+                device.select_page(int(cmd.number))
+        elif c in ("window", "expand", "window/toggle", "expand/toggle", "parameters/toggle"):
+            pass  # No device windows in zynthian
+        elif c in ("bypass", "select"):
+            return self.own_device_command(device, c)
+        elif len(parts) == 3 and parts[0] == "param":
+            index = parse_index(parts[1])
+            if device is None or index < 0:
+                return True
+            sub = [] if parts[2] == "value" else [parts[2]]
+            return self.value_command(device.parameter(index), sub, cmd)
+        elif len(parts) == 3 and parts[0] == "sibling":
+            index = parse_index(parts[1]) - 1
+            devices = chain.devices()
+            position = chain.sibling_offset + index
+            if not 0 <= index < NUM_SIBLINGS or parts[2] not in ("bypass", "select"):
+                return False
+            return self.own_device_command(devices[position] if position < len(devices) else None, parts[2])
+        elif len(parts) == 2 and parts[1] == "bypass":
+            # The Reaper path: the value is the new bypass state
+            devices = chain.devices()
+            position = parse_index(parts[0]) - 1
+            if not 0 <= position < len(devices):
+                return False
+            devices[position].set_enabled(cmd.number <= 0)
+        else:
+            return False
+        return True
+
+    def own_device_command(self, device, command):
+        if device is None:
+            return True
+        if command == "bypass":
+            device.toggle_bypass()
+        elif command == "select":
+            self.daw.devices.select(device)
+        else:
+            return False
+        return True

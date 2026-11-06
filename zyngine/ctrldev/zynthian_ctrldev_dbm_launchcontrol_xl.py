@@ -32,7 +32,9 @@ from zyngine.ctrldev.zynthian_ctrldev_base_dbm import zynthian_ctrldev_base_dbm
 
 class zynthian_ctrldev_dbm_launchcontrol_xl(zynthian_ctrldev_base_dbm):
 
-    # The ALSA card "Launch Control XL", its only port (the core's Linux port name "Launch Control XL")
+    # The ALSA card "Launch Control XL" has two MIDI ports: 0 the controls ("Launch Control XL
+    # Launch Contro", the core's Linux port name; PipeWire: "Launch Control XL: Launch Contro"),
+    # 1 the HUI port. The driver takes the first one (IN 1), never HUI (IN 2).
     dev_ids = ["Launch Control XL IN 1"]
     dbm_controller_id = "5AFA5045-FF92-4737-A091-5B371CD5E529"
     driver_name = "DrivenByMoss Launch Control XL"

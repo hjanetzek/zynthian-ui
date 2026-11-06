@@ -183,6 +183,104 @@ class FakeProcessor:
         self.controllers_dict = {}
 
 
+class FakeSynthProcessor:
+    """A processor with controller screens of up to 4 zctrls, as zynthian_processor."""
+
+    def __init__(self, engine, chain, name, screens, eng_code="JV"):
+        from zyngine.zynthian_controller import zynthian_controller
+        self.chain = chain
+        self.eng_code = eng_code
+        self.name = name
+        self.bypassed = False
+        self.current_screen_index = 0
+        self.controllers_dict = {}
+        self.ctrl_screens_dict = {}
+        for screen, symbols in screens:
+            zctrls = []
+            for symbol in symbols:
+                if symbol.startswith("mode"):
+                    options = {"labels": ["saw", "square", "sine"], "value": 0, "processor": self}
+                else:
+                    options = {"value_min": 0, "value_max": 127, "value_default": 64, "value": 64, "is_integer": True, "processor": self}
+                zctrl = zynthian_controller(engine, symbol, options)
+                self.controllers_dict[symbol] = zctrl
+                zctrls.append(zctrl)
+            self.ctrl_screens_dict[screen] = zctrls
+
+    def get_name(self):
+        return self.name
+
+    def get_ctrl_screens(self):
+        return self.ctrl_screens_dict
+
+    def get_current_screen_index(self):
+        return self.current_screen_index
+
+    def set_current_screen_index(self, index):
+        self.current_screen_index = index
+
+    def is_bypassed(self):
+        return self.bypassed
+
+    def set_bypass(self, bypass):
+        self.bypassed = bool(bypass)
+
+    def toggle_bypass(self):
+        self.bypassed = not self.bypassed
+
+
+class FakeLibseq:
+    """zynseq's libseq: transport, tempo, metronome (records the calls)."""
+
+    def __init__(self):
+        self.calls = []
+        self.state = 0
+        self.tempo = 120.0
+        self.bpb = 4
+        self.metronome_mode = 0
+        self.metronome_volume = 0.5
+
+    def getTransportState(self):
+        return self.state
+
+    def transportStart(self, client):
+        self.calls.append(("start", client.value))
+        self.state = 1
+
+    def transportStop(self, client):
+        self.calls.append(("stop", client.value))
+        self.state = 0
+
+    def getTempo(self):
+        return self.tempo
+
+    def getBpb(self):
+        return self.bpb
+
+    def tapTempo(self):
+        self.calls.append(("tap",))
+
+    def getMetronomeMode(self):
+        return self.metronome_mode
+
+    def setMetronomeMode(self, mode):
+        self.metronome_mode = mode.value
+
+    def getMetronomeVolume(self):
+        return self.metronome_volume
+
+    def setMetronomeVolume(self, level):
+        self.metronome_volume = level.value
+
+
+class FakeZynseq:
+    def __init__(self):
+        self.libseq = FakeLibseq()
+
+    def set_tempo(self, tempo):
+        self.libseq.tempo = tempo
+
+
 class FakeChain:
     def __init__(self, chain_id, title, midi_chan=None, mixbus=False, audio=True, synth=False):
         self.chain_id = chain_id
@@ -192,6 +290,15 @@ class FakeChain:
         self.synth = synth
         self.zynmixer_proc = None
         self.audio = audio
+        self.processors = []
+        self.current_processor = None
+
+    def get_processors(self):
+        return list(self.processors) + ([self.zynmixer_proc] if self.zynmixer_proc else [])
+
+    def set_current_processor(self, processor):
+        if processor in self.get_processors():
+            self.current_processor = processor
 
     def get_title(self):
         return self.title
@@ -234,9 +341,13 @@ class ZynthianState:
         self.zynmixer_chan = FakeZynmixer()
         self.zynmixer_bus = FakeZynmixer()
         self.zynseq = None
+        self.busy = set()
         self.next_chan = 0
         self.next_bus = 1
         self.add_chain(0, "Main", mixbus=True)
+
+    def is_busy(self, client=None):
+        return client in self.busy if client else bool(self.busy)
 
     def add_chain(self, chain_id, title, midi_chan=None, mixbus=False, mixer=True, level=0.8):
         chain = FakeChain(chain_id, title, midi_chan, mixbus=mixbus)
@@ -279,6 +390,15 @@ class ZynthianState:
             for symbol in [s for s in proc.controllers_dict if s.startswith("send_")]:
                 if int(symbol.split("_")[1]) not in [b.chain_id for b in buses]:
                     del proc.controllers_dict[symbol]
+
+    def add_processor(self, chain_id, name, screens):
+        """A processor with controller screens [(name, [symbols])]; the first is current."""
+        chain = self.chain_manager.chains[chain_id]
+        proc = FakeSynthProcessor(self.engine, chain, name, screens)
+        chain.processors.append(proc)
+        if chain.current_processor is None:
+            chain.current_processor = proc
+        return proc
 
     def zctrl(self, chain_id, symbol):
         return self.chain_manager.chains[chain_id].zynmixer_proc.controllers_dict[symbol]

@@ -114,7 +114,14 @@ class DriverTest(unittest.TestCase):
         self.start_device()
         self.assertTrue(wait_for(lambda: "dbm_document" in self.driver.get_state(), 3.0))
         document = self.driver.get_state()["dbm_document"]
+        # A ZS3 recall leaves the document settings alone, a snapshot load restores them
+        self.driver.set_state({"dbm_document": "LAUNCH_CONTROL_XL=\"from a ZS3\"\n"})
+        self.assertIsNone(self.driver.pending_document)
+        self.assertEqual(self.driver.get_state()["dbm_document"], document)
+        self.state.busy.add("load snapshot")
         self.driver.set_state({"dbm_document": document})
+        self.state.busy.clear()
+        self.assertTrue(wait_for(lambda: self.driver.pending_document is None), "Applied by the tick thread")
         self.driver.set_state({})
 
         self.driver.sleep_on()

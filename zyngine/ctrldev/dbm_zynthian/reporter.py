@@ -30,12 +30,22 @@ own collectors: the host features, the tracks, the effect tracks and the master.
 reported with their absolute positions (§6 rule 4); ``/track/offset`` turns on the core's host
 paging, ``/host/features`` lists the command forms of ``ZynCommandHandler``.
 
-Not reported (phase 1), so the core keeps its defaults for them: the transport, scenes and
-slots, devices and parameters, the clip, markers, the browser, ``/track/<p>/active`` (zynthian
-has no deactivated chains), ``/track/hasPrevious|hasNext`` and ``/track/pinned``.
+Phase 2 adds the transport (``collect_transport``, only with zynseq) and the cursor device with
+its siblings and parameter pages (``collect_device``).
+
+Not reported, so the core keeps its defaults for them: scenes and slots, the clip, markers, the
+browser, ``/primary``, ``/drum``, ``/eq``, the arranger position and loop, ``/track/<p>/active``
+(zynthian has no deactivated chains), ``/track/hasPrevious|hasNext``, ``/track/pinned``,
+``/device/pinned``.
 """
 
+import logging
+import math
+
 from dbm_host import Reporter
+from dbm_host.reporter import NUM_SIBLINGS
+
+from zyngine.ctrldev.dbm_zynthian.device import PARAMS_PER_PAGE
 
 
 class ZynReporter(Reporter):
@@ -47,8 +57,25 @@ class ZynReporter(Reporter):
             ZynReporter.collect_tracks,
             ZynReporter.collect_effect_tracks,
             ZynReporter.collect_master,
+            ZynReporter.collect_project,
+            ZynReporter.collect_transport,
+            ZynReporter.collect_device,
         ]
         self._counts = {"track": 0, "fxtrack": 0}
+        self._failed = set()
+
+    def collect(self):
+        """As Reporter.collect, but a collector that fails (a zynthian object in an unexpected
+        state, a missing library function) is logged once and skipped: the others still report."""
+        self.apply_pending_forgets()
+        for collector in self.collectors:
+            try:
+                collector(self)
+            except Exception as e:
+                if collector.__name__ not in self._failed:
+                    self._failed.add(collector.__name__)
+                    logging.getLogger("dbm_zynthian").error("Reporter %s failed: %s", collector.__name__, e)
+        return self.take()
 
     # The parts of a channel
 
@@ -127,3 +154,71 @@ class ZynReporter(Reporter):
         self.put("/master/select", master.selected)
         self.collect_vu("/master/", master)
         self.collect_channel("/master/", master)
+
+    def collect_project(self):
+        """zynthian has no undo history (only the pattern editor's): nothing to undo or redo."""
+        self.put("/project/canUndo", False)
+        self.put("/project/canRedo", False)
+
+    def collect_transport(self):
+        transport = self.daw.transport
+        if transport is None or not transport.available:
+            return
+        self.put("/play", transport.playing)
+        self.put("/tempo", transport.tempo)
+        self.put("/numerator", transport.numerator)
+        self.put("/denominator", 4)
+        self.put("/click", transport.metronome)
+        volume = transport.metronome_volume
+        self.put("/click/volume", volume)
+        self.put("/click/volumeStr", f"{20.0 * math.log10(volume):.1f} dB" if volume > 0 else "-Inf dB")
+
+    def num_param_pages(self):
+        return max(0, int(self.banks.setup.get("numParamPages", 8)))
+
+    def collect_device(self):
+        """The cursor device, the sibling window and the parameter pages (as the reference
+        host's collect_device and collect_pages)."""
+        chain = self.daw.devices
+        devices = chain.devices()
+        device = chain.cursor()
+        exists = device is not None
+        position = devices.index(device) if exists else -1
+        self.put("/device/count", len(devices))
+        self.put("/device/exists", exists)
+        self.put("/device/position", position)
+        self.put("/device/name", device.name if exists else "")
+        self.put("/device/bypass", exists and not device.enabled)
+        self.put("/device/window", False)
+        self.put("/device/expand", False)
+        self.put("/device/hasDrumPads", False)
+        self.put("/device/hasLayers", False)
+        for index in range(NUM_SIBLINGS):
+            sibling_position = chain.sibling_offset + index
+            sibling = devices[sibling_position] if sibling_position < len(devices) else None
+            prefix = f"/device/sibling/{index + 1}/"
+            self.put(prefix + "name", sibling.name if sibling is not None else "")
+            self.put(prefix + "bypass", sibling is not None and not sibling.enabled)
+            self.put(prefix + "position", sibling_position if sibling is not None else -1)
+            self.put(prefix + "selected", sibling is not None and sibling_position == position)
+        num_pages = self.num_param_pages()
+        pages = device.page_names() if exists else []
+        used = min(len(pages), num_pages)
+        for index in range(num_pages * PARAMS_PER_PAGE):
+            prefix = f"/device/param/{index}/"
+            parameter = device.parameter(index) if exists and index < used * PARAMS_PER_PAGE else None
+            if parameter is not None and parameter.exists:
+                self.put(prefix + "name", parameter.name)
+                self.put(prefix + "value", parameter.value)
+                self.put_parameter_text(prefix + "value/str", parameter)
+            else:
+                self.put(prefix + "name", "")
+                self.put(prefix + "value", 0.0)
+                self.put_displayed(prefix + "value/str", "", ["", ""])
+            self.put(prefix + "steps", -1)
+            self.put(prefix + "modulated", parameter.value if parameter is not None and parameter.exists else 0.0)
+        self.put("/device/param/count", used * PARAMS_PER_PAGE)
+        for index in range(used):
+            self.put(f"/device/page/{index}/name", pages[index])
+        self.put("/device/page/count", used)
+        self.put("/device/page/selected", device.selected_page if exists else -1)

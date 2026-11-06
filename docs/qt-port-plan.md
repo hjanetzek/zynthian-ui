@@ -205,15 +205,24 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
    "mixer" / "launcher"]` in APC40, Launchpad, ... drivers; `ZynUI.screens` is empty, so those
    parts do nothing). Needs a kit or a control device to test with; on the Duet only MIDI
    controllers.
-3. **PipeWire integration** of the audio routing (hardware port names, main output, numbering;
-   Pure Data's MIDI ports): only patched over so far, see docs/upstream-candidates.md.
+3. **PipeWire integration** of the audio routing: the main output is done (Admin > Main Output,
+   5b0beedc). Open: input/output numbering across several devices (by port name like the main
+   output?), friendly port names (`jack.fill-aliases`), ALSA level controls only for `system:`,
+   the hotplug menu duplicating PipeWire, Pure Data's MIDI port names; see
+   docs/upstream-candidates.md.
 4. **Touch polish** (postponed): swipe vs. tap in lists, long-press timing, drag sensitivity.
 5. **Small screens / SPI kits** (M3): layouts for 320×240 and 480×320 and the software renderer
    (see below); the Tk UI stays the fallback there.
 6. **Performance on the Duet with the M3 screens**: CPU per thread (docs/performance-measurement.md)
    while playing; the launcher switch (41c97752) and the pattern editor (smooth with QML items)
    were checked by hand. C++ items for dense views only if a measurement asks for them.
-7. **Shared modules and upstream**: settings out of `zyngui` (the engine side imports
+7. **zynthian-webconf on Nura** (`~/bastel/github/zynthian-webconf`, branch vangelis): the web
+   configuration tool (tornado, uses `zynconf`) assumes ZynthianOS: `/zynthian/...` paths
+   (my-data, data, sys, config, help, ui), root and `systemctl restart zynthian` /
+   `zynthian-webconf` / `filebrowser`; on Nura zynthian is a user kiosk session. Needs the paths
+   through `zynthian_paths`, a package with its Python deps, a user service and a decision on
+   access (which settings make sense on Nura, network exposure).
+8. **Shared modules and upstream**: settings out of `zyngui` (the engine side imports
    `zynthian_gui_config`), the remaining list logic out of the Tk screens; split the shared
    modules into self-contained commits (docs/upstream-candidates.md says which to fold
    together), pytest for them, the "open" bugs there. Pushing and PR #1 are paused.

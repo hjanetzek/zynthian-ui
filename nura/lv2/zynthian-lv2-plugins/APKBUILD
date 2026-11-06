@@ -4,7 +4,7 @@
 # instruments (fluidplug-lv2, avldrums-lv2: about 450 MB of data) are optional, not in here.
 pkgname=zynthian-lv2-plugins
 pkgver=1
-pkgrel=5
+pkgrel=6
 pkgdesc="LV2 plugins enabled by default in zynthian"
 url="https://github.com/zynthian/zynthian-ui"
 arch="noarch"
@@ -15,6 +15,7 @@ depends="
 	artyfx-lv2
 	bolliedelay-lv2
 	calf-lv2
+	distrho-ports-lv2
 	dpf-plugins-lv2
 	dragonfly-reverb-lv2
 	eq10q-lv2

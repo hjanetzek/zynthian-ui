@@ -1,0 +1,61 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# DISTRHO-Ports: JUCE plugins ported to LV2. Only the 15 that zynthian enables by default (Debian's
+# distrho-plugin-ports-lv2 / recipe install_distrho_ports.sh on ZynthianOS): TAL Dub-3, Filter-2,
+# Reverb I-III, Vocoder-II, NoiseMaker; Vex; OB-Xd; The Pilgrim; Luftikus; Temper; dRowAudio
+# Distortion, Distortion Shaper, Flanger. All JUCE 5. DSP only (linux-headless: no X11 or
+# freetype), LV2 only. Master, as the 2021 release predates fixes for current compilers.
+pkgname=distrho-ports-lv2
+_commit=d3b62da2e83c69b0866af5bb2e29ac78dc8014cf
+_juce5=d1a2d5908202f2529886e07c3e65118c821cba98
+pkgver=0_git20250914
+pkgrel=0
+pkgdesc="DISTRHO-Ports JUCE plugins enabled in zynthian (LV2, no GUIs)"
+url="https://github.com/DISTRHO/DISTRHO-Ports"
+arch="all"
+license="GPL-2.0-or-later AND GPL-3.0-or-later"
+makedepends="alsa-lib-dev fftw-dev lv2-dev meson"
+source="$pkgname-$_commit.tar.gz::https://github.com/DISTRHO/DISTRHO-Ports/archive/$_commit.tar.gz
+	juce5-$_juce5.tar.gz::https://github.com/DISTRHO/JUCE/archive/$_juce5.tar.gz"
+builddir="$srcdir/DISTRHO-Ports-$_commit"
+options="!check" # no tests
+
+prepare() {
+	default_prepare
+	# JUCE 5 (DISTRHO's fork, with its patches) is a git submodule
+	rmdir libs/juce5/source
+	mv "$srcdir"/JUCE-$_juce5 libs/juce5/source
+	# musl has no execinfo.h/backtrace(): getStackBacktrace() (crash reports only) returns ""
+	local m=libs/juce5/source/modules/juce_core
+	sed -i '/#include <execinfo.h>/{x;s/.*/  #if defined (__GLIBC__)/;p;x;s/$/\n  #endif/}' $m/juce_core.cpp
+	sed -i 's/^\(    int frames = backtrace (stack.*\)$/   #if defined (__GLIBC__)\n\1/; s/^\(    ::free (frameStrings);\)\r*$/\1\n   #endif/' \
+		$m/system/juce_SystemStats.cpp
+	# static_cast<char>(NULL): NULL is nullptr in C++ on musl
+	sed -i 's/static_cast<char>(NULL)/static_cast<char>(0)/' libs/juced/source/audio/osc/*.cpp
+}
+
+_plugins="arctican-pilgrim,drowaudio-distortion,drowaudio-distortionshaper,drowaudio-flanger,luftikus,obxd,tal-dub-3,tal-filter-2,tal-noisemaker,tal-reverb,tal-reverb-2,tal-reverb-3,tal-vocoder-2,temper,vex"
+
+build() {
+	# musl: stat64 and friends only with _LARGEFILE64_SOURCE; _NL_IDENTIFICATION_* are glibc
+	# locale items, here items of a category musl doesn't have (nl_langinfo() returns ""), so
+	# getUserLanguage()/getUserRegion() are empty
+	export CXXFLAGS="$CXXFLAGS -D_LARGEFILE64_SOURCE \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001"
+	abuild-meson \
+		-Dlinux-headless=true \
+		-Dbuild-lv2=true \
+		-Dbuild-vst2=false \
+		-Dbuild-vst3=false \
+		-Dbuild-juce5-only=true \
+		-Dplugins=$_plugins \
+		. output
+	meson compile -C output
+}
+
+package() {
+	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+}
+sha512sums="
+a6edf6804c573f746f1b9e82aa117d22c85a37d798d074be38f0d38d06d1bf2858d46f78a9fb6a3f9bf695465fbdb8d9d5886325b520cd75b973354ab857e45c  distrho-ports-lv2-d3b62da2e83c69b0866af5bb2e29ac78dc8014cf.tar.gz
+562b46317d567c1d4768dff373064f4bad3f874fd928db93aef330fdc04ac4ea321208517f9a4643b8b92a335c4d6b5b91e60b1962cd69bde5075a1bd7dcb964  juce5-d1a2d5908202f2529886e07c3e65118c821cba98.tar.gz
+"

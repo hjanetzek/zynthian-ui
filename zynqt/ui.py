@@ -795,6 +795,17 @@ class ZynUI(QObject):
     @Slot(str, list)
     def _run_cuia(self, cuia, params):
         name = cuia.lower()
+        # As zynthian_gui.callable_ui_action: the current screen first (transport keys in the
+        # pattern editor, MIDI recorder, audio file widgets, ...); it returns True if it handled it
+        screen = self.list_screens.get(self.current_screen) or self.qml_screen_objects.get(self.current_screen)
+        screen_func = getattr(screen, "cuia_" + name, None) if screen is not None else None
+        if callable(screen_func):
+            try:
+                if screen_func(params):
+                    return
+            except Exception as e:
+                logging.exception(f"CUIA '{name}' of screen {self.current_screen} failed with {params}: {e}")
+                return
         func = getattr(self, "cuia_" + name, None)
         if not callable(func):
             logging.info(f"CUIA '{name}' not available in the Qt UI (yet) => {params}")

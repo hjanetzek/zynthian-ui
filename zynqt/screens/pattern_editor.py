@@ -29,6 +29,7 @@ class PatternEditor(QObject):
     entryChanged = Signal()         # note-entry values (velocity, duration)
     ccChanged = Signal()            # CC view: mode, CC number, values
     blockChanged = Signal()         # select mode, selected block, copied buffer
+    recordChanged = Signal()        # recording from MIDI
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -71,6 +72,40 @@ class PatternEditor(QObject):
 
     def hide(self):
         self._timer.stop()
+        # As zynthian_gui_pated_base.hide: no recording into a pattern that isn't shown
+        self.setRecording(False)
+
+    # Recording from MIDI (zynthian_gui_pated_base.toggle_midi_record): libseq writes the notes
+    # played into the pattern while it plays; _poll shows them (isPatternModified)
+
+    @Property(bool, notify=recordChanged)
+    def recording(self):
+        return bool(self.libseq.isMidiRecord())
+
+    @Slot(bool)
+    def setRecording(self, on):
+        if bool(self.libseq.isMidiRecord()) != on:
+            self._flush_pending()
+            self.libseq.enableMidiRecord(on)
+            self.recordChanged.emit()
+
+    @Slot()
+    def toggleRecording(self):
+        self.setRecording(not self.libseq.isMidiRecord())
+
+    # Transport keys here: the pattern (zynthian_gui_pated_base cuia_toggle_record / stop / play)
+
+    def cuia_toggle_record(self, params=None):
+        self.toggleRecording()
+        return True
+
+    def cuia_stop(self, params=None):
+        self.libseq.setPlayState(self.zynseq.scene, self.phrase, self.sequence, zynseq.SEQ_STOPPED)
+        return True
+
+    def cuia_toggle_play(self, params=None):
+        self.togglePlayback()
+        return True
 
     def load(self):
         """The active chain's sequence in the selected phrase (zynthian_gui_mixer.edit_pattern)"""
@@ -564,6 +599,7 @@ class PatternEditor(QObject):
             ("Transpose down", lambda: self._transpose(-1), None, None),
             ("New note values", self.entry_options, None, None),
             (f"Chord mode ({chord_label})", self._pick_chord_mode, None, None),
+            (f"{'☒' if ls.isMidiRecord() else '☐'} Record MIDI", self.toggleRecording, None, None),
             ("Load pattern", self._load_pattern_file, None, None),
             ("Save pattern", lambda: self._ask_file_name(PATTERNS_DIR, "zpat", self._save_pattern_file),
              None, None),

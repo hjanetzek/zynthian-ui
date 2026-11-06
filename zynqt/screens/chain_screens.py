@@ -247,6 +247,18 @@ class Preset(SelectorScreen):
             self.ui.replace_screen("audio_player" if proc is self.state_manager.audio_player
                                    else "chain_control")
 
+    def cuia_toggle_play(self, params=None):
+        """PLAY in an audio player's file list (zynthian_gui_preset): load the selected file, then
+        play it: the chain's player here, the global one by the global PLAY"""
+        proc = self.ui.current_processor
+        if proc is None or getattr(proc.engine, "nickname", None) != "AP":
+            return False
+        self.activate(self._index)
+        if proc is not self.state_manager.audio_player:
+            proc.controllers_dict["transport"].set_value(127)
+            return True
+        return False
+
     def back(self):
         proc = self.ui.current_processor
         if proc and proc.preset_subdir_info:

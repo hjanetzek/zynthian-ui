@@ -98,7 +98,7 @@ from `setup_plugins_rbpi.sh`, a recipe in `zynthian-sys/scripts/recipes/`, or a 
 | Project | Missing | Type | ZynthianOS source | Build | Notes |
 |---|---|---|---|---|---|
 | Surge XT | 1 | synth | release source with submodules | cmake, JUCE | packaged (`surge-xt-lv2`, data split), building |
-| Dusk Audio | 6 | effects | prebuilt only (`install_dusk_*_prebuilt.sh`) | JUCE | sources to check; glibc binaries can't run on musl |
+| Dusk Audio | 6 | 4K EQ 2, TapeMachine 2, Tape Echo 2, Sunset Circuits, Chord Analyzer Headless (DAF), DuskVerb (JUCE) | prebuilt glibc binaries on ZynthianOS; source: github.com/dusk-audio/dusk-audio-plugins (GPL-3) with DAF, their DPF fork | cmake: DAF plugins (`dusk-audio-lv2`), JUCE 8.0.4 plugins (`dusk-audio-juce-lv2`) | packaged, building; also the plugins zynthian doesn't enable (Multi-Q, Multi-Comp, DuskAmp, GrooveMind, Ring Out, ...) |
 | Synths | 7 | Helm, Vaporizer2, Triceratops, Foo YC20, Fabla, SO-kl5, Mutated Instruments | recipes, Vaporizer2 from openSUSE debs | make/waf/cmake; Fabla needs NTK, Foo YC20 Faust 0.9.73 | |
 | Neural | 3 | AIDA-X, Neural Amp Modeler, Ratatouille | recipes | cmake, RTNeural/Eigen | CPU-heavy |
 | Single plugins | 13 | Aether, Argotlunar2, AMS Bitgrinder, Calf Wavetable, ChaosChimp, Granulator (Faust), Punk Console, Regrader, Roboverb, SAFE EQ, TalentedHack, The Vibey (gula), MOD Arpeggiator | Debian / recipes | various | |

@@ -43,7 +43,7 @@ from zynlibs.zynseq import zynseq
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
-from zyngui.zynthian_audio_file_data import engine_type, file_zctrl, clippy_info, clippy_values, engine_view
+from zyngui.zynthian_audio_file_data import engine_type, file_zctrl, clippy_info, clippy_values, engine_view, transport
 
 
 
@@ -1063,38 +1063,16 @@ class zynthian_widget_audio_file(zynthian_widget_base.zynthian_widget_base):
     # -------------------------------------------------------------------------
 
     def cuia_toggle_record(self, param=None):
-        # Handle transport for clippy
-        if self.clip_info:
-            self.zyngui.state_manager.audio_recorder.toggle_recording()
-            return True
-        return False
+        return transport("record", self.processor, self.eng_type, self.clip_info, self.zyngui.state_manager)
 
     def cuia_stop(self, param=None):
-        # Handle transport for clippy
-        if self.clip_info:
-            self.zyngui.state_manager.zynseq.libseq.setPlayState(self.clip_info[0], self.clip_info[1], self.clip_info[2], 0)
-            return True
-        elif self.eng_type == self.ENG_CHAIN_AP:
-            self.processor.controllers_dict["transport"].set_value(0)
-            self.processor.controllers_dict["position"].set_value(0)
-            return True
-        return False
+        return transport("stop", self.processor, self.eng_type, self.clip_info, self.zyngui.state_manager)
 
     def cuia_play(self, param=None):
-        if self.eng_type == self.ENG_CHAIN_AP:
-            self.processor.controllers_dict["transport"].set_value(127)
-            return True
-        return False
+        return transport("play", self.processor, self.eng_type, self.clip_info, self.zyngui.state_manager)
 
     def cuia_toggle_play(self, param=None):
-        # Handle transport for clippy
-        if self.clip_info:
-            self.zyngui.state_manager.zynseq.libseq.togglePlayState(self.clip_info[0], self.clip_info[1], self.clip_info[2])
-            return True
-        elif self.eng_type == self.ENG_CHAIN_AP:
-            self.processor.controllers_dict["transport"].toggle()
-            return True
-        return False
+        return transport("toggle_play", self.processor, self.eng_type, self.clip_info, self.zyngui.state_manager)
 
     def update_wsleds(self, leds):
         # Handle LEDs for clippy

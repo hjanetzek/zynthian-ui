@@ -34,6 +34,7 @@ from zyngine.zynthian_engine import zynthian_engine
 from zyngine.zynthian_engine_sooperlooper import *
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
+from zyngui.zynthian_sooperlooper_data import alt_transport
 from zyngui.zynthian_sooperlooper_data import (loop_kind, select_loop as sl_select_loop, toggle_mute as sl_toggle_mute,
                                               add_loop as sl_add_loop, remove_loop as sl_remove_loop,
                                               press_button as sl_press_button)
@@ -526,38 +527,15 @@ class zynthian_widget_sooperlooper(zynthian_widget_base.zynthian_widget_base):
 
     def cuia_toggle_record(self, params=None):
         if self.alt_mode:
-            state = self.monitors['state']
-            if state in (SL_STATE_REC_STARTING, SL_STATE_RECORDING, SL_STATE_REC_STOPPING):
-                btn = "record"
-            elif state in (SL_STATE_PLAYING, SL_STATE_OVERDUBBING):
-                btn = "overdub"
-            elif state == SL_STATE_MULTIPLYING:
-                btn = "multiply"
-            elif state == SL_STATE_INSERTING:
-                btn = "insert"
-            elif state == SL_STATE_REPLACING:
-                btn = "replace"
-            else:
-                btn = "record"
-            self.processor.controllers_dict[btn].toggle()
-            return True
+            return alt_transport("record", self.processor, self.monitors)
 
     def cuia_stop(self, params=None):
         if self.alt_mode:
-            state = self.monitors['state']
-            self.processor.controllers_dict['multiply'].toggle()
-            return True
+            return alt_transport("stop", self.processor, self.monitors)
 
     def cuia_toggle_play(self, params=None):
         if self.alt_mode:
-            state = self.monitors['state']
-            if state == SL_STATE_MUTED:
-                self.processor.controllers_dict['mute'].set_value(0, True)
-            elif state in (SL_STATE_PLAYING, SL_STATE_TRIGGER_PLAY, SL_STATE_PLAYING_ONCE):
-                self.processor.controllers_dict['mute'].set_value(1, True)
-            if state == SL_STATE_PAUSED:
-                self.processor.controllers_dict['pause'].set_value(0, True)
-            return True
+            return alt_transport("toggle_play", self.processor, self.monitors)
 
     def cuia_arrow_up(self, params=None):
         if self.alt_mode:

@@ -72,7 +72,7 @@ zynqt/
     Main.qml                 window, top bar, screen stack, V5 touch keypad
     components/              List, InfoPane, Controller (knob/slider), Fader, Meter, Keypad, ...
     screens/                 MainMenu, Mixer, ChainControl, Selector, ...
-nura/pyside6/APKBUILD        PySide6 6.12 for Nura (see Packaging)
+nura/pyside6/APKBUILD        PySide6 6.12 for Nura (see Packaging; since 2026-11-06 in nura-builds, aports/pyside6)
 ```
 
 ## Milestones
@@ -182,7 +182,7 @@ Pattern files and MIDI file import/export with a file picker in the options scre
 controller options (chain/global learn, CC mode and range, unlearn), bindings on the controllers,
 ZS3 program change learning, note range learning (b67093b4). X-Y touchpad (f71915da).
 Not ported yet: ZynVoice. All engine widgets are ported (SooperLooper for its current engine; better as the LV2
-plugin, see nura-lv2-plugins.md).
+plugin, see nura-builds' docs/lv2-plugins.md).
 
 Measured on the Duet (performance governor, A73 cores), the UI as it is now:
 

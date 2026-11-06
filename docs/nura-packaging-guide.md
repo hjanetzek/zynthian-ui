@@ -35,6 +35,10 @@ state of the plugins themselves is in [nura-lv2-plugins.md](nura-lv2-plugins.md)
   chroot): `/bin/sh: .../generate-lv2.sh: not found` is a `#!/bin/bash` script without bash.
   Check the shebangs of the scripts the build runs (DPF's `generate-ttl.sh`, DISTRHO-Ports'
   `generate-lv2.sh`: bash) and list every tool the build calls.
+  The same for headers: since the Qt 6.12 and `mesa-dev` installs, about 100 `-dev` packages are
+  on the Duet as their dependencies (`linux-headers`, X11, cairo, glib, ...): xsimd's
+  `<asm/hwcap.h>` (`linux-headers`) only failed in CI. List what the device has
+  (`apk info | grep -- '-dev$'`) and don't trust a Duet build to prove the makedepends complete.
 - **Rebuilding without a pkgrel bump installs nothing**: `apk add -u` keeps an installed package of
   the same version, so a fix tested that way tests the old files. Bump pkgrel for every rebuild
   that is installed and tested.

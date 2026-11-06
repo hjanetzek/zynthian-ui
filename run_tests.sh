@@ -5,6 +5,9 @@
 #   ./run_tests.sh gui        same, under xvfb so the Tk-based tests also run
 #   ./run_tests.sh native     builds the real native libraries if needed (tests/native/build_native.sh) and runs
 #                             tests/native: zyncore router, zynseq, ... on a private dummy jackd
+#   ./run_tests.sh dbm [-v]   the DrivenByMoss drivers' tests (tests/dbm/run_tests.py, not pytest): need
+#                             DrivenByMoss (DBM_PYTHON_DIR and DBM_LIBRARY, or the drivenbymoss package);
+#                             exit 77 (skipped) without it
 #   ./run_tests.sh <pytest args...>   anything else is passed to pytest (e.g. -k controller -x)
 #
 # See tests/README.md
@@ -25,6 +28,10 @@ case "$1" in
 		[ -f tests/native/build/libzyncore.so ] || tests/native/build_native.sh || exit 1
 		export ZYNTEST_LOG=${ZYNTEST_LOG:-INFO}
 		exec python3 -m pytest tests/native "$@"
+		;;
+	dbm)
+		shift
+		exec python3 tests/dbm/run_tests.py "$@"
 		;;
 	gui)
 		shift

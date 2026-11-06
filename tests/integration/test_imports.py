@@ -34,12 +34,28 @@ ALL_MODULES = [m for p in ("zyngine", "zynconf", "zynautoconnect", "zyngui", "zy
                for m in discover(p)]
 
 
+def is_dbm_module(name):
+    """The DrivenByMoss drivers and their adapter: they need the drivenbymoss package (or
+    DBM_PYTHON_DIR / DBM_LIBRARY) with a matching protocol; tests/dbm has their own tests."""
+    last = name.rsplit(".", 1)[-1]
+    return (name.startswith("zyngine.ctrldev.dbm_zynthian") or last == "zynthian_ctrldev_base_dbm"
+            or last.startswith("zynthian_ctrldev_dbm_"))
+
+
 @pytest.mark.parametrize("name", ALL_MODULES)
 def test_module_imports(name):
     try:
         importlib.import_module(name)
-    except ModuleNotFoundError as e:
-        top = (e.name or "").split(".")[0]
+    except (ImportError, OSError) as e:
+        top = (getattr(e, "name", None) or "").split(".")[0]
+        if is_dbm_module(name):
+            # Skipped: no binding (drivenbymoss, dbm_host), its library not loadable (OSError) or
+            # another protocol (DbmProtocolError); our own modules missing still fail
+            missing_own = isinstance(e, ModuleNotFoundError) and top not in {"drivenbymoss", "dbm_host"}
+            if not missing_own:
+                pytest.skip(f"DrivenByMoss not available ({e})")
+        if not isinstance(e, ModuleNotFoundError):
+            raise
         if top in {"zyngine", "zyngui", "zynlibs", "zynconf", "zynautoconnect", "zyncoder", "tests"}:
             raise  # our own module is missing: a real failure
         pytest.skip(f"optional third-party dependency not installed: {e.name}")

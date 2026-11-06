@@ -199,7 +199,10 @@ differently:
 - **JUCE's LV2 helper runs the plugin at build time**: `juce_lv2_helper` (the last step of the
   `_LV2` target) loads the built plugin and creates its editor to write the UI TTL. In CI's chroot
   there is no display and no fonts, so editor code that assumes a display crashes there (Monique:
-  `get_host_display()` returns null; patched). A plugin's own crash handler can then end the
+  `get_host_display()` returns null; patched). On the Duet this doesn't show: without `DISPLAY`
+  JUCE opens `:0.0`, and the kiosk's XWayland listens there (`/tmp/.X11-unix/X0`), so builds over
+  ssh have a display. To see what CI sees, build with `DISPLAY` set to a display that doesn't
+  exist (`DISPLAY=:99 abuild -r`). A plugin's own crash handler can then end the
   process with SIGKILL, so ninja reports "signal 9", which looks like the OOM killer. Before
   guessing (memory, LTO), get evidence: a debug branch that runs the step alone and the helper
   under `strace`/`gdb`, built with `packages.yml` (`-f zynthian-ui-ref=<branch>`).

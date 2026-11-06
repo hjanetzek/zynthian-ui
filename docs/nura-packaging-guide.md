@@ -108,6 +108,9 @@ GitHub's archive tarballs don't contain git submodules, and pmbootstrap builds h
 | `std::exchange` not a member of `std` (older JUCE) | `-include utility` |
 | implicit `int`, implicit function declarations, incompatible pointer types (old C) | `-std=gnu17 -fpermissive` (GCC 14 made these errors; GCC 15 defaults to C23) |
 | unresolved `inline` helper at load time ("symbol not found") | `-fgnu89-inline`: GNU89 `inline` code; Alpine's `-Os` doesn't inline every call, so no external definition exists (glibc distributions build with `-O2` and don't see it) |
+| `Compatibility with CMake < 3.5 has been removed` (CMake 4) | `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` |
+| `lv2/lv2plug.in/ns/lv2core/lv2.h: No such file` (old JUCE LV2 wrappers, old plugins) | LV2 1.18 moved the headers to `lv2/core`, `lv2/atom`, ...: a symlink tree with the old paths in an `-I` directory (chow-matrix-lv2) |
+| `jack/jack.h: No such file` (JUCE) | JUCE's audio device module builds JACK support on Linux: `jack-dev` |
 | `-Werror` in the project's flags | remove it, or the project's switch (`SURGE_SKIP_WERROR`) |
 
 ## Pure Data externals

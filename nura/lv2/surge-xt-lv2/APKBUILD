@@ -7,7 +7,7 @@
 # the third-party patches and wavetables (334 MB) in the optional -data-3rdparty.
 pkgname=surge-xt-lv2
 pkgver=1.3.4
-pkgrel=0
+pkgrel=1
 pkgdesc="Surge XT hybrid synthesizer (LV2)"
 url="https://surge-synthesizer.github.io"
 arch="aarch64 x86_64"
@@ -83,6 +83,9 @@ package() {
 
 _data() {
 	pkgdesc="$pkgdesc (factory patches, wavetables, skins)"
+	# subpackages inherit depends: without this -data depends on itself (pmbootstrap: "cyclical
+	# build dependency")
+	depends=""
 	amove usr/share/surge-xt
 	# the third-party content goes to -data-3rdparty
 	mkdir -p "$srcdir"/3rdparty

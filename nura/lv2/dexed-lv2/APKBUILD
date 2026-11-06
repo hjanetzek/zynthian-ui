@@ -1,0 +1,38 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Dexed, the DX7 FM synth, as dcoredump's native LV2 port (URI https://github.com/dcoredump/dexed.lv2;
+# zynthian's recipe install_dexed_lv2.sh). It is written against lvtk 1 (not packaged): its
+# headers come from the lvtk 1.2.0 source, and its plugin library (one file) is linked in.
+# No GUI; the modgui images left out. CPU/PLATFORM empty: the Makefile's aarch64 flags are Cortex-A53 and
+# -mcmodel=tiny.
+pkgname=dexed-lv2
+_commit=32cce1ec397899e27e5932e3f732b3f1bf95de6e
+_lvtk=1.2.0
+pkgver=0_git20221116
+pkgrel=0
+pkgdesc="Dexed DX7 FM synthesizer LV2 plugin (dexed.lv2)"
+url="https://github.com/dcoredump/dexed.lv2"
+arch="all"
+license="GPL-3.0-or-later"
+makedepends="lv2-dev"
+source="$pkgname-$_commit.tar.gz::https://github.com/dcoredump/dexed.lv2/archive/$_commit.tar.gz
+	lvtk-$_lvtk.tar.gz::https://github.com/lvtk/lvtk/archive/$_lvtk.tar.gz"
+builddir="$srcdir/dexed.lv2-$_commit/src"
+options="!check" # no tests
+
+build() {
+	local lvtk="$srcdir"/lvtk-$_lvtk
+	${CXX:-g++} $CXXFLAGS -fPIC -I"$lvtk" -c "$lvtk"/src/plugin.cpp -o lvtk_plugin.o
+	make CPU= FPU= PLATFORM= \
+		CXXFLAGS_LVTK="-I$lvtk" \
+		LDFLAGS_LVTK="$PWD/lvtk_plugin.o"
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	cp -r dexed.lv2 "$pkgdir"/usr/lib/lv2/
+	rm -rf "$pkgdir"/usr/lib/lv2/dexed.lv2/modgui
+}
+sha512sums="
+e8c054e4a5156945c2fed3e0f9fc6da2a134014127d6e49e0cd4d3a0e7be9d266c6bdb3d6860b1ba512a26b43d5a4d2602dd1fd885dfacd9402740fb4cf9bade  dexed-lv2-32cce1ec397899e27e5932e3f732b3f1bf95de6e.tar.gz
+f193ec28103cb2f6353ff0f96f8790041baf1ae99472c5d04017c23b42d0179b1f5e1de6722e17080410311d0e7e1de4ca0ae9ab76fb3bf8a02d9dc1451d8db7  lvtk-1.2.0.tar.gz
+"

@@ -1,0 +1,68 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# Dusk Audio's DAF plugins (URIs https://dusk-audio.github.io/plugins/...; zynthian enables 4K EQ 2,
+# TapeMachine 2, Tape Echo 2, Sunset Circuits, Chord Analyzer Headless, prebuilt glibc binaries on
+# ZynthianOS): TapeMachine 2, 4K EQ 2, Tape Echo 2, Multi-Q 2, Multi-Comp 2, DuskVerb 2, Ring Out,
+# Chord Analyzer 2 (and its MIDI variant), Sunset Circuits, built as their CI does (each
+# plugins/<name>/daf-plugin against DAF, Dusk's DPF fork, at the pinned commit; LV2 targets only),
+# and the GUI-less Chord Analyzer Headless. The DAF plugins are monolithic with an OpenGL UI.
+pkgname=dusk-audio-lv2
+_commit=e96abd98d25abaf53f2a2d93abc8c3399fed30d2
+_daf=c74776b463456e18e29a8f49dfe7e92f120a5bd8
+pkgver=0_git20261105
+pkgrel=0
+pkgdesc="Dusk Audio LV2 plugins: tape, EQ, dynamics, reverb, chord analyzer"
+url="https://github.com/dusk-audio/dusk-audio-plugins"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later AND ISC"
+# libxtst-dev, lilv-dev: the plugins' CMake requires XTest and lilv for their UI and LV2 state
+# tests (configured, not built)
+makedepends="
+	cmake
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxrandr-dev
+	libxtst-dev
+	lilv-dev
+	lv2-dev
+	mesa-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/dusk-audio/dusk-audio-plugins/archive/$_commit.tar.gz
+	daf-$_daf.tar.gz::https://github.com/dusk-audio/DAF/archive/$_daf.tar.gz"
+builddir="$srcdir/dusk-audio-plugins-$_commit"
+options="!check" # the plugins' tests aren't built
+
+# plugin directory:LV2 target base names
+_plugins="TapeMachine:tapemachine-2 4k-eq:4k-eq-2 tape-echo:tape-echo-2 multi-q:multi-q-2
+	multi-comp:multi-comp-2 DuskVerb:duskverb-2 ring-out:ring-out
+	chord-analyzer:chord-analyzer-2,chord-analyzer-midi-2 sunset-circuits:sunset-circuits"
+
+build() {
+	local p dir targets t
+	for p in $_plugins; do
+		dir=${p%%:*}
+		targets=
+		for t in $(echo ${p#*:} | tr , ' '); do
+			targets="$targets $t-lv2"
+		done
+		cmake -S plugins/$dir/daf-plugin -B build-$dir -G Ninja \
+			-DCMAKE_BUILD_TYPE=Release \
+			-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+			-DDUSK_DAF_INSTALL_LOCAL=OFF \
+			-DDAF_PATH="$srcdir"/DAF-$_daf
+		cmake --build build-$dir --parallel 3 --target $targets
+	done
+	cmake -S plugins/chord-analyzer/lv2 -B build-headless -G Ninja -DCMAKE_BUILD_TYPE=Release
+	cmake --build build-headless --parallel 3
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	# bundle names can contain spaces ("Chord Analyzer Headless.lv2")
+	find build-* -type d -path '*/bin/*.lv2' -prune -exec cp -r {} "$pkgdir"/usr/lib/lv2/ \;
+}
+sha512sums="
+4837c379ed8231c31a58c378e1a27f2f324da6c3c67db0858270dbc2cf509551754c25f45fe63bbe41b4a3623b315dc6c03576f51135abb20e7cca3ea3ac90d7  dusk-audio-lv2-e96abd98d25abaf53f2a2d93abc8c3399fed30d2.tar.gz
+68788c7c7a615d5e14bf9003bc8e281eaea4a995957ed31a3554f1590e1efead826d0ebe404919164161fbc44cc737a63a39ad03a3330ea66d4e0ab1579e9716  daf-c74776b463456e18e29a8f49dfe7e92f120a5bd8.tar.gz
+"

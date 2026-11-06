@@ -35,6 +35,7 @@ makedepends="
 	libxinerama-dev
 	libxrandr-dev
 	linux-headers
+	mesa-dev
 	samurai
 	"
 source="$pkgname-$pkgver.tar.gz::https://github.com/midilab/jc303/archive/v$pkgver.tar.gz

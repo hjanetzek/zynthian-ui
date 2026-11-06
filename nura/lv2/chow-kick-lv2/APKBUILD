@@ -21,7 +21,7 @@ url="https://github.com/Chowdhury-DSP/ChowKick"
 arch="aarch64 x86_64"
 license="BSD-3-Clause"
 # linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
-# kernel headers too
+# kernel headers too; mesa-dev: juce_opengl (GL/glx.h)
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -35,6 +35,7 @@ makedepends="
 	libxrandr-dev
 	linux-headers
 	lv2-dev
+	mesa-dev
 	samurai
 	"
 source="$pkgname-$_commit.tar.gz::https://github.com/Chowdhury-DSP/ChowKick/archive/$_commit.tar.gz

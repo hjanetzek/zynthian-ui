@@ -15,7 +15,7 @@ arch="aarch64 x86_64"
 license="GPL-3.0-or-later"
 # -data comes with it by install_if (a depends on the own subpackage is a cycle for pmbootstrap)
 # linux-headers: xsimd (bundled in RTNeural/chowdsp_utils) includes <asm/hwcap.h>; JUCE uses
-# kernel headers too
+# kernel headers too; mesa-dev: juce_opengl (GL/glx.h)
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -28,6 +28,7 @@ makedepends="
 	libxinerama-dev
 	libxrandr-dev
 	linux-headers
+	mesa-dev
 	python3
 	samurai
 	"

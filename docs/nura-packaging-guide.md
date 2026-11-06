@@ -146,10 +146,10 @@ GitHub's archive tarballs don't contain git submodules, and pmbootstrap builds h
 
 ## Packaging
 
-- Subpackages inherit the main package's `depends`: a `-data` subpackage that the main package
-  depends on must reset `depends=""`, or it depends on itself (pmbootstrap: "cyclical build
-  dependency: can't build ...", then "Can't resolve build order"; abuild on the Duet doesn't
-  complain).
+- **A package must not depend on its own subpackage** (`depends="$pkgname-data"`): abuild on
+  the Duet accepts it, pmbootstrap can't order it ("cyclical build dependency: can't build ...",
+  "Can't resolve build order"). Let the meta package (or the user) depend on the `-data`
+  subpackage instead (surge-xt-lv2). Subpackages also inherit the main package's `depends`.
 - Bundle and file names can contain spaces (`Ultramaster KR-106.lv2`): copy with
   `find ... -exec cp -r {} dest \;`, not `for d in $(find ...)`.
 - Optional parts of a build can reference targets that are switched off (Surge XT's pluginval

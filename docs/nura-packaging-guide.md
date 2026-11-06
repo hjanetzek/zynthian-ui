@@ -196,6 +196,13 @@ differently:
 - lilv's instantiate without host features fails for every plugin that requires `urid:map` or
   `options` (most DPF, JUCE, x42 plugins): that says nothing. Start those in jalv on PipeWire:
   `timeout 6 jalv -n test -i URI </dev/null`, exit status 0 and no "Failed to instantiate".
+- **JUCE's LV2 helper runs the plugin at build time**: `juce_lv2_helper` (the last step of the
+  `_LV2` target) loads the built plugin and creates its editor to write the UI TTL. In CI's chroot
+  there is no display and no fonts, so editor code that assumes a display crashes there (Monique:
+  `get_host_display()` returns null; patched). A plugin's own crash handler can then end the
+  process with SIGKILL, so ninja reports "signal 9", which looks like the OOM killer. Before
+  guessing (memory, LTO), get evidence: a debug branch that runs the step alone and the helper
+  under `strace`/`gdb`, built with `packages.yml` (`-f zynthian-ui-ref=<branch>`).
 - A crash only at shutdown (jalv exits on EOF) may not show under gdb (timing); the core dump is in
   `coredumpctl`. Plugin libraries are stripped, so the trace names only the library and offset.
 - Engines that aren't plugins (SooperLooper, setBfree, ZynAddSubFX): start them as the engine does

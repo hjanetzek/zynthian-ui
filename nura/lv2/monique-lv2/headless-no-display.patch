@@ -1,0 +1,18 @@
+diff --git a/src/ui/monique_ui_MainWindow.cpp b/src/ui/monique_ui_MainWindow.cpp
+index e26b67b..77acb32 100644
+--- a/src/ui/monique_ui_MainWindow.cpp
++++ b/src/ui/monique_ui_MainWindow.cpp
+@@ -1331,6 +1331,13 @@ void resize_component_to_host_display(juce::Component &component,
+                                       float wanted_scale)
+ {
+     const auto host_display = get_host_display(component);
++    if (host_display == nullptr)
++    {
++        // no display (headless, e.g. JUCE's LV2 helper writing the UI TTL at build time)
++        component.setSize(int(original_bounds.getWidth() * wanted_scale),
++                          int(original_bounds.getHeight() * wanted_scale));
++        return;
++    }
+     const auto &user_area = host_display->userArea;
+ 
+     auto height = original_bounds.getHeight() * wanted_scale;

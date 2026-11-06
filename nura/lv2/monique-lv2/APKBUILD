@@ -6,7 +6,7 @@
 # loads X11 only when the editor opens).
 pkgname=monique-lv2
 pkgver=0_git20240730
-pkgrel=0
+pkgrel=1
 _commit=df7d3395bce862847d40237350d0161a463dcc0d
 _libs_juce=4f43011b96eb0636104cb3e433894cda98243626
 _libs_oddsound_mts_mts_esp=0be85cfa338f6ed85019b22541dd4135869061ca
@@ -40,6 +40,7 @@ source="$pkgname-$_commit.tar.gz::https://github.com/surge-synthesizer/monique-m
 	libs_clap_juce_extensions-${_libs_clap_juce_extensions}.tar.gz::https://github.com/free-audio/clap-juce-extensions/archive/${_libs_clap_juce_extensions}.tar.gz
 	libs_clap_juce_extensions_clap_libs_clap-${_libs_clap_juce_extensions_clap_libs_clap}.tar.gz::https://github.com/free-audio/clap/archive/${_libs_clap_juce_extensions_clap_libs_clap}.tar.gz
 	libs_clap_juce_extensions_clap_libs_clap_helpers-${_libs_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz::https://github.com/free-audio/clap-helpers/archive/${_libs_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz
+	headless-no-display.patch
 	"
 builddir="$srcdir/monique-monosynth-$_commit"
 options="!check" # no tests
@@ -61,8 +62,6 @@ prepare() {
 	rm -rf libs/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_libs_clap_juce_extensions_clap_libs_clap} libs/clap-juce-extensions/clap-libs/clap
 	rm -rf libs/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_libs_clap_juce_extensions_clap_libs_clap_helpers} libs/clap-juce-extensions/clap-libs/clap-helpers
 	sed -i 's/set(MONIQUE_JUCE_FORMATS CLAP VST3 Standalone)/set(MONIQUE_JUCE_FORMATS)/' CMakeLists.txt
-	# no LTO: CI's runner kills the LTO link (61 serial LTRANS jobs) with signal 9, twice
-	sed -i '/juce::juce_recommended_lto_flags/d' CMakeLists.txt
 	default_prepare
 	# LV2 only
 	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
@@ -99,4 +98,5 @@ f827614e003a4b5aced524baa85a84618fe6140bcb243f90d51c9c791ed5107eddf36d21ca25e442
 fa49f072930729e9323dfc1bda8feadf918934ce611e5abcd79508bc73032163b82ef9444ba7b5b5294c6e034327419b7d2d5b39d51f4e655c1a8e0258ffa882  libs_clap_juce_extensions-0a3e7a6494788ea525e95e12a8b6a51640dcdc3e.tar.gz
 307c6c31268710a90460c47280611d72950bc6e8df121399aad913ff68269557396ed203e4f50a5835bcfaa6f3c80283133ea9f4695104af99cdcbeb47041226  libs_clap_juce_extensions_clap_libs_clap-df8f16c69ba1c1a15fb105f0c5a2e5b9ac6be742.tar.gz
 ebd98de0c70446e32ec3a2757ba1431d2aadb9135353d8da4c8965210a145d4f756941fea3e595df81d420d65516f13e9201b9c76560f8cbaa39d1de2b9cc237  libs_clap_juce_extensions_clap_libs_clap_helpers-7b53a685e11465154b4ccba3065224dbcbf8a893.tar.gz
+83129fae851f63cd62a5c73d64357e35ce07be5ee4defc9dbcc0b07f6f6338002c8f0288eafeb49a54c8ff9db81f12da78d2444ad7242803c313d90adda641a9  headless-no-display.patch
 "

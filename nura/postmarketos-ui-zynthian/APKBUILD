@@ -8,10 +8,10 @@ url="https://github.com/zynthian/zynthian-ui"
 license="GPL-3.0-or-later"
 options="!check pmb:drm pmb:support-systemd"
 # Engines: those packaged by Alpine (jalv and sfizz are in testing), and ZynAddSubFX, setBfree and
-# SooperLooper (nura/engines/). Aeolus and linuxsampler are not packaged yet.
-# LV2 plugins: zynthian-lv2-plugins (nura/lv2/), the plugins zynthian enables by default as far as
-# they are packaged; state and the missing ones: docs/nura-lv2-plugins.md. Pure Data for the
-# puredata engine: zynthian-puredata (nura/pd/).
+# SooperLooper (nura-builds: aports/engines/). Aeolus and linuxsampler are not packaged yet.
+# LV2 plugins: zynthian-lv2-plugins (nura-builds: aports/lv2/), the plugins zynthian enables by default as far as
+# they are packaged; state and the missing ones: nura-builds' docs/lv2-plugins.md. Pure Data for the
+# puredata engine: zynthian-puredata (nura-builds: aports/pd/).
 depends="
 	fluidsynth
 	jack_capture

@@ -16,11 +16,18 @@ device.
 |---|---|---|
 | `zyncoder/` | `--src` zyncoder checkout (`nura` branch) | `libzyncore.so` (MIDI router, controllers) in `/usr/lib/zynthian`, its Python module. Built with the wiringPi stand-in: no GPIO or I2C |
 | `zynthian-ui/` | `--src` this checkout | UI and engine manager in `/usr/share/zynthian/zynthian-ui`, the zynlibs in `/usr/lib/zynthian`, `/usr/bin/zynthian`, bundled Python packages in `/usr/share/zynthian/python` |
-| `zynthian-jalv/` | upstream tarball (zynthian/jalv, branch `asyncli`) or `--src` checkout | zynthian's jalv, which the LV2 engine needs (Alpine's jalv makes LV2 chains hang while loading), as `/usr/lib/zynthian/bin/jalv` beside Alpine's; `zynthian_desktop_env.sh` puts it first on PATH |
 | `zynthian-data/` | upstream tarballs | `zynthian-data` (presets, soundfonts, snapshots, ~715 MB), subpackages `zynthian-help` and `zynthian-sys-config` (configuration templates) |
 | `postmarketos-ui-zynthian/` | this directory | Kiosk UI: cage + zynthian + pipewire-jack + the engines Alpine packages; `/etc/cage-ui/zynthian.sh` waits for PipeWire, forces a 256-frame quantum and makes zynthian fill the screen; a `tinydm.service` drop-in raises the real-time limit; on Panfrost GPUs XWayland runs without glamor (`/usr/share/tinydm/env-wayland.d/60-zynthian-xwayland.sh`, see [docs/nura-display.md](../docs/nura-display.md)) |
 | `deploy.sh` | | Builds packages (`zynthian-ui` and `zyncoder` from their checkouts) and installs them on a running device over SSH (`pmbootstrap sideload`) |
 | `seed-distfiles.sh` | | Puts zynthian-ui's Python sources into pmbootstrap's distfiles cache, so the `--src` build needs no network |
+
+The recipes zynthian needs that aren't zynthian's own code are in [nura-builds](https://github.com/hjanetzek/nura-builds) (`aports/`, moved
+there with their history on 2026-11-06): PySide6 6.12 (`pyside6`), zynthian's jalv
+(`zynthian-jalv`: the LV2 engine needs it, Alpine's jalv makes LV2 chains hang while loading), the
+LV2 plugins with the meta package `zynthian-lv2-plugins` (`lv2`), Pure Data and its externals
+(`pd`), and the engines ZynAddSubFX, setBfree and SooperLooper (`engines`). nura-builds' CI builds
+them and these packages, and publishes images and a package repository. How to package more:
+its `docs/packaging-guide.md`; the state of zynthian's plugins: its `docs/lv2-plugins.md`.
 
 The layout comes from `desktop/install.sh`, which `zynthian-ui` uses; `zyncoder` and
 `zynthian-data` follow it in their APKBUILDs.
@@ -55,8 +62,9 @@ nura/seed-distfiles.sh ~/.config/pmbootstrap-zynthian.cfg
 ### Engines
 
 Alpine packages fluidsynth, calf, x42-plugins, mda-lv2 and pure-data; jalv, sfizz and a2jmidid
-are in `testing`. ZynAddSubFX, setBfree and SooperLooper are packaged in `nura/engines/`,
-Dragonfly Reverb in `nura/lv2/`; Aeolus and linuxsampler are not packaged yet. The kiosk package
+are in `testing`. ZynAddSubFX, setBfree and SooperLooper are packaged in nura-builds'
+`aports/engines/`, the LV2 plugins in its `aports/lv2/`; Aeolus and linuxsampler are not packaged
+yet. The kiosk package
 depends on the first group and on these (without pure-data and
 a2jmidid: PipeWire bridges ALSA MIDI itself).
 
@@ -79,11 +87,14 @@ printf '%s\n' '[pmbootstrap]' 'device = google-kukui' 'hostname = zynthian-duet'
 
 If the work directory is new, initialise it (interactive; answers as for Kick: channel edge,
 systemd, audio backend PipeWire). Link the packages into pmbootstrap's pmaports checkout and seed the distfiles
-cache (needs sudo):
+cache (needs sudo). The plugins, engines, jalv and PySide6 come from a nura-builds checkout (here
+next to zynthian-ui); link its recipe directories one by one, not its whole `aports/`, if another
+checkout (Zrythm's `tools/nura`) already provides Qt 6.12:
 
 ```sh
 pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg init
 ln -sfn "$PWD/nura" ~/.local/var/pmbootstrap/cache_git/pmaports/zynthian
+for d in lv2 pd engines zynthian-jalv pyside6; do ln -sfn "$PWD/../nura-builds/aports/$d" ~/.local/var/pmbootstrap/cache_git/pmaports/nura-builds-$d; done
 nura/seed-distfiles.sh ~/.config/pmbootstrap-zynthian.cfg
 ```
 

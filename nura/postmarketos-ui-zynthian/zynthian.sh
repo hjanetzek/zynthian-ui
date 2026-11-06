@@ -34,24 +34,45 @@ export ZYNTHIAN_UI_SCALE=auto
 export QT_QPA_PLATFORM=wayland
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 
+# Device defaults (first device-tree compatible), overridden by /etc/default/zynthian: the output
+# rotation for panels that report no DRM panel orientation (cage-ui-autorotate.sh rotates the
+# others), and the Qt UI's output scale
+zynthian_transform=
+zynthian_scale=1.5
+case "$(tr '\0' '\n' < /proc/device-tree/compatible 2>/dev/null | head -n 1)" in
+	google,blueline)
+		# Pixel 3: portrait panel (1080x2160) without panel orientation; landscape, and at 443 ppi
+		# a larger scale than the Duet's (224 ppi): 1200x600 logical pixels
+		zynthian_transform=90
+		zynthian_scale=1.8
+		;;
+esac
+
 # UI (qt or tk) from /etc/default/zynthian, switched by kiosk-session; zynthian's own config
 # (~/.config/zynthian/zynthian_custom_config.sh) can still override it
 ZYNTHIAN_UI=qt
 [ -f /etc/default/zynthian ] && . /etc/default/zynthian
 export ZYNTHIAN_UI
 
-# Output scale for the Qt UI (ZYNTHIAN_OUTPUT_SCALE in /etc/default/zynthian, default 1.5): the
-# Duet's 1920x1200 at 1.5 gives 1280x800 logical pixels (2: 960x600, larger); Qt renders at the
-# panel's resolution. The Tk UI stays at scale 1: XWayland's buffer would be
-# scaled up (blurry), and it scales its fonts itself (ZYNTHIAN_UI_SCALE).
-zynthian_set_scale() {
+zynthian_set_output() {
 	wlr-randr --json | jq -r '.[] | select(.enabled) | .name' |
 	while read -r output; do
-		wlr-randr --output "$output" --scale "$1"
+		wlr-randr --output "$output" "$@"
 	done
 }
-if [ "$ZYNTHIAN_UI" = qt ] && [ -n "${ZYNTHIAN_OUTPUT_SCALE-1.5}" ]; then
-	zynthian_set_scale "${ZYNTHIAN_OUTPUT_SCALE-1.5}" || true
+
+# Output rotation (ZYNTHIAN_OUTPUT_TRANSFORM in /etc/default/zynthian: normal, 90, 180, 270, ...;
+# default per device, above), for both UIs
+if [ -n "${ZYNTHIAN_OUTPUT_TRANSFORM-$zynthian_transform}" ]; then
+	zynthian_set_output --transform "${ZYNTHIAN_OUTPUT_TRANSFORM-$zynthian_transform}" || true
+fi
+
+# Output scale for the Qt UI (ZYNTHIAN_OUTPUT_SCALE in /etc/default/zynthian; default 1.5, per
+# device above): the Duet's 1920x1200 at 1.5 gives 1280x800 logical pixels (2: 960x600, larger);
+# Qt renders at the panel's resolution. The Tk UI stays at scale 1: XWayland's buffer would be
+# scaled up (blurry), and it scales its fonts itself (ZYNTHIAN_UI_SCALE).
+if [ "$ZYNTHIAN_UI" = qt ] && [ -n "${ZYNTHIAN_OUTPUT_SCALE-$zynthian_scale}" ]; then
+	zynthian_set_output --scale "${ZYNTHIAN_OUTPUT_SCALE-$zynthian_scale}" || true
 fi
 
 CAGE_UI_COMMAND=zynthian

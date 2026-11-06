@@ -1,0 +1,45 @@
+#!/bin/sh
+# CPU setup for the zynthian kiosk, run as root before each session
+# (tinydm.service.d/60-zynthian-cpu.conf). Settings in /etc/default/zynthian, defaults per device:
+#
+# ZYNTHIAN_IDLE_CPUS: CPUs kept out of idle states slower than 10 us (all but WFI), e.g. "4-7".
+#   The audio graph wakes its nodes one after another each cycle; on a core in a deep idle state
+#   each wake-up costs its exit latency (Pixel 3: ~0.85 ms), which shows as DSP load ("CPU" in
+#   zynthian: about 40 % with no chain at a 256-frame quantum, about 5 % with the fast cores kept
+#   out of deep idle). Costs some idle power. Other CPUs get their idle states back.
+# ZYNTHIAN_GOVERNOR: CPU frequency governor for all policies (e.g. performance); empty: leave it.
+
+idle_cpus=
+case "$(tr '\0' '\n' < /proc/device-tree/compatible 2>/dev/null | head -n 1)" in
+	google,blueline) idle_cpus=4-7 ;;   # Pixel 3: the fast cores (Kryo 385 Gold), audio threads
+esac
+[ -f /etc/default/zynthian ] && . /etc/default/zynthian
+idle_cpus=${ZYNTHIAN_IDLE_CPUS-$idle_cpus}
+governor=${ZYNTHIAN_GOVERNOR-}
+
+# "4-7,2" -> "4 5 6 7 2"
+expand_cpus() {
+	echo "$1" | tr ',' '\n' | while IFS=- read -r a b; do
+		[ -n "$a" ] || continue
+		seq "$a" "${b:-$a}"
+	done
+}
+keep=" $(expand_cpus "$idle_cpus" | tr '\n' ' ') "
+
+for state in /sys/devices/system/cpu/cpu[0-9]*/cpuidle/state[0-9]*; do
+	[ -f "$state/disable" ] || continue
+	cpu=${state#/sys/devices/system/cpu/cpu}
+	cpu=${cpu%%/*}
+	value=0
+	case $keep in *" $cpu "*) [ "$(cat "$state/latency")" -gt 10 ] && value=1 ;; esac
+	echo "$value" > "$state/disable" 2>/dev/null
+done
+[ "$keep" = "  " ] || echo "zynthian-cpu-setup: CPUs" $keep": no idle states slower than 10 us"
+
+if [ -n "$governor" ]; then
+	for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+		echo "$governor" > "$policy/scaling_governor" 2>/dev/null
+	done
+	echo "zynthian-cpu-setup: governor $governor"
+fi
+exit 0

@@ -11,3 +11,11 @@ ZYNTHIAN_UI=qt
 # Output rotation (wlr-randr --transform: normal, 90, 180, 270, flipped, ...) for panels without a
 # DRM panel orientation; default: none, Pixel 3: 90 (landscape). Empty: leave cage's rotation.
 #ZYNTHIAN_OUTPUT_TRANSFORM=90
+
+# CPUs kept out of idle states slower than 10 us (all but WFI), applied as root before each
+# session (/usr/libexec/zynthian/zynthian-cpu-setup): the audio graph's wake-ups on cores in deep
+# idle states show as DSP load. Default per device (Pixel 3: 4-7, the fast cores); empty: none.
+#ZYNTHIAN_IDLE_CPUS=4-7
+
+# CPU frequency governor for all CPUs (e.g. performance, ondemand, schedutil); empty: leave it.
+#ZYNTHIAN_GOVERNOR=

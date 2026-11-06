@@ -9,7 +9,8 @@ pkgdesc="Dragonfly Reverb LV2 plugins (no GUIs)"
 url="https://michaelwillis.github.io/dragonfly-reverb/"
 arch="all"
 license="GPL-3.0-or-later"
-makedepends="lv2-dev"
+# bash: dpf/utils/generate-ttl.sh
+makedepends="bash lv2-dev"
 source="https://github.com/michaelwillis/dragonfly-reverb/releases/download/$pkgver/dragonfly-reverb-$pkgver-src.tar.xz"
 builddir="$srcdir/dragonfly-reverb-$pkgver"
 options="!check" # no tests

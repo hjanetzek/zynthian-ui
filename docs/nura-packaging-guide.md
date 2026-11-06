@@ -30,6 +30,11 @@ state of the plugins themselves is in [nura-lv2-plugins.md](nura-lv2-plugins.md)
   the distribution (Qt 6.12 from the Zrythm build) need their own `-dev` packages from the
   pmbootstrap repository (`~/postmarketos/kick-pi4/packages/edge/aarch64/`), or apk falls back to
   Alpine's older version and downgrades.
+- **The Duet isn't a clean build environment**: bash, python3, git, cmake and gettext-dev are
+  installed there anyway, so a missing makedepends doesn't show until CI (pmbootstrap's minimal
+  chroot): `/bin/sh: .../generate-lv2.sh: not found` is a `#!/bin/bash` script without bash.
+  Check the shebangs of the scripts the build runs (DPF's `generate-ttl.sh`, DISTRHO-Ports'
+  `generate-lv2.sh`: bash) and list every tool the build calls.
 - **After installing plugins**, zynthian must rescan (`zynthian_lv2.py engines` with zynthian's
   environment; see nura-lv2-plugins.md), then restart the session
   (`sudo systemctl --no-block restart tinydm`; without `--no-block` it dies with the ssh session).

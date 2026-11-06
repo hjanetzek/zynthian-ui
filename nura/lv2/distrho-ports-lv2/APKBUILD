@@ -13,7 +13,8 @@ pkgdesc="DISTRHO-Ports JUCE plugins enabled in zynthian (LV2, no GUIs)"
 url="https://github.com/DISTRHO/DISTRHO-Ports"
 arch="all"
 license="GPL-2.0-or-later AND GPL-3.0-or-later"
-makedepends="alsa-lib-dev fftw-dev lv2-dev meson"
+# bash: scripts/generate-lv2.sh (run during the build)
+makedepends="alsa-lib-dev bash fftw-dev lv2-dev meson"
 source="$pkgname-$_commit.tar.gz::https://github.com/DISTRHO/DISTRHO-Ports/archive/$_commit.tar.gz
 	juce5-$_juce5.tar.gz::https://github.com/DISTRHO/JUCE/archive/$_juce5.tar.gz"
 builddir="$srcdir/DISTRHO-Ports-$_commit"

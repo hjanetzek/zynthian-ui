@@ -83,6 +83,11 @@ class Admin(SelectorScreen):
                        info="Play a MIDI track through the loaded chains."))
 
         e.append(separator("> AUDIO"))
+        e.append(entry(f"Main Output ({s.main_output_label()})",
+                       lambda x: self.pick("Main Output", s.main_output_choices(), cfg.main_output,
+                                           s.set_main_output),
+                       icon="audio_output.png", info="The hardware outputs of the main mix (chains routed to "
+                       "\"Main output\"). Default: the first two."))
         e.append(entry(f"PFL Output ({cfg.pfl_output})",
                        lambda x: self.pick("PFL Output", [(v, v) for v in s.pfl_output_labels()], cfg.pfl_output,
                                            s.set_pfl_output),

@@ -39,6 +39,11 @@ state of the plugins themselves is in [nura-lv2-plugins.md](nura-lv2-plugins.md)
   on the Duet as their dependencies (`linux-headers`, X11, cairo, glib, ...): xsimd's
   `<asm/hwcap.h>` (`linux-headers`) only failed in CI. List what the device has
   (`apk info | grep -- '-dev$'`) and don't trust a Duet build to prove the makedepends complete.
+  Keep the Duet clean: build-only packages installed by hand go again after use (2026-11-06: the
+  Qt dev stack, 134 packages, removed; Qt 6.12's `-dev` packages now come from the nura-builds
+  repository, `https://github.com/hjanetzek/nura-builds/releases/download`, with its key in
+  `/etc/apk/keys`, so abuild installs them as makedepends like CI). What stays installed and can
+  still hide a missing makedepends: bash, python3, git (zynthian needs them).
 - **Rebuilding without a pkgrel bump installs nothing**: `apk add -u` keeps an installed package of
   the same version, so a fix tested that way tests the old files. Bump pkgrel for every rebuild
   that is installed and tested.

@@ -9,19 +9,17 @@ Rectangle {
 
     signal titleTapped
     signal titleSwipedDown
-    signal statusTapped
 
     readonly property var status: zyn.status
     readonly property var mainLevels: mainMeters.levels
 
     color: Theme.background
 
+    // The whole bar (title and status) brings up the overlay keypad
     Item {
         id: titleArea
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        anchors.right: statusRow.left
+        anchors.fill: parent
+        z: 1
         TapHandler { onTapped: root.titleTapped() }
         DragHandler {
             target: null
@@ -45,7 +43,6 @@ Rectangle {
     Column {
         id: statusRow
 
-        TapHandler { onTapped: root.statusTapped() }
 
         anchors.right: parent.right
         anchors.rightMargin: 6

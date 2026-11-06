@@ -16,6 +16,7 @@ pkgdesc="ChowCentaur Klon Centaur overdrive emulation (LV2)"
 url="https://github.com/jatinchowdhury18/KlonCentaur"
 arch="aarch64 x86_64"
 license="BSD-3-Clause"
+# linux-headers: xsimd (in RTNeural) includes <asm/hwcap.h> for CPU detection
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -27,6 +28,7 @@ makedepends="
 	libxext-dev
 	libxinerama-dev
 	libxrandr-dev
+	linux-headers
 	lv2-dev
 	samurai
 	"

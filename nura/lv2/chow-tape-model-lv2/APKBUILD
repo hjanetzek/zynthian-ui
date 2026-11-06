@@ -19,6 +19,7 @@ pkgdesc="CHOWTapeModel analog tape emulation (LV2)"
 url="https://github.com/jatinchowdhury18/AnalogTapeModel"
 arch="aarch64 x86_64"
 license="GPL-3.0-or-later"
+# linux-headers: xsimd (in RTNeural) includes <asm/hwcap.h> for CPU detection
 makedepends="
 	alsa-lib-dev
 	cmake
@@ -30,6 +31,7 @@ makedepends="
 	libxext-dev
 	libxinerama-dev
 	libxrandr-dev
+	linux-headers
 	lv2-dev
 	samurai
 	"

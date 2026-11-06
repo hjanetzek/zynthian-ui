@@ -1,0 +1,96 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# ChowMatrix, a delay effect built as a tree of delay lines (not in zynthian's engine config).
+# JUCE and the other git submodules are extra sources (nura/tools/gh-submodule-sources.py). LV2
+# only. The plugin has its JUCE GUI built in, so it needs X11 and freetype headers to build (JUCE
+# loads X11 only when the editor opens).
+pkgname=chow-matrix-lv2
+pkgver=1.3.0
+pkgrel=0
+_commit=d355a33dced7353f6a75b7824d6f5e60e5582fc1
+_modules_foleys_gui_magic=3f0188fff160881e3ba30c3405d72a6fd419d98c
+_modules_chowdsp_utils=c34df5539c97412988d2ad2ca59c357032c99cd4
+_modules_juce=f7eb3b4681c1fb4735bcd388d7a5ed10ccd24aba
+pkgdesc="ChowMatrix delay tree effect (LV2)"
+url="https://github.com/Chowdhury-DSP/ChowMatrix"
+arch="aarch64 x86_64"
+license="BSD-3-Clause"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	lv2-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/Chowdhury-DSP/ChowMatrix/archive/$_commit.tar.gz
+	modules_foleys_gui_magic-${_modules_foleys_gui_magic}.tar.gz::https://github.com/Chowdhury-DSP/foleys_gui_magic/archive/${_modules_foleys_gui_magic}.tar.gz
+	modules_chowdsp_utils-${_modules_chowdsp_utils}.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_utils/archive/${_modules_chowdsp_utils}.tar.gz
+	modules_juce-${_modules_juce}.tar.gz::https://github.com/lv2-porting-project/JUCE/archive/${_modules_juce}.tar.gz
+	"
+builddir="$srcdir/ChowMatrix-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf modules/foleys_gui_magic && mv "$srcdir"/foleys_gui_magic-${_modules_foleys_gui_magic} modules/foleys_gui_magic
+	rm -rf modules/chowdsp_utils && mv "$srcdir"/chowdsp_utils-${_modules_chowdsp_utils} modules/chowdsp_utils
+	rm -rf modules/JUCE && mv "$srcdir"/JUCE-${_modules_juce} modules/JUCE
+	default_prepare
+	# its JUCE's LV2 wrapper includes the LV2 headers by their pre-1.18 paths
+	# (lv2/lv2plug.in/ns/{lv2core,ext/*,extensions/*}): a symlink tree to the current ones
+	local d n ns="$srcdir"/musl-compat/lv2/lv2plug.in/ns
+	mkdir -p "$ns"/ext "$ns"/extensions
+	ln -s /usr/include/lv2/core "$ns"/lv2core
+	for d in /usr/include/lv2/*/; do
+		n=$(basename "$d")
+		case $n in
+		core) ;;
+		ui|units) ln -s "$d" "$ns"/extensions/$n ;;
+		*) ln -s "$d" "$ns"/ext/$n ;;
+		esac
+	done
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release 
+	cmake --build build --target ChowMatrix_LV2
+}
+
+package() {
+	local d
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	for d in $(find build -type d -path '*/LV2/*.lv2' -prune); do
+		cp -r "$d" "$pkgdir"/usr/lib/lv2/
+	done
+}
+sha512sums="
+1c6611f106ebd747c9db0eb883fa7f6606bda25e2de7b80f1f41be50ab83f97d77a073cf003f6b81e40a4a4ecf8c3eb837e3b69d3a111067eac817ca8211ded2  chow-matrix-lv2-d355a33dced7353f6a75b7824d6f5e60e5582fc1.tar.gz
+b3a17c688c1e148926f46402e476467a04e69e9ca51ddf0b04b93d9afef51cb3b8e5b1748caba162f61eaaab587f879329925ef9852bde4d37076ea64e79a2d0  modules_foleys_gui_magic-3f0188fff160881e3ba30c3405d72a6fd419d98c.tar.gz
+09860bc8c726a634f8a4c825062129e7cdf319b8d4b5fb8d5971bed93fdd6055b5cc3a0185bbb34df4841bb48884fa1abfca5cca32c1158bb6f956f2469e2be0  modules_chowdsp_utils-c34df5539c97412988d2ad2ca59c357032c99cd4.tar.gz
+fb0ca9dd7b88cd879820ba36263617c619e0cd90fea3911e6fee6222ede2187cdae726a4fe09e9b94dcb1a94ec60648941300d8148d5fb0042db12c240efe20c  modules_juce-f7eb3b4681c1fb4735bcd388d7a5ed10ccd24aba.tar.gz
+"

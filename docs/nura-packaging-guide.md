@@ -35,6 +35,14 @@ state of the plugins themselves is in [nura-lv2-plugins.md](nura-lv2-plugins.md)
   chroot): `/bin/sh: .../generate-lv2.sh: not found` is a `#!/bin/bash` script without bash.
   Check the shebangs of the scripts the build runs (DPF's `generate-ttl.sh`, DISTRHO-Ports'
   `generate-lv2.sh`: bash) and list every tool the build calls.
+- **Memory**: JUCE's amalgamated translation units need about 1 GB each; with 8 jobs on the Duet's
+  4 GB the compiler is killed (`Killed signal terminated program cc1plus`). `cmake --build build
+  --parallel 3` for the JUCE packages.
+- **`apk add -u` upgrades dependencies too**, and every apk run executes pending triggers. A failing
+  trigger makes apk exit with an error, and then every later abuild stops at `builddeps failed`.
+  Seen: `postmarketos-mkinitfs` failing on a missing `/usr/lib/udev/rules.d/10-dm.rules` after
+  `device-mapper-udev` disappeared (fixed by installing it again). Run `sudo apk fix` to see the
+  trigger's output, and fix the system before rebuilding.
 - **After installing plugins**, zynthian must rescan (`zynthian_lv2.py engines` with zynthian's
   environment; see nura-lv2-plugins.md), then restart the session
   (`sudo systemctl --no-block restart tinydm`; without `--no-block` it dies with the ssh session).

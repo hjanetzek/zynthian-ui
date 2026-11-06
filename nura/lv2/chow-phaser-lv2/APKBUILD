@@ -1,0 +1,92 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# ChowPhaser mono and stereo phaser (URI https://github.com/jatinchowdhury18/ChowPhaserMono, ...Stereo; zynthian's recipe
+# install_CHOWPhaser.sh). JUCE (lv2-porting-project's fork) and the other git submodules are extra sources
+# (nura/tools/gh-submodule-sources.py). LV2 only. The plugin has its JUCE GUI built in, so it needs
+# X11 and freetype headers to build (JUCE loads X11 only when the editor opens).
+pkgname=chow-phaser-lv2
+pkgver=1.1.1_git20220223
+pkgrel=0
+_commit=31eac4df747e9a778a6efe53d461f526343cb61d
+_modules_juce=f00a420bc348d79c4688b33b2b905b8ca0f25a3a
+_modules_foleys_gui_magic=9cab1a439d86cbf7942981b24ab59c60a55b7dcd
+pkgdesc="ChowPhaser mono and stereo phaser (LV2)"
+url="https://github.com/jatinchowdhury18/ChowPhaser"
+arch="aarch64 x86_64"
+license="BSD-3-Clause"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	lv2-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/jatinchowdhury18/ChowPhaser/archive/$_commit.tar.gz
+	modules_juce-${_modules_juce}.tar.gz::https://github.com/lv2-porting-project/JUCE/archive/${_modules_juce}.tar.gz
+	modules_foleys_gui_magic-${_modules_foleys_gui_magic}.tar.gz::https://github.com/Chowdhury-DSP/foleys_gui_magic/archive/${_modules_foleys_gui_magic}.tar.gz
+	"
+builddir="$srcdir/ChowPhaser-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf modules/JUCE && mv "$srcdir"/JUCE-${_modules_juce} modules/JUCE
+	rm -rf modules/foleys_gui_magic && mv "$srcdir"/foleys_gui_magic-${_modules_foleys_gui_magic} modules/foleys_gui_magic
+	default_prepare
+	# its JUCE's LV2 wrapper includes the LV2 headers by their pre-1.18 paths
+	# (lv2/lv2plug.in/ns/{lv2core,ext/*,extensions/*}): a symlink tree to the current ones
+	local d n ns="$srcdir"/musl-compat/lv2/lv2plug.in/ns
+	mkdir -p "$ns"/ext "$ns"/extensions
+	ln -s /usr/include/lv2/core "$ns"/lv2core
+	for d in /usr/include/lv2/*/; do
+		n=$(basename "$d")
+		case $n in
+		core) ;;
+		ui|units) ln -s "$d" "$ns"/extensions/$n ;;
+		*) ln -s "$d" "$ns"/ext/$n ;;
+		esac
+	done
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release
+	cmake --build build --target ChowPhaserMono_LV2 ChowPhaserStereo_LV2
+}
+
+package() {
+	local d
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	for d in $(find build -type d -path '*/LV2/*.lv2' -prune); do
+		cp -r "$d" "$pkgdir"/usr/lib/lv2/
+	done
+}
+sha512sums="
+ae517c9d229a97317f16cb565bc9ad9aa51d8a53b41229ba52e0227c0f379c648d0b80ef16bffb818b0e5e9d4be6f733b328d3805edc132716781f327fc7ce8e  chow-phaser-lv2-31eac4df747e9a778a6efe53d461f526343cb61d.tar.gz
+00737bd270f10f7d05b65b34ef04d463fd16fb061bfcdafb95fd61b92335e7a433eb888beec2be1646bcb957015b2bc03ccf359eed42a647aa5eb465a2c02d20  modules_juce-f00a420bc348d79c4688b33b2b905b8ca0f25a3a.tar.gz
+08bf2675d7227f18ed6abc395fd0e04e93e333c68fd0ac5a9a841e600affb2d249c0811bfcced773bc0cbe84cd100d211773d753793cf3e479be574a70ccf5c8  modules_foleys_gui_magic-9cab1a439d86cbf7942981b24ab59c60a55b7dcd.tar.gz
+"

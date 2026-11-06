@@ -1,0 +1,120 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# ChowKick, a kick drum synthesizer (not in zynthian's engine config).
+# JUCE and the other git submodules are extra sources (nura/tools/gh-submodule-sources.py). LV2
+# only. The plugin has its JUCE GUI built in, so it needs X11 and freetype headers to build (JUCE
+# loads X11 only when the editor opens).
+pkgname=chow-kick-lv2
+pkgver=1.2.0
+pkgrel=0
+_commit=4a11869c961f1580b6cf5e8be2eb3aebdb42b1d2
+_modules_juce=4e68af7fde8a0a64e808fb1a37999a690873c9de
+_modules_foleys_gui_magic=90ecb1128646cb377137985fb8608b826ae8befd
+_modules_chowdsp_utils=898d649fcecb3d8d9535241f0fd62943e60b6321
+_modules_tuning_library=b3069450045fe439206628f08220300864e5a958
+_modules_chowdsp_wdf=36b5775555af21f0f417d2bc866ba7b4b2788614
+_modules_oddsound_mts_mts_esp=803c3aab3d43dfaea430a1084ab31b606f5cd72c
+_modules_clap_juce_extensions=cf93cac7ca6a1c0c548c2bda85d49e9bfdb979e1
+_modules_clap_juce_extensions_clap_libs_clap=af1e05ce6487151c6b36003fdb47566dbb50194e
+_modules_clap_juce_extensions_clap_libs_clap_helpers=f0b6802305ef628c18a597878e304f9f72aaac99
+pkgdesc="ChowKick kick drum synthesizer (LV2)"
+url="https://github.com/Chowdhury-DSP/ChowKick"
+arch="aarch64 x86_64"
+license="BSD-3-Clause"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	lv2-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/Chowdhury-DSP/ChowKick/archive/$_commit.tar.gz
+	modules_juce-${_modules_juce}.tar.gz::https://github.com/juce-framework/JUCE/archive/${_modules_juce}.tar.gz
+	modules_foleys_gui_magic-${_modules_foleys_gui_magic}.tar.gz::https://github.com/Chowdhury-DSP/foleys_gui_magic/archive/${_modules_foleys_gui_magic}.tar.gz
+	modules_chowdsp_utils-${_modules_chowdsp_utils}.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_utils/archive/${_modules_chowdsp_utils}.tar.gz
+	modules_tuning_library-${_modules_tuning_library}.tar.gz::https://github.com/surge-synthesizer/tuning-library/archive/${_modules_tuning_library}.tar.gz
+	modules_chowdsp_wdf-${_modules_chowdsp_wdf}.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_wdf/archive/${_modules_chowdsp_wdf}.tar.gz
+	modules_oddsound_mts_mts_esp-${_modules_oddsound_mts_mts_esp}.tar.gz::https://github.com/ODDSound/MTS-ESP/archive/${_modules_oddsound_mts_mts_esp}.tar.gz
+	modules_clap_juce_extensions-${_modules_clap_juce_extensions}.tar.gz::https://github.com/free-audio/clap-juce-extensions/archive/${_modules_clap_juce_extensions}.tar.gz
+	modules_clap_juce_extensions_clap_libs_clap-${_modules_clap_juce_extensions_clap_libs_clap}.tar.gz::https://github.com/free-audio/clap/archive/${_modules_clap_juce_extensions_clap_libs_clap}.tar.gz
+	modules_clap_juce_extensions_clap_libs_clap_helpers-${_modules_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz::https://github.com/free-audio/clap-helpers/archive/${_modules_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz
+	"
+builddir="$srcdir/ChowKick-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf modules/JUCE && mv "$srcdir"/JUCE-${_modules_juce} modules/JUCE
+	rm -rf modules/foleys_gui_magic && mv "$srcdir"/foleys_gui_magic-${_modules_foleys_gui_magic} modules/foleys_gui_magic
+	rm -rf modules/chowdsp_utils && mv "$srcdir"/chowdsp_utils-${_modules_chowdsp_utils} modules/chowdsp_utils
+	rm -rf modules/tuning-library && mv "$srcdir"/tuning-library-${_modules_tuning_library} modules/tuning-library
+	rm -rf modules/chowdsp_wdf && mv "$srcdir"/chowdsp_wdf-${_modules_chowdsp_wdf} modules/chowdsp_wdf
+	rm -rf modules/oddsound-mts/MTS-ESP && mv "$srcdir"/MTS-ESP-${_modules_oddsound_mts_mts_esp} modules/oddsound-mts/MTS-ESP
+	rm -rf modules/clap-juce-extensions && mv "$srcdir"/clap-juce-extensions-${_modules_clap_juce_extensions} modules/clap-juce-extensions
+	rm -rf modules/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_modules_clap_juce_extensions_clap_libs_clap} modules/clap-juce-extensions/clap-libs/clap
+	rm -rf modules/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_modules_clap_juce_extensions_clap_libs_clap_helpers} modules/clap-juce-extensions/clap-libs/clap-helpers
+	default_prepare
+	# its JUCE's LV2 wrapper includes the LV2 headers by their pre-1.18 paths
+	# (lv2/lv2plug.in/ns/{lv2core,ext/*,extensions/*}): a symlink tree to the current ones
+	local d n ns="$srcdir"/musl-compat/lv2/lv2plug.in/ns
+	mkdir -p "$ns"/ext "$ns"/extensions
+	ln -s /usr/include/lv2/core "$ns"/lv2core
+	for d in /usr/include/lv2/*/; do
+		n=$(basename "$d")
+		case $n in
+		core) ;;
+		ui|units) ln -s "$d" "$ns"/extensions/$n ;;
+		*) ln -s "$d" "$ns"/ext/$n ;;
+		esac
+	done
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release 
+	cmake --build build --target ChowKick_LV2
+}
+
+package() {
+	local d
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	for d in $(find build -type d -path '*/LV2/*.lv2' -prune); do
+		cp -r "$d" "$pkgdir"/usr/lib/lv2/
+	done
+}
+sha512sums="
+5c3254bda4e48f2267ebfe031c440c00541317375c65728ee45ebfc89742b6749378321223563c9bc214079171065f6e7ddb9ee7cb7f293d6e39bd4d4d9d425c  chow-kick-lv2-4a11869c961f1580b6cf5e8be2eb3aebdb42b1d2.tar.gz
+fa6f753ddbbe5074cd9414c9024f69147832851954b03c53a305ee27cf432be7edab4c88db52ba4f167019069a1e9813bc97b21b80ee3fc4760b0b76ae38f31c  modules_juce-4e68af7fde8a0a64e808fb1a37999a690873c9de.tar.gz
+5e4d363cdd2d686b3ab5daf6124b8da3d13cfbf4af87b37cbdbf430675f9faa6e592ad1d7267194c92a106fff05939acf185dda6e79cfe65ab1874f8ccfdb056  modules_foleys_gui_magic-90ecb1128646cb377137985fb8608b826ae8befd.tar.gz
+9d1b52bf9dd4eddb14a08ef527fe36c250f3a6099cfd32d529ad0294b8a71c1780bca9936d9b1f9720134ec23dc24cd917e90912bf95c5157703f3977289a684  modules_chowdsp_utils-898d649fcecb3d8d9535241f0fd62943e60b6321.tar.gz
+1e961ef542cd2eaea43266f7b5d0d690213bd807e4b6ff6902b3e80907d9aa762abbda5c0c23043800651fdb095b3c2210084a468f891b1ddf6c504909f6773f  modules_tuning_library-b3069450045fe439206628f08220300864e5a958.tar.gz
+8f127cfe1e56409a062e4d87c4981002f150c459449d3d8e88eaf528ff244438e5c30fc036da20ed98dcd71e7dbe967f1d319bec9d64aa97f0f28902fa956ca4  modules_chowdsp_wdf-36b5775555af21f0f417d2bc866ba7b4b2788614.tar.gz
+a3303352526a5b1cc99e2356c675ee30d12dfcdb1f487b463f6b16d6227c2b4b1c8fe50f4410d9516cc9f40130a2b8958ccfe09faed41d985dcf46ba30669258  modules_oddsound_mts_mts_esp-803c3aab3d43dfaea430a1084ab31b606f5cd72c.tar.gz
+66d5dc33f64f02f0d8be1a5e2583626ee696a96daa17cd945662a8b4b015f2aa36ada824108895827c2adbe3949b649d1b7d8d318317a98d603745fd3736ee6a  modules_clap_juce_extensions-cf93cac7ca6a1c0c548c2bda85d49e9bfdb979e1.tar.gz
+3df064c209976facd7c445ed7a5c076f6f989744384434df68f0700672013f807a63407eaffe9ab2175832c027324f375ab1d0bce49df7504675b544a6f817d2  modules_clap_juce_extensions_clap_libs_clap-af1e05ce6487151c6b36003fdb47566dbb50194e.tar.gz
+ecdb1ac241104dcc87e62fd698e419ad232182fb8aae2757505da4a57f6077a1641e7350680d4f6750595efa6b97c0f0f81d1cef3cd8cbebb6d2860548a06b22  modules_clap_juce_extensions_clap_libs_clap_helpers-f0b6802305ef628c18a597878e304f9f72aaac99.tar.gz
+"

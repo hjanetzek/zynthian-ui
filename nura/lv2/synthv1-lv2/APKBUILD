@@ -1,0 +1,44 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# rncbc's synthv1, a polyphonic subtractive synthesizer (URI http://synthv1.sourceforge.net/lv2; Debian's
+# synthv1-lv2 on ZynthianOS). LV2 only (no JACK application, NSM or OSC). The plugin links its Qt 6
+# Widgets UI, so it needs Qt 6 development files matching the device's Qt (6.12 on Nura).
+pkgname=synthv1-lv2
+pkgver=1.5.1
+pkgrel=0
+pkgdesc="synthv1 polyphonic subtractive synthesizer (LV2)"
+url="https://synthv1.sourceforge.io"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="
+	cmake
+	lv2-dev
+	qt6-qtbase-dev
+	qt6-qtsvg-dev
+	samurai
+	"
+source="synthv1-$pkgver.tar.gz::https://github.com/rncbc/synthv1/archive/v$pkgver.tar.gz"
+builddir="$srcdir/synthv1-$pkgver"
+options="!check" # no tests
+
+build() {
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DCONFIG_QT6=ON \
+		-DCONFIG_JACK=OFF \
+		-DCONFIG_ALSA_MIDI=OFF \
+		-DCONFIG_LIBLO=OFF \
+		-DCONFIG_NSM=OFF \
+		-DCONFIG_LV2=ON
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+	# only the plugin (no application without JACK)
+	rm -rf "$pkgdir"/usr/share "$pkgdir"/usr/bin
+}
+sha512sums="
+7e1e90fee67c3d33252511053f0d52f360609999b94e364c5d0cb2cc16973dec8a82758c3023d4a293f69994548df48c7902c0e04c903a57c2b75db976b31475  synthv1-1.5.1.tar.gz
+"

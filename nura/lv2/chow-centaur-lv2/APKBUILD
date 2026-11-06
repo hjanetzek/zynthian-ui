@@ -1,0 +1,104 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# ChowCentaur Klon Centaur overdrive emulation (URI https://github.com/jatinchowdhury18/KlonCentaur; zynthian's recipe
+# install_CHOWCentaur.sh). JUCE (lv2-porting-project's fork) and the other git submodules are extra sources
+# (nura/tools/gh-submodule-sources.py). LV2 only. The plugin has its JUCE GUI built in, so it needs
+# X11 and freetype headers to build (JUCE loads X11 only when the editor opens).
+pkgname=chow-centaur-lv2
+pkgver=1.4.0
+pkgrel=0
+_commit=fdc026f8110d11b5a53fedf93d517316b57f4332
+_modules_foleys_gui_magic=49c87190bcf3bd3fe1dcc281faff0793afaeb775
+_modules_chowdsp_utils=88fd64c20e2aa350106708b4bbb08f40822f2c25
+_modules_rtneural=e0a9256a67a466255ffb51a1e041e11fb1098a05
+_modules_rtneural_modules_xsimd=aaba949c4b57d234fa2356fcf13368a74cac99ec
+_modules_juce=f00a420bc348d79c4688b33b2b905b8ca0f25a3a
+pkgdesc="ChowCentaur Klon Centaur overdrive emulation (LV2)"
+url="https://github.com/jatinchowdhury18/KlonCentaur"
+arch="aarch64 x86_64"
+license="BSD-3-Clause"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	lv2-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/jatinchowdhury18/KlonCentaur/archive/$_commit.tar.gz
+	modules_foleys_gui_magic-${_modules_foleys_gui_magic}.tar.gz::https://github.com/jatinchowdhury18/foleys_gui_magic/archive/${_modules_foleys_gui_magic}.tar.gz
+	modules_chowdsp_utils-${_modules_chowdsp_utils}.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_utils/archive/${_modules_chowdsp_utils}.tar.gz
+	modules_rtneural-${_modules_rtneural}.tar.gz::https://github.com/jatinchowdhury18/RTNeural/archive/${_modules_rtneural}.tar.gz
+	modules_rtneural_modules_xsimd-${_modules_rtneural_modules_xsimd}.tar.gz::https://github.com/xtensor-stack/xsimd/archive/${_modules_rtneural_modules_xsimd}.tar.gz
+	modules_juce-${_modules_juce}.tar.gz::https://github.com/lv2-porting-project/JUCE/archive/${_modules_juce}.tar.gz
+	"
+builddir="$srcdir/KlonCentaur-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf modules/foleys_gui_magic && mv "$srcdir"/foleys_gui_magic-${_modules_foleys_gui_magic} modules/foleys_gui_magic
+	rm -rf modules/chowdsp_utils && mv "$srcdir"/chowdsp_utils-${_modules_chowdsp_utils} modules/chowdsp_utils
+	rm -rf modules/RTNeural && mv "$srcdir"/RTNeural-${_modules_rtneural} modules/RTNeural
+	rm -rf modules/RTNeural/modules/xsimd && mv "$srcdir"/xsimd-${_modules_rtneural_modules_xsimd} modules/RTNeural/modules/xsimd
+	rm -rf modules/JUCE && mv "$srcdir"/JUCE-${_modules_juce} modules/JUCE
+	default_prepare
+	# its JUCE's LV2 wrapper includes the LV2 headers by their pre-1.18 paths
+	# (lv2/lv2plug.in/ns/{lv2core,ext/*,extensions/*}): a symlink tree to the current ones
+	local d n ns="$srcdir"/musl-compat/lv2/lv2plug.in/ns
+	mkdir -p "$ns"/ext "$ns"/extensions
+	ln -s /usr/include/lv2/core "$ns"/lv2core
+	for d in /usr/include/lv2/*/; do
+		n=$(basename "$d")
+		case $n in
+		core) ;;
+		ui|units) ln -s "$d" "$ns"/extensions/$n ;;
+		*) ln -s "$d" "$ns"/ext/$n ;;
+		esac
+	done
+	# LV2 only
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/; s/FORMATS AU VST3 Standalone/FORMATS /' \
+		ChowCentaur/CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S . -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release
+	cmake --build build --target ChowCentaur_LV2
+}
+
+package() {
+	local d
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	for d in $(find build -type d -path '*/LV2/*.lv2' -prune); do
+		cp -r "$d" "$pkgdir"/usr/lib/lv2/
+	done
+}
+sha512sums="
+1e2b1d0898d6853676f6549dc9bf5172d8988d3c6e75e68ab79e99d34332b9705fffaeeda302d12c540037e9e95333287c1065365ae80d1ee6fe7ad2194119b4  chow-centaur-lv2-fdc026f8110d11b5a53fedf93d517316b57f4332.tar.gz
+b14f8da1d154d8ea5a58115bf2aa79841b068da26062ce2fb8b846ca91817d6ef91690c35f82325783b3670927d20e64b1235d35be9b33570307469bb76519fc  modules_foleys_gui_magic-49c87190bcf3bd3fe1dcc281faff0793afaeb775.tar.gz
+9e8dabd1d43921c1b8af0b1dc1bc37dfd8ddb328dd8369464afa933461a8cc87a1680c46364c48d11cfa07e72051de924de9090347138ba7dc124d1c3c4dff7d  modules_chowdsp_utils-88fd64c20e2aa350106708b4bbb08f40822f2c25.tar.gz
+06c2775b0371b42071d7a48e582e629e3c533d97b2c9cf973b5ac59ac72a5d646c56f4eb89c80267c155eafda50b9f43e1751aff4a138a6eefbdb0f16f532249  modules_rtneural-e0a9256a67a466255ffb51a1e041e11fb1098a05.tar.gz
+5ca4fc314b6fec2730e40cbd52e1589a339066c8cc0966703a077179443def639aa4838f5d22af03f6f20eff3a56cc21ca963725cf5606458afa5086e22a0d5a  modules_rtneural_modules_xsimd-aaba949c4b57d234fa2356fcf13368a74cac99ec.tar.gz
+00737bd270f10f7d05b65b34ef04d463fd16fb061bfcdafb95fd61b92335e7a433eb888beec2be1646bcb957015b2bc03ccf359eed42a647aa5eb465a2c02d20  modules_juce-f00a420bc348d79c4688b33b2b905b8ca0f25a3a.tar.gz
+"

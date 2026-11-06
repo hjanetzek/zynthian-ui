@@ -1,0 +1,115 @@
+# Contributor: Hannes Janetzek <hannes.janetzek@gmail.com>
+# CHOWTapeModel analog tape emulation (URI https://github.com/jatinchowdhury18/AnalogTapeModel; zynthian's recipe
+# install_CHOWTapeModel.sh). JUCE (lv2-porting-project's fork) and the other git submodules are extra sources
+# (nura/tools/gh-submodule-sources.py). LV2 only. The plugin has its JUCE GUI built in, so it needs
+# X11 and freetype headers to build (JUCE loads X11 only when the editor opens).
+pkgname=chow-tape-model-lv2
+pkgver=2.11.4
+pkgrel=0
+_commit=604372e4ffd9690c3e283362e4598cb43edbb475
+_plugin_modules_foleys_gui_magic=bf56946522cffa84e124dacd24240d156d83e7f7
+_plugin_modules_chowdsp_utils=39851f124e26c1d5ef92a298a5e0973650075b57
+_plugin_modules_rtneural=0ec5023fb6e3d5060613705ad0f9c31956a52680
+_plugin_modules_rtneural_modules_xsimd=31298c883bda0f3dfcf44170f45be242deb78f1a
+_plugin_modules_juce=ebbe26fd877ac7248c9bb800b56a4786bf538cdb
+_plugin_modules_clap_juce_extensions=5f369ad244e4b1ccd2eb943bd6dac993fb444262
+_plugin_modules_clap_juce_extensions_clap_libs_clap=41964fa3f44fdbf6feb20df528a9cdf2cc3b05ba
+_plugin_modules_clap_juce_extensions_clap_libs_clap_helpers=41e1086488f5cd27da871d07edb8eccea99e556d
+pkgdesc="CHOWTapeModel analog tape emulation (LV2)"
+url="https://github.com/jatinchowdhury18/AnalogTapeModel"
+arch="aarch64 x86_64"
+license="GPL-3.0-or-later"
+makedepends="
+	alsa-lib-dev
+	cmake
+	fontconfig-dev
+	freetype-dev
+	jack-dev
+	libx11-dev
+	libxcursor-dev
+	libxext-dev
+	libxinerama-dev
+	libxrandr-dev
+	lv2-dev
+	samurai
+	"
+source="$pkgname-$_commit.tar.gz::https://github.com/jatinchowdhury18/AnalogTapeModel/archive/$_commit.tar.gz
+	plugin_modules_foleys_gui_magic-${_plugin_modules_foleys_gui_magic}.tar.gz::https://github.com/Chowdhury-DSP/foleys_gui_magic/archive/${_plugin_modules_foleys_gui_magic}.tar.gz
+	plugin_modules_chowdsp_utils-${_plugin_modules_chowdsp_utils}.tar.gz::https://github.com/Chowdhury-DSP/chowdsp_utils/archive/${_plugin_modules_chowdsp_utils}.tar.gz
+	plugin_modules_rtneural-${_plugin_modules_rtneural}.tar.gz::https://github.com/jatinchowdhury18/RTNeural/archive/${_plugin_modules_rtneural}.tar.gz
+	plugin_modules_rtneural_modules_xsimd-${_plugin_modules_rtneural_modules_xsimd}.tar.gz::https://github.com/xtensor-stack/xsimd/archive/${_plugin_modules_rtneural_modules_xsimd}.tar.gz
+	plugin_modules_juce-${_plugin_modules_juce}.tar.gz::https://github.com/lv2-porting-project/JUCE/archive/${_plugin_modules_juce}.tar.gz
+	plugin_modules_clap_juce_extensions-${_plugin_modules_clap_juce_extensions}.tar.gz::https://github.com/free-audio/clap-juce-extensions/archive/${_plugin_modules_clap_juce_extensions}.tar.gz
+	plugin_modules_clap_juce_extensions_clap_libs_clap-${_plugin_modules_clap_juce_extensions_clap_libs_clap}.tar.gz::https://github.com/free-audio/clap/archive/${_plugin_modules_clap_juce_extensions_clap_libs_clap}.tar.gz
+	plugin_modules_clap_juce_extensions_clap_libs_clap_helpers-${_plugin_modules_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz::https://github.com/free-audio/clap-helpers/archive/${_plugin_modules_clap_juce_extensions_clap_libs_clap_helpers}.tar.gz
+	"
+builddir="$srcdir/AnalogTapeModel-$_commit"
+options="!check" # no tests
+
+prepare() {
+	# musl: no execinfo.h (JUCE uses backtrace() for crash reports only): a stub without backtraces
+	mkdir -p "$srcdir"/musl-compat
+	cat > "$srcdir"/musl-compat/execinfo.h <<-'EOF'
+	#pragma once
+	static inline int backtrace(void **buf, int size) { (void) buf; (void) size; return 0; }
+	static inline char **backtrace_symbols(void *const *buf, int size) { (void) buf; (void) size; return 0; }
+	EOF
+	# git submodules (outer ones first)
+	rm -rf Plugin/modules/foleys_gui_magic && mv "$srcdir"/foleys_gui_magic-${_plugin_modules_foleys_gui_magic} Plugin/modules/foleys_gui_magic
+	rm -rf Plugin/modules/chowdsp_utils && mv "$srcdir"/chowdsp_utils-${_plugin_modules_chowdsp_utils} Plugin/modules/chowdsp_utils
+	rm -rf Plugin/modules/RTNeural && mv "$srcdir"/RTNeural-${_plugin_modules_rtneural} Plugin/modules/RTNeural
+	rm -rf Plugin/modules/RTNeural/modules/xsimd && mv "$srcdir"/xsimd-${_plugin_modules_rtneural_modules_xsimd} Plugin/modules/RTNeural/modules/xsimd
+	rm -rf Plugin/modules/JUCE && mv "$srcdir"/JUCE-${_plugin_modules_juce} Plugin/modules/JUCE
+	rm -rf Plugin/modules/clap-juce-extensions && mv "$srcdir"/clap-juce-extensions-${_plugin_modules_clap_juce_extensions} Plugin/modules/clap-juce-extensions
+	rm -rf Plugin/modules/clap-juce-extensions/clap-libs/clap && mv "$srcdir"/clap-${_plugin_modules_clap_juce_extensions_clap_libs_clap} Plugin/modules/clap-juce-extensions/clap-libs/clap
+	rm -rf Plugin/modules/clap-juce-extensions/clap-libs/clap-helpers && mv "$srcdir"/clap-helpers-${_plugin_modules_clap_juce_extensions_clap_libs_clap_helpers} Plugin/modules/clap-juce-extensions/clap-libs/clap-helpers
+	default_prepare
+	# its JUCE's LV2 wrapper includes the LV2 headers by their pre-1.18 paths
+	# (lv2/lv2plug.in/ns/{lv2core,ext/*,extensions/*}): a symlink tree to the current ones
+	local d n ns="$srcdir"/musl-compat/lv2/lv2plug.in/ns
+	mkdir -p "$ns"/ext "$ns"/extensions
+	ln -s /usr/include/lv2/core "$ns"/lv2core
+	for d in /usr/include/lv2/*/; do
+		n=$(basename "$d")
+		case $n in
+		core) ;;
+		ui|units) ln -s "$d" "$ns"/extensions/$n ;;
+		*) ln -s "$d" "$ns"/ext/$n ;;
+		esac
+	done
+	# LV2 only, no CLAP
+	sed -i 's/set(JUCE_FORMATS AU VST3 Standalone)/set(JUCE_FORMATS)/' Plugin/CMakeLists.txt
+}
+
+build() {
+	# musl: the execinfo.h stub; stat64 and friends only with _LARGEFILE64_SOURCE; glibc's
+	# _NL_IDENTIFICATION_*/_NL_ADDRESS_* locale items as items musl doesn't have (nl_langinfo() returns "");
+	# <utility> for std::exchange, which older JUCE gets indirectly from glibc's libstdc++ headers
+	# -Wno-template-body: GCC 15 errors in templates that are never instantiated (chowdsp_utils)
+	export CXXFLAGS="$CXXFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE -include utility -Wno-template-body \
+		-D_NL_IDENTIFICATION_LANGUAGE=0x60000 -D_NL_IDENTIFICATION_TERRITORY=0x60001 \
+		-D_NL_ADDRESS_LANG_AB=0x60002 -D_NL_ADDRESS_COUNTRY_AB2=0x60003"
+	export CFLAGS="$CFLAGS -I$srcdir/musl-compat -D_LARGEFILE64_SOURCE"
+	# CMake 4: some (sub)projects declare cmake_minimum_required < 3.5
+	cmake -S Plugin -B build -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release -DCHOWTAPE_BUILD_CLAP=OFF
+	cmake --build build --target CHOWTapeModel_LV2
+}
+
+package() {
+	local d
+	mkdir -p "$pkgdir"/usr/lib/lv2
+	for d in $(find build -type d -path '*/LV2/*.lv2' -prune); do
+		cp -r "$d" "$pkgdir"/usr/lib/lv2/
+	done
+}
+sha512sums="
+3d269043cf782855435f8dec2c38c83f8bbf840e369be90dc6fae1300dce9d8946e197de149dcfac82656c9beb5aa8160086b02a17c1d9ef6a5c0e591ddd44d8  chow-tape-model-lv2-604372e4ffd9690c3e283362e4598cb43edbb475.tar.gz
+a0c7e5de8807028cae3fa4070f3ef93de68300844a60cf080ac45eefcaceb2b23194af385d866ff1efc25433083618eccb653f403bda0d94b1f51263a64362a2  plugin_modules_foleys_gui_magic-bf56946522cffa84e124dacd24240d156d83e7f7.tar.gz
+cea63d86fc22a9caa8e59befc282c4b649deb203ede0a5b69f81078c45ac811f0a8e964966f7c3cae4836ba2f968841a56d3181094bdefec42d52de5a021c33d  plugin_modules_chowdsp_utils-39851f124e26c1d5ef92a298a5e0973650075b57.tar.gz
+b786e560d4f87a7d9951ea647fbca9945de51ab2201385a8bd9f468b13d0c7a9370b4cec37b47eac13e1625010a182df460ef8d041aecff64252502516b0cfa5  plugin_modules_rtneural-0ec5023fb6e3d5060613705ad0f9c31956a52680.tar.gz
+075255d28a101b26a04bf0b1df3286b21a7889fddfcd2a22e9e1bfc83e8e56f32251d9d7adf09013ba2764d545fee2c208986ed8b149fe19846ddda245b8fd8f  plugin_modules_rtneural_modules_xsimd-31298c883bda0f3dfcf44170f45be242deb78f1a.tar.gz
+e04b8a086ef9036ea52cdd5656d4954798b5ac255ac80bea9938dc0a51c6a45120863ecd3829404701c9365346e08723714e13a6075fa755b96ddad46f9d03db  plugin_modules_juce-ebbe26fd877ac7248c9bb800b56a4786bf538cdb.tar.gz
+7af554a4db32a499f2f7c586d5255f11cd3ab4bc75cd93fb2bb0f90a94adafd5f2fbb2a45a23c1bc1d51c3f1929acc6d5f97fdbcb1c9072b6cd0e0fc7c4440ef  plugin_modules_clap_juce_extensions-5f369ad244e4b1ccd2eb943bd6dac993fb444262.tar.gz
+13d72e478cd96eec931d0126281d44a673e5053715367a5fa34a99f4c05682324513b2e4b148c767495fdd4f07782c5193f98e8ea0a332668be8b649bf0e7826  plugin_modules_clap_juce_extensions_clap_libs_clap-41964fa3f44fdbf6feb20df528a9cdf2cc3b05ba.tar.gz
+c57f77536e73d447e5f4996acfa3d7c3647a418fc8c6661356688b68710acddc98e53d05e1d88d8da97f65cae8717d04bec4b1cd4d2da5ee30760ab2f3374980  plugin_modules_clap_juce_extensions_clap_libs_clap_helpers-41e1086488f5cd27da871d07edb8eccea99e556d.tar.gz
+"

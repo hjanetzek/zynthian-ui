@@ -66,6 +66,9 @@ GitHub's archive tarballs don't contain git submodules, and pmbootstrap builds h
 - **CMake FetchContent** (JC303) downloads at configure time: give each dependency as a source and
   pass `-DFETCHCONTENT_FULLY_DISCONNECTED=ON -DFETCHCONTENT_SOURCE_DIR_<NAME>=...` (the name as
   declared, upper case).
+- FetchContent can also sit in subdirectories (JC303's `src/dsp/guitarml-byod` fetches RTNeural,
+  math_approx and Variant): grep every `CMakeLists.txt` for `FetchContent_Declare`, and give
+  fetched projects their own submodules (RTNeural's xsimd).
 - **Debian's source and patches** are a good base for old, unmaintained projects (EQ10Q, QMidiArp,
   Invada, SooperLooper): the `.orig` tarball and `debian/patches/` from deb.debian.org's pool,
   minus the patches for the GUI or packaging we don't build. Their patches can have CRLF files;
@@ -128,7 +131,16 @@ GitHub's archive tarballs don't contain git submodules, and pmbootstrap builds h
 | `Compatibility with CMake < 3.5 has been removed` (CMake 4) | `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` |
 | `lv2/lv2plug.in/ns/lv2core/lv2.h: No such file` (old JUCE LV2 wrappers, old plugins) | LV2 1.18 moved the headers to `lv2/core`, `lv2/atom`, ...: a symlink tree with the old paths in an `-I` directory (chow-matrix-lv2) |
 | `jack/jack.h: No such file` (JUCE) | JUCE's audio device module builds JACK support on Linux: `jack-dev` |
+| `#warning redirecting incorrect #include <sys/errno.h>` as an error | musl warns about non-standard headers; with the project's `-Werror` that's fatal: `-Wno-error=cpp` (Monique) |
+| `internal compiler error: in write_symbol, at lto-streamer-out.cc` | GCC 15 LTO bug: drop the project's LTO flags (`juce::juce_recommended_lto_flags`, ChowMultiTool) |
 | `-Werror` in the project's flags | remove it, or the project's switch (`SURGE_SKIP_WERROR`) |
+
+## Packaging
+
+- Bundle and file names can contain spaces (`Ultramaster KR-106.lv2`): copy with
+  `find ... -exec cp -r {} dest \;`, not `for d in $(find ...)`.
+- Optional parts of a build can reference targets that are switched off (Surge XT's pluginval
+  targets query the effects bank, `SURGE_BUILD_FX=OFF`): comment out the include.
 
 ## BusyBox
 

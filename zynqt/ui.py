@@ -17,6 +17,7 @@ from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 
 import zynautoconnect
+from zyncoder.zyncore import lib_zyncore
 import zynconf
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_state_manager import zynthian_state_manager
@@ -39,6 +40,7 @@ from zynqt.screens.zs3 import ZS3
 from zynqt.screens.admin import Admin
 from zynqt.screens.midi_recorder import MidiRecorder
 from zynqt.screens.midi_chain import KeyRangeProcessor, MidiCC
+from zynqt.screens.mixer_nav import MixerNav
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
@@ -106,7 +108,8 @@ class ZynUI(QObject):
         self.pattern_editor = PatternEditor(self, self)
         self.control_xy = ControlXY(self, self)
         # Screens with their own QML and Python object (build when shown, hide when left)
-        self.qml_screen_objects = {"launcher": self.launcher,
+        self.qml_screen_objects = {"mixer": MixerNav(self),
+                                   "launcher": self.launcher,
                                    "pattern_editor": self.pattern_editor,
                                    "chain_manager": self.chain_manager_screen,
                                    "chain_control": self.chain_control_screen,
@@ -714,7 +717,10 @@ class ZynUI(QObject):
         """Reads cuia_queue (as zynthian_gui.task_cuia_thread) and hands the CUIAs to the GUI
         thread. Switch events (zynswitch i,P / i,R) are timed here: short, bold or long, long
         also while still held."""
-        pressed = {}  # switch index -> press time
+        pressed = {}    # switch index -> press time
+        repeating = {}  # switch index -> repeat intervals left before the next push action
+        repeat_delay = 3        # as zynthian_gui: intervals before auto repeat starts
+        repeat_interval = 0.15  # seconds
         while not self.exit_flag:
             long_ts = monotonic() - zynthian_gui_config.zynswitch_long_seconds
             for i, ts in list(pressed.items()):
@@ -722,8 +728,16 @@ class ZynUI(QObject):
                     del pressed[i]
                     self._cuiaRequested.emit("_zynswitch", [i, "L"])
             try:
-                event = self.cuia_queue.get(True, 0.1)
+                event = self.cuia_queue.get(True, repeat_interval)
             except Empty:
+                event = None
+            # Held switches with a push action (arrows): repeat it
+            for i in list(repeating):
+                if repeating[i]:
+                    repeating[i] -= 1
+                else:
+                    self._cuiaRequested.emit("_zynswitch", [i, "P"])
+            if event is None:
                 continue
             params = []
             if isinstance(event, str):
@@ -740,9 +754,16 @@ class ZynUI(QObject):
             if cuia.lower() == "zynswitch" and len(params) >= 2:
                 i, t = int(params[0]), str(params[1]).upper()
                 if t == "P":
-                    pressed[i] = monotonic()
+                    if self._push_action(i):
+                        # A push action (zynthian_gui.zynswitch_push): now, repeated while held
+                        self._cuiaRequested.emit("_zynswitch", [i, "P"])
+                        repeating[i] = repeat_delay
+                    else:
+                        pressed[i] = monotonic()
                     continue
                 if t == "R":
+                    if repeating.pop(i, None) is not None:
+                        continue
                     ts = pressed.pop(i, None)
                     if ts is None:
                         continue  # long press already handled
@@ -750,6 +771,18 @@ class ZynUI(QObject):
                 self._cuiaRequested.emit("_zynswitch", [i, t])
                 continue
             self._cuiaRequested.emit(str(cuia), params)
+
+    def _push_action(self, i):
+        """The custom switch's push action (wiring configuration UI_ACTION_PUSH), or None"""
+        if i < 4:
+            return None
+        try:
+            config = zynthian_gui_config.custom_switch_ui_actions[i - 4]
+        except IndexError:
+            return None
+        if not config:
+            return None
+        return (self.alt_mode and config.get("AP")) or config.get("P")
 
     @staticmethod
     def _switch_timing(seconds):
@@ -1188,6 +1221,33 @@ class ZynUI(QObject):
             self.cuia_toggle_midi_play()
         else:
             self.cuia_toggle_audio_play()
+
+    def cuia_program_change(self, params=None):
+        """PROGRAM_CHANGE n[,chan] (F1-F4 on the V5 keypad), n also "+" / "-": a program change on
+        the active chain's channel, as if from a MIDI device (zynthian_gui.cuia_program_change)"""
+        if not params:
+            return
+        if len(params) > 1:
+            chan = int(params[1])
+        else:
+            chain = self.chain_manager.get_active_chain()
+            chan = chain.midi_chan if chain is not None and isinstance(chain.midi_chan, int) else 0
+            if not 0 <= chan < 16:
+                chan = 0
+        if not hasattr(self, "_prog_change"):
+            self._prog_change = [0] * 16
+        if params[0] == "+":
+            pgm = self._prog_change[chan] + 1
+        elif params[0] == "-":
+            pgm = self._prog_change[chan] - 1
+        else:
+            pgm = int(params[0])
+        if 0 <= chan < 16 and 0 <= pgm < 128:
+            lib_zyncore.write_zynmidi_program_change(chan, pgm)
+            self._prog_change[chan] = pgm
+
+    def cuia_tts_toggle_enable(self, params=None):
+        self.show_info("Speech (ZynVoice) is not available yet.")
 
     def cuia_nop(self, params=None):
         pass

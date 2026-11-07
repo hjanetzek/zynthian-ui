@@ -95,6 +95,7 @@ checkout (Zrythm's `tools/nura`) already provides Qt 6.12:
 pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg init
 ln -sfn "$PWD/nura" ~/.local/var/pmbootstrap/cache_git/pmaports/zynthian
 for d in lv2 pd engines zynthian-jalv pyside6; do ln -sfn "$PWD/../nura-builds/aports/$d" ~/.local/var/pmbootstrap/cache_git/pmaports/nura-builds-$d; done
+ln -sfn "$PWD/../drivenbymoss-rust/nura" ~/.local/var/pmbootstrap/cache_git/pmaports/drivenbymoss   # optional: DrivenByMoss
 nura/seed-distfiles.sh ~/.config/pmbootstrap-zynthian.cfg
 ```
 
@@ -113,7 +114,8 @@ pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg config ui zynthian
 With `--src`, pmbootstrap doesn't build missing dependencies ("Additional packages need
 building"), and zynthian-ui depends on zyncoder and zynthian-data, hence the order. Build the
 `--src` packages before `install`, and the noarch packages with `--arch aarch64` (see the Kick
-README for why). `--src` builds get the version `<pkgver base>_p<timestamp>`, so pmbootstrap
+README for why). DrivenByMoss's packages (its zynthian controller drivers and the Maschine host)
+come from a drivenbymoss-rust checkout: `nura/deploy.sh drivenbymoss dbm-nihost`. `--src` builds get the version `<pkgver base>_p<timestamp>`, so pmbootstrap
 warns that the local pmaports have another version; that is expected.
 
 Write the image. Replace `/dev/sdX` with the SD card or USB stick first (check with `lsblk`):

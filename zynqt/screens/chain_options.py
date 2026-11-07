@@ -1,8 +1,10 @@
 """Chain options (zynthian_gui_chain_options): add or remove effects, clean MIDI learn, rename or
 remove the chain"""
 
+import os
+
 import zynautoconnect
-from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry, separator
+from zynqt.screens.base import SelectorScreen, entry, separator
 
 
 class ChainOptions(SelectorScreen):
@@ -45,12 +47,49 @@ class ChainOptions(SelectorScreen):
         entries.append(entry("Rename chain", lambda e: self.rename(),
                              info="Change the name of the chain. Clear name to reset to default name.",
                              icon="rename.png"))
-        entries.append(entry("Export chain as snapshot...", icon="snapshot_chains.png", enabled=False,
-                             info=NOT_PORTED))
+        entries.append(entry("Export chain as snapshot...", lambda e: self.export_chain(), icon="snapshot_chains.png",
+                             info="Save this chain as a snapshot.\n\nThe saved snapshot may be loaded or imported "
+                                  "into another snapshot."))
         if chain.chain_id:
             entries.append(entry("Remove chain", lambda e: self.remove_chain(),
                                  info="Remove this chain and all its processors.", icon="delete_chains.png"))
         self.set_entries(entries)
+
+    # Export (zynthian_gui_chain_options.export_chain): folder, name, then the state manager
+
+    def export_chain(self):
+        sm = self.state_manager
+        chain = self.chain_manager.get_active_chain()
+        if chain is None:
+            return
+        try:
+            dirs = sorted(d for d in os.listdir(sm.snapshot_dir)
+                          if not d.startswith(".") and os.path.isdir(os.path.join(sm.snapshot_dir, d)))
+        except OSError:
+            dirs = []
+        if not dirs:
+            self.ui.show_info("No snapshot folder to export to.")
+            return
+        self.ui.show_options("Select location for export", [
+            (d, lambda d=d: self._name_export(chain, d), "Choose folder to store snapshot.", "folder.png")
+            for d in dirs])
+
+    def _name_export(self, chain, folder):
+        def named(title):
+            title = title.strip()
+            if not title:
+                return
+            path = os.path.join(self.state_manager.snapshot_dir, folder, f"{title}.zss")
+            if os.path.isfile(path):
+                self.ui.confirm(f"File {folder}/{title}.zss already exists.\n\nOverwrite?",
+                                lambda: self._do_export(chain, path))
+            else:
+                self._do_export(chain, path)
+        self.ui.show_keyboard(named, chain.get_title(), "Snapshot name")
+
+    def _do_export(self, chain, path):
+        self.state_manager.export_chain(path, chain.chain_id)
+        self.ui.show_info(f"Chain exported to {os.path.basename(os.path.dirname(path))}/{os.path.basename(path)}")
 
     def add_processor(self, proc_type):
         chain = self.chain_manager.get_active_chain()

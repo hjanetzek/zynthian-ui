@@ -21,7 +21,7 @@ from zyncoder.zyncore import lib_zyncore
 import zynconf
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_state_manager import zynthian_state_manager
-from zyngui import zynthian_gui_config
+from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_wiring
 
 from zynqt.bridge import SignalBridge
 from zynqt.power import battery_status
@@ -199,10 +199,7 @@ class ZynUI(QObject):
         # As the Tk admin's last_state_action, but on every exit (the kiosk session ends with
         # SIGTERM): the next start restores this state
         try:
-            if zynthian_gui_config.restore_last_state:
-                self.state_manager.save_last_state_snapshot()
-            else:
-                self.state_manager.delete_last_state_snapshot()
+            zynthian_admin_settings.last_state_action(self.state_manager)
         except Exception as e:
             logging.warning(f"last state: {e}")
         self.bridge.stop()
@@ -1351,3 +1348,134 @@ class ZynUI(QObject):
 
     def cuia_all_sounds_off(self, params=None):
         self.state_manager.all_sounds_off()
+
+    # Backend actions (zynthian_gui's system, ZS3, MIDI and Zynaptik CUIAs)
+
+    def cuia_reload_midi_config(self, params=None):
+        """Re-read the MIDI profile (webconf sends it after saving)"""
+        self.state_manager.reload_midi_config()
+
+    def cuia_reload_wiring_layout(self, params=None):
+        """Re-read the wiring configuration: custom switches, Zynaptik, Zyntof (webconf)"""
+        chain = self.chain_manager.get_active_chain()
+        zynthian_wiring.reload_wiring_layout(chain.midi_chan if chain is not None else None)
+
+    def cuia_last_state_action(self, params=None):
+        """Save the state for the next start, or delete it (admin: restore last state)"""
+        zynthian_admin_settings.last_state_action(self.state_manager)
+
+    def cuia_zs3_next(self, params=None):
+        """The next ZS3; params[0] true: from the last back to the first"""
+        self.state_manager.load_next_zs3(bool(params[0]) if params else False)
+
+    def cuia_zs3_prev(self, params=None):
+        self.state_manager.load_prev_zs3(bool(params[0]) if params else False)
+
+    def cuia_clean_all(self, params=None):
+        """Remove all chains and sequences: confirmed, or params[0] "CONFIRM" (as zynthian_gui)"""
+        def clean_all():
+            sm = self.state_manager
+            if self.chain_manager.get_chain_count() > 1:
+                sm.save_last_state_snapshot()
+            sm.clean_all()
+            self.show_screen_reset("mixer")
+        if params and str(params[0]).upper() == "CONFIRM":
+            clean_all()
+        else:
+            self.confirm("Remove all chains and sequences?", clean_all)
+
+    def cuia_zyn_cc(self, params=None):
+        """ZYN_CC chan,cc,value[,R,release value]: a CC as if from a MIDI device (switches)"""
+        if params and len(params) > 2:
+            chan, cc = int(params[0]), int(params[1])
+            if str(params[-1]).upper() == "R":
+                if len(params) > 3:
+                    lib_zyncore.write_zynmidi_ccontrol_change(chan, cc, int(params[3]))
+            else:
+                lib_zyncore.write_zynmidi_ccontrol_change(chan, cc, int(params[2]))
+
+    def cuia_enable_midi_learn_cc(self, params=None):
+        """Learn a CC for a controller: params processor id, controller symbol (as
+        MIDI_UNLEARN_NODE); in chain control also the controller's position (0-3)"""
+        zctrl = None
+        if params and len(params) > 1:
+            proc = self.chain_manager.processors.get(int(params[0]))
+            if proc is not None:
+                zctrl = proc.controllers_dict.get(str(params[1]))
+        elif params and self._learn_screen() is self.chain_control_screen:
+            zctrl = self.chain_control_screen.controllers[int(params[0])].zctrl
+        if zctrl is None:
+            self.show_info("No such controller to learn.")
+            return
+        self.state_manager.enable_learn_cc(zctrl)
+
+    def cuia_toggle_seq(self, params=None):
+        """TOGGLE_SEQ phrase,sequence: start / stop a sequence of the current scene"""
+        try:
+            zs = self.state_manager.zynseq
+            zs.libseq.togglePlayState(zs.scene, int(params[0]), int(params[1]))
+        except (AttributeError, TypeError, IndexError, ValueError) as e:
+            logging.warning(f"TOGGLE_SEQ {params}: {e}")
+
+    def cuia_zynaptik_cvin_set_volts_octave(self, params=None):
+        try:
+            lib_zyncore.zynaptik_cvin_set_volts_octave(float(params[0]))
+        except Exception as e:
+            logging.debug(e)
+
+    def cuia_zynaptik_cvin_set_note0(self, params=None):
+        try:
+            lib_zyncore.zynaptik_cvin_set_note0(int(params[0]))
+        except Exception as e:
+            logging.debug(e)
+
+    def cuia_zynaptik_cvout_set_volts_octave(self, params=None):
+        try:
+            lib_zyncore.zynaptik_cvout_set_volts_octave(float(params[0]))
+        except Exception as e:
+            logging.debug(e)
+
+    def cuia_zynaptik_cvout_set_note0(self, params=None):
+        try:
+            lib_zyncore.zynaptik_cvout_set_note0(int(params[0]))
+        except Exception as e:
+            logging.debug(e)
+
+    def cuia_zynpot_abs(self, params=None):
+        """ZYNPOT_ABS i,value (value 0..1): the screen's zynpot_abs(i, value) if it has one, else in
+        chain control encoder i's controller (the layout's ctrl_order) to that part of its range"""
+        if not params or len(params) < 2:
+            return
+        i, val = int(params[0]), max(0.0, min(1.0, float(params[1])))
+        screen = self.list_screens.get(self.current_screen) or self.qml_screen_objects.get(self.current_screen)
+        func = getattr(screen, "zynpot_abs", None)
+        if callable(func):
+            func(i, val)
+        elif screen is self.chain_control_screen:
+            order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
+            if i in order:
+                self.chain_control_screen.controllers[order.index(i)].set_abs(val)
+
+    def cuia_v5_zynpot_switch(self, params=None):
+        """V5 encoder push (the screen's cuia_v5_zynpot_switch first): long press the X-Y touchpad
+        if both axes are set; the select encoder as SELECT"""
+        try:
+            i, t = int(params[0]), str(params[1]).upper()
+        except (TypeError, ValueError, IndexError):
+            logging.error(f"V5_ZYNPOT_SWITCH: wrong parameters {params}")
+            return
+        if t == "L":
+            if self.control_xy.available():
+                self.show_screen("control_xy")
+        elif i == 3 and t in ("S", "B"):
+            self._navigate("select" if t == "S" else "select_bold")
+
+    def cuia_api(self, params=None):
+        """API sm|cm,method,params...: call a state manager / chain manager method"""
+        try:
+            api, method, *args = params
+            obj = {"sm": self.state_manager, "cm": self.chain_manager}.get(api)
+            if obj is not None:
+                getattr(obj, method)(*args)
+        except Exception as e:
+            logging.debug(e)

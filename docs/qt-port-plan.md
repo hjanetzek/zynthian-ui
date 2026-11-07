@@ -271,6 +271,36 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
      The nura-builds target can later also build images for the Raspberry Pi kits (zynthian V4
      here), where the hardware pages (kit, wiring, display, audio overlays) matter again: keep
      them working, don't remove them.
+   Qt-native config plan (after webconf's Nura port; 2026-11-07). Two goals: webconf works with
+   the Qt UI as it does with Tk, and the settings that matter on a touch device without a
+   browser are on the device too. Both read and write the same `zynthian_envars.sh` and files
+   through shared modules, as for the admin settings (`zynthian_admin_settings`), so web and
+   device pages can't drift apart.
+   - *(a) CUIA registry* (`zyngui/zynthian_cuia.py`): the CUIA names with parameters and
+     description, and which UI has each (taken from `zynthian_gui` and `ZynUI` methods, or
+     declared there). Webconf's wiring, MIDI and key binding pages use it instead of importing
+     the Tk UI; device pages offer only what the running UI does. With it the missing Qt CUIAs:
+     RELOAD_WIRING_LAYOUT (re-read the custom switch actions), RELOAD_MIDI_CONFIG,
+     RELOAD_KEY_BINDING, REBOOT and POWER (confirm dialog; on Nura through logind), so webconf's
+     "apply" reaches the Qt UI without a restart. Engine info for the presets page from
+     `zyngine` instead of `zynthian_gui_engine`.
+   - *(b) Theme from the config*: Theme.qml's fixed colours and font become a Python object
+     filled from `ZYNTHIAN_UI_COLOR_*` and `ZYNTHIAN_UI_FONT_FAMILY/SIZE` (Tk's defaults when
+     unset), so webconf's UI options page applies to the Qt UI; re-read with RESTART_UI or a
+     reload CUIA.
+   - *(c) Device pages*, in the Qt UI's admin, each on a shared module webconf can use too:
+     engines (enable / disable, `engine_config.json`: a list with checkboxes), switch actions
+     (custom switch -> CUIA for short / bold / long / push, ALT; the V5 keypad's keys),
+     UI options (colours / theme, power save, switch timing, restore last state, keypad
+     docked/overlay), MIDI options (master channel, notes -> CUIA; partly in admin already),
+     file management (snapshots, presets, captures: rename, delete, import from USB, with the
+     file picker). Computer keyboard bindings once the Qt UI reads the keyboard (it doesn't
+     yet), then a key binding page.
+   - *(d) System pages* (Wi-Fi with nmcli, hostname, updates the apk way) stay webconf's and the
+     OS's; on the device only what a kiosk needs (Wi-Fi perhaps), decided once webconf's Nura
+     port settles who owns them.
+   Order: (a) (small; unblocks webconf without Tk and the keys), (b), engines and switch actions
+   from (c), the rest of (c), keyboard, (d).
 8. **Shared modules and upstream**: settings out of `zyngui` (the engine side imports
    `zynthian_gui_config`), the remaining list logic out of the Tk screens; split the shared
    modules into self-contained commits (docs/upstream-candidates.md says which to fold

@@ -10,11 +10,11 @@ import logging
 import os
 from queue import Empty
 from threading import Thread
-from time import monotonic
+from time import monotonic, sleep
 
 import pyliblo3 as liblo
-from PySide6.QtCore import QEvent, QObject, QTimer, Property, Signal, Slot
-from PySide6.QtGui import QGuiApplication, QWindow
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Property, Signal, Slot
+from PySide6.QtGui import QCursor, QGuiApplication, QWindow
 
 import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
@@ -65,6 +65,7 @@ class ZynUI(QObject):
     mixerSettingsChanged = Signal()
     valueEditorChanged = Signal()
     helpChanged = Signal()
+    topBarChanged = Signal()
     # Help view: scroll by n steps (arrows, encoder)
     helpScroll = Signal(int)
     # SEL pressed while the keyboard is shown: QML answers with keyboardAccept(text)
@@ -140,6 +141,8 @@ class ZynUI(QObject):
         self._keyboard_action = None
         self._value_editor = None   # (title, value, min, max, step, decimals, action)
         self._help_html = ""
+        self._topbar_shown = True
+        self._cursor_hidden = False
         self._help_path = ""        # the page shown ("" for the index)
         self._moving_chain = False
         self._moving_processor = None
@@ -262,7 +265,8 @@ class ZynUI(QObject):
     def _poll_status(self):
         sm = self.state_manager
         busy = sm.is_busy()
-        message = (sm.get_busy_message() or "") if busy else ""
+        # get_busy_message() returns a message once (then None): keep it while busy
+        message = (sm.get_busy_message() or self._busy_message) if busy else ""
         progress = getattr(sm, "busy_progress", None) if busy else None
         details = (sm.busy_details or "") if busy else ""
         if progress:
@@ -1706,6 +1710,96 @@ class ZynUI(QObject):
     cuia_workflow_capture_start = _no_capture
     cuia_workflow_capture_stop = _no_capture
     cuia_workflow_capture_text = _no_capture
+
+    # Display (zynthian_gui's layout CUIAs)
+
+    @Property(bool, notify=topBarChanged)
+    def topBarShown(self):
+        return self._topbar_shown
+
+    def _show_topbar(self, show):
+        if show != self._topbar_shown:
+            self._topbar_shown = show
+            self.topBarChanged.emit()
+
+    def cuia_show_topbar(self, params=None):
+        self._show_topbar(True)
+
+    def cuia_hide_topbar(self, params=None):
+        self._show_topbar(False)
+
+    def _show_cursor(self, show):
+        """The mouse pointer over the window (hidden for touch-only devices)"""
+        if show and self._cursor_hidden:
+            QGuiApplication.restoreOverrideCursor()
+        elif not show and not self._cursor_hidden:
+            QGuiApplication.setOverrideCursor(QCursor(Qt.BlankCursor))
+        self._cursor_hidden = not show
+
+    def cuia_show_cursor(self, params=None):
+        self._show_cursor(True)
+
+    def cuia_hide_cursor(self, params=None):
+        self._show_cursor(False)
+
+    # The chain control screen shows and hides its processor list (ChainControl.cuia_*_sidebar);
+    # the other screens have no sidebar, as in Tk nothing happens there
+
+    def cuia_show_sidebar(self, params=None):
+        pass
+
+    def cuia_hide_sidebar(self, params=None):
+        pass
+
+    def cuia_toggle_sidebar(self, params=None):
+        pass
+
+    def cuia_toggle_screen(self, params=None):
+        """TOGGLE_SCREEN name: show the screen, or close it if shown (zynthian_gui.toggle_screen)"""
+        if not params:
+            return
+        if self.current_screen != str(params[0]):
+            self.show_screen(str(params[0]))
+        else:
+            self.back()
+
+    def cuia_refresh_screen(self, params=None):
+        """Rebuild the screen shown (params: only if it is one of these)"""
+        if params and self.current_screen not in [str(p) for p in params]:
+            return
+        screen = self.list_screens.get(self.current_screen) or self.qml_screen_objects.get(self.current_screen)
+        if screen is not None:
+            screen.build()
+
+    def cuia_screen_calibrate(self, params=None):
+        """Tk's touchscreen calibration (X11 transformation matrix): under Wayland the compositor
+        maps the touchscreen (output rotation, udev calibration rules)"""
+        self.show_info("Touchscreen calibration is done by the system (compositor) in the Qt UI.")
+
+    def cuia_screen_clean(self, params=None):
+        """10 s with the touches swallowed by the busy overlay, to clean the screen (as Tk)"""
+        sm = self.state_manager
+
+        def task():
+            for i in range(10, 0, -1):
+                sm.start_busy("clean_screen", f"Clean screen: closing in {i} s")
+                sleep(1)
+        # done runs also if the task fails
+        self.run_background(task, lambda result: sm.end_busy("clean_screen"))
+
+    def cuia_show_navigation_grid(self, params=None):
+        """SHOW_NAVIGATION_GRID title,buttons (zynthian_gui: the grid selector with a list of
+        {"title", "icon", "action"}): as options; only from code, OSC can't pass the buttons"""
+        if not params or len(params) < 2 or not isinstance(params[1], (list, tuple)):
+            self.show_info("SHOW_NAVIGATION_GRID needs a list of buttons.")
+            return
+        options = []
+        for button in params[1]:
+            try:
+                options.append((button["title"], button["action"], None, button.get("icon")))
+            except (TypeError, KeyError):
+                logging.warning(f"SHOW_NAVIGATION_GRID: bad button {button}")
+        self.show_options(str(params[0]), options)
 
     # Navigation and screens
 

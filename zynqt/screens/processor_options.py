@@ -1,5 +1,5 @@
-"""Processor options (zynthian_gui_processor_options): presets, bypass, replace, remove, randomize,
-clean MIDI learn, insert processors"""
+"""Processor options (zynthian_gui_processor_options): presets, bypass, plugin GUI, replace, remove,
+randomize, clean MIDI learn, insert processors"""
 
 import random
 
@@ -35,6 +35,12 @@ class ProcessorOptions(SelectorScreen):
         if p.type == "Audio Effect" and p.eng_code not in ("MI", "MR"):
             e.append(entry(("☒ " if p.is_bypassed() else "☐ ") + "Bypass",
                            lambda x: self.toggle_bypass(), info="Bypass this processor.", icon="bypass.png"))
+        engine = getattr(p, "engine", None)
+        if engine is not None and getattr(engine, "has_native_gui", None) and engine.has_native_gui():
+            e.append(entry(("☒ " if engine.native_gui_shown else "☐ ") + "Plugin GUI",
+                           lambda x: self.toggle_native_gui(), icon="view_controllers.png",
+                           info="Show or hide the plugin's own window (on a workspace of its own; the "
+                                "overview switches between zynthian and the plugin windows)."))
         if p.type not in ("MIDI Synth", "Audio Generator") and p.chain is not None \
                 and p.chain.get_processor_count(p.type) > 1:
             e.append(entry("Move", lambda x: self.ui.start_move_processor(p), icon="move_up_down.png",
@@ -74,6 +80,10 @@ class ProcessorOptions(SelectorScreen):
 
     def toggle_bypass(self):
         self.processor.toggle_bypass()
+        self.fill()
+
+    def toggle_native_gui(self):
+        self.processor.engine.show_native_gui()
         self.fill()
 
     def replace(self):

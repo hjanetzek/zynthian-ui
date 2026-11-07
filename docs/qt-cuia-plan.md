@@ -1,7 +1,12 @@
 # Remaining CUIAs in the Qt UI: plan
 
-Status 2026-11-07. The Tk UI has 126 CUIAs, the Qt UI 74 (table: docs/osc-interface.md). This
-plan covers the 52 missing ones. Rules: as Tk does it (read `zyngui/zynthian_gui.py`
+Status 2026-11-07: **done**, the Qt UI has all 126 CUIAs of the Tk UI (table:
+docs/osc-interface.md). Info only (the Qt UI has no such feature): WORKFLOW_CAPTURE_* (Tk records
+the X11 screen), SCREEN_CALIBRATE (the compositor maps the touchscreen), the TTS CUIAs (no
+ZynVoice yet; TTS_ANNOUNCE / TTS_REGISTER ignored quietly); COPY / PASTE do something in the
+pattern editor only, the sidebar CUIAs in chain control only, as in Tk. Not tested on a device:
+POWER / REBOOT through logind (Nura), only the command chosen. The plan was for the 52 (50 plus
+ZYNSWITCH / ZYNPOT, counted then) missing ones: Rules: as Tk does it (read `zyngui/zynthian_gui.py`
 `cuia_<name>` and what it calls), backend logic shared where it isn't trivial, a CUIA the Qt
 UI can't do yet shows a short info instead of "not in the Qt UI" (`ZynUI.show_info`).
 Implement in `zynqt/ui.py` (`cuia_<name>`) or, where the shown screen decides, as

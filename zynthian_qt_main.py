@@ -64,6 +64,8 @@ def main():
     logging.info("STARTING ZYNTHIAN-UI (Qt) ...")
     app = QGuiApplication(sys.argv)
     app.setApplicationName("zynthian")
+    # The Wayland app_id: compositors match windows by it (zynthian-niri's window rules)
+    app.setDesktopFileName("zynthian")
     app.setOrganizationName("zynthian")
 
     ui = ZynUI()

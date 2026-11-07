@@ -249,6 +249,28 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
    Usable as they are once the imports and paths are fixed: snapshots, presets, captures,
    engines, MIDI options and logs, UI log. Needs a package with its Python deps, a user service
    and a decision on network exposure.
+   Second look (2026-11-07, packaging):
+   - *Python deps*: in Alpine py3-tornado, -jsonpickle, -terminado, -rarfile, -mutagen,
+     -beautifulsoup4, -pexpect, -psutil, -yaml, -requests (pyliblo3, oyaml: bundled with
+     zynthian-ui). Not in Alpine, pure Python, to bundle like zynthian-ui's wheels:
+     `tornado_xstatic` + XStatic (web terminal), `tornadostreamform` (uploads), `py7zr` (7z
+     engine packs), `mido`. Login: `import PAM` is PyPAM's API (Debian's python3-pam); Alpine's
+     py3-pam is python-pam (`pam.pam().authenticate`); it checks root's password, on Nura the
+     device user's.
+   - *Service*: ZynthianOS runs it as root on 80 and 443 (SSL, `/etc/ssl/...`), systemd unit and
+     avahi `_http._tcp` in zynthian-sys. Nura: as the device user, port 8080
+     (`ZYNTHIAN_WEBCONF_PORT`, exists) or 80 with a capability, 443 optional; reboot/poweroff
+     through logind, Wi-Fi with nmcli (NetworkManager on Nura too), hostname/password through
+     sudo or polkit. `systemctl status` of ZynthianOS services (zynthian, mod-ui, novnc,
+     touchosc2midi, jacknetumpd, ...) in the UI log and dashboard: absent on Nura.
+   - *Plan*: (1) a `nura` branch of zynthian-webconf (from tomita, as zynthian-ui): paths from
+     `zynthian_paths`, a Nura/desktop mode, UI restart through RESTART_UI (OSC) or the kiosk
+     session, login as the device user, the PAM API, the SSL listener optional; pages are not
+     hidden yet. (2) a `zynthian-webconf` package in nura-builds (bundled Python packages, a
+     system service as the device user, avahi). (3) the update and engine pages the apk way.
+     The nura-builds target can later also build images for the Raspberry Pi kits (zynthian V4
+     here), where the hardware pages (kit, wiring, display, audio overlays) matter again: keep
+     them working, don't remove them.
 8. **Shared modules and upstream**: settings out of `zyngui` (the engine side imports
    `zynthian_gui_config`), the remaining list logic out of the Tk screens; split the shared
    modules into self-contained commits (docs/upstream-candidates.md says which to fold

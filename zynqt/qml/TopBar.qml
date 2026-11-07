@@ -44,57 +44,156 @@ Rectangle {
         font.family: Theme.fontFamily
     }
 
-    Column {
+    // Status area as the Tk UI's: top row the main meters, the mute flag and the heart (its
+    // colour the CPU load; a warning sign on xruns, undervoltage, overtemperature; an arrow
+    // when updates are available); bottom row the recorder / player / sequencer flags in fixed
+    // slots (record \uf111, play \uf04b: audio, MIDI file, sequencer), battery, CPU and MIDI
+    // activity ("m", underlined with MIDI clock). Nothing moves when flags come and go.
+    Item {
         id: statusRow
 
-        TapHandler { onTapped: root.statusTapped() }
+        readonly property string iconFont: "forkawesome"
+        readonly property var st: root.status
 
         anchors.right: parent.right
         anchors.rightMargin: 6
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 3
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 300
 
-        // Main mixbus meters, horizontal
-        Repeater {
-            model: 2
-            Rectangle {
-                required property int index
-                width: 200
-                height: 7
-                color: Theme.panel
+        TapHandler { onTapped: root.statusTapped() }
+
+        // Main mixbus meters
+        Column {
+            x: 0
+            y: 6
+            width: parent.width - 52
+            spacing: 3
+            Repeater {
+                model: 2
                 Rectangle {
-                    height: parent.height
-                    width: parent.width * (root.mainLevels[parent.index] || 0)
-                    color: (root.mainLevels[parent.index] || 0) > 0.94 ? Theme.meterHigh : Theme.meterLow
+                    required property int index
+                    width: parent.width
+                    height: 7
+                    color: Theme.panel
+                    Rectangle {
+                        height: parent.height
+                        width: parent.width * (root.mainLevels[parent.index] || 0)
+                        color: (root.mainLevels[parent.index] || 0) > 0.94 ? Theme.meterHigh : Theme.meterLow
+                    }
                 }
             }
         }
-
-        // Fixed slots, so nothing moves when values or flags change: from the right CPU, battery,
-        // MIDI and XRUN (shown or blank in their slot); recorder / player flags further left
-        // (they only shift each other)
-        Row {
-            spacing: 8
+        Text {
+            id: muteFlag
+            anchors.right: heart.left
+            anchors.rightMargin: 4
+            y: 1
+            visible: !!statusRow.st.mainMute
+            text: "\uf32f"
+            font.family: statusRow.iconFont
+            font.pixelSize: 20
+            color: "#ff0000"
+        }
+        Text {
+            id: heart
             anchors.right: parent.right
-            Text { visible: !!root.status.audioRecorder; text: "\u25cf REC"; color: Theme.meterHigh; font.pixelSize: 12 }
-            Text { visible: !!root.status.midiRecorder; text: "\u25cf MIDI REC"; color: Theme.meterHigh; font.pixelSize: 12 }
-            Text { visible: !!root.status.audioPlayer; text: "PLAY"; color: Theme.meterLow; font.pixelSize: 12 }
-            StatusSlot { sample: "XRUN"; text: root.status.xrun ? "XRUN" : ""; color: Theme.meterHigh }
-            StatusSlot { sample: "MIDI"; text: root.status.midi ? "MIDI" : ""; color: Theme.meterLow }
+            y: 1
+            font.family: statusRow.iconFont
+            font.pixelSize: 22
+            text: {
+                const s = statusRow.st
+                if (s.xrunLevel > 0) return "\uf071"
+                if (s.undervoltage) return "\uf0e7"
+                if (s.overtemp) return "\uf769"
+                return s.updateAvailable ? "\u21bb" : "\u2665"
+            }
+            color: {
+                const s = statusRow.st
+                if (s.xrunLevel === 2 || s.overtemp) return "#ff0000"
+                if (s.xrunLevel === 1) return "#ff9000"
+                if (s.undervoltage) return "#ff0000"
+                // As zynthian_gui_base: green below 50 %, to yellow at 75 %, to red at 100 %
+                const load = Math.max(0, Math.min(100, s.cpuLoad || 0))
+                const cr = load < 50 ? 0 : (load < 75 ? Math.round((load - 50) * 0xcc / 25) : 0xcc)
+                const cg = load < 75 ? 0xcc : Math.round((100 - load) * 0xcc / 25)
+                return Qt.rgba(cr / 255, cg / 255, 0, 1)
+            }
+        }
+
+        // Bottom row
+        Row {
+            x: 0
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 3
+            spacing: 4
+            FlagIcon { glyph: "\uf111"; on: !!statusRow.st.audioRecorder; color: "#b00000" }
+            FlagIcon { glyph: "\uf04b"; on: !!statusRow.st.audioPlayer; color: "#00c000" }
+            FlagIcon { glyph: "\uf111"; on: !!statusRow.st.midiRecorder; color: "#ff00ff" }
+            FlagIcon { glyph: "\uf04b"; on: !!statusRow.st.midiPlayer; color: "#ff00ff" }
+            FlagIcon { glyph: "\uf111"; on: !!statusRow.st.seqRecord; color: "#ff9000" }
+            FlagIcon { glyph: "\uf04b"; on: !!statusRow.st.seqPlay; color: "#ff9000" }
+        }
+        Row {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 3
+            spacing: 8
             // Battery (battery powered devices): AC when on external power
             StatusSlot {
-                visible: root.status.battery !== undefined
+                anchors.bottom: parent.bottom
+                visible: statusRow.st.battery !== undefined
                 sample: "BAT 100%"
-                label: root.status.batteryAc ? "AC" : "BAT"
-                text: (root.status.battery || 0) + "%"
-                color: !root.status.batteryAc && (root.status.battery || 0) <= 15 ? Theme.meterHigh : Theme.textOff
+                label: statusRow.st.batteryAc ? "AC" : "BAT"
+                text: (statusRow.st.battery || 0) + "%"
+                color: !statusRow.st.batteryAc && (statusRow.st.battery || 0) <= 15 ? Theme.meterHigh : Theme.textOff
             }
             StatusSlot {
+                anchors.bottom: parent.bottom
                 sample: "CPU 100%"
                 label: "CPU"
-                text: (root.status.cpuLoad || 0) + "%"
-                color: (root.status.cpuLoad || 0) > 80 ? Theme.meterHigh : Theme.textOff
+                text: (statusRow.st.cpuLoad || 0) + "%"
+                color: (statusRow.st.cpuLoad || 0) > 80 ? Theme.meterHigh : Theme.textOff
             }
+            Item {
+                width: 18
+                height: 20
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 2
+                    visible: !!statusRow.st.midi
+                    text: "m"
+                    font.family: statusRow.iconFont
+                    font.pixelSize: 20
+                    color: "#19b1f7"
+                }
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 2
+                    visible: !!statusRow.st.midiClock
+                    color: "#19b1f7"
+                }
+            }
+        }
+    }
+
+    // A flag icon in a fixed slot: shown when on, blank otherwise
+    component FlagIcon: Item {
+        id: flag
+        property string glyph
+        property bool on
+        property color color
+        width: 18
+        height: 18
+        Text {
+            anchors.centerIn: parent
+            visible: flag.on
+            text: flag.glyph
+            font.family: "forkawesome"
+            font.pixelSize: 16
+            color: flag.color
         }
     }
 

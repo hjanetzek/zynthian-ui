@@ -20,7 +20,7 @@ import signal
 import sys
 
 from PySide6.QtCore import Qt, QTimer, QUrl
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
 
 # zynthian's settings; Tk is only set up there for zynthian_main.py
@@ -67,6 +67,9 @@ def main():
     # The Wayland app_id: compositors match windows by it (zynthian-niri's window rules)
     app.setDesktopFileName("zynthian")
     app.setOrganizationName("zynthian")
+    # Icon font of the status bar (as the Tk UI), shipped with zynthian-ui
+    QFontDatabase.addApplicationFont(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                  "fonts/ForkAwesome/forkawesome-webfont.ttf"))
 
     ui = ZynUI()
     zynthian_gui_config.zyngui = ui

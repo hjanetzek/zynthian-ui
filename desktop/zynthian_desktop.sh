@@ -84,8 +84,9 @@ cd "$ZYNTHIAN_UI_DIR"
 error_counter=0
 while true; do
 	load_config_env
-	# ZYNTHIAN_UI=qt: the Qt Quick UI (docs/qt-port-plan.md) instead of the Tk UI
-	if [ "$ZYNTHIAN_UI" == "qt" ]; then
+	# ZYNTHIAN_UI=qt: the Qt Quick UI (docs/qt-port-plan.md) instead of the Tk UI (if this tree
+	# has it: upstream zynthian-ui hasn't)
+	if [ "$ZYNTHIAN_UI" == "qt" ] && [ -f ./zynthian_qt_main.py ]; then
 		python3 ./zynthian_qt_main.py
 	else
 		# Tk draws through X11 (XWayland on a Wayland desktop): its OpenGL widgets

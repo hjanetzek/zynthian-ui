@@ -1,7 +1,7 @@
 #!/bin/sh
 # Build Nura packages and install them on a running device over SSH.
 #
-# Usage: deploy.sh [-c CONFIG] [-H HOST] [-u USER] [-a ARCH] [-z ZYNCODER] [-j JALV] [-m DBM] [-k] [-n] [-S] [-r] [-d] PACKAGE...
+# Usage: deploy.sh [-c CONFIG] [-H HOST] [-u USER] [-a ARCH] [-z ZYNCODER] [-j JALV] [-m DBM] [-W WEBCONF] [-k] [-n] [-S] [-r] [-d] PACKAGE...
 #   -c CONFIG    pmbootstrap config (default: ~/.config/pmbootstrap-zynthian.cfg)
 #   -H HOST      device address (default: <hostname from the config>.local, via avahi)
 #   -u USER      SSH user on the device (default: user from the config)
@@ -13,6 +13,9 @@
 #   -m DBM       drivenbymoss-rust checkout for the drivenbymoss and dbm-nihost packages
 #                (default: ../drivenbymoss-rust next to this zynthian-ui checkout; its recipe
 #                directory nura/ must be linked into pmaports, see README.md)
+#   -W WEBCONF   zynthian-webconf checkout (nura branch) for the zynthian-webconf package
+#                (default: ../zynthian-webconf-nura, else ../zynthian-webconf; its nura/ linked
+#                into pmaports as for -m)
 #   -k           install this work dir's package signing key on the device if needed (a device
 #                whose image was built with another work dir rejects the packages: "UNTRUSTED
 #                signature")
@@ -27,6 +30,7 @@
 #   deploy.sh zyncoder zynthian-ui           # both checkouts
 #   deploy.sh postmarketos-ui-zynthian       # the kiosk package
 #   deploy.sh drivenbymoss dbm-nihost        # DrivenByMoss's zynthian drivers and the Maschine host
+#   deploy.sh zynthian-webconf               # the web configuration (http://<device>.local:8080)
 #
 # zynthian-ui is built from this checkout, zyncoder, zynthian-jalv, drivenbymoss and dbm-nihost from
 # their checkouts
@@ -42,6 +46,8 @@ checkout=$(cd "$here/.." && pwd)
 zyncoder=$(cd "$checkout/.." && pwd)/zyncoder
 jalv=$(cd "$checkout/.." && pwd)/jalv
 dbm=$(cd "$checkout/.." && pwd)/drivenbymoss-rust
+webconf=$(cd "$checkout/.." && pwd)/zynthian-webconf-nura
+[ -d "$webconf" ] || webconf=$(cd "$checkout/.." && pwd)/zynthian-webconf
 cfg=$HOME/.config/pmbootstrap-zynthian.cfg
 host=
 user=
@@ -54,7 +60,7 @@ installkey=
 
 usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0}"; }
 
-while getopts c:H:u:a:z:j:m:knSrdh opt; do
+while getopts c:H:u:a:z:j:m:W:knSrdh opt; do
 	case $opt in
 		c) cfg=$OPTARG ;;
 		H) host=$OPTARG ;;
@@ -63,6 +69,7 @@ while getopts c:H:u:a:z:j:m:knSrdh opt; do
 		z) zyncoder=$OPTARG ;;
 		j) jalv=$OPTARG ;;
 		m) dbm=$OPTARG ;;
+		W) webconf=$OPTARG ;;
 		k) installkey=--install-key ;;
 		n) build=0 ;;
 		S) lax= ;;
@@ -114,7 +121,7 @@ if [ "$build" = 1 ]; then
 			esac ;;
 	esac
 	ordered=
-	for main in zyncoder zynthian-jalv zynthian-data zynthian-ui drivenbymoss dbm-nihost postmarketos-ui-zynthian; do
+	for main in zyncoder zynthian-jalv zynthian-data zynthian-ui drivenbymoss dbm-nihost zynthian-webconf postmarketos-ui-zynthian; do
 		case " $mains " in *" $main "*) ordered="$ordered $main" ;; esac
 	done
 	for main in $mains; do
@@ -129,6 +136,8 @@ if [ "$build" = 1 ]; then
 			# DrivenByMoss: both packages from the drivenbymoss-rust checkout
 			# shellcheck disable=SC2086
 			drivenbymoss | dbm-nihost) pmb build $lax --arch "$arch" --src="$dbm" "$main" ;;
+			# shellcheck disable=SC2086
+			zynthian-webconf) pmb build $lax --arch "$arch" --src="$webconf" zynthian-webconf ;;
 			zynthian-jalv)
 				if [ -d "$jalv" ]; then
 					# shellcheck disable=SC2086

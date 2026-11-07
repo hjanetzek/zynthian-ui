@@ -96,6 +96,7 @@ pmbootstrap -c ~/.config/pmbootstrap-zynthian.cfg init
 ln -sfn "$PWD/nura" ~/.local/var/pmbootstrap/cache_git/pmaports/zynthian
 for d in lv2 pd engines zynthian-jalv pyside6; do ln -sfn "$PWD/../nura-builds/aports/$d" ~/.local/var/pmbootstrap/cache_git/pmaports/nura-builds-$d; done
 ln -sfn "$PWD/../drivenbymoss-rust/nura" ~/.local/var/pmbootstrap/cache_git/pmaports/drivenbymoss   # optional: DrivenByMoss
+ln -sfn "$PWD/../zynthian-webconf-nura/nura" ~/.local/var/pmbootstrap/cache_git/pmaports/zynthian-webconf   # optional: webconf (nura branch)
 nura/seed-distfiles.sh ~/.config/pmbootstrap-zynthian.cfg
 ```
 

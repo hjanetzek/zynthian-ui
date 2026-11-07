@@ -229,12 +229,26 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
 6. **Performance on the Duet with the M3 screens**: CPU per thread (docs/performance-measurement.md)
    while playing; the launcher switch (41c97752) and the pattern editor (smooth with QML items)
    were checked by hand. C++ items for dense views only if a measurement asks for them.
-7. **zynthian-webconf on Nura** (`~/bastel/github/zynthian-webconf`, branch vangelis): the web
-   configuration tool (tornado, uses `zynconf`) assumes ZynthianOS: `/zynthian/...` paths
-   (my-data, data, sys, config, help, ui), root and `systemctl restart zynthian` /
-   `zynthian-webconf` / `filebrowser`; on Nura zynthian is a user kiosk session. Needs the paths
-   through `zynthian_paths`, a package with its Python deps, a user service and a decision on
-   access (which settings make sense on Nura, network exposure).
+7. **zynthian-webconf on Nura** (`~/bastel/github/zynthian-webconf`, branch vangelis; tornado,
+   ~35 pages, 10k lines). Looked at 2026-11-07; three kinds of work:
+   - *Tk imports* (blocks running it next to the Qt UI only in spirit: it imports the Tk modules,
+     which import tkinter): `zyngui.zynthian_gui` for `get_cuia_list()` (wiring, MIDI options,
+     key binding pages), `zynthian_gui_engine` (presets page), `zynthian_gui_help` (help). Needs
+     a shared CUIA list (names, and which the running UI has) and engine info from `zyngine`.
+   - *The running UI* (OSC CUIAs to port 1370, settings in zynthian_envars.sh): the Qt UI lacks
+     RELOAD_WIRING_LAYOUT, RELOAD_MIDI_CONFIG, RELOAD_KEY_BINDING, REBOOT, POWER (webconf sends
+     POWER_OFF, which neither UI has: an upstream bug); it ignores the UI options page's colours
+     and fonts (`ZYNTHIAN_UI_COLOR_*`, `FONT_FAMILY/SIZE`: Theme.qml is fixed) and has no
+     computer keyboard bindings (key binding page). "Restart UI" is `systemctl restart zynthian`
+     (Nura: the kiosk session; RESTART_UI over OSC instead).
+   - *ZynthianOS / Raspberry Pi* (Nura port, not Qt): `/zynthian/...` paths (to
+     `zynthian_paths`), root and systemctl, display (SPI overlays, /boot), kit and wiring pins,
+     audio device setup (jackd, overlays: PipeWire instead), Wi-Fi, security (passwords),
+     backup, software update and repositories (git pulls in /zynthian, apt), Pianoteq/DSP56300
+     installers, the web terminal. Most of these pages should be hidden on Nura.
+   Usable as they are once the imports and paths are fixed: snapshots, presets, captures,
+   engines, MIDI options and logs, UI log. Needs a package with its Python deps, a user service
+   and a decision on network exposure.
 8. **Shared modules and upstream**: settings out of `zyngui` (the engine side imports
    `zynthian_gui_config`), the remaining list logic out of the Tk screens; split the shared
    modules into self-contained commits (docs/upstream-candidates.md says which to fold

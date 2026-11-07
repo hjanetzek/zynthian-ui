@@ -197,9 +197,22 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
 
 **Next steps** (2026-11-06): what's left.
 
-1. **ZynVoice** (speech): needs a TTS engine on Nura (Tk uses flite voices,
-   `ZYNTHIAN_TTS_VOICE`); then the screens announce as in Tk. Until then admin shows it as not
-   ported and TTS_TOGGLE_ENABLE says so.
+1. **ZynVoice** (speech), postponed: needs the TTS engines on Nura; then the screens announce as
+   in Tk. Until then admin shows it as not ported and TTS_TOGGLE_ENABLE says so. Checked
+   2026-11-07:
+   - `zyngine/zynthian_tts.py` runs **flite** (default voice `cmu_us_slt.flitevox`, from
+     `ZYNTHIAN_TTS_VOICE`; `flite -voice <file> -add_lex <lexicon> -t <text>`) and **espeak-ng**
+     for the two "Robotic" voices `espeak-m`/`espeak-f` (`espeak-ng -v en+m1`/`en+f1`). The voice
+     list is `zynthian-data/tts/voices/voices.json`: 16 flite voices (`.flitevox`, 140 MB in
+     `tts/voices`) and the two espeak ones. ZynthianOS installs `flite espeak-ng` from apt. TTS is
+     off by default (`ZYNTHIAN_TTS_ENABLED=0`).
+   - Nura: both are in Alpine edge (`flite` in main, `espeak-ng` in community), not in nura-builds
+     yet. To do: add them to the zynthian target; the flite voices go into the optional
+     `zynthian-data-tts` (see the `zynthian-data` split in nura-builds `docs/lv2-plugins.md`).
+   - Output bypasses JACK/PipeWire: the beep opens `hw:<ZYNTHIAN_TTS_SOUNDCARD>` with alsaaudio,
+     speech runs the program with `ALSA_CARD=<card>`. With PipeWire holding the device the beep
+     likely fails (device busy), and with pipewire-alsa as ALSA's default `ALSA_CARD` may be
+     ignored. Probably needs playback through PipeWire/JACK; test in Tk on the Duet first.
 2. **Hardware kits** (M3): encoders (zynpot callbacks: none in the Qt UI yet), LEDs (`wsleds`:
    none), and the controller drivers that use the Tk screens (`zyngui.screens["pattern_editor" /
    "mixer" / "launcher"]` in APC40, Launchpad, ... drivers; `ZynUI.screens` is empty, so those

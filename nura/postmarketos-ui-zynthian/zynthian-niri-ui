@@ -1,0 +1,10 @@
+#!/bin/sh
+# Started by niri (zynthian-niri session): zynthian's environment, then zynthian, restarted when it
+# exits (the session ends only with niri).
+. /usr/libexec/zynthian/zynthian-session.sh
+zynthian_device_defaults
+zynthian_session_env
+while true; do
+	zynthian || true
+	sleep 2
+done

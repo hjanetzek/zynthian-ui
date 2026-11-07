@@ -12,6 +12,8 @@ Usage: kiosk-session [-n] SESSION
 SESSION:
   zynthian      zynthian with the Qt UI (cage)
   zynthian-tk   zynthian with the Tk UI (cage, XWayland)
+  zynthian-niri zynthian with plugin windows, each on its own workspace (niri), if
+                postmarketos-ui-zynthian-niri is installed
   zrythm        Zrythm (labwc), if postmarketos-ui-zrythm is installed
   NAME          any session in /usr/share/wayland-sessions (NAME.desktop)
 

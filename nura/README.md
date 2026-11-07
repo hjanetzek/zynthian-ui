@@ -164,6 +164,32 @@ kiosk-session list           # current and available sessions
 kiosk-session zynthian       # zynthian with the Qt UI (cage)
 kiosk-session zynthian-tk    # zynthian with the Tk UI
 kiosk-session zrythm         # Zrythm (labwc)
+kiosk-session zynthian-niri  # zynthian in niri, with plugin windows (postmarketos-ui-zynthian-niri)
 ```
+
+### zynthian in niri: plugin windows
+
+`postmarketos-ui-zynthian-niri` runs zynthian in [niri](https://github.com/YaLTeR/niri) instead of
+cage, so that other windows can be shown next to it, e.g. LV2 plugin GUIs (X11, through
+xwayland-satellite, which niri starts when the first X11 client connects):
+
+- zynthian full-screen on the workspace `zynthian`; every other window on a workspace of its own,
+  floating at the size it asks for (`zynthian-niri-workspaces`, following niri's event stream).
+  When a window closes, its workspace goes away and zynthian is shown again.
+- niri's overview shows all workspaces zoomed out; a tap picks one. It opens with Mod+O, a
+  four-finger swipe on a touchpad, or `niri msg action toggle-overview`; there is no touchscreen
+  gesture for it yet (to do: a swipe from a screen edge). Mod+Z goes back to zynthian.
+- The config is generated at each start (`zynthian-niri`): `/etc/xdg/zynthian-niri/config.kdl`
+  with the panel's output, the scale of `/etc/default/zynthian` (`ZYNTHIAN_OUTPUT_SCALE`) and a
+  rotation only for panels without a DRM panel orientation (niri rotates the others itself). Local
+  changes go into `/etc/xdg/zynthian-niri/local.kdl`.
+- On the Duet, OpenGL X11 windows render on the GPU through XWayland with glamor (glxgears: 40 fps,
+  no black rectangles). If plugin windows do show them, start XWayland without glamor:
+  `environment { XWAYLAND_NO_GLAMOR "1"; }` in `local.kdl`.
+- Plugin GUIs from zynthian itself need more work: zynthian's jalv is built without suil and GTK,
+  the plugins of nura-builds without GUIs, and zynthian only opens native GUIs for a remote display.
+
+From SSH, `niri msg` needs the session's socket:
+`export NIRI_SOCKET=$(ls /run/user/$(id -u)/niri.*.sock)`.
 
 The zynthian UI is `ZYNTHIAN_UI=qt|tk` in `/etc/default/zynthian`.

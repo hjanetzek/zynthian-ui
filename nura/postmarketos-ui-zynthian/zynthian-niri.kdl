@@ -1,0 +1,54 @@
+// niri config of the zynthian-niri session (zynthian-niri prepends the output settings).
+// Reference: https://github.com/YaLTeR/niri/wiki/Configuration:-Introduction
+
+// zynthian full-screen on its own, always-present first workspace; every other window gets a
+// workspace of its own (zynthian-niri-workspaces). Plugin windows float: they keep the size the
+// plugin asks for and are centred.
+workspace "zynthian"
+
+window-rule {
+    open-floating true
+}
+window-rule {
+    match app-id="^zynthian$"
+    open-on-workspace "zynthian"
+    open-floating false
+    open-fullscreen true
+}
+
+layout {
+    gaps 0
+    focus-ring { off; }
+    border { off; }
+    background-color "#000000"
+}
+
+// The overview: all workspaces zoomed out; a tap picks one
+overview {
+    zoom 0.4
+    backdrop-color "#101010"
+}
+
+// No animations: they cost CPU/GPU time next to the audio
+animations { off; }
+
+prefer-no-csd
+hotkey-overlay { skip-at-startup; }
+screenshot-path null
+
+// Panfrost: if X11 plugin windows show black rectangles, start XWayland without glamor
+// (docs/nura-display.md) in /etc/xdg/zynthian-niri/local.kdl:
+//   environment { XWAYLAND_NO_GLAMOR "1"; }
+
+binds {
+    Mod+O { toggle-overview; }
+    Mod+Z { focus-workspace "zynthian"; }
+    Mod+Tab { focus-workspace-previous; }
+    Mod+Page_Down { focus-workspace-down; }
+    Mod+Page_Up { focus-workspace-up; }
+    Mod+Q { close-window; }
+    Mod+Shift+E { quit; }
+}
+
+spawn-at-startup "/usr/libexec/zynthian/zynthian-niri-ui"
+spawn-at-startup "/usr/libexec/zynthian/zynthian-niri-workspaces"

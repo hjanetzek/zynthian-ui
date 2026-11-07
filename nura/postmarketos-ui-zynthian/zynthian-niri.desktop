@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=zynthian (niri)
+Comment=zynthian with plugin windows, each on its own workspace (niri)
+Exec=dbus-run-session -- /usr/libexec/zynthian/zynthian-niri
+TryExec=/usr/bin/niri
+Type=Application

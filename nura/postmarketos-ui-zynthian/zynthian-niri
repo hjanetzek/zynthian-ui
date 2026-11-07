@@ -1,0 +1,39 @@
+#!/bin/sh
+# Session: zynthian in niri, a scrollable-tiling Wayland compositor, so that plugin windows (LV2
+# GUIs through XWayland, xwayland-satellite) can be shown: zynthian on its own workspace, every
+# other window on a workspace of its own (zynthian-niri-workspaces), and niri's overview of all
+# workspaces to switch between them (Mod+O, a four-finger touchpad swipe, or
+# "niri msg action toggle-overview"; a tap in the overview picks a workspace).
+#
+# The niri config is generated at each start from /etc/xdg/zynthian-niri/config.kdl with the
+# output settings of zynthian-session.sh (device defaults, /etc/default/zynthian): the connected
+# panel, its scale, and a rotation for panels without a DRM panel orientation (niri rotates the
+# others by their orientation itself). Local changes: /etc/xdg/zynthian-niri/local.kdl (included).
+set -eu
+
+. /usr/libexec/zynthian/zynthian-session.sh
+zynthian_device_defaults
+
+# The first connected panel (card0-DSI-1 -> DSI-1)
+output=
+for status in /sys/class/drm/card*-*/status; do
+	[ "$(cat "$status" 2>/dev/null)" = connected ] || continue
+	output=$(basename "$(dirname "$status")")
+	output=${output#card*-}
+	break
+done
+
+config=${XDG_RUNTIME_DIR:-/tmp}/zynthian-niri.kdl
+{
+	if [ -n "$output" ]; then
+		echo "output \"$output\" {"
+		[ -z "$zynthian_output_scale" ] || echo "    scale $zynthian_output_scale"
+		[ -z "$zynthian_output_transform" ] || echo "    transform \"$zynthian_output_transform\""
+		echo "}"
+		printf 'input {\n    touch {\n        map-to-output "%s"\n    }\n}\n' "$output"
+	fi
+	cat /etc/xdg/zynthian-niri/config.kdl
+	[ ! -f /etc/xdg/zynthian-niri/local.kdl ] || echo 'include "/etc/xdg/zynthian-niri/local.kdl"'
+} > "$config"
+
+exec niri --config "$config"

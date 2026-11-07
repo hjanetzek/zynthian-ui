@@ -1,0 +1,61 @@
+# Shared by zynthian's sessions (sourced; /etc/cage-ui/zynthian.sh for cage, zynthian-niri for niri).
+# Sourced from scripts running with "set -eu": never fail here.
+
+# Device defaults (first device-tree compatible), overridden by /etc/default/zynthian: the output
+# rotation for panels that report no DRM panel orientation (the compositors rotate the others
+# themselves: cage-ui-autorotate.sh, niri), and the Qt UI's output scale. Then the UI (qt or tk)
+# from /etc/default/zynthian, switched by kiosk-session; zynthian's own config
+# (~/.config/zynthian/zynthian_custom_config.sh) can still override it.
+zynthian_device_defaults() {
+	zynthian_transform=
+	zynthian_scale=1.5
+	case "$(tr '\0' '\n' < /proc/device-tree/compatible 2>/dev/null | head -n 1)" in
+		google,blueline)
+			# Pixel 3: portrait panel (1080x2160) without panel orientation; landscape, and at 443 ppi
+			# a larger scale than the Duet's (224 ppi): 1200x600 logical pixels
+			zynthian_transform=90
+			zynthian_scale=1.8
+			;;
+	esac
+	ZYNTHIAN_UI=qt
+	[ -f /etc/default/zynthian ] && . /etc/default/zynthian
+	export ZYNTHIAN_UI
+	# shellcheck disable=SC2034 # used by the sourcing scripts
+	zynthian_output_transform=${ZYNTHIAN_OUTPUT_TRANSFORM-$zynthian_transform}
+	# shellcheck disable=SC2034
+	zynthian_output_scale=${ZYNTHIAN_OUTPUT_SCALE-$zynthian_scale}
+}
+
+# zynthian connects to JACK (PipeWire's pipewire-jack) once, at start-up. During login PipeWire is
+# only socket-activated and WirePlumber has not set up a sink yet, so wait (up to 10 s) until
+# there is a default sink, or zynthian's audio outputs have nothing to connect to.
+zynthian_wait_for_audio() {
+	i=0
+	while [ "$i" -lt 100 ]; do
+		wpctl inspect @DEFAULT_AUDIO_SINK@ >/dev/null 2>&1 && return 0
+		sleep 0.1
+		i=$((i + 1))
+	done
+	return 1
+}
+
+# Audio and the environment zynthian runs in
+zynthian_session_env() {
+	zynthian_wait_for_audio || true
+	# JACK period: ZynthianOS runs jackd with 256 frames. PipeWire picks the quantum from what its
+	# clients ask for; force 256 (5.3 ms at 48 kHz) for the whole graph, fine for a kiosk. The
+	# real-time limit comes from tinydm.service.d/50-zynthian-realtime.conf.
+	pw-metadata -n settings 0 clock.force-quantum 256 >/dev/null 2>&1 || true
+	export PIPEWIRE_LATENCY=256/48000
+
+	# Use the whole output, whatever window size the user's config has (desktop default 1024x600),
+	# and scale the UI with it: XWayland reports 96 dpi whatever the panel, so the configured font
+	# size (made for 1024x600) would be tiny on a high-resolution panel (1920x1200 on the Duet).
+	# Override in ~/.config/zynthian/zynthian_custom_config.sh, e.g. ZYNTHIAN_UI_SCALE=1.5.
+	export ZYNTHIAN_FULLSCREEN=1
+	export ZYNTHIAN_UI_SCALE=auto
+
+	# Qt Quick UI: a native Wayland client, no XWayland
+	export QT_QPA_PLATFORM=wayland
+	export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+}

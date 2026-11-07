@@ -1,0 +1,51 @@
+#!/usr/bin/python3
+"""Started by niri (zynthian-niri session): every window but zynthian's on a workspace of its own.
+
+Follows niri's event stream; a newly opened window that isn't zynthian's is moved to the last
+workspace of its output, which niri keeps empty (dynamic workspaces): so each plugin window gets
+its own workspace, and the workspace goes away again when the window closes. Index 255 stands for
+"the last one" (niri clamps the index to the number of workspaces). When a window closes and
+nothing has the focus any more (its workspace is empty now), zynthian's workspace is shown.
+"""
+import json
+import subprocess
+import time
+
+ZYNTHIAN_APP_ID = "zynthian"
+
+
+def niri(*args):
+    return subprocess.run(["niri", "msg", *args], capture_output=True, text=True)
+
+
+def follow():
+    known = set()
+    stream = subprocess.Popen(["niri", "msg", "--json", "event-stream"],
+                              stdout=subprocess.PIPE, text=True)
+    for line in stream.stdout:
+        try:
+            ev = json.loads(line)
+        except ValueError:
+            continue
+        if "WindowsChanged" in ev:
+            known = {w["id"] for w in ev["WindowsChanged"]["windows"]}
+        elif "WindowOpenedOrChanged" in ev:
+            w = ev["WindowOpenedOrChanged"]["window"]
+            if w["id"] in known:
+                continue
+            known.add(w["id"])
+            if w.get("app_id") == ZYNTHIAN_APP_ID:
+                continue
+            # TODO: dialogs of a plugin (file choosers) should stay with its window
+            niri("action", "move-window-to-workspace", "--window-id", str(w["id"]),
+                 "--focus", "true", "255")
+        elif "WindowClosed" in ev:
+            known.discard(ev["WindowClosed"]["id"])
+            if niri("--json", "focused-window").stdout.strip() in ("", "null"):
+                niri("action", "focus-workspace", "zynthian")
+    stream.wait()
+
+
+while True:
+    follow()
+    time.sleep(1)  # niri restarting its IPC, or not up yet

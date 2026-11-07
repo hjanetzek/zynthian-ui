@@ -4,6 +4,11 @@
 . /usr/libexec/zynthian/zynthian-session.sh
 zynthian_device_defaults
 zynthian_session_env
+# Plugin GUIs on demand (jalv.gtk3, zynthian-jalv-gtk; device menu > Plugin GUI): niri shows each
+# one on a workspace of its own
+export ZYNTHIAN_NATIVE_GUI=1
+# X11 windows show at native pixels: plugins that can scale themselves use the output's scale
+export ZYNTHIAN_NATIVE_GUI_SCALE="${zynthian_output_scale:-1}"
 while true; do
 	zynthian || true
 	sleep 2

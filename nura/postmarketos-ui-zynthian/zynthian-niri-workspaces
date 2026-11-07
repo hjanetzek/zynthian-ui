@@ -65,6 +65,9 @@ def follow():
             else:
                 niri("action", "move-window-to-workspace", "--window-id", wid, "--focus", "true",
                      "255")
+            # --focus only follows a focused window; a window shown again (jalv.gtk3 "ui show")
+            # opens unfocused
+            niri("action", "focus-window", "--id", wid)
         elif "WindowClosed" in ev:
             known.discard(ev["WindowClosed"]["id"])
             if niri("--json", "focused-window").stdout.strip() in ("", "null"):

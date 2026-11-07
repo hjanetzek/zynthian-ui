@@ -176,6 +176,56 @@ Window {
         anchors.fill: screens
     }
 
+    // Help (zynthian_gui_help): the screen's zynthian-help page; links followed, arrows scroll,
+    // BACK or the close button closes it
+    Rectangle {
+        id: help
+        anchors.fill: screens
+        visible: zyn.helpShown
+        color: Theme.background
+        MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = false }
+
+        Flickable {
+            id: helpFlick
+            anchors.fill: parent
+            anchors.margins: 16
+            anchors.rightMargin: 80
+            contentHeight: helpText.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            Text {
+                id: helpText
+                width: helpFlick.width
+                textFormat: Text.RichText
+                wrapMode: Text.WordWrap
+                baseUrl: zyn.helpBaseUrl
+                text: zyn.helpHtml
+                color: Theme.text
+                linkColor: "#5ab4f0"
+                font.pixelSize: 20
+                onLinkActivated: (link) => zyn.helpLink(link)
+                onTextChanged: helpFlick.contentY = 0
+            }
+        }
+        Connections {
+            target: zyn
+            function onHelpScroll(steps) {
+                helpFlick.contentY = Math.max(0, Math.min(helpFlick.contentHeight - helpFlick.height,
+                                                          helpFlick.contentY + steps * helpFlick.height * 0.8))
+            }
+        }
+        DialogButton {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: 8
+            width: 64
+            height: 64
+            text: "✕"
+            color: Theme.keyBackground
+            onTapped: zyn.helpClose()
+        }
+    }
+
     // Value editor (zynthian param editor): steps, OK applies; arrows step, SEL OK, BACK cancels
     Rectangle {
         anchors.fill: screens

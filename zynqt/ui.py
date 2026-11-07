@@ -21,7 +21,7 @@ from zyncoder.zyncore import lib_zyncore
 import zynconf
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_state_manager import zynthian_state_manager
-from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_wiring
+from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_help, zynthian_wiring
 
 from zynqt.bridge import SignalBridge
 from zynqt.power import battery_status
@@ -64,6 +64,9 @@ class ZynUI(QObject):
     movingProcessorChanged = Signal()
     mixerSettingsChanged = Signal()
     valueEditorChanged = Signal()
+    helpChanged = Signal()
+    # Help view: scroll by n steps (arrows, encoder)
+    helpScroll = Signal(int)
     # SEL pressed while the keyboard is shown: QML answers with keyboardAccept(text)
     keyboardSubmit = Signal()
     # Navigation for the current screen: "up", "down", "left", "right", "select", "select_bold"
@@ -136,6 +139,8 @@ class ZynUI(QObject):
         self._keyboard_text = ""
         self._keyboard_action = None
         self._value_editor = None   # (title, value, min, max, step, decimals, action)
+        self._help_html = ""
+        self._help_path = ""        # the page shown ("" for the index)
         self._moving_chain = False
         self._moving_processor = None
         self._backgroundDone.connect(lambda done, result: done(result))
@@ -353,6 +358,7 @@ class ZynUI(QObject):
     def _set_current_screen(self, name, params=None):
         """Switch to name: hide the old screen object, build the new one"""
         self.switch_t0 = monotonic()   # for ZYNTHIAN_QT_TIMING (zynthian_qt_main)
+        self.helpClose()
         if name != self.current_screen:
             # Move modes belong to the screen they were started in (mixer, chain control, chain
             # manager)
@@ -485,6 +491,9 @@ class ZynUI(QObject):
 
     @Slot()
     def back(self):
+        if self._help_html:
+            self.helpClose()
+            return
         if self._moving_processor is not None:
             self.endMoveProcessor()
             return
@@ -509,6 +518,12 @@ class ZynUI(QObject):
     def _navigate(self, what):
         """Arrows and SELECT: the keyboard, the confirm dialog, the selector screen shown, or the
         QML screen"""
+        if self._help_html:
+            if what in ("up", "down"):
+                self.helpScroll.emit(-1 if what == "up" else 1)
+            elif what in ("select", "select_bold"):
+                self.helpClose()
+            return
         if self._moving_processor is not None:
             if what in ("up", "down", "left", "right"):
                 self.moveProcessor(what)
@@ -661,6 +676,114 @@ class ZynUI(QObject):
     def valueEditorCancel(self):
         self._value_editor = None
         self.valueEditorChanged.emit()
+
+    # Help view (zynthian_gui_help): the zynthian-help page of the screen shown, links followed
+
+    # The help pages' style sheet is for a browser; Qt's rich text gets the basics
+    HELP_STYLE = ("<style>a { color: #5ab4f0; } h1 { font-size: x-large; } h2, h3 { color: #c0c0c0; }"
+                  " .note-block { color: #f0d080; }</style>")
+
+    @Property(bool, notify=helpChanged)
+    def helpShown(self):
+        return bool(self._help_html)
+
+    @Property(str, notify=helpChanged)
+    def helpHtml(self):
+        return self._help_html
+
+    @Property(str, notify=helpChanged)
+    def helpBaseUrl(self):
+        return "file://" + os.path.dirname(self._help_path or zynthian_help.help_dir + "/") + "/"
+
+    def _help_topic(self):
+        """The help file name for the screen shown (as the Tk screens' get_help_fpath)"""
+        name = self.current_screen
+        if name in ("chain_control", "tempo", "alsa_mixer", "audio_player", "midi_key_range"):
+            proc = self.current_processor
+            if name == "chain_control" and proc is not None and getattr(proc, "name", None):
+                return [f"{proc.name.lower()}.html", "chain_control.html"]
+            return [f"{name}.html", "chain_control.html"]
+        screen = self.list_screens.get(name)
+        if screen is not None:
+            return [f"{name}.html", "selector_grid.html" if screen.kind == "grid" else "selector.html"]
+        return [f"{name}.html"]
+
+    def show_help(self, fpath=None):
+        """Show the help page fpath (a path, a file name or "index:"), else the screen's page"""
+        layout = zynthian_gui_config.layout["name"]
+        if fpath == "index:":
+            self._show_help_index()
+            return
+        names = [fpath] if fpath else self._help_topic()
+        for name in names:
+            path = zynthian_help.find_file(name, layout)
+            if path:
+                self._show_help_page(path)
+                return
+        logging.warning(f"No help for '{names[0]}'")
+        self._show_help_index()
+
+    def _show_help_page(self, path):
+        proc = self.current_processor
+        proc_info = None
+        try:
+            info = self.chain_manager.engine_info[proc.eng_code]
+            proc_info = f"{info['NAME']}: {info['DESCR']}"
+        except Exception:
+            pass
+        try:
+            html = zynthian_help.page_html(path, proc_info, drop_classes=("knob_action",))
+        except Exception as e:
+            logging.error(f"help page {path}: {e}")
+            self.show_info("Can't read the help page.")
+            return
+        self._set_help(html, path)
+
+    def _show_help_index(self):
+        items = zynthian_help.index(zynthian_gui_config.layout["name"])
+        if not items:
+            self.show_info("No help pages installed.")
+            return
+        links = "".join(f'<li><a href="{path}">{title}</a></li>' for title, path in items)
+        self._set_help(f"<html><body><h1>Help Index</h1><ul>{links}</ul></body></html>", "")
+
+    def _set_help(self, html, path):
+        nav = "<p><a href=\"index:\">Index</a></p>"
+        if "<body" in html:
+            head, _, body = html.partition("<body")
+            body_tag, _, rest = body.partition(">")
+            html = f"{head}<body{body_tag}>{nav}{rest}"
+        else:
+            html = nav + html
+        self._help_html = self.HELP_STYLE + html
+        self._help_path = path
+        self.helpChanged.emit()
+
+    @Slot(str)
+    def helpLink(self, href):
+        if href == "index:":
+            self._show_help_index()
+        elif href.startswith(("http:", "https:", "mailto:")):
+            self.show_info(href)
+        else:
+            href = href.split("#")[0]
+            if href.startswith("file://"):
+                href = href[7:]
+            if not href:
+                return
+            path = href if os.path.isabs(href) else os.path.join(os.path.dirname(self._help_path or
+                                                                            zynthian_help.help_dir + "/"), href)
+            if os.path.exists(path):
+                self._show_help_page(path)
+            else:
+                self.show_help(os.path.basename(path))
+
+    @Slot()
+    def helpClose(self):
+        if self._help_html:
+            self._help_html = ""
+            self._help_path = ""
+            self.helpChanged.emit()
 
     # Background work (loading and saving snapshots): keeps the GUI thread drawing the busy
     # overlay; done(result) runs in the GUI thread
@@ -1479,3 +1602,64 @@ class ZynUI(QObject):
                 getattr(obj, method)(*args)
         except Exception as e:
             logging.debug(e)
+
+    # Navigation and screens
+
+    cuia_arrow_next = cuia_arrow_right
+    cuia_arrow_prev = cuia_arrow_left
+    cuia_layer_options = cuia_chain_options
+
+    def cuia_preset(self, params=None):
+        """The current processor's presets (zynthian_gui: an alias of BANK_PRESET)"""
+        if self.current_processor is None:
+            chain = self.chain_manager.get_active_chain()
+            if chain is not None and chain.current_processor is not None:
+                self.set_current_processor(chain.current_processor)
+        self.cuia_bank_preset(params)
+
+    def cuia_preset_fav(self, params=None):
+        """The current processor's favourite presets (zynthian_gui.show_favorites)"""
+        proc = self.current_processor
+        if proc is None:
+            chain = self.chain_manager.get_active_chain()
+            proc = chain.current_processor if chain is not None else None
+            if proc is None:
+                return
+            self.set_current_processor(proc)
+        if not proc.get_preset_favs():
+            self.show_info(f"{proc.get_name()}: no favourite presets.")
+            return
+        proc.set_show_fav_presets(True)
+        if self.current_screen == "preset":
+            self.list_screens["preset"].fill()
+        else:
+            self.show_screen("preset")
+
+    def cuia_mixer(self, params=None):
+        """MIXER chain,param,value: set a mixer controller (zynthian_gui.cuia_mixer). chain: the
+        position in the mixer (0-based), -1 the main chain, None the active chain; param: level,
+        balance, mute, solo, mono, ..."""
+        try:
+            index = params[0]
+            if index is None or index == "" or str(index).lower() == "none":
+                chain = self.chain_manager.active_chain
+            elif int(index) == -1:
+                chain = self.chain_manager.chains[0]
+            else:
+                chain = self.chain_manager.chains[list(self.chain_manager.chains)[int(index)]]
+            value = params[2]
+            if isinstance(value, str):
+                value = float(value)
+            chain.zynmixer_proc.controllers_dict[str(params[1])].set_value(value)
+        except Exception as e:
+            logging.warning(f"MIXER: can't set {params} => {e}")
+
+    def cuia_copy(self, params=None):
+        """Screens with something to copy handle it (pattern editor); nothing elsewhere"""
+
+    def cuia_paste(self, params=None):
+        """Screens with something to paste handle it (pattern editor); nothing elsewhere"""
+
+    def cuia_help(self, params=None):
+        """Show the help page of the screen shown (params[0]: a page, or "index:")"""
+        self.show_help(str(params[0]) if params else None)

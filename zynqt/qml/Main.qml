@@ -82,7 +82,9 @@ Window {
         onStatusTapped: zyn.toggleKeypadDocked()
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 50
+        // HIDE_TOPBAR: the screens get its height
+        height: zyn.topBarShown ? 50 : 0
+        visible: zyn.topBarShown
         title: zyn.currentList ? zyn.currentList.title : (root.qmlTitles[zyn.currentScreen] || zyn.currentScreen)
     }
 

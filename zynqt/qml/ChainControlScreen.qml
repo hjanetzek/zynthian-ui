@@ -14,7 +14,9 @@ Item {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 150
+        // HIDE_SIDEBAR / TOGGLE_SIDEBAR: the pages and controllers use the whole width
+        width: root.cc.sidebarShown ? 150 : 0
+        visible: root.cc.sidebarShown
         spacing: 4
         clip: true
         model: root.cc.processors

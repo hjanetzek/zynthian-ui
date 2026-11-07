@@ -1,17 +1,31 @@
 #!/usr/bin/python3
-"""Started by niri (zynthian-niri session): every window but zynthian's on a workspace of its own.
+"""Started by niri (zynthian-niri session): places new windows by the layout (zynthian-niri-layout).
+
+Layout "workspaces" (the default): every window but zynthian's on a workspace of its own.
 
 Follows niri's event stream; a newly opened window that isn't zynthian's is moved to the last
 workspace of its output, which niri keeps empty (dynamic workspaces): so each plugin window gets
 its own workspace, and the workspace goes away again when the window closes. Index 255 stands for
 "the last one" (niri clamps the index to the number of workspaces). When a window closes and
 nothing has the focus any more (its workspace is empty now), zynthian's workspace is shown.
+
+Layout "scrolling": new windows become columns next to zynthian on its workspace.
 """
 import json
+import os
 import subprocess
 import time
 
 ZYNTHIAN_APP_ID = "zynthian"
+MODE_FILE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "zynthian-niri-layout")
+
+
+def scrolling():
+    try:
+        with open(MODE_FILE) as f:
+            return f.read().strip() == "scrolling"
+    except OSError:
+        return False
 
 
 def niri(*args):
@@ -37,8 +51,14 @@ def follow():
             if w.get("app_id") == ZYNTHIAN_APP_ID:
                 continue
             # TODO: dialogs of a plugin (file choosers) should stay with its window
-            niri("action", "move-window-to-workspace", "--window-id", str(w["id"]),
-                 "--focus", "true", "255")
+            wid = str(w["id"])
+            if scrolling():
+                niri("action", "move-window-to-workspace", "--window-id", wid, "--focus", "true",
+                     "zynthian")
+                niri("action", "move-window-to-tiling", "--id", wid)
+            else:
+                niri("action", "move-window-to-workspace", "--window-id", wid, "--focus", "true",
+                     "255")
         elif "WindowClosed" in ev:
             known.discard(ev["WindowClosed"]["id"])
             if niri("--json", "focused-window").stdout.strip() in ("", "null"):

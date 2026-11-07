@@ -1,9 +1,11 @@
 // niri config of the zynthian-niri session (zynthian-niri prepends the output settings).
 // Reference: https://github.com/YaLTeR/niri/wiki/Configuration:-Introduction
 
-// zynthian full-screen on its own, always-present first workspace; every other window gets a
-// workspace of its own (zynthian-niri-workspaces). Plugin windows float: they keep the size the
-// plugin asks for and are centred.
+// zynthian as a full-width column on its own, always-present first workspace (without gaps,
+// borders or bars that looks like full-screen, and other windows can be columns next to it in the
+// scrolling layout); every other window gets a workspace of its own (zynthian-niri-workspaces).
+// Plugin windows float: they keep the size the plugin asks for and are centred. Layouts: see
+// zynthian-niri-layout.
 workspace "zynthian"
 
 window-rule {
@@ -13,7 +15,7 @@ window-rule {
     match app-id="^zynthian$"
     open-on-workspace "zynthian"
     open-floating false
-    open-fullscreen true
+    open-maximized true
 }
 
 layout {
@@ -25,7 +27,7 @@ layout {
 
 // The overview: all workspaces zoomed out; a tap picks one
 overview {
-    zoom 0.4
+    zoom 0.6
     backdrop-color "#101010"
 }
 
@@ -54,6 +56,14 @@ binds {
     // A test window (an OpenGL X11 client, mesa-demos): it gets a workspace of its own
     Mod+T { spawn "glxgears"; }
     Ctrl+Alt+T { spawn "glxgears"; }
+    // Layout: each window on its own workspace <-> all windows as columns on one (scrolling)
+    Mod+S { spawn "/usr/libexec/zynthian/zynthian-niri-layout" "toggle"; }
+    Ctrl+Alt+S { spawn "/usr/libexec/zynthian/zynthian-niri-layout" "toggle"; }
+    // Scrolling layout: the column left/right
+    Mod+Left { focus-column-left; }
+    Mod+Right { focus-column-right; }
+    Ctrl+Alt+Left { focus-column-left; }
+    Ctrl+Alt+Right { focus-column-right; }
     Mod+Shift+E { quit; }
 }
 

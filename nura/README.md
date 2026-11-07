@@ -173,12 +173,18 @@ kiosk-session zynthian-niri  # zynthian in niri, with plugin windows (postmarket
 cage, so that other windows can be shown next to it, e.g. LV2 plugin GUIs (X11, through
 xwayland-satellite, which niri starts when the first X11 client connects):
 
-- zynthian full-screen on the workspace `zynthian`; every other window on a workspace of its own,
-  floating at the size it asks for (`zynthian-niri-workspaces`, following niri's event stream).
-  When a window closes, its workspace goes away and zynthian is shown again.
-- niri's overview shows all workspaces zoomed out; a tap picks one. It opens with Mod+O, a
+- zynthian as a full-width column on the workspace `zynthian` (looks like full-screen); every other
+  window on a workspace of its own, floating at the size it asks for (`zynthian-niri-workspaces`,
+  following niri's event stream). When a window closes, its workspace goes away and zynthian is
+  shown again.
+- niri's overview shows all workspaces zoomed out (0.6); a tap picks one. It opens with Mod+O, a
   four-finger swipe on a touchpad, or `niri msg action toggle-overview`; there is no touchscreen
   gesture for it yet (to do: a swipe from a screen edge). Mod+Z goes back to zynthian.
+- Mod+S switches the layout (`zynthian-niri-layout`): all windows as columns side by side on
+  zynthian's workspace (niri's scrolling layout; Mod+Left/Right moves between them), and back.
+  Tiled plugin windows get the full height.
+- Mod is Super, on Chromebook keyboards the search key (in the Caps Lock place); the main bindings
+  also work with Ctrl+Alt (O, Z, S, T, Left, Right). Mod+T opens a test window (glxgears).
 - The config is generated at each start (`zynthian-niri`): `/etc/xdg/zynthian-niri/config.kdl`
   with the panel's output, the scale of `/etc/default/zynthian` (`ZYNTHIAN_OUTPUT_SCALE`) and a
   rotation only for panels without a DRM panel orientation (niri rotates the others itself). Local

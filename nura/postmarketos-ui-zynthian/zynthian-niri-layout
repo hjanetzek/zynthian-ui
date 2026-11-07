@@ -1,0 +1,70 @@
+#!/usr/bin/python3
+"""Layout of the zynthian-niri session: "workspaces" or "scrolling".
+
+  zynthian-niri-layout [toggle|workspaces|scrolling|get]
+
+workspaces: zynthian alone on its workspace (a full-width column), every other window floating on
+            a workspace of its own (zynthian-niri-workspaces); niri's overview to switch.
+scrolling:  all windows as columns side by side on zynthian's workspace (niri's scrolling layout),
+            moved through with focus-column-left/right (keys) or the overview.
+
+The mode is kept in $XDG_RUNTIME_DIR/zynthian-niri-layout; zynthian-niri-workspaces places new
+windows by it.
+"""
+import json
+import os
+import subprocess
+import sys
+
+MODE_FILE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "zynthian-niri-layout")
+ZYNTHIAN_APP_ID = "zynthian"
+
+
+def niri(*args):
+    return subprocess.run(["niri", "msg", *args], capture_output=True, text=True)
+
+
+def get_mode():
+    try:
+        with open(MODE_FILE) as f:
+            mode = f.read().strip()
+    except OSError:
+        mode = ""
+    return mode if mode in ("workspaces", "scrolling") else "workspaces"
+
+
+def set_mode(mode):
+    with open(MODE_FILE, "w") as f:
+        f.write(mode + "\n")
+    windows = json.loads(niri("--json", "windows").stdout or "[]")
+    others = [w for w in windows if w.get("app_id") != ZYNTHIAN_APP_ID]
+    zyn = [w for w in windows if w.get("app_id") == ZYNTHIAN_APP_ID]
+    for w in others:
+        wid = str(w["id"])
+        if mode == "scrolling":
+            niri("action", "move-window-to-workspace", "--window-id", wid, "--focus", "false",
+                 "zynthian")
+            niri("action", "move-window-to-tiling", "--id", wid)
+        else:
+            niri("action", "move-window-to-floating", "--id", wid)
+            # the last workspace is always empty: each window gets a new one
+            niri("action", "move-window-to-workspace", "--window-id", wid, "--focus", "false",
+                 "255")
+    niri("action", "focus-workspace", "zynthian")
+    if zyn:
+        niri("action", "focus-window", "--id", str(zyn[0]["id"]))
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "toggle"
+    if cmd == "get":
+        print(get_mode())
+    elif cmd == "toggle":
+        set_mode("scrolling" if get_mode() == "workspaces" else "workspaces")
+    elif cmd in ("workspaces", "scrolling"):
+        set_mode(cmd)
+    else:
+        sys.exit(__doc__)
+
+
+main()

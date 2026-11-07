@@ -51,10 +51,13 @@ install_ui() {
 	(cd "$ui_src" && find zynlibs -name '*.py' ! -name 'unit_tests.py' ! -name 'test.py' ! -name 'format_docs.py' -print0 |
 		tar --null -T - -cf -) | tar -C "$ui_dst" -xf -
 	install -m 755 "$ui_src/zynthian_main.py" "$ui_dst/"
-	# Qt Quick UI (ZYNTHIAN_UI=qt), without the M0 spike
-	copy_tree "$ui_src/zynqt" "$ui_dst/zynqt"
-	rm -rf "$ui_dst/zynqt/spike"
-	install -m 755 "$ui_src/zynthian_qt_main.py" "$ui_dst/"
+	# Qt Quick UI (ZYNTHIAN_UI=qt), without the M0 spike; not in upstream trees (nura-builds'
+	# builds of upstream zynthian-ui with the port patches: Tk only)
+	if [ -d "$ui_src/zynqt" ]; then
+		copy_tree "$ui_src/zynqt" "$ui_dst/zynqt"
+		rm -rf "$ui_dst/zynqt/spike"
+		install -m 755 "$ui_src/zynthian_qt_main.py" "$ui_dst/"
+	fi
 	install -m 644 "$ui_src/LICENSE.txt" "$ui_dst/"
 	mkdir -p "$ui_dst/desktop"
 	install -m 755 "$ui_src/desktop/zynthian_desktop.sh" "$ui_src/desktop/setup_desktop.sh" "$ui_dst/desktop/"

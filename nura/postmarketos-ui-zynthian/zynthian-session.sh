@@ -19,6 +19,8 @@ zynthian_device_defaults() {
 	esac
 	ZYNTHIAN_UI=qt
 	[ -f /etc/default/zynthian ] && . /etc/default/zynthian
+	# Upstream zynthian-ui (zynthian-ui-vangelis, -tomita from nura-builds) has no Qt UI
+	[ -f /usr/share/zynthian/zynthian-ui/zynthian_qt_main.py ] || ZYNTHIAN_UI=tk
 	export ZYNTHIAN_UI
 	# shellcheck disable=SC2034 # used by the sourcing scripts
 	zynthian_output_transform=${ZYNTHIAN_OUTPUT_TRANSFORM-$zynthian_transform}

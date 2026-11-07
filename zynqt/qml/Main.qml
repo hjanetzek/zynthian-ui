@@ -314,6 +314,16 @@ Window {
         MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }   // swallow taps while busy
     }
 
+    // Power save (POWER_SAVE, or the configured time without input): the whole window black;
+    // the next touch or key wakes it (ZynUI.user_activity drops that touch)
+    Rectangle {
+        anchors.fill: parent
+        z: 100
+        visible: !!zyn.status.powerSave
+        color: "black"
+        MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }
+    }
+
     component PlaceholderScreen: Rectangle {
         property alias text: label.text
         color: Theme.panel

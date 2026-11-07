@@ -5,10 +5,11 @@
 # workspaces to switch between them (Mod+O, a four-finger touchpad swipe, or
 # "niri msg action toggle-overview"; a tap in the overview picks a workspace).
 #
-# The niri config is generated at each start from /etc/xdg/zynthian-niri/config.kdl with the
-# output settings of zynthian-session.sh (device defaults, /etc/default/zynthian): the connected
-# panel, its scale, and a rotation for panels without a DRM panel orientation (niri rotates the
-# others by their orientation itself). Local changes: /etc/xdg/zynthian-niri/local.kdl (included).
+# The niri config is generated at each start: the output settings of zynthian-session.sh (device
+# defaults, /etc/default/zynthian: the connected panel, its scale, and a rotation for panels
+# without a DRM panel orientation; niri rotates the others by their orientation itself), then
+# /etc/xdg/zynthian-niri/config.kdl and local changes in /etc/xdg/zynthian-niri/local.kdl, both
+# included (niri reloads them when they change).
 set -eu
 
 . /usr/libexec/zynthian/zynthian-session.sh
@@ -30,9 +31,13 @@ config=${XDG_RUNTIME_DIR:-/tmp}/zynthian-niri.kdl
 		[ -z "$zynthian_output_scale" ] || echo "    scale $zynthian_output_scale"
 		[ -z "$zynthian_output_transform" ] || echo "    transform \"$zynthian_output_transform\""
 		echo "}"
-		printf 'input {\n    touch {\n        map-to-output "%s"\n    }\n}\n' "$output"
+		# niri rotates touch input with the output itself: an identity calibration replaces the
+		# rotation that udev sets up for compositors that don't (the Duet's device package, our
+		# 90-zynthian-touch-rotation.rules), or the touch would be turned twice
+		printf 'input {\n    touch {\n        map-to-output "%s"\n        calibration-matrix 1.0 0.0 0.0 0.0 1.0 0.0\n    }\n}\n' "$output"
 	fi
-	cat /etc/xdg/zynthian-niri/config.kdl
+	# included, not copied: niri reloads included files when they change
+	echo 'include "/etc/xdg/zynthian-niri/config.kdl"'
 	[ ! -f /etc/xdg/zynthian-niri/local.kdl ] || echo 'include "/etc/xdg/zynthian-niri/local.kdl"'
 } > "$config"
 

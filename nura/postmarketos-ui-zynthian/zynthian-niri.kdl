@@ -47,6 +47,8 @@ binds {
     Mod+Page_Down { focus-workspace-down; }
     Mod+Page_Up { focus-workspace-up; }
     Mod+Q { close-window; }
+    // A test window (an OpenGL X11 client, mesa-demos): it gets a workspace of its own
+    Mod+T { spawn "glxgears"; }
     Mod+Shift+E { quit; }
 }
 

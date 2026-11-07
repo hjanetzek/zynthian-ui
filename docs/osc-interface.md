@@ -71,7 +71,7 @@ Pianoteq RPC 9001.)
 
 All CUIAs of the two UIs, generated from the code (methods `cuia_<name>`; Qt's ZYNSWITCH /
 ZYNPOT are handled in its CUIA thread). The description is the method's docstring, where it
-has one. Regenerate with the script in the comment at the end.
+has one (Tk's first). Regenerate with the script in the comment at the end.
 
 | CUIA | Tk | Qt | Description |
 |---|---|---|---|
@@ -79,11 +79,11 @@ has one. Regenerate with the script in the comment at the end.
 | `ADD_CHAIN` | ✓ | ✓ | Show add chain menu. |
 | `ALL_NOTES_OFF` | ✓ | ✓ | Stop all playing notes. |
 | `ALL_SOUNDS_OFF` | ✓ | ✓ | Stop all playing notes, sequences and audio playback. |
-| `API` | ✓ |  | Access the backend API |
+| `API` | ✓ | ✓ | Access the backend API params (tuple): api: Which api to access: "sm" for state manager, "cm" for chain manager method: Name of method to call params: comma separated list of method parameters |
 | `ARROW_DOWN` | ✓ | ✓ | Arrow Down action. |
 | `ARROW_LEFT` | ✓ | ✓ | Arrow Up action. |
-| `ARROW_NEXT` | ✓ |  | same as ARROW_RIGHT |
-| `ARROW_PREV` | ✓ |  | same as ARROW_LEFT |
+| `ARROW_NEXT` | ✓ | ✓ | same as ARROW_RIGHT |
+| `ARROW_PREV` | ✓ | ✓ | same as ARROW_LEFT |
 | `ARROW_RIGHT` | ✓ | ✓ | Arrow Right action. |
 | `ARROW_UP` | ✓ | ✓ | Arrow Up action. |
 | `AUDIO_FILE_LIST` | ✓ | ✓ | same as SCREEN_AUDIO_PLAYER |
@@ -92,21 +92,21 @@ has one. Regenerate with the script in the comment at the end.
 | `BOLD_SELECT_ACTION` | ✓ | ✓ | Bold select action. |
 | `CHAIN_CONTROL` | ✓ | ✓ | Show chain control view. |
 | `CHAIN_OPTIONS` | ✓ | ✓ | Show chain options. |
-| `CLEAN_ALL` | ✓ |  | Remove all chains and sequences. |
-| `COPY` | ✓ |  |  |
+| `CLEAN_ALL` | ✓ | ✓ | Remove all chains and sequences. |
+| `COPY` | ✓ | ✓ | Screens with something to copy handle it (pattern editor); nothing elsewhere |
 | `DISABLE_MIDI_LEARN` | ✓ | ✓ |  |
 | `DISABLE_MIDI_LEARN_CC` | ✓ | ✓ |  |
 | `DISABLE_MIDI_LEARN_PC` | ✓ | ✓ |  |
 | `ENABLE_MIDI_LEARN` | ✓ | ✓ |  |
-| `ENABLE_MIDI_LEARN_CC` | ✓ |  |  |
+| `ENABLE_MIDI_LEARN_CC` | ✓ | ✓ | Learn a CC for a controller: params processor id, controller symbol (as MIDI_UNLEARN_NODE); in chain control also the controller's position (0-3) |
 | `ENABLE_MIDI_LEARN_PC` | ✓ | ✓ |  |
 | `EXIT_UI` | ✓ | ✓ |  |
-| `HELP` | ✓ |  | Show the contextual help screen. |
-| `HIDE_CURSOR` | ✓ |  |  |
-| `HIDE_SIDEBAR` | ✓ |  |  |
-| `HIDE_TOPBAR` | ✓ |  |  |
-| `LAST_STATE_ACTION` | ✓ |  |  |
-| `LAYER_OPTIONS` | ✓ |  | same as CHAIN_OPTIONS |
+| `HELP` | ✓ | ✓ | Show the contextual help screen. |
+| `HIDE_CURSOR` | ✓ | ✓ |  |
+| `HIDE_SIDEBAR` | ✓ | ✓ |  |
+| `HIDE_TOPBAR` | ✓ | ✓ |  |
+| `LAST_STATE_ACTION` | ✓ | ✓ | Save the state for the next start, or delete it (admin: restore last state) |
+| `LAYER_OPTIONS` | ✓ | ✓ | same as CHAIN_OPTIONS |
 | `MAIN_MENU` | ✓ | ✓ | Show the main menu. |
 | `MENU` | ✓ | ✓ | Show contextual menu. |
 | `MIDI_LEARN_CONTROL` | ✓ | ✓ |  |
@@ -114,28 +114,28 @@ has one. Regenerate with the script in the comment at the end.
 | `MIDI_UNLEARN_CHAIN` | ✓ | ✓ |  |
 | `MIDI_UNLEARN_CONTROL` | ✓ | ✓ |  |
 | `MIDI_UNLEARN_MIXER` | ✓ | ✓ |  |
-| `MIDI_UNLEARN_NODE` | ✓ | ✓ | params: processor id, controller symbol (zynthian_gui passes both as one list, which |
-| `MIXER` | ✓ |  | Set the specified mixer parameter to a given value. |
+| `MIDI_UNLEARN_NODE` | ✓ | ✓ | params: processor id, controller symbol (zynthian_gui passes both as one list, which remove_midi_learn(proc, symbol) doesn't take) |
+| `MIXER` | ✓ | ✓ | Set the specified mixer parameter to a given value. |
 | `NOP` | ✓ | ✓ |  |
-| `PASTE` | ✓ |  |  |
-| `POWER` | ✓ |  | Poweroff the zynthian device. |
-| `POWER_SAVE` | ✓ |  |  |
-| `PRESET` | ✓ |  | same as BANK_PRESET |
-| `PRESET_FAV` | ✓ |  | Show the favorite presets. |
-| `PROGRAM_CHANGE` | ✓ | ✓ | PROGRAM_CHANGE n[,chan] (F1-F4 on the V5 keypad), n also "+" / "-": a program change on |
-| `REBOOT` | ✓ |  | Reboot the zynthian device. |
-| `REFRESH_SCREEN` | ✓ |  |  |
+| `PASTE` | ✓ | ✓ | Screens with something to paste handle it (pattern editor); nothing elsewhere |
+| `POWER` | ✓ | ✓ | Poweroff the zynthian device. |
+| `POWER_SAVE` | ✓ | ✓ | Blank the screen (power save mode, as zynthian_gui); the next input wakes it, as does POWER_SAVE 0 |
+| `PRESET` | ✓ | ✓ | same as BANK_PRESET |
+| `PRESET_FAV` | ✓ | ✓ | Show the favorite presets. |
+| `PROGRAM_CHANGE` | ✓ | ✓ | PROGRAM_CHANGE n[,chan] (F1-F4 on the V5 keypad), n also "+" / "-": a program change on the active chain's channel, as if from a MIDI device (zynthian_gui.cuia_program_change) |
+| `REBOOT` | ✓ | ✓ | Reboot the zynthian device. |
+| `REFRESH_SCREEN` | ✓ | ✓ | Rebuild the screen shown (params: only if it is one of these) |
 | `RELOAD_KEY_BINDING` | ✓ | ✓ | Re-read the computer keyboard bindings (webconf saves them) |
-| `RELOAD_MIDI_CONFIG` | ✓ |  |  |
-| `RELOAD_WIRING_LAYOUT` | ✓ |  |  |
+| `RELOAD_MIDI_CONFIG` | ✓ | ✓ | Re-read the MIDI profile (webconf sends it after saving) |
+| `RELOAD_WIRING_LAYOUT` | ✓ | ✓ | Re-read the wiring configuration: custom switches, Zynaptik, Zyntof (webconf) |
 | `RESTART_UI` | ✓ | ✓ |  |
 | `SCREEN_ADMIN` | ✓ | ✓ | Show the admin view. |
 | `SCREEN_ALSA_MIXER` | ✓ | ✓ | Show the audio levels (ALSA levels) view. |
 | `SCREEN_AUDIO_MIXER` | ✓ | ✓ | Show the audio mixer view. |
 | `SCREEN_AUDIO_PLAYER` | ✓ | ✓ | Show the global audio player view. |
-| `SCREEN_CALIBRATE` | ✓ |  |  |
+| `SCREEN_CALIBRATE` | ✓ | ✓ | Tk's touchscreen calibration (X11 transformation matrix): under Wayland the compositor maps the touchscreen (output rotation, udev calibration rules) |
 | `SCREEN_CHAIN_MANAGER` | ✓ | ✓ | Show the chain manager view. |
-| `SCREEN_CLEAN` | ✓ |  |  |
+| `SCREEN_CLEAN` | ✓ | ✓ | 10 s with the touches swallowed by the busy overlay, to clean the screen (as Tk) |
 | `SCREEN_CONTROL` | ✓ | ✓ | same as CHAIN_CONTROL |
 | `SCREEN_LAUNCHER` | ✓ | ✓ | Show the launcher view. |
 | `SCREEN_MIDI_RECORDER` | ✓ | ✓ | Show the MIDI recorder/player view. |
@@ -147,11 +147,11 @@ has one. Regenerate with the script in the comment at the end.
 | `SELECT` | ✓ | ✓ | Select entry params[0] of the shown list (as zynthian_gui: an index, no action) |
 | `SELECT_ACTION` | ✓ | ✓ | Select action. |
 | `SET_TEMPO` | ✓ | ✓ | Sets the global clock tempo (BPM) for the Zynthian framework. |
-| `SHOW_CURSOR` | ✓ |  |  |
-| `SHOW_NAVIGATION_GRID` | ✓ |  |  |
+| `SHOW_CURSOR` | ✓ | ✓ |  |
+| `SHOW_NAVIGATION_GRID` | ✓ | ✓ | SHOW_NAVIGATION_GRID title,buttons (zynthian_gui: the grid selector with a list of {"title", "icon", "action"}): as options; only from code, OSC can't pass the buttons |
 | `SHOW_SCREEN` | ✓ | ✓ |  |
-| `SHOW_SIDEBAR` | ✓ |  |  |
-| `SHOW_TOPBAR` | ✓ |  |  |
+| `SHOW_SIDEBAR` | ✓ | ✓ |  |
+| `SHOW_TOPBAR` | ✓ | ✓ |  |
 | `START_AUDIO_PLAY` | ✓ | ✓ | Starts the global audio playback. |
 | `START_AUDIO_RECORD` | ✓ | ✓ | Starts the global audio recording. |
 | `START_MIDI_PLAY` | ✓ | ✓ | Starts the MIDI (SMF) playback. |
@@ -173,37 +173,38 @@ has one. Regenerate with the script in the comment at the end.
 | `TOGGLE_MIDI_RECORD` | ✓ | ✓ | Toggles the MIDI (SMF) recording. |
 | `TOGGLE_PLAY` | ✓ | ✓ | Toggles the contextual playback action. |
 | `TOGGLE_RECORD` | ✓ | ✓ | Toggles the contextual recording action. |
-| `TOGGLE_SCREEN` | ✓ |  |  |
-| `TOGGLE_SEQ` | ✓ |  |  |
-| `TOGGLE_SIDEBAR` | ✓ |  |  |
-| `TTS_ANNOUNCE` | ✓ |  | Announce a TTS message |
-| `TTS_PAUSE` | ✓ |  | Pause current TTS announcement. Do not clear queue. |
-| `TTS_REGISTER` | ✓ |  |  |
-| `TTS_RESUME` | ✓ |  | Resume paused TTS queue. |
-| `TTS_STOP` | ✓ |  | Stop current TTS announcement. Clear queue. |
+| `TOGGLE_SCREEN` | ✓ | ✓ | TOGGLE_SCREEN name: show the screen, or close it if shown (zynthian_gui.toggle_screen) |
+| `TOGGLE_SEQ` | ✓ | ✓ | TOGGLE_SEQ phrase,sequence: start / stop a sequence of the current scene |
+| `TOGGLE_SIDEBAR` | ✓ | ✓ |  |
+| `TTS_ANNOUNCE` | ✓ | ✓ | Announce a TTS message |
+| `TTS_PAUSE` | ✓ | ✓ | Pause current TTS announcement. Do not clear queue. |
+| `TTS_REGISTER` | ✓ | ✓ |  |
+| `TTS_RESUME` | ✓ | ✓ | Resume paused TTS queue. |
+| `TTS_STOP` | ✓ | ✓ | Stop current TTS announcement. Clear queue. |
 | `TTS_TOGGLE_ENABLE` | ✓ | ✓ | Toggle the TTS enabled state |
-| `TTS_TOGGLE_PAUSE` | ✓ |  | Toggle TTS pause |
-| `TTS_TOGGLE_PLAYBACK` | ✓ |  | Stop TTS if playing, else announce context info |
-| `V5_ZYNPOT_SWITCH` | ✓ |  |  |
-| `WORKFLOW_CAPTURE_START` | ✓ |  | Starts capturing workflow. |
-| `WORKFLOW_CAPTURE_STOP` | ✓ |  | Stops capturing workflow. |
-| `WORKFLOW_CAPTURE_TEXT` | ✓ |  | Includes a text note into the on-going workflow capture. |
+| `TTS_TOGGLE_PAUSE` | ✓ | ✓ | Toggle TTS pause |
+| `TTS_TOGGLE_PLAYBACK` | ✓ | ✓ | Stop TTS if playing, else announce context info |
+| `V5_ZYNPOT_SWITCH` | ✓ | ✓ | V5 encoder push (the screen's cuia_v5_zynpot_switch first): long press the X-Y touchpad if both axes are set; the select encoder as SELECT |
+| `WORKFLOW_CAPTURE_START` | ✓ | ✓ | Starts capturing workflow. |
+| `WORKFLOW_CAPTURE_STOP` | ✓ | ✓ | Stops capturing workflow. |
+| `WORKFLOW_CAPTURE_TEXT` | ✓ | ✓ | Includes a text note into the on-going workflow capture. |
 | `Z2_ZYNPOT_TOUCH` | ✓ | ✓ |  |
 | `ZS3_LOAD` | ✓ | ✓ |  |
-| `ZS3_NEXT` | ✓ |  |  |
-| `ZS3_PREV` | ✓ |  |  |
+| `ZS3_NEXT` | ✓ | ✓ | The next ZS3; params[0] true: from the last back to the first |
+| `ZS3_PREV` | ✓ | ✓ |  |
 | `ZS3_SAVE` | ✓ | ✓ |  |
-| `ZYNAPTIK_CVIN_SET_NOTE0` | ✓ |  |  |
-| `ZYNAPTIK_CVIN_SET_VOLTS_OCTAVE` | ✓ |  |  |
-| `ZYNAPTIK_CVOUT_SET_NOTE0` | ✓ |  |  |
-| `ZYNAPTIK_CVOUT_SET_VOLTS_OCTAVE` | ✓ |  |  |
+| `ZYNAPTIK_CVIN_SET_NOTE0` | ✓ | ✓ |  |
+| `ZYNAPTIK_CVIN_SET_VOLTS_OCTAVE` | ✓ | ✓ |  |
+| `ZYNAPTIK_CVOUT_SET_NOTE0` | ✓ | ✓ |  |
+| `ZYNAPTIK_CVOUT_SET_VOLTS_OCTAVE` | ✓ | ✓ |  |
 | `ZYNPOT` | ✓ | ✓ |  |
-| `ZYNPOT_ABS` | ✓ |  |  |
+| `ZYNPOT_ABS` | ✓ | ✓ | ZYNPOT_ABS i,value (value 0..1): the screen's zynpot_abs(i, value) if it has one, else in chain control encoder i's controller (the layout's ctrl_order) to that part of its range |
 | `ZYNSWITCH` | ✓ | ✓ |  |
-| `ZYN_CC` | ✓ |  |  |
+| `ZYN_CC` | ✓ | ✓ | ZYN_CC chan,cc,value[,R,release value]: a CC as if from a MIDI device (switches) |
 
 <!--
 Regenerate the table: an ast walk over zyngui/zynthian_gui.py (class zynthian_gui) and
 zynqt/ui.py (class ZynUI) collecting methods named cuia_<name> (not cuia__...) and aliases
-`cuia_x = cuia_y`, with the first docstring line; mark ZYNSWITCH and ZYNPOT for Qt by hand.
+`cuia_x = cuia_y` (an alias of a private helper takes its docstring), with the first paragraph
+of the docstring (Tk's if it has one); mark ZYNSWITCH and ZYNPOT for Qt by hand.
 -->

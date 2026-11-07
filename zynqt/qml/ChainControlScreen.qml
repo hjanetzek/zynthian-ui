@@ -119,7 +119,11 @@ Item {
         }
     }
 
-    // Controller pages
+    // Controller pages (grey also below the last page, as the selector lists)
+    Rectangle {
+        anchors.fill: pages
+        color: Theme.panel
+    }
     ListView {
         id: pages
 

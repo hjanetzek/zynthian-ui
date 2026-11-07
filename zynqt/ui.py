@@ -1459,8 +1459,23 @@ class ZynUI(QObject):
         """Re-read the computer keyboard bindings (webconf saves them)"""
         load_bindings()
 
-    def cuia_tts_toggle_enable(self, params=None):
+    # Speech (ZynVoice): not in the Qt UI yet. Keys show it; TTS_ANNOUNCE / TTS_REGISTER (from
+    # code and OSC clients, not keys) do nothing
+
+    def _no_tts(self, params=None):
         self.show_info("Speech (ZynVoice) is not available yet.")
+
+    def _no_tts_quiet(self, params=None):
+        logging.debug(f"no speech (ZynVoice) in the Qt UI: ignored {params}")
+
+    cuia_tts_toggle_enable = _no_tts
+    cuia_tts_toggle_playback = _no_tts
+    cuia_tts_toggle_pause = _no_tts
+    cuia_tts_pause = _no_tts
+    cuia_tts_resume = _no_tts
+    cuia_tts_stop = _no_tts
+    cuia_tts_announce = _no_tts_quiet
+    cuia_tts_register = _no_tts_quiet
 
     def cuia_nop(self, params=None):
         pass

@@ -29,7 +29,7 @@ from zyngui import zynthian_gui_config
 zynthian_gui_config.init_zyncore()
 
 from zynqt.keyboard import KeyBindingFilter, load_bindings
-from zynqt.ui import ZynUI
+from zynqt.ui import UserActivityFilter, ZynUI
 from zynqt.models.mixer import MixerModel, MixerMeters
 from zynqt.models.organelle import OledDisplay
 
@@ -100,6 +100,9 @@ def main():
     if engine.rootObjects():
         key_filter = KeyBindingFilter(ui, engine.rootObjects()[0])
         engine.rootObjects()[0].installEventFilter(key_filter)
+        # Installed last, so it sees the keys first: user activity for power save
+        activity_filter = UserActivityFilter(ui, engine.rootObjects()[0])
+        engine.rootObjects()[0].installEventFilter(activity_filter)
     if not engine.rootObjects():
         logging.error("Can't load the QML UI")
         return 1

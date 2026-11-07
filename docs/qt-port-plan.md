@@ -236,10 +236,10 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
      key binding pages), `zynthian_gui_engine` (presets page), `zynthian_gui_help` (help). Needs
      a shared CUIA list (names, and which the running UI has) and engine info from `zyngine`.
    - *The running UI* (OSC CUIAs to port 1370, settings in zynthian_envars.sh): the Qt UI lacks
-     RELOAD_WIRING_LAYOUT, RELOAD_MIDI_CONFIG, RELOAD_KEY_BINDING, REBOOT, POWER (webconf sends
+     RELOAD_WIRING_LAYOUT, RELOAD_MIDI_CONFIG, REBOOT, POWER (webconf sends
      POWER_OFF, which neither UI has: an upstream bug); it ignores the UI options page's colours
-     and fonts (`ZYNTHIAN_UI_COLOR_*`, `FONT_FAMILY/SIZE`: Theme.qml is fixed) and has no
-     computer keyboard bindings (key binding page). "Restart UI" is `systemctl restart zynthian`
+     and fonts (`ZYNTHIAN_UI_COLOR_*`, `FONT_FAMILY/SIZE`: Theme.qml is fixed). The key
+     binding page works since aa75da59 (keyboard bindings and RELOAD_KEY_BINDING). "Restart UI" is `systemctl restart zynthian`
      (Nura: the kiosk session; RESTART_UI over OSC instead).
    - *ZynthianOS / Raspberry Pi* (Nura port, not Qt): `/zynthian/...` paths (to
      `zynthian_paths`), root and systemctl, display (SPI overlays, /boot), kit and wiring pins,
@@ -281,7 +281,7 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
      declared there). Webconf's wiring, MIDI and key binding pages use it instead of importing
      the Tk UI; device pages offer only what the running UI does. With it the missing Qt CUIAs:
      RELOAD_WIRING_LAYOUT (re-read the custom switch actions), RELOAD_MIDI_CONFIG,
-     RELOAD_KEY_BINDING, REBOOT and POWER (confirm dialog; on Nura through logind), so webconf's
+     REBOOT and POWER (confirm dialog; on Nura through logind), so webconf's
      "apply" reaches the Qt UI without a restart. Engine info for the presets page from
      `zyngine` instead of `zynthian_gui_engine`.
    - *(b) Theme from the config*: Theme.qml's fixed colours and font become a Python object
@@ -294,8 +294,7 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
      UI options (colours / theme, power save, switch timing, restore last state, keypad
      docked/overlay), MIDI options (master channel, notes -> CUIA; partly in admin already),
      file management (snapshots, presets, captures: rename, delete, import from USB, with the
-     file picker). Computer keyboard bindings once the Qt UI reads the keyboard (it doesn't
-     yet), then a key binding page.
+     file picker), a key binding page (the Qt UI reads the keyboard since aa75da59).
    - *(d) System pages* (Wi-Fi with nmcli, hostname, updates the apk way) stay webconf's and the
      OS's; on the device only what a kiosk needs (Wi-Fi perhaps), decided once webconf's Nura
      port settles who owns them.

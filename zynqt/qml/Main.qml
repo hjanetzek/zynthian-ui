@@ -222,15 +222,44 @@ Window {
         anchors.fill: screens
         visible: zyn.busy
         color: "#c0000000"
-        Text {
+        Column {
             anchors.centerIn: parent
-            width: parent.width - 40
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.WordWrap
-            text: zyn.busyMessage || "Busy..."
-            color: Theme.text
-            font.pixelSize: 28
-            font.family: Theme.fontFamily
+            width: parent.width - 80
+            spacing: 16
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: zyn.busyMessage || "Busy..."
+                color: Theme.text
+                font.pixelSize: 28
+                font.family: Theme.fontFamily
+            }
+            // Tasks with counted steps (snapshot loading): a progress bar and the current step
+            Rectangle {
+                visible: zyn.busyProgress >= 0
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Math.min(parent.width, 600)
+                height: 14
+                radius: 7
+                color: Theme.panel
+                Rectangle {
+                    width: parent.width * Math.max(0, zyn.busyProgress)
+                    height: parent.height
+                    radius: 7
+                    color: Theme.keyText
+                    Behavior on width { NumberAnimation { duration: 150 } }
+                }
+            }
+            Text {
+                visible: zyn.busyProgress >= 0
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
+                text: zyn.busyDetails
+                color: Theme.textOff
+                font.pixelSize: 16
+            }
         }
         MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }   // swallow taps while busy
     }

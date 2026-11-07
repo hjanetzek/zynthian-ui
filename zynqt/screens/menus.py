@@ -1,6 +1,6 @@
 """Main menu and add-chain menu (grids), as zynthian_gui_main_menu and zynthian_gui_add_chain"""
 
-from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry
+from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry, fill_grid
 
 
 def _todo(title, icon):
@@ -15,7 +15,8 @@ class MainMenu(SelectorScreen):
     def fill(self):
         self.set_title("Main")
         ui = self.ui
-        self.set_entries([
+        # A full 4x4 grid: the cells left over are placeholders
+        self.set_entries(fill_grid([
             entry("Add\nChain", lambda e: ui.cuia_add_chain(), icon="add_chain.png"),
             entry("Chain\nManager", lambda e: ui.show_screen("chain_manager"), icon="chain_manager.png"),
             entry("Snapshots", lambda e: ui.show_screen("snapshot"), icon="snapshot.png"),
@@ -29,7 +30,7 @@ class MainMenu(SelectorScreen):
             self.midi_rec_entry(),
             entry("MIDI\nPlayer", lambda e: ui.show_screen("midi_recorder"), icon="folder_midi.png"),
             entry("Admin", lambda e: ui.show_screen("admin"), icon="settings.png"),
-        ])
+        ]))
 
     def audio_rec_entry(self):
         rec = bool(self.state_manager.audio_recorder.status)
@@ -91,4 +92,5 @@ class AddChain(SelectorScreen):
         if self.chain_manager.get_processor_count(eng_code="CL") > 15:
             entries[2] = entry("Clip Launcher\nMax. 16 reached!", icon="audio.png", enabled=False,
                                info="There are 16 clip launchers already.")
-        self.set_entries(entries, 0)
+        # A 4x4 grid; the empty cells are for favourite instruments / chain setups later
+        self.set_entries(fill_grid(entries), 0)

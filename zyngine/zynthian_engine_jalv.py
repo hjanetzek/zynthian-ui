@@ -807,6 +807,8 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
                 # output scale); jalv's -S isn't used, it enlarges the window of plugins that don't.
                 self.command = ["jalv.gtk3", "-H", "-m", "--jack-name", self.jackname, self.plugin_url]
                 self.command_env["GDK_BACKEND"] = "x11"
+                # dark around plugin GUIs that don't fill the (full-screen) window
+                self.command_env["GTK_THEME"] = "Adwaita:dark"
                 gui_scale = os.environ.get("ZYNTHIAN_NATIVE_GUI_SCALE")
                 if gui_scale:
                     self.command_env["DPF_SCALE_FACTOR"] = gui_scale

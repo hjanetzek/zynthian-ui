@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 """Started by niri (zynthian-niri session): places new windows by the layout (zynthian-niri-layout).
 
-Layout "workspaces" (the default): every window but zynthian's on a workspace of its own.
+Layout "workspaces" (the default): every window but zynthian's on a workspace of its own,
+full-screen: resizable plugin GUIs (JUCE) fill the screen, fixed-size ones are centred in jalv's
+window.
 
 Follows niri's event stream; a newly opened window that isn't zynthian's is moved to the last
 workspace of its output, which niri keeps empty (dynamic workspaces): so each plugin window gets
@@ -24,6 +26,31 @@ def is_zynthian(w):
     return w.get("app_id") == ZYNTHIAN_APP_ID or (w.get("app_id") == "python3"
                                                    and w.get("title") == "zynthian")
 MODE_FILE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "zynthian-niri-layout")
+
+
+FULLSCREEN_FILE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "zynthian-niri-fullscreen")
+
+
+def fullscreen_ids():
+    # The windows made full-screen here (niri can only toggle full-screen, and doesn't report it)
+    try:
+        with open(FULLSCREEN_FILE) as f:
+            return set(json.load(f))
+    except (OSError, ValueError):
+        return set()
+
+
+def save_fullscreen_ids(ids):
+    with open(FULLSCREEN_FILE, "w") as f:
+        json.dump(sorted(ids), f)
+
+
+def set_fullscreen(wid, on):
+    ids = fullscreen_ids()
+    if on != (wid in ids):
+        niri("action", "fullscreen-window", "--id", str(wid))
+        ids = ids | {wid} if on else ids - {wid}
+        save_fullscreen_ids(ids)
 
 
 def scrolling():
@@ -68,8 +95,13 @@ def follow():
             # --focus only follows a focused window; a window shown again (jalv.gtk3 "ui show")
             # opens unfocused
             niri("action", "focus-window", "--id", wid)
+            if not scrolling():
+                set_fullscreen(w["id"], True)
         elif "WindowClosed" in ev:
             known.discard(ev["WindowClosed"]["id"])
+            ids = fullscreen_ids()
+            if ev["WindowClosed"]["id"] in ids:
+                save_fullscreen_ids(ids - {ev["WindowClosed"]["id"]})
             if niri("--json", "focused-window").stdout.strip() in ("", "null"):
                 niri("action", "focus-workspace", "zynthian")
     stream.wait()

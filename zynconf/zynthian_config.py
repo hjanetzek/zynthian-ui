@@ -368,9 +368,11 @@ def get_wifi_list():
 
     # Check if access point connection does exist,
     # and create it if needed
-    if "zynthian-ap" not in configured_wifi:
+    # (with zynthian-sys' script: ZynthianOS; elsewhere, e.g. Nura, there is no zynthian hotspot)
+    create_ap = f"{sys_dir}/sbin/create_wifi_access_point.sh"
+    if "zynthian-ap" not in configured_wifi and os.path.isfile(create_ap):
         logging.info("Creating Wi-Fi Access Point connection 'zynthian'...")
-        check_output(f"{sys_dir}/sbin/create_wifi_access_point.sh", encoding='utf-8')
+        check_output(create_ap, encoding='utf-8')
 
     # Get list of available networks, use a dict to avoid repeating APs with same SSID
     wifi_data = {}

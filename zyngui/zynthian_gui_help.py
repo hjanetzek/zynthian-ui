@@ -30,10 +30,14 @@ from pathlib import Path
 
 # The help viewer needs tkinterweb (with its Tkhtml library) and bs4. Without
 # them (e.g. not packaged for the system) the help screen is unavailable.
+# get_index() (also used by zynthian-webconf) needs bs4 only.
 try:
     from bs4 import BeautifulSoup
+except ImportError as e:
+    logging.warning(f"Help index not available => {e}")
+try:
     from tkinterweb import HtmlFrame
-    help_available = True
+    help_available = "BeautifulSoup" in globals()
 except ImportError as e:
     logging.warning(f"Help viewer not available => {e}")
     help_available = False
@@ -442,11 +446,14 @@ class zynthian_gui_help(HtmlFrame):
 # ------------------------------------------------------------------------------
 
 if not help_available:
+    _help_viewer = zynthian_gui_help
 
     class zynthian_gui_help(tkinter.Frame):
-        """Same interface as the help viewer, shows nothing."""
+        """Same interface as the help viewer, shows nothing. The index (webconf's help page)
+        still works with bs4."""
 
         help_dir = zynthian_paths.help_dir
+        get_index = _help_viewer.__dict__["get_index"]
 
         def __init__(self):
             self.shown = False

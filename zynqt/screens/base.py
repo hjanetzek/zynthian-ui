@@ -39,6 +39,16 @@ def separator(title):
     return entry(title, separator=True)
 
 
+def placeholder():
+    """An empty cell of a grid (drawn darkened, not selectable: a separator without title)"""
+    return entry("", separator=True)
+
+
+def fill_grid(entries, cells=16):
+    """entries padded with placeholders to cells (a full 4x4 grid)"""
+    return entries + [placeholder() for _ in range(max(0, cells - len(entries)))]
+
+
 class EntryModel(QAbstractListModel):
     TitleRole, InfoRole, IconRole, SeparatorRole, EnabledRole = range(Qt.UserRole + 1, Qt.UserRole + 6)
     _ROLES = {TitleRole: b"title", InfoRole: b"info", IconRole: b"icon",

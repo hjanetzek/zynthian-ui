@@ -25,6 +25,7 @@ from zyngui import zynthian_gui_config
 
 from zynqt.bridge import SignalBridge
 from zynqt.power import battery_status
+from zynqt.keyboard import load_bindings
 from zynqt.chain_edit import ChainEdit
 from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
@@ -760,6 +761,7 @@ class ZynUI(QObject):
         also while still held."""
         pressed = {}    # switch index -> press time
         repeating = {}  # switch index -> repeat intervals left before the next push action
+        pot_repeating = {}  # zynpot index -> [intervals left, delta] while a key turns it
         repeat_delay = 3        # as zynthian_gui: intervals before auto repeat starts
         repeat_interval = 0.15  # seconds
         while not self.exit_flag:
@@ -778,6 +780,12 @@ class ZynUI(QObject):
                     repeating[i] -= 1
                 else:
                     self._cuiaRequested.emit("_zynswitch", [i, "P"])
+            # Encoders turned by held keys (key bindings ZYNPOT i,d): repeat
+            for i, r in list(pot_repeating.items()):
+                if r[0]:
+                    r[0] -= 1
+                else:
+                    self._cuiaRequested.emit("_zynpot", [i, r[1]])
             if event is None:
                 continue
             params = []
@@ -792,6 +800,17 @@ class ZynUI(QObject):
                 cuia = event[0]
                 if len(event) > 1 and event[1]:
                     params = list(event[1])
+            if cuia.lower() == "zynpot" and len(params) >= 2:
+                # ZYNPOT i,d (as zynthian_gui: from key bindings with P / R: repeat while held)
+                i, d = int(params[0]), int(params[1])
+                t = str(params[2]).upper() if len(params) > 2 else ""
+                if t == "R":
+                    pot_repeating.pop(i, None)
+                    continue
+                if t == "P":
+                    pot_repeating[i] = [repeat_delay, d]
+                self._cuiaRequested.emit("_zynpot", [i, d])
+                continue
             if cuia.lower() == "zynswitch" and len(params) >= 2:
                 i, t = int(params[0]), str(params[1]).upper()
                 if t == "P":
@@ -812,6 +831,26 @@ class ZynUI(QObject):
                 self._cuiaRequested.emit("_zynswitch", [i, t])
                 continue
             self._cuiaRequested.emit(str(cuia), params)
+
+    def cuia__zynpot(self, params):
+        """Encoder i turned by d (key bindings; the Qt UI has no encoder input yet): the current
+        screen's zynpot(i, d) if it has one; chain control turns its controllers (the layout's
+        ctrl_order), elsewhere the select encoder moves the selection"""
+        i, d = int(params[0]), int(params[1])
+        screen = self.list_screens.get(self.current_screen) or self.qml_screen_objects.get(self.current_screen)
+        func = getattr(screen, "zynpot", None)
+        if callable(func) and func(i, d):
+            return
+        order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
+        if screen is self.chain_control_screen:
+            if i in order:
+                self.chain_control_screen.controllers[order.index(i)].nudge(d)
+            return
+        if i == zynthian_gui_config.select_ctrl:
+            if self.current_screen in self.list_screens and screen is not None:
+                screen.move(d)
+            else:
+                self._navigate("down" if d > 0 else "up")
 
     def _push_action(self, i):
         """The custom switch's push action (wiring configuration UI_ACTION_PUSH), or None"""
@@ -1286,6 +1325,10 @@ class ZynUI(QObject):
         if 0 <= chan < 16 and 0 <= pgm < 128:
             lib_zyncore.write_zynmidi_program_change(chan, pgm)
             self._prog_change[chan] = pgm
+
+    def cuia_reload_key_binding(self, params=None):
+        """Re-read the computer keyboard bindings (webconf saves them)"""
+        load_bindings()
 
     def cuia_tts_toggle_enable(self, params=None):
         self.show_info("Speech (ZynVoice) is not available yet.")

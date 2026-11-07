@@ -28,6 +28,7 @@ from zyngui import zynthian_gui_config
 # Before the engine modules are imported: zynthian_chain_manager queries zyncore at import
 zynthian_gui_config.init_zyncore()
 
+from zynqt.keyboard import KeyBindingFilter, load_bindings
 from zynqt.ui import ZynUI
 from zynqt.models.mixer import MixerModel, MixerMeters
 from zynqt.models.organelle import OledDisplay
@@ -73,6 +74,10 @@ def main():
 
     ui = ZynUI()
     zynthian_gui_config.zyngui = ui
+    # Computer keyboard bindings (webconf: UI > Keyboard Binding): read now, the filter goes on
+    # the window below (an application-wide filter would also be called for events of objects in
+    # Qt's other threads, e.g. the render thread: crashes)
+    load_bindings()
 
     mixer = MixerModel(ui.chain_manager, ui.bridge)
     main_bus = MixerModel(ui.chain_manager, ui.bridge, main_only=True)
@@ -92,6 +97,9 @@ def main():
     ctx.setContextProperty("mainMeters", main_meters)
     ctx.setContextProperty("startFullScreen", os.environ.get("ZYNTHIAN_FULLSCREEN") == "1")
     engine.load(QUrl.fromLocalFile(os.path.join(QML_DIR, "Main.qml")))
+    if engine.rootObjects():
+        key_filter = KeyBindingFilter(ui, engine.rootObjects()[0])
+        engine.rootObjects()[0].installEventFilter(key_filter)
     if not engine.rootObjects():
         logging.error("Can't load the QML UI")
         return 1

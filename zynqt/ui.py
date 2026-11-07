@@ -13,15 +13,15 @@ from threading import Thread
 from time import monotonic
 
 import pyliblo3 as liblo
-from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QEvent, QObject, QTimer, Property, Signal, Slot
+from PySide6.QtGui import QGuiApplication, QWindow
 
 import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 import zynconf
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_state_manager import zynthian_state_manager
-from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_help, zynthian_wiring
+from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_help, zynthian_power_control, zynthian_wiring
 
 from zynqt.bridge import SignalBridge
 from zynqt.power import battery_status
@@ -276,6 +276,7 @@ class ZynUI(QObject):
             self._busy_progress = progress
             self._busy_details = details
             self.busyChanged.emit()
+        self._power_save_tick()
         zs = sm.zynseq
         try:
             main_mute = bool(sm.zynmixer_bus.get_mute(0))
@@ -292,7 +293,8 @@ class ZynUI(QObject):
                   "mainMute": main_mute,
                   "undervoltage": bool(sm.status_undervoltage),
                   "updateAvailable": bool(sm.update_available),
-                  "overtemp": bool(sm.status_overtemp)}
+                  "overtemp": bool(sm.status_overtemp),
+                  "powerSave": bool(sm.power_save_mode)}
         # Battery: read every 5 s (sysfs), shown while there is a system battery
         self._battery_ticks = getattr(self, "_battery_ticks", 0) - 1
         if self._battery_ticks <= 0:
@@ -920,6 +922,9 @@ class ZynUI(QObject):
                 cuia = event[0]
                 if len(event) > 1 and event[1]:
                     params = list(event[1])
+            # As zynthian_gui's CUIA thread: user activity (wakes the screen from power save)
+            if str(cuia).lower() != "power_save":
+                self.state_manager.set_event_flag()
             if cuia.lower() == "zynpot" and len(params) >= 2:
                 # ZYNPOT i,d (as zynthian_gui: from key bindings with P / R: repeat while held)
                 i, d = int(params[0]), int(params[1])
@@ -1603,6 +1608,105 @@ class ZynUI(QObject):
         except Exception as e:
             logging.debug(e)
 
+    # System: power, power save, workflow capture
+
+    def cuia_power(self, params=None):
+        """Power off: asks first (Shutdown / Reboot / Cancel, as zynthian_gui_admin.power) unless
+        params[0] is CONFIRM"""
+        if params and str(params[0]).upper() == "CONFIRM":
+            self._power(zynthian_power_control.POWEROFF)
+        else:
+            self._power_menu(1)
+
+    def cuia_reboot(self, params=None):
+        """Reboot: asks first unless params[0] is CONFIRM"""
+        if params and str(params[0]).upper() == "CONFIRM":
+            self._power(zynthian_power_control.REBOOT)
+        else:
+            self._power_menu(2)
+
+    def _power_menu(self, selected):
+        pc = zynthian_power_control
+        self.show_options("Power", [
+            ("Cancel", lambda: None, None, "cancel.png"),
+            ("Shutdown", lambda: self._power(pc.POWEROFF), "Save the state and power off.", "poweroff.png"),
+            ("Reboot", lambda: self._power(pc.REBOOT), "Save the state and reboot.", "reboot.png"),
+        ], selected)
+
+    def _power(self, action):
+        """Save the state, then power off / reboot the way the system does it"""
+        pc = zynthian_power_control
+        method = pc.power_method()
+        verb = "Shutting down" if action == pc.POWEROFF else "Rebooting"
+        logging.info(f"{action.upper()} ({method})")
+        if method == "desktop":
+            self.show_info("On the desktop, power off and reboot are left to the desktop.")
+        elif method == "exit_code":
+            # zynthian.sh: exit code 0 powers off, 100 reboots; _do_exit saves the state
+            self.show_info(f"{verb}...")
+            self.exit(pc.EXIT_CODES[action])
+        else:
+            sm = self.state_manager
+            sm.start_busy("power", f"{verb}...")
+
+            def task():
+                zynthian_admin_settings.last_state_action(sm)
+                return pc.logind_power(action)
+
+            def done(error):
+                if error:
+                    sm.end_busy("power")
+                    logging.error(f"{action}: {error}")
+                    self.show_info(f"Can't {action}: {error}", 5000)
+                # else the system stops the session (and zynthian, SIGTERM) soon
+            self.run_background(task, done)
+
+    def cuia_power_save(self, params=None):
+        """Blank the screen (power save mode, as zynthian_gui); the next input wakes it, as does
+        POWER_SAVE 0"""
+        sm = self.state_manager
+        if params and str(params[0]) == "0":
+            sm.set_event_flag()
+            return
+        sm.reset_event_flag()
+        sm.last_event_ts = monotonic() - zynthian_gui_config.power_save_secs
+        if zynthian_gui_config.power_save_secs <= 0 and not sm.power_save_mode:
+            # Automatic power save off (power_save_check does nothing): on request only
+            sm.set_power_save_mode(True)
+        self._poll_status()
+
+    def _power_save_tick(self):
+        """As zynthian_gui's control thread: power save after the configured time without input or
+        sound, off again on input"""
+        sm = self.state_manager
+        try:
+            sm.power_save_check()
+            if sm.power_save_mode and zynthian_gui_config.power_save_secs <= 0 and sm.last_event_flag:
+                sm.reset_event_flag()
+                sm.set_power_save_mode(False)
+        except Exception as e:
+            logging.debug(f"power save check: {e}")
+
+    def user_activity(self, pointer):
+        """Input on the window (UserActivityFilter): wakes the screen; True if the event is to be
+        dropped (a touch that only wakes it, as zynthian_gui.cb_touch)"""
+        sm = self.state_manager
+        sm.set_event_flag()
+        if sm.power_save_mode:
+            self._power_save_tick()
+            self._poll_status()
+            return pointer
+        return False
+
+    def _no_capture(self, params=None):
+        """The Tk UI's workflow capture records the X11 screen (ffmpeg x11grab) with its own input
+        log: not in the Qt UI"""
+        self.show_info("Workflow capture is not available in the Qt UI.")
+
+    cuia_workflow_capture_start = _no_capture
+    cuia_workflow_capture_stop = _no_capture
+    cuia_workflow_capture_text = _no_capture
+
     # Navigation and screens
 
     cuia_arrow_next = cuia_arrow_right
@@ -1663,3 +1767,21 @@ class ZynUI(QObject):
     def cuia_help(self, params=None):
         """Show the help page of the screen shown (params[0]: a page, or "index:")"""
         self.show_help(str(params[0]) if params else None)
+
+
+class UserActivityFilter(QObject):
+    """On the window: touches, clicks, wheel and keys count as user activity (power save); while
+    the screen is blank, a touch only wakes it"""
+
+    POINTER = (QEvent.MouseButtonPress, QEvent.TouchBegin, QEvent.Wheel)
+
+    def __init__(self, ui, parent=None):
+        super().__init__(parent)
+        self.ui = ui
+
+    def eventFilter(self, obj, event):
+        kind = event.type()
+        if kind in self.POINTER or kind == QEvent.KeyPress:
+            if isinstance(obj, QWindow):
+                return self.ui.user_activity(kind in self.POINTER)
+        return False

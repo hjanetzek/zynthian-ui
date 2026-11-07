@@ -40,15 +40,20 @@ screenshot-path null
 // (docs/nura-display.md) in /etc/xdg/zynthian-niri/local.kdl:
 //   environment { XWAYLAND_NO_GLAMOR "1"; }
 
+// Mod is Super: on Chromebook keyboards (the Duet's) the search key, where Caps Lock usually is.
+// The main actions also on Ctrl+Alt.
 binds {
     Mod+O { toggle-overview; }
+    Ctrl+Alt+O { toggle-overview; }
     Mod+Z { focus-workspace "zynthian"; }
+    Ctrl+Alt+Z { focus-workspace "zynthian"; }
     Mod+Tab { focus-workspace-previous; }
     Mod+Page_Down { focus-workspace-down; }
     Mod+Page_Up { focus-workspace-up; }
     Mod+Q { close-window; }
     // A test window (an OpenGL X11 client, mesa-demos): it gets a workspace of its own
     Mod+T { spawn "glxgears"; }
+    Ctrl+Alt+T { spawn "glxgears"; }
     Mod+Shift+E { quit; }
 }
 

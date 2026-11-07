@@ -126,7 +126,7 @@ if [ "$build" = 1 ]; then
 			zynthian-ui) pmb build $lax --arch "$arch" --src="$checkout" zynthian-ui ;;
 			# shellcheck disable=SC2086
 			zyncoder) pmb build $lax --arch "$arch" --src="$zyncoder" zyncoder ;;
-			# DrivenByMoss: both packages from the drivenbymoss-rust checkout (drivenbymoss needs zynthian-ui)
+			# DrivenByMoss: both packages from the drivenbymoss-rust checkout
 			# shellcheck disable=SC2086
 			drivenbymoss | dbm-nihost) pmb build $lax --arch "$arch" --src="$dbm" "$main" ;;
 			zynthian-jalv)

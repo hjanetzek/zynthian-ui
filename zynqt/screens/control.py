@@ -10,6 +10,7 @@ import logging
 
 from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
+from zyngine.zynthian_signal_manager import zynsigman
 from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
 from zyngui import zynthian_sooperlooper_data as sld
@@ -152,6 +153,7 @@ class ChainControl(QObject):
     processorsChanged = Signal()
     pageChanged = Signal()
     learnChanged = Signal()
+    sidebarChanged = Signal()
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -162,6 +164,7 @@ class ChainControl(QObject):
         self._processors = []
         self.controllers = [ControllerProxy(i, self) for i in range(4)]
         self._shown = False
+        self._sidebar_shown = True   # the processor list (Tk's chain sidebar)
         # A processor without chain (tempo, ALSA mixer), shown instead of the active chain
         self.special_processor = None
         self._timer = QTimer(self, interval=50)
@@ -185,6 +188,31 @@ class ChainControl(QObject):
         self.note_learn = 0
         ui.bridge.midiCc.connect(self._midi_cc)
         ui.bridge.midiNoteOn.connect(self._midi_note_on)
+
+    # The processor list on the left (zynthian_gui_chain_control's sidebar): SHOW_SIDEBAR,
+    # HIDE_SIDEBAR, TOGGLE_SIDEBAR
+
+    @Property(bool, notify=sidebarChanged)
+    def sidebarShown(self):
+        return self._sidebar_shown
+
+    def show_sidebar(self, show):
+        if show != self._sidebar_shown:
+            self._sidebar_shown = show
+            self.sidebarChanged.emit()
+        zynsigman.send_queued(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SIDEBAR, shown=show)
+
+    def cuia_show_sidebar(self, params=None):
+        self.show_sidebar(True)
+        return True
+
+    def cuia_hide_sidebar(self, params=None):
+        self.show_sidebar(False)
+        return True
+
+    def cuia_toggle_sidebar(self, params=None):
+        self.show_sidebar(not self._sidebar_shown)
+        return True
 
     # Shown / hidden (ZynUI)
 

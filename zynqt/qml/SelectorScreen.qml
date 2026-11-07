@@ -161,6 +161,7 @@ Item {
             required property string title
             required property string icon
             required property bool entryEnabled
+            required property bool separator   // a placeholder cell: darkened, empty
 
             width: grid.cellWidth
             height: grid.cellHeight
@@ -168,6 +169,13 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: 1
+                visible: tile.separator
+                color: Theme.panelHighlight
+            }
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1
+                visible: !tile.separator
                 color: tile.index === grid.currentIndex ? Theme.select : Theme.panel
                 border.color: tap.pressed ? Theme.text : "transparent"
                 opacity: tile.entryEnabled ? 1 : 0.45

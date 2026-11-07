@@ -273,10 +273,22 @@ class ZynUI(QObject):
             self._busy_progress = progress
             self._busy_details = details
             self.busyChanged.emit()
-        status = {"xrun": bool(sm.status_xrun), "cpuLoad": int(sm.status_cpu_load or 0),
+        zs = sm.zynseq
+        try:
+            main_mute = bool(sm.zynmixer_bus.get_mute(0))
+        except Exception:
+            main_mute = False
+        status = {"xrun": bool(sm.status_xrun), "xrunLevel": int(sm.status_xrun or 0),
+                  "cpuLoad": int(sm.status_cpu_load or 0),
                   "audioRecorder": bool(sm.audio_recorder.status),
                   "midi": bool(sm.status_midi), "midiRecorder": bool(sm.status_midi_recorder),
+                  "midiPlayer": bool(sm.status_midi_player), "midiClock": bool(sm.status_midi_clock),
                   "audioPlayer": bool(sm.status_audio_player),
+                  "seqPlay": bool(zs and zs.playing_sequences > 0),
+                  "seqRecord": bool(zs and zs.libseq and zs.libseq.isMidiRecord()),
+                  "mainMute": main_mute,
+                  "undervoltage": bool(sm.status_undervoltage),
+                  "updateAvailable": bool(sm.update_available),
                   "overtemp": bool(sm.status_overtemp)}
         # Battery: read every 5 s (sysfs), shown while there is a system battery
         self._battery_ticks = getattr(self, "_battery_ticks", 0) - 1

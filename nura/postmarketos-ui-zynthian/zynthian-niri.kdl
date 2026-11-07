@@ -11,8 +11,10 @@ workspace "zynthian"
 window-rule {
     open-floating true
 }
+// zynthian by its app_id, or by its title (a UI without setDesktopFileName has app_id python3)
 window-rule {
     match app-id="^zynthian$"
+    match app-id="^python3$" title="^zynthian$"
     open-on-workspace "zynthian"
     open-floating false
     open-maximized true

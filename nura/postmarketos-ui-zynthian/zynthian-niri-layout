@@ -20,6 +20,12 @@ MODE_FILE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "zynthian-ni
 ZYNTHIAN_APP_ID = "zynthian"
 
 
+def is_zynthian(w):
+    # by app_id, or by title (a UI without setDesktopFileName has app_id python3)
+    return w.get("app_id") == ZYNTHIAN_APP_ID or (w.get("app_id") == "python3"
+                                                   and w.get("title") == "zynthian")
+
+
 def niri(*args):
     return subprocess.run(["niri", "msg", *args], capture_output=True, text=True)
 
@@ -37,8 +43,8 @@ def set_mode(mode):
     with open(MODE_FILE, "w") as f:
         f.write(mode + "\n")
     windows = json.loads(niri("--json", "windows").stdout or "[]")
-    others = [w for w in windows if w.get("app_id") != ZYNTHIAN_APP_ID]
-    zyn = [w for w in windows if w.get("app_id") == ZYNTHIAN_APP_ID]
+    others = [w for w in windows if not is_zynthian(w)]
+    zyn = [w for w in windows if is_zynthian(w)]
     for w in others:
         wid = str(w["id"])
         if mode == "scrolling":

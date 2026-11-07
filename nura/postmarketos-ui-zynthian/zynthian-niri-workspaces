@@ -17,6 +17,12 @@ import subprocess
 import time
 
 ZYNTHIAN_APP_ID = "zynthian"
+
+
+def is_zynthian(w):
+    # by app_id, or by title (a UI without setDesktopFileName has app_id python3)
+    return w.get("app_id") == ZYNTHIAN_APP_ID or (w.get("app_id") == "python3"
+                                                   and w.get("title") == "zynthian")
 MODE_FILE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "zynthian-niri-layout")
 
 
@@ -48,7 +54,7 @@ def follow():
             if w["id"] in known:
                 continue
             known.add(w["id"])
-            if w.get("app_id") == ZYNTHIAN_APP_ID:
+            if is_zynthian(w):
                 continue
             # TODO: dialogs of a plugin (file choosers) should stay with its window
             wid = str(w["id"])

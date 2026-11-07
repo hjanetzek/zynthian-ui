@@ -61,6 +61,9 @@ class PatternEditor(QObject):
         self.copied = None          # copied block (its [step1, row1, step2, row2]); taps paste it
         self._pending = False       # changes without their undo snapshot yet
         self.last_smf_import = {}   # pattern: the MIDI file imported last (where the picker starts)
+        # Whole patterns copied by COPY i / pasted by PASTE i (zynthian_gui_mixer's clipboard):
+        # (phrase, sequence, pattern) per slot
+        self.clipboard = 4 * [None]
         self._timer = QTimer(self, interval=40)
         self._timer.timeout.connect(self._poll)
 
@@ -106,6 +109,41 @@ class PatternEditor(QObject):
     def cuia_toggle_play(self, params=None):
         self.togglePlayback()
         return True
+
+    # COPY / PASTE i: the whole pattern to / from clipboard slot i (zynthian_gui_pated_base
+    # copy_pattern / paste_pattern)
+
+    def cuia_copy(self, params=None):
+        i = int(params[0]) if params else 0
+        if 0 <= i < len(self.clipboard):
+            self.clipboard[i] = (self.phrase, self.sequence, self.pattern)
+            self.ui.show_info(f"Pattern {self.pattern} copied to clipboard {i + 1}")
+        return True
+
+    def cuia_paste(self, params=None):
+        i = int(params[0]) if params else 0
+        src = self.clipboard[i] if 0 <= i < len(self.clipboard) else None
+        if src is None:
+            self.ui.show_info("Nothing to paste")
+        elif src[2] == self.pattern:
+            self.ui.show_info("Can't paste a pattern over itself")
+        elif self.libseq.isPatternEmpty(self.pattern):
+            self._paste_pattern(src)
+        else:
+            name = self.zynseq.get_sequence_name(self.zynseq.scene, src[0], src[1])
+            self.ui.confirm(f"Overwrite this pattern with {name}?", lambda: self._paste_pattern(src))
+        return True
+
+    def _paste_pattern(self, src):
+        zs = self.zynseq
+        self._flush_pending()
+        self.libseq.copyPattern(src[2], self.pattern)
+        # The sequence name too, as Tk
+        zs.set_sequence_param(zs.scene, self.phrase, self.sequence, "name",
+                              zs.get_sequence_name(zs.scene, src[0], src[1]))
+        self.libseq.selectPattern(self.pattern)
+        self._snapshot()
+        self.load()
 
     def load(self):
         """The active chain's sequence in the selected phrase (zynthian_gui_mixer.edit_pattern)"""

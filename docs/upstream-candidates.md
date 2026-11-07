@@ -65,6 +65,7 @@ these commits they come together with the Qt UI; each would need its own commit.
 
 | Where | Status | Problem |
 |---|---|---|
+| `zyngui/zynthian_gui.py`, `cuia_enable_midi_learn_cc` | open (Qt UI: params processor id, controller symbol) | Calls `state_manager.enable_learn_cc(params[0], params[1])`, but `enable_learn_cc(zctrl)` takes one controller: the CUIA always fails with a TypeError (caught nowhere but the CUIA thread's logging). The code has a "TODO: Find zctrl". |
 | `zyngui/zynthian_gui_main_menu.py` (4-column menu) | open | "MIDI Output" calls `midi_in_config`, so it opens the MIDI input devices. |
 | `zyngui/zynthian_gui_snapshot.py`, `delete_bank()` | open | Deleting the current bank sets `sm.snapshot_dir = None` instead of `sm.snapshot_bank`. |
 | `zynthian_snapshot_files.check_bankless_mode()` (from `zynthian_gui_snapshot`) | open | Without banks it creates `000` but doesn't select it (the comment says "choose it"); only the next call does. |

@@ -48,6 +48,7 @@ from zyngine.zynthian_state_manager import zynthian_state_manager
 
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_gui_keybinding
+from zyngui import zynthian_wiring
 from zyngui.multitouch import MultiTouch
 
 from zyngui.zynthian_gui_none import zynthian_gui_none
@@ -304,78 +305,8 @@ class zynthian_gui:
     # Wiring Layout Init & Config
     # ---------------------------------------------------------------------------
 
-    # Initialize custom switches, analog I/O, TOF sensors, etc.
-    @staticmethod
-    def wiring_midi_setup(current_chan=None):
-        #logging.info("CUSTOM I/O SETUP...")
-
-        # Configure Custom Switches
-        for i, event in enumerate(zynthian_gui_config.custom_switch_midi_events):
-            # logging.debug(f"\tSWITCH MIDI EVENT {i} => {event}")
-            if event is not None:
-                swi = 4 + i
-                if event['type'] >= 0xF8:
-                    lib_zyncore.setup_zynswitch_midi(swi, event['type'], 0, 0, 0)
-                    logging.info(f"MIDI ZYNSWITCH {swi}: SYS-RT {event['type']}")
-                else:
-                    if event['chan'] is not None:
-                        midi_chan = event['chan']
-                    else:
-                        midi_chan = current_chan
-
-                    if midi_chan is not None:
-                        lib_zyncore.setup_zynswitch_midi(swi, event['type'], midi_chan, event['num'], event['val'])
-                        logging.info(f"MIDI ZYNSWITCH {swi}: {event['type']} CH#{midi_chan}, {event['num']}, {event['val']}")
-                    else:
-                        lib_zyncore.setup_zynswitch_midi(swi, 0, 0, 0, 0)
-                        logging.info(f"MIDI ZYNSWITCH {swi}: DISABLED!")
-
-        # Configure Zynaptik Analog Inputs (CV-IN)
-        for i, event in enumerate(zynthian_gui_config.zynaptik_ad_midi_events):
-            # logging.debug(f"\tCV-IN MIDI EVENT {i} => {event}")
-            if event is not None:
-                if event['chan'] is not None:
-                    midi_chan = event['chan']
-                else:
-                    midi_chan = current_chan
-
-                if midi_chan is not None:
-                    lib_zyncore.setup_zynaptik_cvin(i, event['type'], midi_chan, event['num'])
-                    logging.info(f"ZYNAPTIK CV-IN {i}: {event['type']} CH#{midi_chan}, {event['num']}")
-                else:
-                    lib_zyncore.disable_zynaptik_cvin(i)
-                    logging.info(f"ZYNAPTIK CV-IN {i}: DISABLED!")
-
-        # Configure Zynaptik Analog Outputs (CV-OUT)
-        for i, event in enumerate(zynthian_gui_config.zynaptik_da_midi_events):
-            # logging.debug(f"\tCV-OUT MIDI EVENT {i} => {event}")
-            if event is not None:
-                if event['chan'] is not None:
-                    midi_chan = event['chan']
-                else:
-                    midi_chan = current_chan
-
-                if midi_chan is not None:
-                    lib_zyncore.setup_zynaptik_cvout(i, event['type'], midi_chan, event['num'])
-                    logging.info(f"ZYNAPTIK CV-OUT {i}: {event['type']} CH#{midi_chan}, {event['num']}")
-                else:
-                    lib_zyncore.disable_zynaptik_cvout(i)
-                    logging.info(f"ZYNAPTIK CV-OUT {i}: DISABLED!")
-
-        # Configure Zyntof Inputs (Distance Sensor)
-        for i, event in enumerate(zynthian_gui_config.zyntof_midi_events):
-            if event is not None:
-                if event['chan'] is not None:
-                    midi_chan = event['chan']
-                else:
-                    midi_chan = current_chan
-
-                if midi_chan is not None:
-                    lib_zyncore.setup_zyntof(i, event['type'], midi_chan, event['num'])
-                    logging.info(f"ZYNTOF {i}: {event['type']} CH#{midi_chan}, {event['num']}")
-                else:
-                    lib_zyncore.disable_zyntof(i)
-                    logging.info(f"ZYNTOF {i}: DISABLED!")
+    # Initialize custom switches, analog I/O, TOF sensors, etc. (zynthian_wiring, shared with the Qt UI)
+    wiring_midi_setup = staticmethod(zynthian_wiring.wiring_midi_setup)
 
     def reload_wiring_layout(self):
         try:

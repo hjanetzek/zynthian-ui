@@ -689,10 +689,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         self.zyngui.exit(0)
 
     def last_state_action(self):
-        if zynthian_gui_config.restore_last_state:
-            self.state_manager.save_last_state_snapshot()
-        else:
-            self.state_manager.delete_last_state_snapshot()
+        zynthian_admin_settings.last_state_action(self.state_manager)
         try:
             zynconf.save_config({"ZYNTHIAN_TOUCH_SHOWN": zynthian_gui_config.touch_shown})
         except Exception as e:

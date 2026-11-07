@@ -22,6 +22,14 @@ from zyncoder.zyncore import lib_zyncore
 from zyngui import zynthian_gui_config
 
 
+def last_state_action(state_manager):
+    """Save the state for the next start (restore last state enabled), else delete the saved one"""
+    if zynthian_gui_config.restore_last_state:
+        state_manager.save_last_state_snapshot()
+    else:
+        state_manager.delete_last_state_snapshot()
+
+
 def toggle_prog_change_zs3():
     if zynthian_gui_config.midi_prog_change_zs3:
         logging.info("ZS3 Program Change OFF")

@@ -97,6 +97,8 @@ class ZynUI(QObject):
         self._started = False
         self._busy = False
         self._busy_message = ""
+        self._busy_progress = None
+        self._busy_details = ""
         self._status = {}
         self._cuia_thread = None
         self._osc_server = None
@@ -236,6 +238,16 @@ class ZynUI(QObject):
     def busyMessage(self):
         return self._busy_message
 
+    @Property(float, notify=busyChanged)
+    def busyProgress(self):
+        """0..1 while a task with counted steps runs, else -1"""
+        p = self._busy_progress
+        return p[1] / p[2] if p else -1.0
+
+    @Property(str, notify=busyChanged)
+    def busyDetails(self):
+        return self._busy_details if self._busy_progress else ""
+
     @Property("QVariantMap", notify=statusChanged)
     def status(self):
         return self._status
@@ -248,9 +260,18 @@ class ZynUI(QObject):
         sm = self.state_manager
         busy = sm.is_busy()
         message = (sm.get_busy_message() or "") if busy else ""
-        if busy != self._busy or message != self._busy_message:
+        progress = getattr(sm, "busy_progress", None) if busy else None
+        details = (sm.busy_details or "") if busy else ""
+        if progress:
+            # A task with counted steps (snapshot loading): its title instead of the messages of
+            # the single steps (adding chain, processor, ...), which changed back and forth
+            message = progress[0]
+        if busy != self._busy or message != self._busy_message or progress != self._busy_progress \
+                or details != self._busy_details:
             self._busy = busy
             self._busy_message = message
+            self._busy_progress = progress
+            self._busy_details = details
             self.busyChanged.emit()
         status = {"xrun": bool(sm.status_xrun), "cpuLoad": int(sm.status_cpu_load or 0),
                   "audioRecorder": bool(sm.audio_recorder.status),

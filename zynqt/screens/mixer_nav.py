@@ -33,3 +33,17 @@ class MixerNav:
             self.ui.chain_control()
         elif what == "select_bold":
             self.ui.show_screen("chain_options")
+
+    def zynpot_abs(self, i, val):
+        """ZYNPOT_ABS (zynthian_gui_mixer.zynpot_abs): 0 the active chain's level, 1 its balance,
+        2 the main level, 3 the main balance"""
+        cm = self.chain_manager
+        chain = cm.get_active_chain() if i < 2 else cm.get_chain(0)
+        if chain is None or not chain.zynmixer_proc:
+            return True
+        ctrls = chain.zynmixer_proc.controllers_dict
+        if i in (0, 2):
+            ctrls["level"].set_value(val)
+        elif i in (1, 3):
+            ctrls["balance"].set_value(val * 2 - 1)
+        return True

@@ -129,6 +129,15 @@ class ControllerProxy(QObject):
             self.zctrl.is_dirty = False
             self.changed.emit()
 
+    def set_abs(self, val):
+        """Set to a part of the range (val 0..1): ZYNPOT_ABS, as zynthian_gui_controller.zynpot_abs
+        without pick-up"""
+        z = self.zctrl
+        if z is not None:
+            z.set_value(z.value_min + val * z.value_range)
+            z.is_dirty = False
+            self.changed.emit()
+
     @Slot()
     def toggle(self):
         if self.zctrl is not None:

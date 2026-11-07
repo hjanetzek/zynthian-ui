@@ -1,5 +1,5 @@
-// A selector screen (zynqt.screens): a list with an info pane (and category tabs if the screen
-// has categories), or a grid of tiles. Tap selects and activates, long press is a bold press.
+// A selector screen (zynqt.screens): a list with an info pane (and a category list on the left
+// if the screen has categories), or a grid of tiles. Tap selects and activates, long press is a bold press.
 import QtQuick
 
 Item {
@@ -9,46 +9,61 @@ Item {
     readonly property bool isGrid: screen !== null && screen.viewKind === "grid"
     readonly property var entries: screen ? screen.entryModel : null
 
-    // Category tabs (engines)
-    ListView {
-        id: tabs
+    // Categories (engine groups) as a second list on the left, as the Tk engine screen's
+    // listbox2: the selected one inverted
+    Rectangle {
+        id: cats
 
         anchors.left: parent.left
-        anchors.right: info.left
         anchors.top: parent.top
-        height: visible ? 40 : 0
+        anchors.bottom: parent.bottom
+        width: visible ? Math.round(parent.width * 0.2) : 0
         visible: !root.isGrid && root.screen !== null && root.screen.categories.length > 1
-        orientation: ListView.Horizontal
-        spacing: 2
-        clip: true
-        model: root.screen ? root.screen.categories : []
-        currentIndex: root.screen ? root.screen.categoryIndex : 0
-        onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+        color: Theme.panel
 
-        delegate: Rectangle {
-            required property int index
-            required property string modelData
-            width: Math.max(90, label.implicitWidth + 24)
-            height: tabs.height
-            color: index === tabs.currentIndex ? Theme.select : Theme.panelHighlight
-            Text {
-                id: label
-                anchors.centerIn: parent
-                text: modelData
-                color: Theme.text
-                font.pixelSize: 18
-                font.family: Theme.fontFamily
+        ListView {
+            id: catList
+            anchors.fill: parent
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            model: root.screen ? root.screen.categories : []
+            currentIndex: root.screen ? root.screen.categoryIndex : 0
+            onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+            delegate: Rectangle {
+                required property int index
+                required property string modelData
+                width: catList.width
+                height: 40
+                color: index === catList.currentIndex ? Theme.text : Theme.panel
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 10
+                    elide: Text.ElideRight
+                    text: modelData
+                    color: index === catList.currentIndex ? Theme.panel : Theme.text
+                    font.pixelSize: 20
+                    font.family: Theme.fontFamily
+                }
+                TapHandler { onTapped: root.screen.setCategory(index) }
             }
-            TapHandler { onTapped: root.screen.setCategory(index) }
         }
+    }
+
+    // List background: grey also below the last entry
+    Rectangle {
+        anchors.fill: list
+        visible: list.visible
+        color: Theme.panel
     }
 
     ListView {
         id: list
 
-        anchors.left: parent.left
-        anchors.top: tabs.bottom
-        anchors.topMargin: tabs.visible ? 2 : 0
+        anchors.left: cats.right
+        anchors.leftMargin: cats.visible ? 2 : 0
+        anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.right: info.left
         anchors.rightMargin: 2

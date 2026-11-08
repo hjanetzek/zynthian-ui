@@ -307,6 +307,16 @@ def get_port_aliases(midi_port):
         return midi_port.name, midi_port.name
 
 
+def get_port_dev_id(midi_port):
+    """The device ID of a MIDI port (its uid without the client part, e.g. "Maschine Controller
+    MK2 IN 1"), or None"""
+
+    try:
+        return midi_port.aliases[0].split('/', 1)[1]
+    except:
+        return None
+
+
 def get_port_from_name(name):
     """Get a JACK port from its name
 
@@ -676,10 +686,16 @@ def update_hw_midi_ports(force=False):
     returns - True if changed since last call
     """
 
-    # Get Mutex Lock
+    # Get Mutex Lock, released also when the update raises (see midi_autoconnect)
     if not acquire_lock():
-        return
+        return False
+    try:
+        return _update_hw_midi_ports(force)
+    finally:
+        release_lock()
 
+
+def _update_hw_midi_ports(force):
     global hw_midi_src_ports, hw_midi_dst_ports
 
     # -----------------------------------------------------------
@@ -726,18 +742,23 @@ def update_hw_midi_ports(force=False):
         else:
             fingerprint.remove(port)
     update |= len(fingerprint) != 0
-
-    release_lock()
     return update
 
 
 def midi_autoconnect():
     """Connect all expected MIDI routes"""
 
-    # Get Mutex Lock
+    # Get Mutex Lock, released also when the connect raises: a lock left held blocks the
+    # autoconnect thread for good (no MIDI devices, no ctrldev drivers any more)
     if not acquire_lock():
         return
+    try:
+        _midi_autoconnect()
+    finally:
+        release_lock()
 
+
+def _midi_autoconnect():
     global deferred_midi_connect
     deferred_midi_connect = False
 
@@ -752,9 +773,15 @@ def midi_autoconnect():
     for dst in all_midi_dst:
         required_routes[dst.name] = set()
 
+    # The MIDI ports which loaded HID drivers keep away from zynthian (e.g. the Maschine Mk2's
+    # own USB MIDI port: using it disturbs the HID connection which its driver uses)
+    claimed = state_manager.ctrldev_manager.get_hid_claimed_midi_dev_ids()
+
     # Connect MIDI Input Devices to ZynMidiRouter ports (zmips)
     busy_idevs = []
     for hwsp in hw_midi_src_ports:
+        if claimed and get_port_dev_id(hwsp) in claimed:
+            continue
         devnum = None
         # logger.debug("Connecting MIDI Input {}".format(hwsp))
         try:
@@ -791,7 +818,12 @@ def midi_autoconnect():
                 except:
                     pass
             # else => Connect input device to zmip directly
-            required_routes[f"ZynMidiRouter:dev{devnum}_in"].add(hwsp.name)
+            zmip_port = f"ZynMidiRouter:dev{devnum}_in"
+            if zmip_port not in required_routes:
+                # ZynMidiRouter's ports are not there yet (startup): connect at the next run
+                deferred_midi_connect = True
+                continue
+            required_routes[zmip_port].add(hwsp.name)
 
     for i in range(0, max_num_devs):
         # Delete disconnected input devices from list and unload driver
@@ -807,6 +839,8 @@ def midi_autoconnect():
     # Connect MIDI Output Devices
     busy_odevs = []
     for hwdp in hw_midi_dst_ports:
+        if claimed and get_port_dev_id(hwdp) in claimed:
+            continue
         devnum = None
         # logger.debug("Connecting MIDI Output {}".format(hwdp))
         try:
@@ -1077,15 +1111,18 @@ def midi_autoconnect():
     if midi_capture_state:
         state_manager.set_midi_capture_state(midi_capture_state)
 
-    # Release Mutex Lock
-    release_lock()
-
 
 def audio_autoconnect():
-    # Get Mutex Lock
+    # Get Mutex Lock, released also when the connect raises (see midi_autoconnect)
     if not acquire_lock():
         return
+    try:
+        _audio_autoconnect()
+    finally:
+        release_lock()
 
+
+def _audio_autoconnect():
     global deferred_audio_connect
     deferred_audio_connect = False
 
@@ -1244,9 +1281,6 @@ def audio_autoconnect():
                 zyn_routed_audio[dst].append(src.name)
             except:
                 pass
-
-    # Release Mutex Lock
-    release_lock()
 
 
 # The main mix bus's default output (zynthian_chain.reset): the first two hardware outputs
@@ -1651,11 +1685,14 @@ def update_hid_drivers():
     """Load the drivers of the HID devices which are there (drivers without MIDI port, see
     zynthian_ctrldev_manager), with the state the last ZS3 has for them, as midi_autoconnect
     does for new MIDI devices"""
+    global deferred_midi_connect
     try:
         manager = state_manager.ctrldev_manager
     except AttributeError:
         return
     for uid in manager.update_hid_drivers():
+        # The driver may claim MIDI ports (get_hid_claimed_midi_dev_ids): connect again
+        deferred_midi_connect = True
         try:
             state = state_manager.zs3['zs3-0']['midi_capture'][uid]
             try:

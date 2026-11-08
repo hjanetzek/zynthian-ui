@@ -317,6 +317,15 @@ class zynthian_ctrldev_manager():
                         loaded.append(uid)
         return loaded
 
+    def get_hid_claimed_midi_dev_ids(self):
+        """The device IDs of the MIDI ports which the loaded HID drivers keep away from zynthian
+        (their attribute hid_claimed_midi_dev_ids, e.g. the device's own USB MIDI port)"""
+
+        claimed = set()
+        for driver in self.hid_drivers.values():
+            claimed.update(getattr(driver, "hid_claimed_midi_dev_ids", None) or ())
+        return claimed
+
     def load_hid_driver(self, uid, driver_class):
         """Loads a HID driver (without zmip) for the device uid
 

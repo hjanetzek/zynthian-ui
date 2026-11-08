@@ -155,6 +155,10 @@ nura/deploy.sh -k -n zyncoder zynthian-data zynthian-ui
 profiling, screen timing), `perf_profile.sh`, `thread_cpu.sh` (CPU per thread of zynthian, the
 compositor and the engines) and `qt_switch_timing.sh` (screen switch times of the Qt UI). How the
 performance numbers were measured, and how to repeat them: [docs/performance-measurement.md](../docs/performance-measurement.md).
+`sync_ui.sh` copies this checkout's Python code into an installed zynthian-ui (no package build),
+`switch_ui.sh` switches between zynthian-ui and upstream's -vangelis/-tomita. All take `-P PORT`, and
+`-V` for the local QEMU VM: testing in a VM instead of on the desktop or a device,
+[docs/qemu-testing.md](../docs/qemu-testing.md).
 
 ## Switching kiosk sessions
 

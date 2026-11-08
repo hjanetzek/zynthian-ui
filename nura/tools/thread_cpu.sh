@@ -1,7 +1,7 @@
 #!/bin/sh
 usage_text='CPU use of zynthian (per thread), the compositor and the engines on the device.
 
-Usage: thread_cpu.sh [-c CONFIG] [-H HOST] [-u USER] [-t SECONDS] [-g GOVERNOR] [-p PATTERN]
+Usage: thread_cpu.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-t SECONDS] [-g GOVERNOR] [-p PATTERN]
 
   -t SECONDS   measuring time (default 20)
   -g GOVERNOR  CPU frequency governor during the measurement (default performance; the previous

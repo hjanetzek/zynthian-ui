@@ -1,9 +1,10 @@
 #!/bin/sh
 # Build Nura packages and install them on a running device over SSH.
 #
-# Usage: deploy.sh [-c CONFIG] [-H HOST] [-u USER] [-a ARCH] [-z ZYNCODER] [-j JALV] [-m DBM] [-W WEBCONF] [-k] [-n] [-S] [-r] [-d] PACKAGE...
+# Usage: deploy.sh [-c CONFIG] [-H HOST] [-P PORT] [-u USER] [-a ARCH] [-z ZYNCODER] [-j JALV] [-m DBM] [-W WEBCONF] [-k] [-n] [-S] [-r] [-d] PACKAGE...
 #   -c CONFIG    pmbootstrap config (default: ~/.config/pmbootstrap-zynthian.cfg)
 #   -H HOST      device address (default: <hostname from the config>.local, via avahi)
+#   -P PORT      SSH port on the device (default 22; the QEMU VM: -H 127.0.0.1 -P 2222 -a x86_64)
 #   -u USER      SSH user on the device (default: user from the config)
 #   -a ARCH      package architecture (default: aarch64)
 #   -z ZYNCODER  zyncoder checkout for the zyncoder package (default: ../zyncoder next to
@@ -50,6 +51,7 @@ webconf=$(cd "$checkout/.." && pwd)/zynthian-webconf-nura
 [ -d "$webconf" ] || webconf=$(cd "$checkout/.." && pwd)/zynthian-webconf
 cfg=$HOME/.config/pmbootstrap-zynthian.cfg
 host=
+port=22
 user=
 arch=aarch64
 build=1
@@ -60,10 +62,11 @@ installkey=
 
 usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0}"; }
 
-while getopts c:H:u:a:z:j:m:W:knSrdh opt; do
+while getopts c:H:P:u:a:z:j:m:W:knSrdh opt; do
 	case $opt in
 		c) cfg=$OPTARG ;;
 		H) host=$OPTARG ;;
+		P) port=$OPTARG ;;
 		u) user=$OPTARG ;;
 		a) arch=$OPTARG ;;
 		z) zyncoder=$OPTARG ;;
@@ -155,8 +158,8 @@ if [ "$build" = 1 ]; then
 fi
 
 # shellcheck disable=SC2086 # empty $installkey is intended
-pmb sideload $installkey --arch "$arch" --host "$host" --user "$user" "$@"
+pmb sideload $installkey --arch "$arch" --host "$host" --port "$port" --user "$user" "$@"
 
 if [ "$restart" = 1 ]; then
-	run ssh -t "$user@$host" 'sudo systemctl restart tinydm'
+	run ssh -t -p "$port" "$user@$host" 'sudo systemctl restart tinydm'
 fi

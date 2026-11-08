@@ -1,7 +1,7 @@
 #!/bin/sh
 usage_text='Switch the device between the zynthian-ui packages, for quick comparisons.
 
-Usage: switch_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-R DIR] [-n] [qt | vangelis | tomita]
+Usage: switch_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-R DIR] [-n] [qt | vangelis | tomita]
 
   qt        zynthian-ui: the Qt UI port (hjanetzek/zynthian-ui, nura branch)
   vangelis  zynthian-ui-vangelis: upstream vangelis (stable), Tk UI, with the port patches

@@ -2,7 +2,7 @@
 usage_text='Screen switch times of the Qt UI on the device: switches screens over OSC (CUIAs) and
 collects the times zynthian logs with ZYNTHIAN_QT_TIMING=1.
 
-Usage: qt_switch_timing.sh [-c CONFIG] [-H HOST] [-u USER] [-r ROUNDS] [-g GOVERNOR] [-U UNIT] [CUIA...]
+Usage: qt_switch_timing.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-r ROUNDS] [-g GOVERNOR] [-U UNIT] [CUIA...]
 
   -r ROUNDS    rounds through the CUIAs (default 3; the first includes building each view)
   -g GOVERNOR  CPU frequency governor during the measurement (default performance; restored

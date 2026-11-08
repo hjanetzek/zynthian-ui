@@ -1,7 +1,7 @@
 #!/bin/sh
 usage_text='Run a Python script inside the running zynthian on the device and print its result.
 
-Usage: zyninject.sh [-c CONFIG] [-H HOST] [-u USER] [-s NAME=VALUE]... [-t TIMEOUT] SCRIPT
+Usage: zyninject.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-s NAME=VALUE]... [-t TIMEOUT] SCRIPT
 
   -s NAME=VALUE  replace the line "NAME = ..." in SCRIPT (a parameter), e.g. -s DURATION=20
   -t TIMEOUT     seconds to wait for the result (default 60)
@@ -74,8 +74,8 @@ def _zi_run(path="$remote", output="$output"):
 
 _zi_sys.modules["zyngui.zynthian_gui_config"].top.after(1, _zi_run)
 EOB
-scp -q "$tmp" "$target:$remote"
-scp -q "$boot" "$target:$remote.boot.py"
+devcp "$tmp" "$target:$remote"
+devcp "$boot" "$target:$remote.boot.py"
 dev "$ZYN_PID
 rm -f '$output'
 sudo python3 -c \"import sys; sys.remote_exec(\$P, '$remote.boot.py')\"

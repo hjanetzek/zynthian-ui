@@ -19,7 +19,8 @@ import os
 from zynconf import zynthian_paths
 from zyngine.zynthian_engine import zynthian_engine
 
-COLLECTIONS_DIR = zynthian_engine.data_dir + "/collections/"
+# Collections are content packs: in zynthian-data, or beside it when that is read-only
+COLLECTIONS_DIR = zynthian_paths.packs_data_dir + "/collections/"
 
 # File extension: [directory names under files/, icon]
 FEXT2DIRNAME = {

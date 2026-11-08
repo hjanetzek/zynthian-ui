@@ -17,6 +17,11 @@ zynthian_device_defaults() {
 			zynthian_scale=1.8
 			;;
 	esac
+	# A virtual machine (nura-builds' qemu-amd64 image, tools/run-qemu.sh): a window on a desktop
+	# screen, no device tree; scale 1 (the default window, 1280x800, then shows the Duet's layout)
+	case "$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null)" in
+		QEMU*) zynthian_scale=1 ;;
+	esac
 	ZYNTHIAN_UI=qt
 	[ -f /etc/default/zynthian ] && . /etc/default/zynthian
 	# Upstream zynthian-ui (zynthian-ui-vangelis, -tomita from nura-builds) has no Qt UI

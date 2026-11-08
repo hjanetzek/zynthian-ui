@@ -59,7 +59,9 @@ def _zyn_test():
                 if proc is None:
                     problems.append(f"{proc_id} {eng_code}: missing")
                     continue
-                if proc.eng_code != eng_code:
+                if eng_code == "LS" and proc.eng_code == "SF" and str(preset).lower().endswith(".sfz"):
+                    pass  # LinuxSampler SFZ chains load with sfizz (zynthian_legacy_snapshot)
+                elif proc.eng_code != eng_code:
                     problems.append(f"{proc_id} {eng_code}: loaded as {proc.eng_code}")
                 if proc.engine is None:
                     problems.append(f"{proc_id} {eng_code}: no engine")

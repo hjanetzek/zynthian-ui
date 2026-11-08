@@ -6,8 +6,8 @@ Usage: zyninject.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-s NAME=VALU
   -s NAME=VALUE  replace the line "NAME = ..." in SCRIPT (a parameter), e.g. -s DURATION=20
   -t TIMEOUT     seconds to wait for the result (default 60)
 
-The script runs in zynthian'"'"'s main thread (where Tk lives), from Tk'"'"'s event loop like a
-timer callback: sys.remote_exec() (Python 3.14, needs sudo on the device) only injects a
+The script runs in zynthian'"'"'s main thread (where Tk or Qt lives), from the event loop like a
+timer callback (Tk UI: zynthian_main.py, Tk after(); Qt UI: zynthian_qt_main.py, QTimer): sys.remote_exec() (Python 3.14, needs sudo on the device) only injects a
 bootstrap that schedules it. Running it directly at the point where remote_exec interrupts
 the main thread can deadlock zynthian: that point may be inside code holding one of its
 locks. The script writes its result to the file in its OUTPUT variable, which this tool
@@ -59,7 +59,7 @@ trap 'rm -f "$tmp" "$boot"' EXIT
 cat > "$boot" <<EOB
 # zyninject bootstrap, run by sys.remote_exec() wherever the main thread was interrupted:
 # don't run anything here (no imports, no zynthian calls), only schedule the script on
-# Tk's event loop.
+# the UI's event loop (Qt's in the Qt UI, else Tk's).
 import sys as _zi_sys
 
 def _zi_run(path="$remote", output="$output"):
@@ -72,7 +72,10 @@ def _zi_run(path="$remote", output="$output"):
         with open(output, "w") as f:
             f.write("zyninject: the script failed:\\n" + traceback.format_exc())
 
-_zi_sys.modules["zyngui.zynthian_gui_config"].top.after(1, _zi_run)
+if "zynqt.ui" in _zi_sys.modules:
+    _zi_sys.modules["PySide6.QtCore"].QTimer.singleShot(1, _zi_run)
+else:
+    _zi_sys.modules["zyngui.zynthian_gui_config"].top.after(1, _zi_run)
 EOB
 devcp "$tmp" "$target:$remote"
 devcp "$boot" "$target:$remote.boot.py"

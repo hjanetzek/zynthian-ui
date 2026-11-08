@@ -2220,6 +2220,11 @@ class zynthian_state_manager:
                 mcstate[uid] = {"routed_chains": list(routes), "midi_learn": {},
                                 "audio_in": list(self.audio2midi_in[AUDIO2MIDI_UIDS.index(uid)])}
 
+        # Drivers without zmip (HID drivers): only their state
+        for uid in self.ctrldev_manager.hid_drivers:
+            if uid in ctrldev_state_drivers:
+                mcstate[uid] = {"ctrldev_state": ctrldev_state_drivers[uid]}
+
         mcstate["zynmidi"] = {"midi_learn": {}}
         # Add global / absolute MIDI mapping
         """ TODO: Internal MIDI learn is not (correctly) inplemented
@@ -2271,6 +2276,11 @@ class zynthian_state_manager:
             for uid, state in mcstate.items():
                 #logging.debug(f"MCSTATE {uid} => {state}")
                 if uid != "zynmidi":
+                    if self.ctrldev_manager.is_hid_uid(uid):
+                        # A HID driver (no zmip): only its state
+                        if "ctrldev_state" in state:
+                            ctrldev_state_drivers[uid] = state["ctrldev_state"]
+                        continue
                     izmip = zynautoconnect.get_midi_in_devid_by_uid(uid, zynthian_gui_config.midi_usb_by_port)
                     if izmip is None:
                         if uid in AUDIO2MIDI_UIDS:

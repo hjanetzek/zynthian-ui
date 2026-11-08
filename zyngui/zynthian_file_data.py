@@ -16,6 +16,7 @@
 
 import os
 
+from zynconf import zynthian_paths
 from zyngine.zynthian_engine import zynthian_engine
 
 COLLECTIONS_DIR = zynthian_engine.data_dir + "/collections/"
@@ -54,5 +55,6 @@ def root_dirs(dirnames):
         for de in sorted(os.scandir(COLLECTIONS_DIR), key=lambda de: de.name):
             if de.is_dir():
                 dirs += [(f"{de.name} {dirname}", de.path + "/" + dirname) for dirname in dirnames]
-    dirs += [(f"System {dirname}", zynthian_engine.data_dir + "/files/" + dirname) for dirname in dirnames]
+    dirs += [(f"System {dirname}", path) for dirname in dirnames
+             for path in zynthian_paths.system_data_paths("files/" + dirname)]
     return dirs

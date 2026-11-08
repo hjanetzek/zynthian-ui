@@ -32,6 +32,7 @@ from subprocess import check_output
 
 import zynconf
 import zynautoconnect
+from zynconf import zynthian_paths
 from zyncoder.zyncore import lib_zyncore
 from zyngine.zynthian_engine import zynthian_engine
 from zyngine.zynthian_controller import zynthian_controller
@@ -84,8 +85,7 @@ class zynthian_engine_fluidsynth(zynthian_engine):
     preset_fexts = ["sf2", "sf3"]
     root_bank_dirs = [
         ('User', zynthian_engine.my_data_dir + "/soundfonts/sf2"),
-        ('System', zynthian_engine.data_dir + "/soundfonts/sf2")
-    ]
+    ] + [('System', d) for d in zynthian_paths.system_data_paths("soundfonts/sf2")]
 
     # ---------------------------------------------------------------------------
     # Initialization

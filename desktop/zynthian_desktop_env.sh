@@ -58,6 +58,19 @@ _zd_lv2_system="/usr/lib/lv2:/usr/local/lib/lv2"
 if [ -d "/usr/lib/$(uname -m)-linux-gnu/lv2" ]; then
 	_zd_lv2_system="$_zd_lv2_system:/usr/lib/$(uname -m)-linux-gnu/lv2"
 fi
-export LV2_PATH="${LV2_PATH:-$_zd_lv2_system:$ZYNTHIAN_LV2_DIR:$ZYNTHIAN_DATA_DIR/presets/lv2:$ZYNTHIAN_MY_DATA_DIR/presets/lv2}"
+# Content packs (zynthian-packages): system data with zynthian-data's layout, installed by webconf.
+# In zynthian-data where it is writable (a checkout); beside a read-only one (distribution packages:
+# the directory zynthian-packages creates, group audio)
+if [ -z "$ZYNTHIAN_PACKS_DATA_DIR" ]; then
+	if [ ! -w "$ZYNTHIAN_DATA_DIR" ] && [ -d /var/lib/zynthian/zynthian-data ]; then
+		ZYNTHIAN_PACKS_DATA_DIR=/var/lib/zynthian/zynthian-data
+	else
+		ZYNTHIAN_PACKS_DATA_DIR="$ZYNTHIAN_DATA_DIR"
+	fi
+fi
+export ZYNTHIAN_PACKS_DATA_DIR
+_zd_lv2_packs=""
+[ "$ZYNTHIAN_PACKS_DATA_DIR" != "$ZYNTHIAN_DATA_DIR" ] && _zd_lv2_packs=":$ZYNTHIAN_PACKS_DATA_DIR/presets/lv2"
+export LV2_PATH="${LV2_PATH:-$_zd_lv2_system:$ZYNTHIAN_LV2_DIR:$ZYNTHIAN_DATA_DIR/presets/lv2$_zd_lv2_packs:$ZYNTHIAN_MY_DATA_DIR/presets/lv2}"
 
-unset _zd_ui_dir _zd_config_home _zd_data_home _zd_lv2_system
+unset _zd_ui_dir _zd_config_home _zd_data_home _zd_lv2_system _zd_lv2_packs

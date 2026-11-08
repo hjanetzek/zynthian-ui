@@ -43,6 +43,10 @@ sys_dir = _env("ZYNTHIAN_SYS_DIR", f"{zynthian_dir}/zynthian-sys")
 config_dir = _env("ZYNTHIAN_CONFIG_DIR", f"{zynthian_dir}/config")
 data_dir = _env("ZYNTHIAN_DATA_DIR", f"{zynthian_dir}/zynthian-data")
 my_data_dir = _env("ZYNTHIAN_MY_DATA_DIR", f"{zynthian_dir}/zynthian-my-data")
+# Content packs (soundfonts, samples, IRs from zynthian-packages): system data with zynthian-data's
+# layout. On ZynthianOS zynthian-data itself; where zynthian-data is read-only (distribution
+# packages, e.g. /usr/share/zynthian) a writable directory beside it.
+packs_data_dir = _env("ZYNTHIAN_PACKS_DATA_DIR", data_dir)
 ex_data_dir = _env("ZYNTHIAN_EX_DATA_DIR", "/media/root")
 sw_dir = _env("ZYNTHIAN_SW_DIR", f"{zynthian_dir}/zynthian-sw")
 plugins_dir = _env("ZYNTHIAN_PLUGINS_DIR", f"{zynthian_dir}/zynthian-plugins")
@@ -56,6 +60,14 @@ lv2_dir = _env("ZYNTHIAN_LV2_DIR", f"{plugins_dir}/lv2")
 # Installed native libraries (e.g. /usr/lib/zynthian in a package). Unset: each
 # library is loaded from its build directory in the source tree.
 lib_dir = os.environ.get("ZYNTHIAN_LIB_DIR", "")
+
+
+def system_data_paths(subdir):
+    """subdir of the system data: zynthian-data's, then the content packs' when they are elsewhere"""
+    paths = [f"{data_dir}/{subdir}"]
+    if os.path.realpath(packs_data_dir) != os.path.realpath(data_dir):
+        paths.append(f"{packs_data_dir}/{subdir}")
+    return paths
 
 
 def native_lib(fname, build_dir):
@@ -80,11 +92,22 @@ def remap_os_paths(obj):
     if not mapping:
         return obj
 
+    packs = packs_data_dir.rstrip("/") + "/"
+    if os.path.realpath(packs) == os.path.realpath(data_dir):
+        packs = None
+
     def remap(value):
         if isinstance(value, str):
             for a, b in mapping:
                 if value.startswith(a):
-                    return b + value[len(a):]
+                    path = b + value[len(a):]
+                    # zynthian-data paths of content packs (factory snapshots' soundfonts): there
+                    # when the packs are installed beside a read-only zynthian-data
+                    if packs and a == "/zynthian/zynthian-data/" and not os.path.exists(path):
+                        alt = packs + value[len(a):]
+                        if os.path.exists(alt):
+                            return alt
+                    return path
             return value
         if isinstance(value, dict):
             return {remap(k): remap(v) for k, v in value.items()}

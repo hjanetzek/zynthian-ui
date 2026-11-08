@@ -57,9 +57,8 @@ class zynthian_engine_audioplayer(zynthian_engine):
     root_bank_dirs = [
         ('User Audio', zynthian_engine.my_data_dir + "/files/Audio"),
         ('User Samples', zynthian_engine.my_data_dir + "/files/Samples"),
-        ('System Audio', zynthian_engine.data_dir + "/files/Audio"),
-        ('System Samples', zynthian_engine.data_dir + "/files/Samples")
-    ]
+    ] + [('System Audio', d) for d in zynthian_paths.system_data_paths("files/Audio")] \
+      + [('System Samples', d) for d in zynthian_paths.system_data_paths("files/Samples")]
 
     # ---------------------------------------------------------------------------
     # Initialization

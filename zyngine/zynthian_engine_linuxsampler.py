@@ -33,7 +33,7 @@ from os.path import isfile
 from Levenshtein import distance
 from subprocess import check_output
 
-from zynconf import ServerPort
+from zynconf import ServerPort, zynthian_paths
 from zyncoder.zyncore import lib_zyncore
 from zyngine.zynthian_engine_sfz import zynthian_engine_sfz
 
@@ -68,9 +68,8 @@ class zynthian_engine_linuxsampler(zynthian_engine_sfz):
     root_bank_dirs = [
         ('User GIG', zynthian_engine_sfz.my_data_dir + "/soundfonts/gig"),
         #('User SFZ', zynthian_engine_sfz.my_data_dir + "/soundfonts/sfz"),
-        ('System GIG', zynthian_engine_sfz.data_dir + "/soundfonts/gig"),
         #('System SFZ', zynthian_engine_sfz.data_dir + "/soundfonts/sfz")
-    ]
+    ] + [('System GIG', d) for d in zynthian_paths.system_data_paths("soundfonts/gig")]
 
     # ---------------------------------------------------------------------------
     # Initialization

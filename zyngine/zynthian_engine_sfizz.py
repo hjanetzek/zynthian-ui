@@ -31,6 +31,7 @@ from subprocess import check_output
 import yaml
 from pathlib import Path
 
+from zynconf import zynthian_paths
 from zyngine.zynthian_engine_sfz import zynthian_engine_sfz
 
 # ------------------------------------------------------------------------------
@@ -47,8 +48,7 @@ class zynthian_engine_sfizz(zynthian_engine_sfz):
     preset_fexts = ["sfz", "dspreset"]
     root_bank_dirs = [
         ('User', zynthian_engine_sfz.my_data_dir + "/soundfonts/sfz"),
-        ('System', zynthian_engine_sfz.data_dir + "/soundfonts/sfz")
-    ]
+    ] + [('System', d) for d in zynthian_paths.system_data_paths("soundfonts/sfz")]
 
     # ---------------------------------------------------------------------------
     # Initialization

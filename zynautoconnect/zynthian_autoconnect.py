@@ -1647,6 +1647,26 @@ def update_midi_port_aliases(port):
     return True
 
 
+def update_hid_drivers():
+    """Load the drivers of the HID devices which are there (drivers without MIDI port, see
+    zynthian_ctrldev_manager), with the state the last ZS3 has for them, as midi_autoconnect
+    does for new MIDI devices"""
+    try:
+        manager = state_manager.ctrldev_manager
+    except AttributeError:
+        return
+    for uid in manager.update_hid_drivers():
+        try:
+            state = state_manager.zs3['zs3-0']['midi_capture'][uid]
+            try:
+                state = state_manager.zs3[state_manager.last_zs3_id]['midi_capture'][uid]
+            except:
+                pass
+            state_manager.set_midi_capture_state({uid: state})
+        except:
+            pass
+
+
 def autoconnect():
     """Connect expected routes and disconnect unexpected routes"""
     update_hw_midi_ports()
@@ -1680,6 +1700,8 @@ def auto_connect_thread():
                     # Check if hardware MIDI ports changed, e.g. USB inserted/removed
                     if update_hw_midi_ports():
                         do_midi = True
+                    # Load the drivers of HID devices which were plugged in
+                    update_hid_drivers()
                     # Check if requested to run midi connect (slow)
                     if deferred_midi_connect:
                         do_midi = True

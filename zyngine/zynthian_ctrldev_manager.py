@@ -91,6 +91,39 @@ def setup_extra_ctrldev_dirs():
 setup_extra_ctrldev_dirs()
 
 # ------------------------------------------------------------------------------
+# HID drivers
+# ------------------------------------------------------------------------------
+# A driver class with hid_ids = [(vendor_id, product_id), ...] drives a USB HID
+# device itself (over hidraw), without a MIDI port: it is loaded with
+# idev_in = idev_out = None when such a device is there (update_hid_drivers, on
+# the autoconnect thread's hardware check), kept in hid_drivers by the uid
+# "HID:vvvv:pppp" (for the state of the snapshots), and stays loaded when the
+# device goes away (it handles absence and replugs itself). E.g. the
+# DrivenByMoss Maschine drivers, which have no MIDI ports on Linux.
+
+hidraw_sysfs_root = "/sys/class/hidraw"
+
+
+def find_hid_ids(sysfs_root=None):
+    """The (vendor_id, product_id) of the hidraw devices (HID_ID of their uevent)"""
+    ids = set()
+    for uevent in glob.glob(f"{sysfs_root or hidraw_sysfs_root}/hidraw*/device/uevent"):
+        try:
+            with open(uevent) as f:
+                for line in f:
+                    if line.startswith("HID_ID="):
+                        _bus, vendor, product = line.strip()[7:].split(":")
+                        ids.add((int(vendor, 16), int(product, 16)))
+                        break
+        except (OSError, ValueError):
+            pass
+    return ids
+
+
+def hid_uid(vendor_id, product_id):
+    return f"HID:{vendor_id:04x}:{product_id:04x}"
+
+# ------------------------------------------------------------------------------
 # Zynthian Control Device Manager Class
 # ------------------------------------------------------------------------------
 
@@ -111,6 +144,7 @@ class zynthian_ctrldev_manager():
         self.driver_classes = {}  # Dictionary of driver classes indexed by module name
         self.available_drivers = {}  # Dictionary of lists of available driver classes indexed by device ID
         self.drivers = {}  # Map of device driver instances indexed by zmip
+        self.hid_drivers = {}  # Map of HID driver instances (no zmip) indexed by uid ("HID:vvvv:pppp")
         self.disabled_devices = []  # List of device uid disabled from loading driver
         self.update_available_drivers()
 
@@ -261,6 +295,66 @@ class zynthian_ctrldev_manager():
     def unload_all_drivers(self):
         for izmip in list(self.drivers):
             self.unload_driver(izmip)
+        for uid in list(self.hid_drivers):
+            self.unload_hid_driver(uid)
+
+    def update_hid_drivers(self, sysfs_root=None):
+        """Load the autoload HID drivers of the HID devices which are there and have none yet
+        (nor a disabled one)
+
+        returns : List of uids of the loaded drivers
+        """
+        classes = [cls for cls in self.driver_classes.values() if getattr(cls, "hid_ids", None) and cls.get_autoload_flag()]
+        if not classes:
+            return []
+        present = find_hid_ids(sysfs_root)
+        loaded = []
+        for cls in classes:
+            for vendor_id, product_id in cls.hid_ids:
+                uid = hid_uid(vendor_id, product_id)
+                if (vendor_id, product_id) in present and uid not in self.hid_drivers and uid not in self.disabled_devices:
+                    if self.load_hid_driver(uid, cls):
+                        loaded.append(uid)
+        return loaded
+
+    def load_hid_driver(self, uid, driver_class):
+        """Loads a HID driver (without zmip) for the device uid
+
+        returns : True if loaded
+        """
+        if uid in self.hid_drivers:
+            return False
+        try:
+            driver = driver_class(self.state_manager, None, None)
+            self.hid_drivers[uid] = driver
+            driver.init()
+            if uid in self.disabled_devices:
+                self.disabled_devices.remove(uid)
+            logging.info(f"Loaded ctrldev driver '{driver_class.get_driver_name()}' for '{uid}'.")
+            return True
+        except Exception as e:
+            self.hid_drivers.pop(uid, None)
+            logging.error(f"Can't load ctrldev driver '{driver_class.get_driver_name()}' for '{uid}' => {e}")
+            logging.exception(traceback.format_exc())
+            return False
+
+    def unload_hid_driver(self, uid, disable=False):
+        """Unloads a HID driver
+
+        disable : True to keep it from loading again (until load_hid_driver)
+        returns : True if unloaded
+        """
+        driver = self.hid_drivers.pop(uid, None)
+        if disable and uid not in self.disabled_devices:
+            self.disabled_devices.append(uid)
+        if driver is None:
+            return False
+        driver.end()
+        logging.info(f"Unloaded ctrldev driver '{driver.get_driver_name()}' for '{uid}'.")
+        return True
+
+    def is_hid_uid(self, uid):
+        return isinstance(uid, str) and uid.startswith("HID:")
 
     def get_disabled_driver(self, uid):
         return uid in self.disabled_devices
@@ -288,10 +382,26 @@ class zynthian_ctrldev_manager():
                     state[uid] = dstate
             except Exception as e:
                 logging.error(f"Driver error while getting state for '{uid}' => {e}")
+        for uid, driver in self.hid_drivers.items():
+            try:
+                dstate = driver.get_state()
+                if dstate:
+                    state[uid] = dstate
+            except Exception as e:
+                logging.error(f"Driver error while getting state for '{uid}' => {e}")
         return state
 
     def set_state_drivers(self, state):
         for uid, dstate in state.items():
+            if uid in self.hid_drivers:
+                try:
+                    self.hid_drivers[uid].set_state(dstate)
+                except Exception as e:
+                    logging.error(f"Driver error while restoring state for '{uid}' => {e}")
+                continue
+            if self.is_hid_uid(uid):
+                logging.warning(f"Can't restore state for '{uid}'. Device not connected or driver not loaded.")
+                continue
             izmip = zynautoconnect.get_midi_in_devid_by_uid(uid, zynthian_gui_config.midi_usb_by_port)
             if izmip is not None and izmip in self.drivers:
                 try:
@@ -303,7 +413,7 @@ class zynthian_ctrldev_manager():
 
     def need_wsled_state(self):
         """Return True if some driver needs the wsled state"""
-        for dev in self.drivers.values():
+        for dev in list(self.drivers.values()) + list(self.hid_drivers.values()):
             if dev.need_wsled_state:
                 return True
         return False
@@ -311,13 +421,13 @@ class zynthian_ctrldev_manager():
     def sleep_on(self):
         """Enable sleep state"""
 
-        for dev in list(self.drivers.values()):
+        for dev in list(self.drivers.values()) + list(self.hid_drivers.values()):
             dev.sleep_on()
 
     def sleep_off(self):
         """Disable sleep state"""
 
-        for dev in list(self.drivers.values()):
+        for dev in list(self.drivers.values()) + list(self.hid_drivers.values()):
             dev.sleep_off()
 
     def midi_event(self, idev, ev):

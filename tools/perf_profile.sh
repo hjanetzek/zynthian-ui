@@ -1,7 +1,7 @@
 #!/bin/sh
 usage_text='Record zynthian and Xwayland on the device with perf and print where the CPU time goes.
 
-Usage: perf_profile.sh [-c CONFIG] [-H HOST] [-u USER] [-d SECONDS] [-n LINES]
+Usage: perf_profile.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-d SECONDS] [-n LINES]
 
   -d SECONDS  recording time per process (default 15)
   -n LINES    lines per listing (default 20)

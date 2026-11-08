@@ -47,7 +47,7 @@ dev() { ssh $ssh_opts ${port:+-p "$port"} "$target" "$@"; }
 devcp() { scp -q $ssh_opts ${port:+-P "$port"} "$@"; }
 
 # Shell snippet (for dev) that sets $P to zynthian's PID or fails
-ZYN_PID='P=$(pgrep -f "^python3 ./zynthian_main.py" | head -n 1); [ -n "$P" ] || { echo "zynthian is not running" >&2; exit 1; }'
+ZYN_PID='P=$(pgrep -f "^python3 ./zynthian_(qt_)?main.py" | head -n 1); [ -n "$P" ] || { echo "zynthian is not running" >&2; exit 1; }'
 
 # Environment of the kiosk session (cage), for Wayland tools like grim
 SESSION_ENV='XDG_RUNTIME_DIR=/run/user/$(id -u) WAYLAND_DISPLAY=wayland-0'

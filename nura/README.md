@@ -35,7 +35,10 @@ The layout comes from `desktop/install.sh`, which `zynthian-ui` uses; `zyncoder`
 At run time `/usr/bin/zynthian` sets `ZYNTHIAN_DIR=/usr/share/zynthian` and
 `ZYNTHIAN_LIB_DIR=/usr/lib/zynthian`; the user's configuration and data go to
 `~/.config/zynthian` and `~/.local/share/zynthian` and are created on first start, together with
-the LV2 plugin cache. Nothing is written to `/usr`.
+the LV2 plugin cache. Nothing is written to `/usr`. Content packs (zynthian-packages, installed by
+webconf or `zynthian-factory-content`) go to `/var/lib/zynthian/zynthian-data`
+(`ZYNTHIAN_PACKS_DATA_DIR`), system data beside the read-only zynthian-data: nura-builds'
+[docs/factory-content.md](https://github.com/hjanetzek/nura-builds/blob/main/docs/factory-content.md).
 
 ### Python packages
 

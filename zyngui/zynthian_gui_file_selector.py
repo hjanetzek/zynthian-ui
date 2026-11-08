@@ -180,9 +180,10 @@ class zynthian_gui_file_selector(zynthian_gui_selector_info):
             dirnames = self.get_root_dirnames(self.fexts)
         # User files, collections, system files
         self.root_dirs = root_dirs(dirnames)
-        for de in os.scandir(self.collections_dpath):
-            if de.is_dir():
-                self.load_collection_info(de.name)
+        if os.path.isdir(self.collections_dpath):
+            for de in os.scandir(self.collections_dpath):
+                if de.is_dir():
+                    self.load_collection_info(de.name)
         if self.dirpath and not self.is_confined_to_root_dirs(self.dirpath):
             dpbname = os.path.basename(self.dirpath)
             self.root_dirs.append((f"Current ({dpbname})", self.dirpath))

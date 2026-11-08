@@ -1,7 +1,8 @@
 #!/bin/sh
 # Put the remote sources of the packages built with --src into pmbootstrap's distfiles cache,
 # so that "pmbootstrap build --src=... zynthian-ui" (which skips $source) builds without network:
-# the Python packages that zynthian-ui bundles.
+# the Python packages that zynthian-ui bundles. Also zynthian-data's sources (abuild fetches them
+# itself, without retrying: GitHub's archive downloads fail with 503/504 at times).
 # Usage: seed-distfiles.sh [pmbootstrap config]   (needs sudo: the cache is owned by root)
 set -eu
 
@@ -17,7 +18,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-for aport in zynthian-ui; do
+for aport in zynthian-ui zynthian-data; do
 	apkbuild="$here/$aport/APKBUILD"
 	# Entries are "url" or "name::url"; the APKBUILD's variables expand when it is sourced.
 	# shellcheck disable=SC1090 # the APKBUILD
@@ -33,7 +34,7 @@ for aport in zynthian-ui; do
 			continue
 		fi
 		echo "fetch $name"
-		curl -fsSL -o "$tmp/$name" "$url"
+		curl -fsSL --retry 6 --retry-all-errors --retry-delay 20 -o "$tmp/$name" "$url"
 	done
 	sed -n '/^sha512sums="/,/^"/p' "$apkbuild" | grep '  ' >> "$tmp/sha512sums"
 done

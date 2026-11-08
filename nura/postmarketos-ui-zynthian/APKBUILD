@@ -1,7 +1,7 @@
 # Kiosk UI for postmarketOS/Nura: boots straight into zynthian (cage, XWayland, PipeWire).
 pkgname=postmarketos-ui-zynthian
 pkgver=1
-pkgrel=19
+pkgrel=20
 pkgdesc="zynthian synthesizer platform as a kiosk (Wayland, cage)"
 arch="noarch"
 url="https://github.com/zynthian/zynthian-ui"
@@ -12,12 +12,11 @@ options="!check pmb:drm pmb:support-systemd"
 # yet. Large data (SoundFonts, packs) stays out of the image: zynthian-factory-content installs it.
 # LV2 plugins: zynthian-lv2-plugins (nura-builds: aports/lv2/), the plugins zynthian enables by default as far as
 # they are packaged; state and the missing ones: nura-builds' docs/lv2-plugins.md. Pure Data for the
-# puredata engine: zynthian-puredata (nura-builds: aports/pd/). DrivenByMoss's controller drivers and
-# dbm-nihost (NI Maschine Mk2/JAM): drivenbymoss-rust's nura/ recipes. The web configuration
+# puredata engine: zynthian-puredata (nura-builds: aports/pd/). DrivenByMoss's controller drivers (with
+# the NI Maschine Mk2/JAM support): drivenbymoss-rust's nura/ recipe. The web configuration
 # (zynthian-webconf, port 8080) and the content pack catalogue it installs from (zynthian-packages):
 # their nura branches' recipes.
 depends="
-	dbm-nihost
 	drivenbymoss
 	fluidsynth
 	gigtools

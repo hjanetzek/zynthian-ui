@@ -99,3 +99,9 @@ kill $(cat "$VM/qemu.pid")
 - `can't download the image`: GitHub's release downloads fail at times (HTTP 503/504; the script
   retries through the API); copy the user's image from `~/.cache/nura-builds` instead.
 - No SSH after a minute: `tail $VM/serial.log` (a login prompt there means the system is up).
+- zynthian hangs removing chains (a snapshot load that never finishes; a thread dump shows
+  `zynmixer.remove_strip` → `removeStrip`): the VM has no sound card with `-A none`, and its PipeWire
+  graph can stop (pw-top: every node at quantum 0, zynthian's nodes driven by `Midi-Bridge`). zynmixer
+  waits for a JACK period that never comes (upstream log: `removeStrip()`). Restart the session
+  (`sudo systemctl restart tinydm`); for long runs consider a VM with audio (`-A` default, quiet with
+  the host's volume down). Seen 2026-11-08, cause of the stop not known yet.

@@ -107,13 +107,28 @@ start_vm() {
 # Wait for SSH; on a new disk install the SSH key and passwordless sudo (qemu_setup.sh) and bring
 # the packages up to date (the image may be older than nura-builds' x86_64 repository). Both VMs
 # show the UI at scale 1, as the V5 kit (kiosk packages before r21 use the Duet's 1.5 in a VM too).
+nura_repo=https://github.com/hjanetzek/nura-builds/releases/download
+nura_key=https://raw.githubusercontent.com/hjanetzek/nura-builds/main/keys/nura-builds-ci.rsa.pub
 setup_vm() {
-	v=$1
+	v=$1 upgrade=0
 	if ! vm_ssh "$v" true 2>/dev/null; then
 		echo "$v: setting up SSH (first boot of a new disk takes about a minute)"
 		"$here/qemu_setup.sh" -p "$(vm_port "$v")" > /dev/null
+		upgrade=1
+	fi
+	# nura-builds' package repository (release x86_64: apk appends the architecture), which the
+	# image doesn't have: zynthian-ui-tomita/-vangelis and everything newer than the image
+	if ! vm_ssh "$v" "grep -qxF '$nura_repo' /etc/apk/repositories"; then
+		echo "$v: adding nura-builds' package repository"
+		vm_ssh "$v" "set -e
+			sudo wget -q -O /etc/apk/keys/nura-builds-ci.rsa.pub '$nura_key'
+			echo '$nura_repo' | sudo tee -a /etc/apk/repositories >/dev/null"
+		upgrade=1
+	fi
+	if [ $upgrade = 1 ]; then
 		echo "$v: upgrading the packages"
-		vm_ssh "$v" 'sudo apk upgrade -q 2>&1 | grep -v "^WARNING: Permanently redirected" || true'
+		vm_ssh "$v" 'sudo apk update -q 2>&1 | grep -v "^WARNING: Permanently redirected"
+			sudo apk upgrade -q 2>&1 | grep -v "^WARNING: Permanently redirected" || true'
 	fi
 	# grim for screenshots; font-dejavu: the Tk UI's mixer loads DejaVuSans.ttf and dies without it
 	# (a dependency of zynthian-ui since 2026-11-09, missing in older images and packages)

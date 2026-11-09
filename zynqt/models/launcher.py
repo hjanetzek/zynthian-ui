@@ -38,7 +38,7 @@ class Launcher(QObject):
         self.phraseChanged.emit()
 
     def _play_state(self, phrase, chan):
-        for chain_id, chain in self.chain_manager.chains.items():
+        for chain_id, chain in list(self.chain_manager.chains.items()):  # changes while a snapshot loads
             if pad_channel(chain) == chan:
                 self.padChanged.emit(chain_id, phrase)
 

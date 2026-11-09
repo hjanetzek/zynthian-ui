@@ -71,7 +71,7 @@ class PatternEditor(QObject):
         self.cc_mode = False        # CC view instead of the notes
         self.cc_num = 1             # (zynthian_gui_pated_cc starts on CC1)
         self.cc_cursor = 0          # step
-        self.cc_row = 64            # the value row of the cursor (zynthian_gui_pated_cc.selected_cell)
+        self.cc_row = 60            # the value row of the cursor (zynthian_gui_pated_base: selected_cell [0, 60])
         self.cc_show_all = False    # the CC knob also offers CCs without a controller (V5 knob 0 bold)
         self.select_mode = False    # block edit mode: touch selects a block instead of adding notes
         self.edit_mode = EDIT_MODE_NONE
@@ -1230,7 +1230,6 @@ class PatternEditor(QObject):
                 "Scale", list(zip(scales, range(len(scales)))), scale, self._set_scale))
             add(f"Tonic ({NOTE_NAMES[ls.getTonic() % 12]})", lambda: self._pick(
                 "Tonic", list(zip(NOTE_NAMES, range(12))), ls.getTonic(), self._set_tonic))
-        add(("\u2612" if ls.isMidiRecord() else "\u2610") + " Record MIDI", self.toggleRecording)
         # EDIT
         head("EDIT")
         if not self.cc_mode:
@@ -1267,6 +1266,8 @@ class PatternEditor(QObject):
             add("Save pattern", lambda: self._ask_file_name(PATTERNS_DIR, "zpat", self._save_pattern_file))
             add("Import from SMF", self._import_smf)
             add("Export to SMF", lambda: self._ask_file_name(SMF_EXPORT_DIR, "mid", self._export_smf))
+        # Qt only, after Tk's entries (Tk's list positions stay)
+        add(("\u2612" if ls.isMidiRecord() else "\u2610") + " Record MIDI", self.toggleRecording)
         add("New note values", self.entry_options)
         add("Undo all", self._undo_all)
         title = "Pattern options" + (f": {info['name']}" if info.get("name") else "")

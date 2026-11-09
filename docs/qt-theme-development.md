@@ -109,9 +109,13 @@ nura/tools/sync_ui.sh -q        # copy only zynqt/qml, no restart: the UI reload
 
 - On success `~/.local/state/tinydm.log` on the target shows
   "Inplace updates setting confirmed as: enabled".
-- Literals and bindings update in place; structural changes (new items or properties) rebuild the
-  component; objects created procedurally inside it are lost. Python changes (models, screens,
-  `zynthian_qt_main.py`) still need `sync_ui.sh -R`.
+- Literals (sizes, colours, texts) update in place: that is the reliable use (tested in the QEMU
+  VM). Structural changes (new items or properties) are hit and miss: they may update in place,
+  rebuild the whole UI (back on the mixer, QML defaults written into the backend: once the tempo
+  went to 80 bpm and the active chain to main), or crash the UI (the launcher restarts it, exit 2;
+  seen twice with a new item in a screen that was shown). A new file isn't picked up. For those,
+  and for Python changes (models, screens, `zynthian_qt_main.py`), use `sync_ui.sh -R`.
+- Python tools still work under it: `zyninject.sh` finds the UI process (qmlpreview's child).
 - **Development only**: the QML debug server can control the UI. Remove the line from
   `zynthian_custom_config.sh` (and `RESTART_UI`) when done. Without the variable nothing changes.
 - How it works and why (each detail broke it once): [qt-theming.md](qt-theming.md), "Previewing" →

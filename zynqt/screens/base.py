@@ -177,6 +177,8 @@ class SelectorScreen(QObject):
 
     viewKind = Property(str, _get_kind, constant=True)
     gridColumns = Property(int, _get_columns, constant=True)
+    # The screen's name (main_menu, add_chain, ...): themes size some grids by it
+    screenName = Property(str, lambda self: self.name, constant=True)
 
     @Property(QObject, constant=True)
     def entryModel(self):

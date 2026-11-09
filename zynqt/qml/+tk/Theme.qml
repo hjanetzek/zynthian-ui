@@ -51,6 +51,9 @@ ThemeBase {
     listPadding: Math.round(f / 2)
     infoWidth: 0.25
     gridSpacing: 1 / 20
+    // zynthian_gui_config.main_menu_columns: configured, else 3 on V5 / Z2 or below 800 px, else 4
+    mainMenuColumns: _cfg && _cfg.mainMenuColumns > 0 ? _cfg.mainMenuColumns : (screenWidth < 800 || (_cfg && _cfg.v5) ? 3 : 4)
+    addChainColumns: 3
     gridBackground: tkColor("panel_bg", "#3a424d")
     infoTextSize: tkPx(f)
 }

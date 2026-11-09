@@ -87,15 +87,7 @@ while true; do
 	# ZYNTHIAN_UI=qt: the Qt Quick UI (docs/qt-port-plan.md) instead of the Tk UI (if this tree
 	# has it: upstream zynthian-ui hasn't)
 	if [ "$ZYNTHIAN_UI" == "qt" ] && [ -f ./zynthian_qt_main.py ]; then
-		# ZYNTHIAN_QT_QMLPREVIEW=1 (development only): through Qt 6's qmlpreview, which reloads
-		# changed QML files in the running UI. It inserts -qmljsdebugger= after the program, so
-		# the script is started directly (#!/usr/bin/python3), not as "python3 script"
-		qmlpreview=/usr/lib/qt6/bin/qmlpreview
-		if [ "$ZYNTHIAN_QT_QMLPREVIEW" == "1" ] && [ -x "$qmlpreview" ] && [ -x ./zynthian_qt_main.py ]; then
-			"$qmlpreview" --verbose ./zynthian_qt_main.py
-		else
-			python3 ./zynthian_qt_main.py
-		fi
+		python3 ./zynthian_qt_main.py
 	else
 		# Tk draws through X11 (XWayland on a Wayland desktop): its OpenGL widgets
 		# (pyopengltk) need GLX, PyOpenGL would pick EGL when WAYLAND_DISPLAY is set

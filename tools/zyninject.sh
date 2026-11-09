@@ -83,7 +83,9 @@ dev "$ZYN_PID
 rm -f '$output'
 sudo python3 -c \"import sys; sys.remote_exec(\$P, '$remote.boot.py')\"
 i=0
-while [ ! -f '$output' ] && [ \$i -lt $timeout ]; do sleep 1; i=\$((i + 1)); done
+# Polled every 50 ms (an injection takes a few ms); once there, a moment for the write to end
+while [ ! -f '$output' ] && [ \$i -lt $((timeout * 20)) ]; do sleep 0.05; i=\$((i + 1)); done
+[ -f '$output' ] && sleep 0.05
 rm -f '$remote' '$remote.boot.py'
 [ -f '$output' ] || { echo 'no result after ${timeout} s; errors are in ~/.local/state/tinydm.log' >&2; exit 1; }
 sed 's|/usr/share/zynthian/zynthian-ui/||g; s|/usr/share/zynthian/python/||g; s|/usr/lib/python3[.0-9]*/||g' '$output'

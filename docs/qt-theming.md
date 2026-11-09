@@ -255,10 +255,15 @@ Preview (tested in the QEMU VM, 2026-11-09):
   `~/.local/state/tinydm.log` shows "Starting '...zynthian_qt_main.py -qmljsdebugger=...'" and
   "Inplace updates setting confirmed as: enabled".
 - `nura/tools/sync_ui.sh -V -q` copies only `zynqt/qml` (file by file, no restart, 0.2 s);
-  qmlpreview sees the changed files and reloads them in the running UI within a second. A changed
-  literal and a structural change (a new item) both updated in place; the current screen and the
-  Python state stay. After a reload the log shows a few "<Unknown File>: Unable to assign
-  [undefined] to double" (harmless). Python changes still need `RESTART_UI`.
+  qmlpreview sees the changed files and reloads them in the running UI within a second. Changed
+  literals (sizes, colours, texts) update in place, the current screen and the Python state stay:
+  that is the reliable use. Structural changes (a new item, a new file) are hit and miss: once a
+  new item in the top bar updated in place; once the whole UI was rebuilt (back on the mixer, and
+  QML defaults written into Python: the tempo went to 80 bpm, the active chain to main); once
+  (a new item in ChainManagerScreen.qml while it was shown) the UI crashed, and the launcher
+  started it again (exit 2). A new file isn't picked up: `RESTART_UI`. After a reload the log
+  shows a few "<Unknown File>: Unable to assign [undefined] to ..." (harmless). Python changes
+  still need `RESTART_UI`.
 - Why it is done this way (each one broke it once):
   - qmlpreview always exits with 0, whatever the UI's exit code; the launcher would end the
     session on `RESTART_UI` (102). The child writes its exit code to a file

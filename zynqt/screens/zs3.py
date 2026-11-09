@@ -70,6 +70,10 @@ class ZS3(SelectorScreen):
             entries.append(entry(title, data=zs3_id, info="Restore ZS3.\n\nLong press for options."))
         self.set_entries(entries, index)
 
+    def show_menu(self):
+        """MENU: the selected entry's options (Tk's show_menu: bold select)"""
+        self.activate(self._index, "B")
+
     def select_action(self, index, t):
         sm = self.state_manager
         zs3_id = self.entries[index]["data"]

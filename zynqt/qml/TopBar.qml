@@ -66,17 +66,16 @@ Rectangle {
         }
     }
 
-    Label {
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: root._shift
+    ScrollingTitle {
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        verticalOffset: root._shift
         anchors.left: parent.left
         anchors.leftMargin: 8
         anchors.right: statusRow.left
-        elide: Text.ElideRight
         text: (root.overlayHint ? "☰ " : "") + root.title
         color: Theme.text
         size: Theme.titleSize
-        title: true
     }
 
     // Status area as the Tk UI's: top row the main meters, the mute flag and the heart (its

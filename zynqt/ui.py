@@ -298,7 +298,12 @@ class ZynUI(QObject):
                   "undervoltage": bool(sm.status_undervoltage),
                   "updateAvailable": bool(sm.update_available),
                   "overtemp": bool(sm.status_overtemp),
-                  "powerSave": bool(sm.power_save_mode)}
+                  "powerSave": bool(sm.power_save_mode),
+                  # The Tk mixer's title and tempo (zynthian_gui_mixer set_title / status)
+                  "snapshotTitle": self._snapshot_title(),
+                  "tempo": float(zs.get_tempo()) if zs else 0.0,
+                  "beat": int(getattr(zs, "beat", 0) or 0) if zs else 0,
+                  "bpb": int(getattr(zs, "bpb", 4) or 4) if zs else 4}
         # Battery: read every 5 s (sysfs), shown while there is a system battery
         self._battery_ticks = getattr(self, "_battery_ticks", 0) - 1
         if self._battery_ticks <= 0:
@@ -523,6 +528,17 @@ class ZynUI(QObject):
             self._set_current_screen(self.screen_history.pop())
         elif self.current_screen not in ("mixer", "launcher"):
             self._set_current_screen("mixer")
+
+    def _snapshot_title(self):
+        """The loaded snapshot's name and the ZS3's, as zynthian_gui_mixer.set_title"""
+        sm = self.state_manager
+        if not sm.last_snapshot_fpath:
+            return ""
+        title = os.path.splitext(sm.last_snapshot_fpath)[0].rsplit("/", 1)[-1].replace("last_state", "Last State")
+        zs3 = sm.get_zs3_title()
+        if zs3 and zs3 != "Last state":
+            title += f": {zs3}"
+        return title
 
     def _screen_obj(self, name=None):
         """The object behind screen name (default: the current one): a selector screen or the

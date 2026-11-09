@@ -56,8 +56,13 @@ Item {
 
     // List background: grey also below the last entry
     Rectangle {
-        anchors.fill: list
-        anchors.margins: -Theme.listPadding
+        anchors.left: list.left
+        anchors.right: list.right
+        anchors.top: list.top
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: -Theme.listPadding
+        anchors.rightMargin: -Theme.listPadding
+        anchors.topMargin: -Theme.listPadding
         visible: list.visible
         color: Theme.listBackground
     }
@@ -69,7 +74,7 @@ Item {
         anchors.leftMargin: (cats.visible ? 2 : 0) + Theme.listPadding
         anchors.top: parent.top
         anchors.topMargin: Theme.listPadding
-        anchors.bottom: parent.bottom
+        anchors.bottom: statusLine.visible ? statusLine.top : parent.bottom
         anchors.right: info.left
         anchors.rightMargin: 2 + Theme.listPadding
         visible: !root.isGrid
@@ -115,6 +120,22 @@ Item {
                 onLongPressed: root.screen.activate(row.index, "B")
             }
         }
+    }
+
+    // Status under the list (zynthian_gui_zs3's waiting label: centred, 0.85 F, color_ml)
+    Label {
+        id: statusLine
+        anchors.left: list.left
+        anchors.right: list.right
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 2
+        visible: !root.isGrid && text !== ""
+        text: root.screen && root.screen.statusLine !== undefined ? root.screen.statusLine : ""
+        horizontalAlignment: Text.AlignHCenter
+        elide: Text.ElideRight
+        title: true
+        size: Theme.listTextSize * 0.85
+        color: Theme.statusLine
     }
 
     // Info pane: text and icon of the selected entry (+<theme>/InfoPane.qml)

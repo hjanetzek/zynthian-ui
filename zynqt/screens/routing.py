@@ -13,6 +13,7 @@ from zynqt.screens.chain_screens import list_data_entries
 
 class AudioOut(SelectorScreen):
     name = "audio_out"
+    default_icon = "zynthian_logo.png"   # Tk's selector_info default
 
     def build(self):
         self.playback_ports = zynautoconnect.get_hw_audio_dst_ports()
@@ -34,6 +35,7 @@ class AudioIn(SelectorScreen):
     input's ALSA levels"""
 
     name = "audio_in"
+    default_icon = "zynthian_logo.png"   # Tk's selector_info default
 
     def build(self):
         self.capture_ports = zynautoconnect.get_audio_capture_ports()

@@ -58,6 +58,7 @@ QtObject {
     property color pinnedBackground: "#333333"
     property color divider: "#666666"
     property color connector: "#aaaaaa"
+    property color statusLine: "#f0f000"    // status text under a list (MIDI learn waiting)
 
     // Pattern editor: grid rows (black keys darker) and lines, notes (hue; lighter with
     // velocity), the selected block, CC bars; toolbar buttons switched on, recording

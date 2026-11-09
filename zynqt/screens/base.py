@@ -123,6 +123,7 @@ class SelectorScreen(QObject):
     titleChanged = Signal()
     indexChanged = Signal()
     categoriesChanged = Signal()
+    statusLineChanged = Signal()
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -131,6 +132,7 @@ class SelectorScreen(QObject):
         self.chain_manager = ui.chain_manager
         self.model = EntryModel(self)
         self._title = ""
+        self._status_line = ""
         self._index = 0
         self._categories = []
         self._category_index = 0
@@ -192,6 +194,17 @@ class SelectorScreen(QObject):
         if title != self._title:
             self._title = title
             self.titleChanged.emit()
+
+    @Property(str, notify=statusLineChanged)
+    def statusLine(self):
+        """A status text under the list (Tk: a label in the list's column, e.g. the ZS3 screen's
+        "Waiting for MIDI Program Change...")"""
+        return self._status_line
+
+    def set_status_line(self, text):
+        if text != self._status_line:
+            self._status_line = text
+            self.statusLineChanged.emit()
 
     @Property(int, notify=indexChanged)
     def index(self):

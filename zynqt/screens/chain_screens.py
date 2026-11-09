@@ -121,6 +121,7 @@ class MidiChannel(SelectorScreen):
     """MIDI channel of a new chain (mode "ADD") or of the active chain ("SET")"""
 
     name = "midi_chan"
+    default_icon = "midi_logo.png"   # Tk's selector_info default
 
     def __init__(self, ui, parent=None):
         super().__init__(ui, parent)

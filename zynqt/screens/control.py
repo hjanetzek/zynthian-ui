@@ -448,6 +448,15 @@ class ChainControl(QObject):
                     self.setPage(row + proc.get_current_screen_index())
                     return
 
+    def select_mixer_processor(self, page=1):
+        """The chain's mixer controls (zynthian_gui_control.select_mixer_processor): page
+        number page of its audio mixer processor"""
+        rows = [row for row, e in enumerate(self.pages.entries)
+                if not e["separator"] and e["data"][0] == "proc"
+                and getattr(e["data"][1], "eng_code", None) in ("MI", "MR")]
+        if rows:
+            self.setPage(rows[min(page, len(rows) - 1)])
+
     def move_page(self, step):
         entries = self.pages.entries
         i = self._page + step

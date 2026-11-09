@@ -188,9 +188,10 @@ Rectangle {
         ControlWidget {
             id: widget
             cc: root.cc
-            x: Theme.listPadding
+            // Tk grids the widget's canvas over the list's full width (the curve's grid 10 px in)
+            x: 0
             y: root.widgetHalf ? listArea.height : 0
-            width: listArea.width - 2 * Theme.listPadding
+            width: listArea.width
             height: parent.height - y
         }
 

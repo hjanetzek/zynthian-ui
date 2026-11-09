@@ -245,26 +245,42 @@ CUIA `RESTART_UI` (QML errors at load end up in `~/.local/state/tinydm.log`), CU
 ### QML hot reload (qmlpreview)
 
 For development only, QML changes can reach the running UI without `RESTART_UI`, with Qt 6's QML
-Preview:
+Preview (tested in the QEMU VM, 2026-11-09):
 
 - `export ZYNTHIAN_QT_QMLPREVIEW=1` in `~/.config/zynthian/zynthian_custom_config.sh`, then
-  `RESTART_UI` (`nura/tools/sync_ui.sh -V -R`). The launcher (`desktop/zynthian_desktop.sh`, which
-  `sync_ui.sh` copies too) then starts `/usr/lib/qt6/bin/qmlpreview --verbose ./zynthian_qt_main.py`,
-  and `zynthian_qt_main.py` enables QML debugging (`QQmlDebuggingEnabler`) before the application
-  is created. On success qmlpreview logs "Inplace updates configuration: enabled" (in
-  `~/.local/state/tinydm.log`). Exit codes (restart, power off) pass through as before.
-- `nura/tools/sync_ui.sh -V -q` copies only `zynqt/qml` (file by file, no restart); qmlpreview
-  sees the changed files and reloads them in the running UI.
-- Gotchas: the tool must be Qt 6's (`/usr/lib/qt6/bin/qmlpreview`, package
-  `qt6-qtdeclarative-dev`; `/usr/bin/qmlpreview` on a desktop may be Qt 5's, which silently does
-  nothing). qmlpreview inserts `-qmljsdebugger=...` after the program, so the script is started
-  directly (it is executable, `#!/usr/bin/python3`); `qmlpreview python3 script.py` breaks.
-- Limits: a change of a literal updates in place; a structural change rebuilds the component
-  (its state is lost); Python changes still need `RESTART_UI`. Never in production: the QML
-  debug server can control the UI. Without the variable nothing changes.
+  `RESTART_UI` (`nura/tools/sync_ui.sh -V -R`). `zynthian_qt_main.py` then runs itself again as a
+  child of `/usr/lib/qt6/bin/qmlpreview --verbose` (`run_under_qmlpreview()`) and waits for it;
+  the child enables QML debugging and loads the QML through the symlink
+  `$XDG_RUNTIME_DIR/zynthian-ui` (to `/usr/share/zynthian/zynthian-ui`). On success
+  `~/.local/state/tinydm.log` shows "Starting '...zynthian_qt_main.py -qmljsdebugger=...'" and
+  "Inplace updates setting confirmed as: enabled".
+- `nura/tools/sync_ui.sh -V -q` copies only `zynqt/qml` (file by file, no restart, 0.2 s);
+  qmlpreview sees the changed files and reloads them in the running UI within a second. A changed
+  literal and a structural change (a new item) both updated in place; the current screen and the
+  Python state stay. After a reload the log shows a few "<Unknown File>: Unable to assign
+  [undefined] to double" (harmless). Python changes still need `RESTART_UI`.
+- Why it is done this way (each one broke it once):
+  - qmlpreview always exits with 0, whatever the UI's exit code; the launcher would end the
+    session on `RESTART_UI` (102). The child writes its exit code to a file
+    (`ZYNTHIAN_QT_EXIT_FILE`) and the waiting parent returns it.
+  - The preview service never asks qmlpreview for files under Qt's prefix
+    (`QLibraryInfo::PrefixPath`, `/usr` with the system's Qt): from `/usr/share/zynthian` nothing
+    was watched or reloaded. Hence the symlink (to the whole tree: the QML uses `../../icons`).
+  - The launcher (`desktop/zynthian_desktop.sh`) is unchanged: a running launcher keeps the
+    script it started with (`sync_ui.sh` moves a new one over it), so a launcher change only
+    takes effect after a session restart.
+  - qmlpreview appends `-qmljsdebugger=...` after the program, so the script is started
+    directly (executable, `#!/usr/bin/python3`); `qmlpreview python3 script.py` breaks. The tool
+    must be Qt 6's (package `qt6-qtdeclarative-dev`); a Qt 5 `qmlpreview` silently does nothing.
+  - `zyninject.sh` and the other tools take the newest zynthian process (the child), not the
+    waiting parent.
+- The log gets a "Could not open file ...+tk/X.qml" line per file selector probe; harmless.
+- Never in production: the QML debug server can control the UI. Without the variable nothing
+  changes.
 - The component preview has a live mode for the same: `/usr/lib/qt6/bin/qmlpreview
   ./nura/tools/qml_preview.py SCENE.qml --live [-t THEME]` (a window instead of a PNG; zynqt/qml
-  files reload, the scene itself is a copy and doesn't).
+  files reload, the scene itself is a copy and doesn't). On the host this was flaky (Qt 6.12:
+  the child started once, later not).
 
 On the Duet: copy the changed files into `/usr/share/zynthian/zynthian-ui` (as in
 `docs/performance-measurement.md`), restart the session, `nura/tools/screenshot.sh`.

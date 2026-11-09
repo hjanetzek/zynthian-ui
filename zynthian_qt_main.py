@@ -19,6 +19,52 @@ import os
 import signal
 import sys
 
+
+def run_under_qmlpreview():
+    """ZYNTHIAN_QT_QMLPREVIEW=1 (development only, docs/qt-theming.md): run this script again as a
+    child of Qt 6's qmlpreview, which reloads changed QML files in the running UI. qmlpreview
+    passes -qmljsdebugger=... to the child, and always exits with 0 itself: the child writes its
+    exit code to a file, which this process returns to the launcher (100/102 restart, 0 power
+    off). Before the zynthian imports: this process sets up nothing."""
+    qmlpreview = "/usr/lib/qt6/bin/qmlpreview"  # Qt 6's (a Qt 5 one silently does nothing)
+    if (os.environ.get("ZYNTHIAN_QT_QMLPREVIEW") != "1" or os.environ.get("ZYNTHIAN_QT_EXIT_FILE")
+            or not os.access(qmlpreview, os.X_OK)):
+        return
+    import subprocess
+    import tempfile
+    fd, exit_file = tempfile.mkstemp(prefix="zynthian-exit-")
+    os.close(fd)
+    env = dict(os.environ, ZYNTHIAN_QT_EXIT_FILE=exit_file)
+    # The script itself (executable, #!/usr/bin/python3): qmlpreview appends its option after
+    # the program, "python3 script" would get it as the interpreter's
+    proc = subprocess.Popen([qmlpreview, "--verbose", os.path.abspath(__file__)] + sys.argv[1:], env=env)
+    for signo in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(signo, lambda s, f: proc.send_signal(s))
+    while True:
+        try:
+            proc.wait()
+            break
+        except InterruptedError:
+            pass
+    try:
+        code = int(open(exit_file).read().strip())
+    except (OSError, ValueError):
+        code = 2  # the child crashed: restart (not 1, that drops the last state)
+    os.unlink(exit_file)
+    sys.exit(code)
+
+
+def report_exit(code):
+    """The exit code for run_under_qmlpreview()"""
+    exit_file = os.environ.get("ZYNTHIAN_QT_EXIT_FILE")
+    if exit_file:
+        with open(exit_file, "w") as f:
+            f.write(str(code))
+    return code
+
+
+run_under_qmlpreview()
+
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
@@ -61,12 +107,31 @@ def add_switch_timing(ui, window):
     window.frameSwapped.connect(swapped, Qt.DirectConnection)
 
 
+def preview_qml_dir():
+    """Under qmlpreview: the QML directory through a symlink outside /usr. The QML preview service
+    never asks qmlpreview for files under Qt's own prefix (QLibraryInfo::PrefixPath, /usr with the
+    system's Qt): the files from /usr/share/zynthian were loaded as usual, qmlpreview watched
+    nothing and reloaded nothing. The symlink's path isn't checked further. A link to the whole
+    zynthian-ui directory: the QML refers to ../../icons etc."""
+    if not os.environ.get("ZYNTHIAN_QT_EXIT_FILE"):
+        return None
+    link = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "zynthian-ui")
+    try:
+        if os.path.islink(link):
+            os.unlink(link)
+        os.symlink(os.path.dirname(os.path.dirname(QML_DIR)), link)
+    except OSError as e:
+        logging.warning(f"QML preview: no symlink {link} ({e}), no hot reload")
+        return None
+    return os.path.join(link, "zynqt", "qml")
+
+
 def main():
     logging.info("STARTING ZYNTHIAN-UI (Qt) ...")
-    # QML hot reload for development (docs/qt-theming.md): ZYNTHIAN_QT_QMLPREVIEW=1 and the
-    # launcher starts this script through Qt 6's qmlpreview, which passes -qmljsdebugger=... (Qt
-    # reads it from sys.argv). Never without the variable: the debug server is a remote control.
-    if os.environ.get("ZYNTHIAN_QT_QMLPREVIEW") == "1":
+    # QML hot reload for development: under qmlpreview (run_under_qmlpreview), which passes
+    # -qmljsdebugger=... (Qt reads it from sys.argv). Never without the variable: the debug server
+    # is a remote control.
+    if os.environ.get("ZYNTHIAN_QT_EXIT_FILE"):
         from PySide6.QtQml import QQmlDebuggingEnabler
         QQmlDebuggingEnabler.enableDebugging(True)
         logging.warning("QML debugging enabled (ZYNTHIAN_QT_QMLPREVIEW=1)")
@@ -121,7 +186,7 @@ def main():
     ctx.setContextProperty("zynThemeName", theme)
     if theme != "classic":
         engine.setExtraFileSelectors([theme])
-    engine.load(QUrl.fromLocalFile(os.path.join(QML_DIR, "Main.qml")))
+    engine.load(QUrl.fromLocalFile(os.path.join(preview_qml_dir() or QML_DIR, "Main.qml")))
     if engine.rootObjects():
         key_filter = KeyBindingFilter(ui, engine.rootObjects()[0])
         engine.rootObjects()[0].installEventFilter(key_filter)
@@ -137,7 +202,7 @@ def main():
         logging.shutdown()
         sys.stdout.flush()
         sys.stderr.flush()
-        os._exit(2)
+        os._exit(report_exit(2))
 
     if os.environ.get("ZYNTHIAN_QT_TIMING") == "1":
         add_switch_timing(ui, engine.rootObjects()[0])
@@ -153,7 +218,7 @@ def main():
     ui.start()
     app.exec()
     logging.info(f"EXITING ZYNTHIAN-UI (Qt) => {ui.exit_code}")
-    return ui.exit_code
+    return report_exit(ui.exit_code)
 
 
 if __name__ == "__main__":

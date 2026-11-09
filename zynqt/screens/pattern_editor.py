@@ -204,6 +204,7 @@ class PatternEditor(QObject):
         view_rows = 16
         offset = int(self.libseq.getRefNote()) if len(self.keymap) > view_rows else 0
         offset = max(0, min(offset, len(self.keymap) - view_rows))
+        self.ref_row = offset
         self.cursor[1] = max(0, min(len(self.keymap) - 1, offset + view_rows // 2))
         self.libseq.isPatternModified()   # reset the flag
         self._pending = False
@@ -1120,6 +1121,11 @@ class PatternEditor(QObject):
             return 1.0
         _, _, _, ev = self._cursor_note_data()
         return ev.duration if ev else 1.0
+
+    @Property(int, notify=patternChanged)
+    def refRow(self):
+        """The bottom row to show after loading the pattern (Tk's keymap_offset from RefNote)"""
+        return getattr(self, "ref_row", 0)
 
     @Property(int, notify=patternChanged)
     def tonic(self):

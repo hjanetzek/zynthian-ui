@@ -1,6 +1,7 @@
 """Engine, MIDI channel, bank and preset selection (as zynthian_gui_engine, _midi_chan, _bank,
 _preset)"""
 
+import copy
 import logging
 
 import zynautoconnect
@@ -182,6 +183,9 @@ class Bank(SelectorScreen):
         self.set_entries(list_data_entries(proc.get_bank_list()), index)
 
     def select_action(self, index, t):
+        if t == "B":
+            self.show_bank_options()
+            return
         if t != "S":
             return
         proc = self.ui.current_processor
@@ -207,6 +211,48 @@ class Bank(SelectorScreen):
         else:
             self.ui.showScreen("preset")
 
+    # Bank options (zynthian_gui_bank.show_bank_options): rename / delete a user bank
+
+    def show_menu(self):
+        self.show_bank_options()
+
+    def show_bank_options(self):
+        proc = self.ui.current_processor
+        if proc is None or not 0 <= self._index < len(self.entries):
+            return
+        engine = proc.engine
+        bank = copy.deepcopy(self.entries[self._index]["data"])
+        options = []
+        user = False
+        if bank and engine.is_preset_user(bank):
+            if hasattr(engine, "rename_user_bank"):
+                options.append(("Rename", lambda: self.ui.show_keyboard(
+                    lambda name: self._rename_bank(bank, name), bank[2], "Rename bank"), "Rename bank", "rename.png"))
+                user = True
+            if hasattr(engine, "delete_user_bank"):
+                options.append(("Delete", lambda: self.ui.confirm(
+                    f"Do you really want to remove bank '{bank[2]}' and delete all of its presets?",
+                    lambda: self._delete_bank(bank)), "Delete bank", "folder_delete.png"))
+                user = True
+        if not options:
+            options.append(("No bank options!", None, None, None))
+        self.ui.show_options(f"Bank options: {bank[2]}" if user else "Bank options", options)
+
+    def _rename_bank(self, bank, name):
+        self.ui.current_processor.engine.rename_user_bank(bank, name)
+        self.fill()
+
+    def _delete_bank(self, bank):
+        self.ui.current_processor.engine.delete_user_bank(bank)
+        self.fill()
+
+    def switch(self, i, t):
+        """Switch 2 short: the favourite presets (zynthian_gui_bank.switch)"""
+        if i == 2 and t == "S":
+            self.ui.cuia_preset_fav()
+            return True
+        return False
+
     def back(self):
         proc = self.ui.current_processor
         if proc and proc.bank_subdir_info:
@@ -231,6 +277,9 @@ class Preset(SelectorScreen):
         self.set_entries(list_data_entries(proc.preset_list), proc.get_preset_index())
 
     def select_action(self, index, t):
+        if t == "B":
+            self.show_preset_options()
+            return
         if t != "S":
             return
         proc = self.ui.current_processor
@@ -256,6 +305,202 @@ class Preset(SelectorScreen):
         self.activate(self._index)
         if proc is not self.state_manager.audio_player:
             proc.controllers_dict["transport"].set_value(127)
+            return True
+        return False
+
+    # Preset options (zynthian_gui_preset.show_preset_options): favourite, save, rename, delete;
+    # save as new preset (zynthian_gui_save_preset), rescan; the engine's own options
+
+    def show_menu(self):
+        self.show_preset_options()
+
+    def show_preset_options(self):
+        proc = self.ui.current_processor
+        if proc is None:
+            return
+        engine = proc.engine
+        preset = None
+        title = "Preset Options"
+        if 0 <= self._index < len(self.entries) and self.entries[self._index]["data"]:
+            preset = copy.deepcopy(self.entries[self._index]["data"])
+            if preset[2] and preset[2][0] == "\u2764":
+                preset[2] = preset[2][2:]
+            title = f"Preset: {preset[2]}"
+        options = []
+        if preset:
+            fav = engine.is_preset_fav(preset)
+            options.append(("\u2612 Favourite" if fav else "\u2610 Favourite", lambda: self._toggle_fav(preset),
+                            "Remove from favorites list" if fav else "Add to favorites list",
+                            "favorite_remove.png" if fav else "favorite_add.png"))
+            if engine.is_preset_user(preset):
+                if hasattr(engine, "save_preset"):
+                    options.append(("Save", lambda: self._save_overwrite(preset[2]), "Save overwriting", "file_save.png"))
+                if hasattr(engine, "rename_preset"):
+                    options.append(("Rename", lambda: self.ui.show_keyboard(
+                        lambda name: self._rename_preset(preset, name), preset[2], "Rename preset"),
+                        "Rename", "rename.png"))
+                if hasattr(engine, "delete_preset"):
+                    options.append(("Delete", lambda: self.ui.confirm(
+                        f"Do you really want to delete '{preset[2]}'?", lambda: self._delete_preset(preset)),
+                        "Delete", "file_delete.png"))
+        global_options = []
+        if hasattr(engine, "save_preset"):
+            global_options.append(("Save new preset", self._save_new, "Save as new preset", "file_save.png"))
+        if proc.eng_code.startswith("JV/"):
+            global_options.append(("Scan for new presets", self._scan, "Scan new presets, e.g. added via webconf",
+                                   "reload.png"))
+        if global_options:
+            options.append(("Global", None, None, None))
+            options += global_options
+        proc_options = engine.get_preset_options(preset) if callable(getattr(engine, "get_preset_options", None)) else {}
+        if proc_options:
+            options.append(("Processor", None, None, None))
+            for label, param in proc_options.items():
+                info = param[1] if isinstance(param, list) and len(param) > 1 and isinstance(param[1], list) else None
+                options.append((label, lambda label=label, param=param: self._engine_option(label, param),
+                                info[0] if info else None, info[1] if info else None))
+        if options:
+            self.ui.show_options(title, options)
+
+    def _engine_option(self, label, param):
+        cb = getattr(self.ui.current_processor.engine, "preset_options_cb", None)
+        if callable(cb):
+            cb(label, param[0] if isinstance(param, list) else param)
+
+    def _toggle_fav(self, preset):
+        proc = self.ui.current_processor
+        proc.toggle_preset_fav(preset)
+        proc.load_preset_list()
+        self.fill()
+        self.show_preset_options()
+
+    def _rename_preset(self, preset, new_name):
+        proc = self.ui.current_processor
+        new_name = new_name.strip()
+        if new_name and new_name != preset[2]:
+            try:
+                proc.engine.rename_preset(proc.bank_info, preset, new_name)
+                if preset[0] == proc.preset_info[0]:
+                    self.state_manager.start_busy("set preset")
+                    try:
+                        proc.set_preset_by_id(preset[0])
+                    finally:
+                        self.state_manager.end_busy("set preset")
+            except Exception as e:
+                logging.error(f"Failed to rename preset => {e}")
+        self.fill()
+
+    def _delete_preset(self, preset):
+        proc = self.ui.current_processor
+        try:
+            count = proc.engine.delete_preset(proc.bank_info, preset)
+            proc.remove_preset_fav(preset)
+            self.fill()
+            if count == 0:
+                self.ui.back()
+        except Exception as e:
+            logging.error(f"Failed to delete preset => {e}")
+
+    def _scan(self):
+        proc = self.ui.current_processor
+        self.ui.chain_manager.reload_engine_preset_info(proc.eng_code)
+        self.ui.cuia_bank_preset()
+
+    # Saving (zynthian_gui_save_preset): the bank (or a new one), then the name
+
+    def _save_new(self):
+        proc = self.ui.current_processor
+        self._save_bank_info = None
+        self._save_create_bank = None
+        bank_list = proc.get_bank_list()
+        if not bank_list or proc.auto_save_bank:
+            self._save_ask_name()
+            return
+        options = []
+        index = proc.get_bank_index()
+        if callable(getattr(proc.engine, "create_user_bank", None)):
+            options.append(("***New bank***", lambda: self.ui.show_keyboard(self._save_new_bank, "NewBank",
+                                                                           "New bank name"), None, None))
+            index += 1
+        for bank in bank_list:
+            if bank[0] == "*FAVS*":
+                index -= 1
+            elif bank[0]:
+                options.append((bank[2], lambda bank=bank: self._save_in_bank(bank), None, None))
+            else:
+                options.append(("None", lambda: self._save_in_bank(["", None, "None", None]), None, None))
+        if options:
+            self.ui.show_options("Select bank...", options, max(0, index))
+        else:
+            self._save_ask_name()
+
+    def _save_new_bank(self, name):
+        self._save_bank_info = "NEW_BANK"
+        self._save_create_bank = name.strip()
+        self._save_ask_name()
+
+    def _save_in_bank(self, bank):
+        self._save_bank_info = bank
+        self._save_ask_name()
+
+    def _save_ask_name(self):
+        proc = self.ui.current_processor
+        name = f"{proc.preset_name} COPY" if proc.preset_name else "New Preset"
+        self.ui.show_keyboard(self._save_named, name, "Preset name")
+
+    def _save_named(self, name):
+        proc = self.ui.current_processor
+        name = name.strip()
+        if not name:
+            return
+        if self._save_create_bank:
+            urid = proc.engine.get_user_bank_urid(self._save_create_bank)
+            self._save_bank_info = (urid, None, self._save_create_bank, None)
+        if proc.engine.preset_exists(self._save_bank_info, name):
+            self.ui.confirm(f"Do you want to overwrite preset '{name}'?", lambda: self._do_save(name))
+        else:
+            self._do_save(name)
+
+    def _save_overwrite(self, name):
+        proc = self.ui.current_processor
+        self._save_create_bank = None
+        self._save_bank_info = proc.bank_info
+        self.ui.confirm(f"Do you want to overwrite preset '{name.strip()}'?", lambda: self._do_save(name.strip()))
+
+    def _do_save(self, name):
+        proc = self.ui.current_processor
+        sm = self.state_manager
+        sm.start_busy("Save Preset", f"Saving preset {name}")
+        try:
+            if self._save_create_bank:
+                proc.engine.create_user_bank(self._save_create_bank)
+            uri = proc.engine.save_preset(self._save_bank_info, name)
+            if uri:
+                if self._save_bank_info:
+                    proc.set_bank_by_id(self._save_bank_info[0])
+                proc.load_preset_list()
+                proc.set_preset_by_id(uri)
+            else:
+                logging.error(f"Can't save preset '{name}'")
+        except Exception as e:
+            logging.error(e)
+        finally:
+            self._save_create_bank = None
+            sm.end_busy("Save Preset")
+        self.fill()
+
+    def switch(self, i, t):
+        """Switch 1 short: the banks (more than one); 2 short: favourites on / off
+        (zynthian_gui_preset.switch)"""
+        proc = self.ui.current_processor
+        if proc is None:
+            return False
+        if i == 1 and t == "S" and len(proc.get_bank_list()) > 1:
+            self.ui.replace_screen("bank")
+            return True
+        if i == 2 and t == "S":
+            proc.toggle_show_fav_presets()
+            self.fill()
             return True
         return False
 

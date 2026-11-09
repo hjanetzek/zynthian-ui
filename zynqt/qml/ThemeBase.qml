@@ -128,6 +128,7 @@ QtObject {
     // height / 600). Tk gives font sizes in points (96 dpi: 4/3 px); tkPx(n) converts.
     property real screenWidth: 800
     property real screenHeight: 480
+    property bool keypadShown: false        // the keypad docked beside / below the screens
     readonly property var _cfg: typeof zynConfig !== "undefined" ? zynConfig : null
     readonly property real _uiScale: {
         const s = _cfg ? _cfg.uiScale : ""
@@ -148,6 +149,8 @@ QtObject {
 
     // Sizes (classic's values)
     property real topBarHeight: 50          // without the enterprise frame
+    property real keypadWidth: 192          // the touch keypad's side columns
+    property real keypadKeyHeight: 100      // its bottom row
     property real titleSize: 28             // the top bar's title
     property real listRowHeight: 44         // list entries
     property real listTextSize: 24

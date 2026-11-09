@@ -824,12 +824,18 @@ class ChainControl(QObject):
         return False
 
     def show_menu_processor(self):
+        # Not for the special processors (audio player, tempo, ALSA mixer: Tk's processor
+        # options refuse them, build_view with id < -1)
+        proc = self.ui.current_processor
+        if proc is not None and getattr(proc, "id", 0) < -1:
+            return
         self.ui.show_screen("processor_options")
 
     def show_menu(self):
         """MENU (zynthian_gui_chain_control.show_menu): in select mode the processor's options,
         else select mode"""
-        if self._mode == "select":
+        if self._mode == "select" or not self.isChain:
+            # (the special processors' screens are Tk's plain control screen: its menu)
             self.show_menu_processor()
         else:
             self.set_mode("select")

@@ -63,12 +63,15 @@ class Engine(SelectorScreen):
         cats = self.categories
         if cats:
             for code, info in self.engines_by_cat[cats[self.categoryIndex]].items():
-                stars = "★" * int(info.get("QUALITY", 0) or 0)
+                # zynthian_gui_engine.update_info: quality stars, complexity gears, the description
+                q = int(info.get("QUALITY", 0) or 0)
+                c = int(info.get("COMPLEX", 0) or 0)
+                stars = "★" * q + "☆" * (5 - q) + "\n" + "⚙" * c
                 title = info["TITLE"]
                 if self.show_all:
                     title = ("☒ " if info["ENABLED"] else "☐ ") + title
                 entries.append(entry(title, data=code,
-                                     info=f"{info['NAME']}\n{stars}\n\n{info.get('DESCR', '')}"))
+                                     info=f"{stars}\n\n{info.get('DESCR', '')}"))
         if not entries:
             entries.append(entry("No engines available", enabled=False,
                                  info="No engine of this type is installed or enabled.\n"
@@ -281,7 +284,14 @@ class Preset(SelectorScreen):
         proc.load_preset_list()
         title = f"{proc.get_basepath()} > Favorites" if proc.show_fav_presets else proc.get_bankpath()
         self.set_title(title)
-        self.set_entries(list_data_entries(proc.preset_list), proc.get_preset_index())
+        # zynthian_gui_preset.fill_list's default info (its "if self.allow_preset_preload:" tests the
+        # method, always true: never "Preload disabled.")
+        try:
+            preload = "Preload enabled." if proc.engine.allow_timer_preload(None) else "Preload on note."
+        except Exception:
+            preload = "Preload enabled."
+        self.set_entries(list_data_entries(proc.preset_list, preload + "\nBold to show options."),
+                         proc.get_preset_index())
 
     def select_action(self, index, t):
         if t == "B":

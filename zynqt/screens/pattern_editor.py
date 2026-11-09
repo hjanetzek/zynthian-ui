@@ -69,7 +69,7 @@ class PatternEditor(QObject):
         self.chord_type = 0         # CHORDS index (chord mode 1)
         self.chord_tonic = 0        # key of the diatonic chords
         self.cc_mode = False        # CC view instead of the notes
-        self.cc_num = 64
+        self.cc_num = 1             # (zynthian_gui_pated_cc starts on CC1)
         self.cc_cursor = 0          # step
         self.cc_row = 64            # the value row of the cursor (zynthian_gui_pated_cc.selected_cell)
         self.cc_show_all = False    # the CC knob also offers CCs without a controller (V5 knob 0 bold)

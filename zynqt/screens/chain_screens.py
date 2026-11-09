@@ -166,13 +166,14 @@ class MidiChannel(SelectorScreen):
 
 class Bank(SelectorScreen):
     name = "bank"
+    default_icon = "presets_bank.png"
 
     def fill(self):
         proc = self.ui.current_processor
         if not proc:
             self.set_entries([])
             return
-        self.set_title(f"{proc.get_name()}: Bank")
+        self.set_title(proc.get_basepath_subdir())   # zynthian_gui_bank.set_select_path
         proc.preset_subdir_info = None
         index = proc.get_bank_index()
         if proc.get_show_fav_presets():
@@ -180,7 +181,7 @@ class Bank(SelectorScreen):
                 index = 0
             else:
                 proc.set_show_fav_presets(False)
-        self.set_entries(list_data_entries(proc.get_bank_list()), index)
+        self.set_entries(list_data_entries(proc.get_bank_list(), "Bold to show options."), index)
 
     def select_action(self, index, t):
         if t == "B":
@@ -265,6 +266,7 @@ class Bank(SelectorScreen):
 
 class Preset(SelectorScreen):
     name = "preset"
+    default_icon = "preset.png"
 
     def fill(self):
         proc = self.ui.current_processor

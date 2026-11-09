@@ -249,6 +249,18 @@ class SelectorScreen(QObject):
         e = self._current()
         return e["info"] if e else ""
 
+    @Property(int, notify=indexChanged)
+    def currentQuality(self):
+        """The selected engine's quality stars (0-5; -1: not an engine entry)"""
+        e = self._current()
+        return e.get("quality", -1) if e else -1
+
+    @Property(int, notify=indexChanged)
+    def currentComplexity(self):
+        """The selected engine's complexity gears (0-5; -1: not an engine entry)"""
+        e = self._current()
+        return e.get("complexity", -1) if e else -1
+
     @Property(str, notify=indexChanged)
     def currentIcon(self):
         e = self._current()

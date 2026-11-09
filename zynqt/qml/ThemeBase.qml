@@ -158,6 +158,8 @@ QtObject {
     property real listTextMargin: 10        // left of the entry's text
     property real listPadding: 0            // around the list, inside its background
     property real infoWidth: 0.28           // the selector's info pane, part of the width
+    property real categoryWidth: 0.2        // the engine screen's category list, part of the width
+    property real categoryInfoWidth: infoWidth   // the info pane beside a category list
     property real infoTextSize: 16
     property int mainMenuColumns: 0          // 0: the screen's (Python) columns
     property int addChainColumns: 0

@@ -10,48 +10,16 @@ Item {
     readonly property bool isGrid: screen !== null && screen.viewKind === "grid"
     readonly property var entries: screen ? screen.entryModel : null
 
-    // Categories (engine groups) as a second list on the left, as the Tk engine screen's
-    // listbox2: the selected one inverted
-    Rectangle {
+    // Categories (engine groups) as a second list on the left (+<theme>/SelectorCategories.qml)
+    SelectorCategories {
         id: cats
 
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: visible ? Math.round(parent.width * 0.2) : 0
+        width: visible ? Math.round(parent.width * Theme.categoryWidth) : 0
         visible: !root.isGrid && root.screen !== null && root.screen.categories.length > 1
-        color: Theme.listBackground
-
-        ListView {
-            id: catList
-            anchors.fill: parent
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            model: root.screen ? root.screen.categories : []
-            currentIndex: root.screen ? root.screen.categoryIndex : 0
-            onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
-            delegate: Panel {
-                required property int index
-                required property string modelData
-                width: catList.width
-                height: 40
-                button: true
-                color: index === catList.currentIndex ? Theme.text : Theme.listBackground
-                borderColor: "transparent"
-                Label {
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.leftMargin: 10
-                    elide: Text.ElideRight
-                    text: modelData
-                    color: index === catList.currentIndex ? Theme.listBackground : Theme.text
-                    size: 20
-                    title: true
-                }
-                TapHandler { onTapped: root.screen.setCategory(index) }
-            }
-        }
+        screen: visible ? root.screen : null
     }
 
     // List background: grey also below the last entry
@@ -145,10 +113,13 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: controls.top
-        width: root.isGrid ? 0 : parent.width * Theme.infoWidth
+        width: root.isGrid ? 0 : parent.width * (cats.visible ? Theme.categoryInfoWidth : Theme.infoWidth)
         visible: !root.isGrid
         icon: root.screen ? root.screen.currentIcon : ""
         info: root.screen ? root.screen.currentInfo : ""
+        // Engines: quality stars and complexity gears (-1: none)
+        quality: root.screen && root.screen.currentQuality !== undefined ? root.screen.currentQuality : -1
+        complexity: root.screen && root.screen.currentComplexity !== undefined ? root.screen.currentComplexity : -1
     }
     // Controller widgets under the info pane (+<theme>/SelectorControls.qml; none by default)
     SelectorControls {

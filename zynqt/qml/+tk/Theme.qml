@@ -61,6 +61,9 @@ ThemeBase {
     listTextMargin: 1
     listPadding: Math.round(f / 2)
     infoWidth: 0.25
+    // zynthian_gui_engine's layout: categories 0.21, list 0.5, info 0.29 of the width
+    categoryWidth: 0.21
+    categoryInfoWidth: 0.29
     gridSpacing: 1 / 20
     // zynthian_gui_config.main_menu_columns: configured, else 3 on V5 / Z2 or below 800 px, else 4
     mainMenuColumns: _cfg && _cfg.mainMenuColumns > 0 ? _cfg.mainMenuColumns : (screenWidth < 800 || (_cfg && _cfg.v5) ? 3 : 4)

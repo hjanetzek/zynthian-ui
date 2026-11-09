@@ -97,24 +97,61 @@ Rectangle {
         width: root.statusWidth
         z: 1
 
-        // Main meters: two bars along the top (invisible when silent)
+        // Main meters (init_dpmeter): two horizontal zynthian_gui_dpm along the top, H/4 - 2 high,
+        // the status width - 2 rows - 1 wide: the tri-colour scale covered by #222222 above the
+        // level, the -10 dB line, the peak hold. Tk's mixer shows the tempo there instead.
         Repeater {
             model: 2
-            Rectangle {
+            Item {
+                id: dpm
                 required property int index
+                readonly property int rh: Math.max(2, Math.floor(root.height / 4))
+                readonly property real level: root.mainLevels[index] || 0
+                readonly property real hold: root.mainLevels[2 + index] || 0
+                visible: !root.onMixer
                 x: 0
-                y: 1 + index * 8
-                width: statusArea.width - 24
-                height: 6
-                color: "transparent"   // Tk: nothing when silent
+                y: index * (height + 2)
+                width: Math.floor(root.statusWidth) - 2 * rh - 1
+                height: Math.floor(root.height / 4 - 2)
+                clip: true
+                // get_bg: dark to light green to 73 %, to yellow at 80 %, yellow to 90 %, to red at 97 %
                 Rectangle {
-                    readonly property real v: root.mainLevels[parent.index] || 0
-                    height: parent.height
-                    width: parent.width * v
-                    color: v > 0.95 ? "#f00000" : (v > 0.8 ? "#c8c800" : "#00c800")
+                    width: dpm.height
+                    height: dpm.width
+                    anchors.centerIn: parent
+                    rotation: -90
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: "#009600" }
+                        GradientStop { position: 0.73; color: "#00ff00" }
+                        GradientStop { position: 0.80; color: "#ffff00" }
+                        GradientStop { position: 0.90; color: "#ffff00" }
+                        GradientStop { position: 0.97; color: "#c80000" }
+                        GradientStop { position: 1.0; color: "#c80000" }
+                    }
+                }
+                Rectangle {   // the overlay above the level
+                    x: Math.floor(dpm.width * dpm.level)
+                    width: dpm.width - x
+                    height: dpm.height
+                    color: "#222222"
+                }
+                Rectangle {   // peak hold
+                    visible: dpm.hold > 0
+                    x: Math.floor(dpm.width * dpm.hold)
+                    width: 1
+                    height: dpm.height
+                    color: dpm.hold >= 0.94 ? "#ff0000" : (dpm.hold >= 0.8 ? "#ffff00" : "#00ff00")
+                }
+                Rectangle {   // zerodB (-10 dB) line
+                    x: Math.floor(dpm.width * 0.8)
+                    width: 1
+                    height: dpm.height
+                    color: "#999999"
                 }
             }
         }
+        // The main meters run on every screen (Tk refreshes the status on all of them)
+        Binding { target: mainMeters; property: "active"; value: true }
         // Heart: CPU load colour, warning sign on xruns, undervoltage, overtemperature
         Text {
             anchors.right: parent.right

@@ -352,8 +352,9 @@ Rectangle {
         }
     }
 
-    // Velocity bar (under the piano roll)
+    // Velocity bar (under the piano roll; not in the CC view, as zynthian_gui_pated_cc)
     Rectangle {
+        visible: !root.pe.ccMode
         x: 0
         y: root.gridHeight
         width: root.keyWidth

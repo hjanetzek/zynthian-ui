@@ -29,7 +29,7 @@ VM=$HOME/.cache/nura-builds-agent      # your directory
 mkdir -p "$VM"
 # first time: copy the user's downloaded image instead of downloading it again
 [ -f "$VM/zynthian-qemu-amd64.img.zst" ] || cp ~/.cache/nura-builds/zynthian-qemu-amd64.img.zst "$VM/"
-tools/run-qemu.sh -d "$VM" -D none -A none -p 2232 -w 8092 < /dev/null > "$VM/run.log" 2>&1 &
+tools/run-qemu.sh -d "$VM" -D none -A silent -p 2232 -w 8092 < /dev/null > "$VM/run.log" 2>&1 &
 ```
 
 (As a background command of your tool runner; it prints the ports, the serial log and how to stop it
@@ -43,6 +43,25 @@ to `run.log`.) The first boot of a fresh disk takes about a minute (it grows the
   user to install it). Without it (`opengl: off` in run.log) the guest renders with llvmpipe: slower,
   fine for functional tests.
 - Serial console: `$VM/serial.log`.
+- `-A silent`: a sound card without host output (the audio clock runs, nothing is heard); `-A none`
+  can stall PipeWire's graph in long tests (see Troubleshooting).
+
+### Manual inspection: window and sound
+
+To look at an agent's VM yourself, stop it and start the same disk with the defaults: a GTK
+window (`-D gtk`) and virtio-sound through the desktop's PipeWire (`-A virtio`; `-A hda` for the
+emulated Intel HDA card). Keep the ports, so agents can still reach it:
+
+```sh
+cd ~/bastel/github/nura-builds
+ssh -p 2232 user@127.0.0.1 sudo poweroff        # or: kill $(cat ~/.cache/nura-builds-agent/qemu.pid)
+tools/run-qemu.sh -d ~/.cache/nura-builds-agent -p 2232 -w 8092
+# a VM started from a copied disk: the image path as last argument (see "A second VM")
+tools/run-qemu.sh -d ~/.cache/nura-builds-agent-tk -p 2233 -w 8093 ~/.cache/nura-builds-agent-tk/zynthian-qemu-amd64.img
+```
+
+Turn the volume down: snapshots start playing when they load. Ctrl+Alt+G releases the mouse;
+closing the window stops the VM.
 
 ## One-time setup per disk
 

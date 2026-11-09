@@ -144,11 +144,20 @@ Item {
 
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.bottom: parent.bottom
+        anchors.bottom: controls.top
         width: root.isGrid ? 0 : parent.width * Theme.infoWidth
         visible: !root.isGrid
         icon: root.screen ? root.screen.currentIcon : ""
         info: root.screen ? root.screen.currentInfo : ""
+    }
+    // Controller widgets under the info pane (+<theme>/SelectorControls.qml; none by default)
+    SelectorControls {
+        id: controls
+        screen: root.isGrid ? null : root.screen
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        width: info.width
+        height: implicitHeight
     }
 
     Rectangle {

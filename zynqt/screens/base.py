@@ -119,6 +119,12 @@ class SelectorScreen(QObject):
     name = ""
     kind = "list"       # "list" (with info pane) or "grid"
     columns = 4         # grid only
+    # zynthian_gui_selector's zselector: a counter widget (selcap, position / count of the
+    # selectable entries) under the info pane, where Tk shows it (zsel_hidden=False); tiny_ctrls
+    # as Tk's (its height). Themes decide whether to draw it (SelectorControls.qml).
+    selcap = "Select"
+    zsel_hidden = True
+    tiny_ctrls = True
 
     titleChanged = Signal()
     indexChanged = Signal()
@@ -194,6 +200,24 @@ class SelectorScreen(QObject):
         if title != self._title:
             self._title = title
             self.titleChanged.emit()
+
+    selectorShown = Property(bool, lambda self: not self.zsel_hidden, constant=True)
+    selectorCaption = Property(str, lambda self: self.selcap, constant=True)
+    selectorTiny = Property(bool, lambda self: self.tiny_ctrls, constant=True)
+
+    def _counter(self, index):
+        """zynthian_gui_selector.get_counter_from_index: the index without the separators above"""
+        entries = self.model.entries
+        index = max(0, min(index, len(entries) - 1))
+        return index - sum(1 for e in entries[:index] if e["separator"])
+
+    @Property(int, notify=indexChanged)
+    def selectorValue(self):
+        return self._counter(self._index) + 1 if self.model.entries else 0
+
+    @Property(int, notify=indexChanged)
+    def selectorMax(self):
+        return self._counter(len(self.model.entries) - 1) + 1 if self.model.entries else 0
 
     @Property(str, notify=statusLineChanged)
     def statusLine(self):

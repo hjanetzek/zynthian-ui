@@ -122,8 +122,15 @@ def main():
         activity_filter = UserActivityFilter(ui, engine.rootObjects()[0])
         engine.rootObjects()[0].installEventFilter(activity_filter)
     if not engine.rootObjects():
+        # A QML error (the messages above). Leave at once: returning ran the interpreter's
+        # shutdown with the JACK clients (zynmixer, engines) still calling into Python from
+        # PipeWire's data thread, which segfaulted (core dumps filled the disk in a restart
+        # loop). Not status 1: the launcher would drop the last state, which isn't the cause.
         logging.error("Can't load the QML UI")
-        return 1
+        logging.shutdown()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(2)
 
     if os.environ.get("ZYNTHIAN_QT_TIMING") == "1":
         add_switch_timing(ui, engine.rootObjects()[0])

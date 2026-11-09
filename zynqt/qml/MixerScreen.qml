@@ -106,16 +106,16 @@ Item {
         MoveButton { text: "\u25b6"; onTapped: zyn.moveChain(1) }
     }
 
-    Text {
+    Label {
         anchors.centerIn: strips
         visible: mixerStrips.count === 0
         text: zyn.started ? "No chains" : ""
         color: Theme.textOff
-        font.pixelSize: 24
-        font.family: Theme.fontFamily
+        size: 24
+        title: true
     }
 
-    component Strip: Rectangle {
+    component Strip: Panel {
         id: strip
 
         required property int index
@@ -134,11 +134,12 @@ Item {
         property bool isMain: false
 
         color: Theme.panel
+        cut: Theme.cutLarge
         // The active chain; red while it is being moved
-        border.color: active ? (zyn.movingChain ? Theme.select : Theme.text) : "transparent"
-        border.width: active ? 2 : 0
+        borderColor: active ? (zyn.movingChain ? Theme.select : Theme.frameActive) : Theme.frame
+        borderWidth: active ? 2 : Theme.frameWidth
 
-        Text {
+        Label {
             id: title
             anchors.left: parent.left
             anchors.right: parent.right
@@ -148,11 +149,11 @@ Item {
             elide: Text.ElideRight
             text: strip.isMain ? "Main" : (strip.midiChan >= 0 ? strip.midiChan + 1 : "")
             color: Theme.text
-            font.pixelSize: 16
-            font.family: Theme.fontFamily
+            size: 16
+            title: true
         }
 
-        Text {
+        Label {
             id: nameText
             anchors.left: parent.left
             anchors.right: parent.right
@@ -162,7 +163,7 @@ Item {
             elide: Text.ElideRight
             text: strip.name
             color: Theme.textOff
-            font.pixelSize: 12
+            size: 12
         }
 
         // Strip header (number and name): tap opens the chain's controllers, long press its options
@@ -372,7 +373,7 @@ Item {
         }
 
         color: info.color || Theme.panelHighlight
-        border.color: selected ? "yellow" : Theme.panel
+        border.color: selected ? Theme.marker : Theme.panel
         border.width: selected ? 2 : 1
 
         // Phrase loops (main strip)
@@ -431,7 +432,7 @@ Item {
         }
     }
 
-    component StripButton: Rectangle {
+    component StripButton: Panel {
         id: button
         property alias text: t.text
         property bool on
@@ -440,26 +441,27 @@ Item {
         width: root.stripWidth - 8
         height: 36
         color: on ? onColor : Theme.keyBackground
-        Text { id: t; anchors.centerIn: parent; color: Theme.text; font.pixelSize: 16 }
+        cut: Theme.cut / 2
+        Label { id: t; anchors.centerIn: parent; color: Theme.text; size: 16 }
         TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: button.tapped() }
     }
 
-    component MoveButton: Rectangle {
+    component MoveButton: Panel {
         id: moveButton
         property alias text: moveLabel.text
         signal tapped
         width: 90
         height: 60
         radius: 4
-        color: moveTap.pressed ? Theme.keyText : "#e0202830"
-        border.color: Theme.select
-        border.width: 2
-        Text {
+        color: moveTap.pressed ? Theme.keyText : Theme.overlay
+        borderColor: Theme.select
+        borderWidth: 2
+        Label {
             id: moveLabel
             anchors.centerIn: parent
             color: Theme.text
-            font.pixelSize: 24
-            font.family: Theme.fontFamily
+            size: 24
+            title: true
         }
         TapHandler { id: moveTap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: moveButton.tapped() }
     }

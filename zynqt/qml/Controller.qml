@@ -5,17 +5,18 @@
 import QtQuick
 import QtQuick.Shapes
 
-Rectangle {
+Panel {
     id: root
 
     property var ctrl: null
     readonly property bool active: ctrl !== null && ctrl.active
 
     color: Theme.panel
+    cut: Theme.cutLarge
 
     // MIDI binding (as zynthian_gui_controller.plot_midi_bind): "??#??" while learning, else
     // channel#CC; colours as color_hl (chain) / color_ml (global, learning globally)
-    Text {
+    Label {
         id: bindText
         anchors.right: parent.right
         anchors.top: parent.top
@@ -24,13 +25,13 @@ Rectangle {
         text: root.active ? root.ctrl.bindText : ""
         color: {
             const k = root.active ? root.ctrl.bindKind : ""
-            return k === "xy" ? "#ff9000"
-                 : k === "learnGlobal" || k === "abs" ? "#f0f000"
-                 : k === "learn" ? "#00c000"
-                 : k === "chain" && text.indexOf("#") >= 0 ? "#00c000" : Theme.textOff
+            return k === "xy" ? Theme.bindXy
+                 : k === "learnGlobal" || k === "abs" ? Theme.bindGlobal
+                 : k === "learn" ? Theme.bindChain
+                 : k === "chain" && text.indexOf("#") >= 0 ? Theme.bindChain : Theme.textOff
         }
-        font.pixelSize: 16
-        font.family: Theme.fontFamily
+        size: 16
+        title: true
         SequentialAnimation on opacity {
             running: root.active && root.ctrl.bindKind.indexOf("learn") === 0
             loops: Animation.Infinite
@@ -40,7 +41,7 @@ Rectangle {
         }
     }
 
-    Text {
+    Label {
         id: nameText
         anchors.left: parent.left
         anchors.right: bindText.visible ? bindText.left : parent.right
@@ -49,8 +50,8 @@ Rectangle {
         elide: Text.ElideRight
         text: root.active ? root.ctrl.name : ""
         color: Theme.text
-        font.pixelSize: 18
-        font.family: Theme.fontFamily
+        size: 18
+        title: true
     }
 
     Item {
@@ -92,7 +93,7 @@ Rectangle {
         }
     }
 
-    Text {
+    Label {
         anchors.left: parent.left
         anchors.right: dial.left
         anchors.bottom: parent.bottom
@@ -101,8 +102,9 @@ Rectangle {
         elide: Text.ElideRight
         text: root.active ? root.ctrl.valueText : ""
         color: Theme.text
-        font.pixelSize: 26
-        font.family: Theme.fontFamily
+        body: true   // values keep their units' case (dB, Hz)
+        size: 26
+        title: true
     }
 
     DragHandler {

@@ -39,31 +39,32 @@ Item {
             SideButton { text: "Audio Output"; screen: "audio_out"; visible: root.cc.isAudio }
         }
 
-        delegate: Rectangle {
+        delegate: Panel {
             required property int index
             required property var modelData
             width: procs.width
             height: 56
-            radius: 3
+            radius: Theme.radius
             color: modelData.current ? Theme.panel : Theme.panelHighlight
-            border.color: modelData.current ? Theme.text : "transparent"
+            borderColor: modelData.current ? Theme.frameActive : Theme.frame
+            borderWidth: modelData.current ? Math.max(1, Theme.frameWidth) : Theme.frameWidth
             Column {
                 anchors.centerIn: parent
                 width: parent.width - 8
-                Text {
+                Label {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
                     text: modelData.name
                     color: Theme.text
-                    font.pixelSize: 15
+                    size: 15
                 }
-                Text {
+                Label {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     text: modelData.type
                     color: Theme.textOff
-                    font.pixelSize: 11
+                    size: 11
                 }
             }
             TapHandler {
@@ -124,7 +125,7 @@ Item {
     // Controller pages (grey also below the last page, as the selector lists)
     Rectangle {
         anchors.fill: pages
-        color: Theme.panel
+        color: Theme.listBackground
     }
     ListView {
         id: pages
@@ -139,28 +140,31 @@ Item {
         clip: true
         model: root.cc.pageModel
         currentIndex: root.cc.page
+        spacing: Theme.isGalactica ? 2 : 0
         boundsBehavior: Flickable.StopAtBounds
         highlightMoveDuration: 0
         onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
 
-        delegate: Rectangle {
+        delegate: Panel {
             id: row
             required property int index
             required property string title
             required property bool separator
+            readonly property bool current: index === pages.currentIndex
             width: pages.width
             height: 44
-            color: separator ? Theme.panelHighlight : (index === pages.currentIndex ? Theme.select : Theme.panel)
-            Text {
+            color: separator ? Theme.panelHighlight : (current ? Theme.select : Theme.panel)
+            borderColor: separator ? "transparent" : Theme.frame
+            Label {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.leftMargin: 10
                 elide: Text.ElideRight
                 text: row.title
-                color: row.separator ? Theme.textOff : Theme.text
-                font.pixelSize: 22
-                font.family: Theme.fontFamily
+                color: row.separator ? Theme.textOff : (row.current ? Theme.selectText : Theme.text)
+                size: 22
+                title: true
             }
             TapHandler {
                 enabled: !row.separator
@@ -189,7 +193,7 @@ Item {
     }
 
     // MIDI learn in progress: what to do, and a button to stop (as BACK)
-    Rectangle {
+    Panel {
         anchors.horizontalCenter: pages.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 20
@@ -199,9 +203,10 @@ Item {
         z: 10
         visible: root.cc.learnText !== ""
         color: Theme.keyBackground
-        border.color: "#f0f000"
-        border.width: 2
-        Text {
+        borderColor: Theme.bindGlobal
+        borderWidth: 2
+        cut: Theme.cutLarge
+        Label {
             id: learnLabel
             anchors.left: parent.left
             anchors.right: stopLearn.left
@@ -210,7 +215,8 @@ Item {
             text: root.cc.learnText
             color: Theme.text
             wrapMode: Text.WordWrap
-            font.pixelSize: 18
+            body: true
+            size: 18
         }
         MoveKey {
             id: stopLearn
@@ -242,33 +248,33 @@ Item {
         MoveKey { text: "\u25bc"; onTapped: zyn.moveProcessor("down") }
     }
 
-    component MoveKey: Rectangle {
+    component MoveKey: Panel {
         id: moveKey
         property alias text: moveKeyLabel.text
         signal tapped
         width: 80
         height: 56
         radius: 4
-        color: moveKeyTap.pressed ? Theme.keyText : "#e0202830"
-        border.color: Theme.select
-        border.width: 2
-        Text { id: moveKeyLabel; anchors.centerIn: parent; color: Theme.text; font.pixelSize: 22 }
+        color: moveKeyTap.pressed ? Theme.keyText : Theme.overlay
+        borderColor: Theme.select
+        borderWidth: 2
+        Label { id: moveKeyLabel; anchors.centerIn: parent; color: Theme.text; size: 22 }
         TapHandler { id: moveKeyTap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: moveKey.tapped() }
     }
 
-    component SideButton: Rectangle {
+    component SideButton: Panel {
         id: button
         property alias text: label.text
         property string screen
         width: procs.width
         height: visible ? 44 : 0
-        radius: 3
+        radius: Theme.radius
         color: Theme.keyBackground
-        Text {
+        Label {
             id: label
             anchors.centerIn: parent
             color: Theme.keyText
-            font.pixelSize: 15
+            size: 15
         }
         TapHandler { onTapped: zyn.openChainScreen(button.screen) }
     }

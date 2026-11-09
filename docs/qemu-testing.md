@@ -87,6 +87,22 @@ nura/tools/switch_ui.sh -V tomita    # upstream zynthian-ui (Tk) instead of the 
   `~user/.local/share/zynthian/my-data`; logs with `journalctl -b` in the VM.
 - webconf: `http://localhost:8092` (your `-w` port), login user `user`, password `147147`.
 
+## A second VM from the same disk (e.g. Tk and Qt side by side)
+
+Stop the first VM cleanly (`sudo poweroff` in it), copy its disk to a directory of its own and
+start the copy **with the image path as argument**: without it, `run-qemu.sh` finds no `.img.zst`
+in that directory, downloads the latest image and unpacks it over the copy.
+
+```sh
+mkdir -p ~/.cache/nura-builds-agent-tk
+cp --sparse=always ~/.cache/nura-builds-agent/zynthian-qemu-amd64.img ~/.cache/nura-builds-agent-tk/
+tools/run-qemu.sh -d ~/.cache/nura-builds-agent-tk -D none -A silent -p 2233 -w 8093 \
+    ~/.cache/nura-builds-agent-tk/zynthian-qemu-amd64.img
+ssh -p 2233 user@127.0.0.1 'sudo sed -i "s/^ZYNTHIAN_UI=.*/ZYNTHIAN_UI=tk/" /etc/default/zynthian; sudo systemctl restart tinydm'
+```
+
+The tools take the port from `NURA_VM_PORT` with `-V` (`NURA_VM_PORT=2233 nura/tools/screenshot.sh -V out.png`).
+
 ## Stop
 
 ```sh

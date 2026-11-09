@@ -372,7 +372,7 @@ Window {
         height: 70
         radius: 4
         button: true
-        borderColor: Theme.isGalactica ? Theme.frameActive : "transparent"
+        borderColor: Theme.dialogFrame
         cut: Theme.cutLarge
         Label {
             id: label

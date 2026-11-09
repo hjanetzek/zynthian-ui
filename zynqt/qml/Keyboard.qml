@@ -8,7 +8,7 @@ Rectangle {
     property bool shift: false
     readonly property var rows: ["1234567890", "qwertyuiop", "asdfghjkl'", "zxcvbnm-_."]
 
-    color: Theme.isGalactica ? Theme.overlay : "#f0101418"
+    color: Theme.keyboardBackground
     visible: zyn.keyboardShown
 
     onVisibleChanged: if (visible) { field.text = zyn.keyboardText; field.selectAll(); field.forceActiveFocus() }
@@ -36,7 +36,7 @@ Rectangle {
             width: parent.width
             height: 48
             color: Theme.panel
-            borderColor: Theme.isGalactica ? Theme.frameActive : "transparent"
+            borderColor: Theme.dialogFrame
             TextInput {
                 id: field
                 anchors.fill: parent
@@ -91,12 +91,12 @@ Rectangle {
         height: 52
         radius: 3
         button: true
-        color: tap.pressed ? Theme.keyText : (highlighted ? (Theme.isGalactica ? Theme.select : "#205080")
+        color: tap.pressed ? Theme.keyText : (highlighted ? Theme.keyboardHighlight
                                                            : Theme.keyBackground)
         Label {
             anchors.centerIn: parent
             text: key.label
-            color: key.highlighted && Theme.isGalactica && !tap.pressed ? Theme.selectText : Theme.text
+            color: key.highlighted && !tap.pressed ? Theme.keyboardHighlightText : Theme.text
             size: 22
             body: true   // letter keys show their case
             title: true

@@ -1,13 +1,14 @@
 # Theming the Qt Quick UI
 
-Status: 2026-11-09, branch `qt-theme-galactica` (rebased onto `main`, the tomita-based Qt port). How
+Status: 2026-11-09, branch `qt-parity` (themes in their own directories, file selectors). How
 the look of the Qt Quick UI (`zynqt/qml/`) is defined, how to choose a theme, and how to change or
 add one.
 
 ## Choosing a theme
 
-`ZYNTHIAN_QT_THEME` picks the theme when zynthian starts; `zynthian_qt_main.py` passes it to QML as
-the context property `zynThemeName`:
+`ZYNTHIAN_QT_THEME` picks the theme when zynthian starts; `zynthian_qt_main.py` adds it to the QML
+engine as an extra file selector (and passes it as the context property `zynThemeName`, for
+display only):
 
 | Theme | Look |
 |---|---|
@@ -24,14 +25,45 @@ The theme is fixed for a run: switching means restarting the UI.
 
 ## How it is built
 
-Three pieces; screens and components use only these, no colours, fonts or radii of their own.
+### Theme directories (file selectors)
 
-### `Theme.qml`: the tokens
+`zynqt/qml/` holds the shared screens and the default components, which are the classic theme. Each
+other theme has its own directory beside them, `zynqt/qml/+<theme>/`:
 
-A QML singleton (`qmldir`: `singleton Theme Theme.qml`). It holds one `QtObject` per theme
-(`classic`, `galactica`, `enterprise`) with the same set of properties, selects one as `p` by
-`name`, and exposes each property as `Theme.<token>` (`readonly property color panel: p.panel`).
-Components read `Theme.panel`, never `Theme.galactica.panel`.
+```
+zynqt/qml/
+  ThemeBase.qml        all tokens, with classic's values (the list below)
+  Theme.qml            the Theme singleton: classic = ThemeBase {}
+  Panel.qml, Label.qml, KeyPlate.qml, TopBarRule.qml, Elbow.qml, ...   default components
+  MixerScreen.qml, ...                                                  shared screens
+  +galactica/Theme.qml    ThemeBase { only the tokens galactica changes }
+  +galactica/KeyPlate.qml, TopBarRule.qml                               its own components
+  +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
+```
+
+With the theme's name as a file selector (`QQmlApplicationEngine.setExtraFileSelectors`, in
+`zynthian_qt_main.py`), QML loads `+<theme>/X.qml` wherever `X.qml` is used, the `Theme` singleton
+of `qmldir` included. So:
+
+- **Values** (colours, sizes, spacing, fonts) are tokens: `+<theme>/Theme.qml` sets them on
+  `ThemeBase`. Shared QML reads `Theme.<token>` and never asks which theme is running: there is no
+  `Theme.name`, `isGalactica` or the like.
+- **Structure** (a different shape, an extra decoration, another layout) is a component: split the
+  part that differs out of the screen into its own file with the classic version in `zynqt/qml/`,
+  and give the theme its version in `+<theme>/` with the same properties. Examples: `KeyPlate`
+  (the plate of a keypad key: classic squares, galactica outlined plates with cut corners,
+  enterprise filled pills), `TopBarRule` (nothing; galactica's steel rule), `Elbow` (nothing;
+  enterprise's frame).
+- Files in `+<theme>/` start with `import ".."`: types of `zynqt/qml/` (`Panel`, `Label`,
+  `ThemeBase`, `Theme`) are not visible from the subdirectory otherwise. A theme's component must
+  not use the type it replaces (`Panel` inside `+x/Panel.qml` would load itself): give the shared
+  part its own name (a `PanelBase.qml`) if both need it.
+
+### `ThemeBase.qml` and `Theme.qml`: the tokens
+
+`ThemeBase.qml` declares every token, with classic's value and a comment; `Theme.qml` (in `qmldir`:
+`singleton Theme Theme.qml`) is `ThemeBase {}` in classic and `ThemeBase { ... }` with the changed
+values in a theme. Components read `Theme.panel`.
 
 Tokens:
 
@@ -57,9 +89,9 @@ Tokens:
 | Pattern editor | `gridRow`, `gridRowDark`, `gridRowLine`, `gridBar`, `gridBeat`, `gridStep`, `noteHue`, `noteFrame`, `selectionFill`, `selectionFrame`, `ccBar`, `ccBarCurrent`, `buttonOn`, `buttonRecord` | grid rows (black keys darker) and lines, notes (a hue, lighter with velocity), the selected block, CC bars, toolbar buttons |
 | Widgets | `widgetBackground`, `widgetLine`, `widgetFill`, `widgetGrid`, `widgetWave`, `widgetOutside` | the controller page widgets: envelope and filter curves, waveform, plugin meters' background |
 
-`isGalactica` and `isEnterprise` exist for the few places where a theme differs in layout, not
-only in values (key margins, the top bar's rule and segments). Prefer a token: a new theme should
-not need edits in the components.
+Values that used to be theme conditions in the components: `tintIcons`, `listSpacing`,
+`tileMargin`, `infoBackground`, `dialogFrame`, `xyFrame`, `keyboardBackground`,
+`keyboardHighlight`, `keyboardHighlightText`, `keyLineHeight`.
 
 ### `Panel.qml`: plates
 
@@ -81,9 +113,9 @@ uses the display face and weight, `body: true` keeps mixed case and no spacing. 
 descriptions, messages, values with units (dB, Hz) and keyboard letters; everything else follows
 `caps`.
 
-### `Elbow.qml`: the enterprise frame
+### `+enterprise/Elbow.qml`: the enterprise frame
 
-One filled `ShapePath`: a horizontal arm under the top bar, joined to a wider vertical bar left of
+One filled `ShapePath` (the default `Elbow.qml` is an empty item): a horizontal arm under the top bar, joined to a wider vertical bar left of
 the screens by a rounded outer and inner corner, the bar ending in a half circle. `Main.qml` shows it
 when `Theme.elbow` and the top bar is shown (`HIDE_TOPBAR` hides both), and moves the screens right
 by the bar; the top bar is taller then (50 + `elbowBar` - 4), with title and status above the
@@ -104,10 +136,21 @@ docked keypad, at the window's edge with the overlay keypad (which covers it whi
 
 ## Adding a theme
 
-1. Copy a theme block in `Theme.qml` (`property QtObject mytheme: QtObject { ... }`) and give every
-   token a value; QML reports a missing one as `undefined` at runtime, not at load.
-2. Add it to the selection of `p` (`name === "mytheme" ? mytheme : ...`), and an `isMytheme` only if
-   a component really needs it.
+1. Create `zynqt/qml/+mytheme/Theme.qml`:
+   ```qml
+   pragma Singleton
+   import QtQuick
+   import ".."
+
+   ThemeBase {
+       background: "#101010"
+       // ... the tokens that differ from classic
+   }
+   ```
+2. Components that look different in structure: copy the default one (`KeyPlate.qml`, ...) into
+   `+mytheme/`, add `import ".."`, change it; keep its properties. If the part you need isn't a
+   component of its own yet, split it out of the shared screen first (classic must stay
+   pixel-identical).
 3. Fonts: use a face installed on the Duet (`fc-list : family` there; zynthian's fonts are in
    `/usr/share/fonts/zynthian`: Audiowide, Khand, Fjalla One, Electrolize, Exo 2, Jura, Iceland, ...).
    Condensed faces need a `fontScale` above 1.
@@ -119,8 +162,11 @@ docked keypad, at the window's edge with the overlay keypad (which covers it whi
 
 - Plates: `Panel`, with `button: true` for keys and buttons; no `Rectangle` with its own colour.
 - Text: `Label`; `body: true` where case matters.
-- Colours from tokens only. If a component needs a colour no token covers, add a token to all
-  themes (with the old value in classic), instead of a literal.
+- Colours from tokens only. If a component needs a colour no token covers, add a token to
+  `ThemeBase.qml` (with the old value, which is classic's) and set it in the themes that differ,
+  instead of a literal.
+- Never test the theme's name: a value is a token, a structural difference a component in
+  `+<theme>/`.
 - Selected entries: `select` behind, `selectText` on it (not `text`: in galactica and enterprise
   the selection is light).
 

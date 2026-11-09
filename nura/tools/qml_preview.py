@@ -101,6 +101,17 @@ class MockZyn(QObject):
     def visibleChains(self):
         return 0
 
+    @Property(bool, notify=changed)
+    def altMode(self):
+        return False
+
+    @Property("QVariantMap", notify=changed)
+    def status(self):
+        return {}
+
+    @Slot(int, bool)
+    def pushSwitch(self, i, p): pass
+
     @Slot(int)
     def selectChain(self, c): pass
 

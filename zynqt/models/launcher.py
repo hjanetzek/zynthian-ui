@@ -144,6 +144,53 @@ class Launcher(QObject):
         elif what == "select_bold":
             self.edit_pad()
 
+    # Knobs and switches: as the Tk mixer in launcher mode (zynthian_gui_mixer); the parts the
+    # mixer shares come from the mixer's screen object
+
+    def _mixer(self):
+        return self.ui.qml_screen_objects["mixer"]
+
+    def zynpot(self, i, d):
+        """Knob 2 the phrase (up / down), knob 3 the chain (moving: the phrase), 0 / 1 level and
+        balance"""
+        if i == 2:
+            self.navigate("down" if d > 0 else "up")
+            return True
+        if i == 3 and self.moving_phrase:
+            self.move_phrase(1 if d > 0 else -1)
+            return True
+        return self._mixer().zynpot(i, d)
+
+    def switch(self, i, t):
+        if i == 2 and t == "B":
+            self.ui.show_screen("tempo")
+            return True
+        if i == 3:
+            return self.switch_select(t)
+        return self._mixer().switch(i, t)
+
+    def switch_select(self, t="S"):
+        if t == "S":
+            self.navigate("select")
+        elif t == "B":
+            self.navigate("select_bold")
+        else:
+            return False
+        return True
+
+    def cuia_v5_zynpot_switch(self, params):
+        try:
+            i = int(params[0])
+        except (TypeError, ValueError, IndexError):
+            return False
+        if i == 3:
+            self.switch_select(str(params[1]).upper())
+            return True
+        return self._mixer().cuia_v5_zynpot_switch(params)
+
+    def cuia_back(self, params=None):
+        return self._mixer().cuia_back(params)
+
     def back(self):
         """BACK in the launcher: back to the mixer (Tk toggles the launcher mode)"""
         if self.moving_phrase:

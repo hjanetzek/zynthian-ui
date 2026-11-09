@@ -202,6 +202,58 @@ class ChainManager(QObject):
     def back(self):
         return False
 
+    # Knobs and switches (zynthian_gui_chain_manager)
+
+    def _select_offset(self, d):
+        """Knob 2: through the nodes of the chain (parallel ones, then the next row)"""
+        if not self.nodes:
+            return
+        c, r, i = self.selected
+        i += d
+        if i >= len(self.nodes[c][r]):
+            r += 1
+            if r >= len(self.nodes[c]):
+                return
+            i = 0
+        elif i < 0:
+            r -= 1
+            if r < 0:
+                return
+            i = len(self.nodes[c][r]) - 1
+        self.select_node([c, r, i])
+
+    def zynpot(self, i, d):
+        if self.ui.movingChain or self.ui.movingProcessor:
+            return False    # ZynUI's move modes take the select knob
+        if i == 2:
+            self._select_offset(1 if d > 0 else -1)
+            return True
+        if i == 3:
+            self.move_selection("right" if d > 0 else "left")
+            return True
+        return False
+
+    def switch(self, i, t):
+        """Switch 1 bold the main menu, 2 short add a chain"""
+        if i == 1 and t == "B":
+            self.ui.show_screen("main_menu")
+            return True
+        if i == 2 and t == "S":
+            self.ui.cuia_add_chain()
+            return True
+        return False
+
+    def cuia_v5_zynpot_switch(self, params):
+        """Knob 2 bold: the active chain's options; else as the switches"""
+        try:
+            i, t = int(params[0]), str(params[1]).upper()
+        except (TypeError, ValueError, IndexError):
+            return False
+        if i == 2 and t == "B":
+            self.ui.show_screen("chain_options")
+            return True
+        return self.switch(i, t)
+
     # After a move (ZynUI's move modes rebuild through this)
 
     def moved(self):

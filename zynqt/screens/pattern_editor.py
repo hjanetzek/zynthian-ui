@@ -1332,6 +1332,43 @@ class PatternEditor(QObject):
         if self.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence) != zynseq.SEQ_STOPPED:
             self.libseq.sendMidiCommand(0xB0 | self.channel, 123, 0)   # all notes off
 
+    def update_wsleds(self, leds):
+        """The keypad LEDs (zynthian_gui_pated_base.update_wsleds): ALT: F1 / F2 the clipboard, F3
+        the block selection, F4 the CC editor; REC, STOP, PLAY for the pattern; the arrows while
+        they undo / redo"""
+        wsl = self.ui.keypad_leds
+        if self.ui.alt_mode:
+            for n, i in enumerate((10, 11)):
+                if self.clipboard[n] is None:
+                    wsl.set_led(leds[i], wsl.wscolor_active2)
+                elif self.clipboard[n][2] == self.pattern:
+                    wsl.blink(leds[i], wsl.wscolor_red)
+                else:
+                    wsl.blink(leds[i], wsl.wscolor_active)
+            if self.edit_mode == EDIT_MODE_BLOCK:
+                wsl.blink(leds[12], wsl.wscolor_active if self.copied else wsl.wscolor_active2)
+            else:
+                wsl.set_led(leds[12], wsl.wscolor_active2)
+            wsl.set_led(leds[13], wsl.wscolor_active2)
+        if self.libseq.isMidiRecord():
+            wsl.set_led(leds[1], wsl.wscolor_red)
+            wsl.set_led(leds[8], wsl.wscolor_active2)
+        else:
+            wsl.set_led(leds[1], wsl.wscolor_active2)
+        wsl.set_led(leds[2], wsl.wscolor_active2)
+        state = self.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence)
+        if state == zynseq.SEQ_PLAYING:
+            wsl.set_led(leds[3], wsl.wscolor_green)
+        elif state == zynseq.SEQ_STARTING:
+            wsl.set_led(leds[3], wsl.wscolor_yellow)
+        elif state in (zynseq.SEQ_STOPPING, zynseq.SEQ_STOPPING_SYNC):
+            wsl.set_led(leds[3], wsl.wscolor_red)
+        else:
+            wsl.set_led(leds[3], wsl.wscolor_active2)
+        if self._history_keys():
+            for i in (4, 5, 6, 7):
+                wsl.set_led(leds[i], wsl.wscolor_active2)
+
     # Keys, knobs and switches (zynthian_gui_pated_base / _notes, with the edit modes)
 
     def _ctrl(self, n):

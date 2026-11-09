@@ -24,6 +24,85 @@ from zynqt.screens.base import EntryModel, entry, separator
 from zynqt.screens.controller_options import show_controller_options
 
 
+def tk_plot(z):
+    """The value as zynthian_gui_controller draws it (calculate_plot_values, plot_value_arc):
+    (value text, arc start, arc sweep, sample text for the font size). Angles in QML's sense
+    (degrees clockwise from 3 o'clock); the arc spans 300 degrees from the bottom left."""
+    import math
+    import os
+    import re
+    fmt = None
+    if z.is_path:
+        fmt = "{}"
+    elif not isinstance(z.ticks, list) and not z.is_integer and not z.is_logarithmic:
+        nf = getattr(z, "nudge_factor_fine", 0.1)
+        fmt = "{:.3f}" if nf < 0.01 else "{:.2f}" if nf < 0.1 else "{:.1f}"
+    labels = z.labels if isinstance(z.labels, list) else None
+    plot = 0.0
+    if z.ticks:
+        n = len(z.ticks)
+        try:
+            i = z.get_value2index()
+            text = str(z.labels[i])
+            plot = (i + 1) / n if n > 2 else i
+        except Exception:
+            text = "ERR"
+    elif z.is_path:
+        text = os.path.split(z.value)[1] if z.value else "None"
+    else:
+        rng = z.value_range
+        val = z.value
+        try:
+            if rng == 0:
+                plot = 0.0
+            elif z.is_logarithmic:
+                if z.value_min < 0:
+                    plot = math.log10((9 * val - (10 * z.value_min)) / rng)
+                else:
+                    plot = math.log10((9 * val - (10 * z.value_min - z.value_max)) / rng)
+            elif z.value_min < 0:
+                plot = val / rng
+            else:
+                plot = (val - z.value_min) / rng
+        except (ValueError, TypeError, ZeroDivisionError):
+            plot = 0.0
+        if z.is_logarithmic:
+            a = abs(val)
+            fmt = "{:.3f}" if a < 10 else "{:.2f}" if a < 100 else "{:.1f}" if a < 1000 else "{:.0f}"
+            text = fmt.format(val)
+        elif fmt and -1000 < val < 1000:
+            text = fmt.format(val)
+        else:
+            text = str(int(val))
+    # Arc (Tk: counter-clockwise degrees)
+    degmax = 300
+    degd = -degmax * plot
+    deg0 = 90 + degmax / 2
+    if labels:
+        n = len(labels)
+        if n > 2:
+            arc_len = max(5, degmax // n)
+            deg0 += degd + arc_len
+            degd = -arc_len
+    elif z.value_range and z.value_min <= 0 <= z.value_max:
+        deg0 += degmax * z.value_min / z.value_range
+    # Sample text (calculate_value_font_size)
+    if z.is_path or labels:
+        # plot_value: labels and paths fit their own text (long labels: the longest word)
+        sample = text
+        words = text.split()
+        if labels and len(text) > 10 and len(words) > 1:
+            sample = max(words, key=len) + "..."
+    elif fmt:
+        sample = max([fmt.format(z.value_min), fmt.format(z.value_max)], key=len)
+        sample = re.sub(r"[1-9]", "0", sample)
+    elif z.is_logarithmic:
+        sample = "00000" if z.value_max > 1000 else "000.0"
+    else:
+        sample = "0" * max(len(str(z.value_min)), len(str(z.value_max)))
+    return text, -deg0, -degd, sample
+
+
 class ControllerProxy(QObject):
     """One of the four controller slots"""
 
@@ -85,6 +164,40 @@ class ControllerProxy(QObject):
     @Property(bool, notify=changed)
     def isToggle(self):
         return bool(self.zctrl and self.zctrl.is_toggle)
+
+    # Tk's look (the tk theme's Controller): value text, arc and font sample as
+    # zynthian_gui_controller
+
+    def _tk(self):
+        try:
+            return tk_plot(self.zctrl)
+        except Exception as e:
+            logging.debug(f"tk_plot: {e}")
+            return "", 0.0, 0.0, "0"
+
+    @Property(str, notify=changed)
+    def tkValueText(self):
+        return self._tk()[0] if self.zctrl is not None else ""
+
+    @Property(float, notify=changed)
+    def tkArcStart(self):
+        return self._tk()[1] if self.zctrl is not None else 0.0
+
+    @Property(float, notify=changed)
+    def tkArcSweep(self):
+        return self._tk()[2] if self.zctrl is not None else 0.0
+
+    @Property(str, notify=changed)
+    def tkValueSample(self):
+        return self._tk()[3] if self.zctrl is not None else ""
+
+    @Property(bool, notify=changed)
+    def isPath(self):
+        return bool(self.zctrl is not None and self.zctrl.is_path)
+
+    @Property(bool, notify=changed)
+    def readonly(self):
+        return bool(self.zctrl is not None and getattr(self.zctrl, "readonly", False))
 
     def _binding(self):
         """(text, kind) shown for the MIDI binding (zynthian_gui_controller.set_midi_bind): kind
@@ -156,6 +269,7 @@ class ChainControl(QObject):
     learnChanged = Signal()
     sidebarChanged = Signal()
     modeChanged = Signal()
+    selectPathChanged = Signal()
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -195,6 +309,9 @@ class ChainControl(QObject):
         self.note_learn = 0
         ui.bridge.midiCc.connect(self._midi_cc)
         ui.bridge.midiNoteOn.connect(self._midi_note_on)
+        self.pageChanged.connect(self.selectPathChanged)
+        self.learnChanged.connect(self.selectPathChanged)
+        self.modeChanged.connect(self.selectPathChanged)
 
     # The processor list on the left (zynthian_gui_chain_control's sidebar): SHOW_SIDEBAR,
     # HIDE_SIDEBAR, TOGGLE_SIDEBAR
@@ -291,8 +408,7 @@ class ChainControl(QObject):
                 entries.append(entry(f"Controllers {j // 4 + 1}", data=("chain", None, zctrls[j:j + 4])))
         for proc in processors:
             screens = proc.get_ctrl_screens()
-            if not screens:
-                continue
+            # The processor's header also without pages (Tk: the audio player without a file)
             entries.append(separator(proc.engine.name.split("/")[-1]))
             for j, title in enumerate(screens):
                 if proc == curproc and j == proc.get_current_screen_index():
@@ -337,6 +453,145 @@ class ChainControl(QObject):
         current = self.ui.current_processor
         return [{"name": p.get_name() if hasattr(p, "get_name") else p.name,
                  "type": p.type or "", "current": p == current} for p in self._processors]
+
+    # The chain as Tk's side chain draws it (zynthian_side_chain.build_graph): chain options, MIDI
+    # input, chain controllers, the MIDI tools, the synth (or MIDI output), audio input, the audio
+    # effects, audio output; kind sets the colour, link the line to the next node
+
+    _NODE_SCREENS = {"chain_options": "chain_options", "midi_input": "midi_in", "midi_output": "midi_out",
+                     "audio_in": "audio_in", "audio_out": "audio_out"}
+
+    def _chain_nodes(self):
+        chain = None if self.special_processor else self.chain_manager.get_active_chain()
+        nodes = []
+        if chain is None:
+            return nodes
+
+        def add(title, proc, slot=None):
+            ptype = proc if isinstance(proc, str) else proc.type
+            nodes.append({"title": title, "proc": proc, "slot": slot,
+                          "dst": ptype in ("chain_controllers", "MIDI Synth", "Audio Effect", "MIDI Tool", "Special",
+                                           "midi_output", "audio_out"),
+                          "src": ptype in ("chain_controllers", "MIDI Synth", "Audio Effect", "MIDI Tool", "Special",
+                                           "Audio Generator", "midi_input", "audio_in")})
+
+        add("Chain Options" + (f"\n{chain.title}" if chain.title else ""), "chain_options")
+        if chain.is_midi():
+            ch = f"CH#{chain.midi_chan + 1:02}" if chain.midi_chan is not None and chain.midi_chan < 16 else "CH#ALL"
+            add(f"MIDI Input\n{ch}", "midi_input")
+        if chain.zctrls:
+            add("Chain\nControllers", "chain_controllers")
+        for i, slot in enumerate(chain.midi_slots):
+            for proc in slot:
+                add(proc.get_name(), proc, ("midi", i))
+        if chain.synth_slots:
+            for i, slot in enumerate(chain.synth_slots):
+                for proc in slot:
+                    add(proc.get_name(), proc, ("synth", i))
+        elif chain.is_midi():
+            add("MIDI Output", "midi_output")
+        if chain.audio_thru and chain.zynmixer_proc and chain.zynmixer_proc.eng_code != "MR":
+            add("Audio Input", "audio_in")
+        for i, slot in enumerate(chain.audio_slots):
+            for proc in slot:
+                add(proc.get_name(), proc, ("audio", i))
+        if chain.is_audio():
+            add("Audio Output", "audio_out")
+        return nodes
+
+    @Property("QVariantList", notify=processorsChanged)
+    def chainNodes(self):
+        nodes = self._chain_nodes()
+        self._nodes = nodes
+        out = []
+        for i, n in enumerate(nodes):
+            proc = n["proc"]
+            nxt = nodes[i + 1] if i + 1 < len(nodes) else None
+            if isinstance(proc, str):
+                kind = {"midi_input": "midi", "midi_output": "midi", "chain_controllers": "midi",
+                        "audio_in": "audio", "audio_out": "audio"}.get(proc, "other")
+                bypassed = False
+            else:
+                kind = {"MIDI Input": "midi", "MIDI Output": "midi", "MIDI Tool": "midi", "MIDI Synth": "synth",
+                        "Audio Generator": "synth", "Audio Input": "audio", "Audio Output": "audio",
+                        "Audio Effect": "audio", "Special": "special"}.get(proc.type, "other")
+                try:
+                    bypassed = bool(proc.is_bypassed())
+                except Exception:
+                    bypassed = False
+            # Line to the next node: two lines between parallel processors, one into a
+            # destination, half of one out of a source
+            if (nxt and not isinstance(proc, str) and not isinstance(nxt["proc"], str)
+                    and proc.type == nxt["proc"].type and n["slot"] == nxt["slot"]):
+                link = "parallel"
+            elif n["src"]:
+                link = "full" if nxt and nxt["dst"] else "half"
+            else:
+                link = ""
+            out.append({"title": n["title"], "kind": kind, "link": link, "bypassed": bypassed,
+                        "isProcessor": not isinstance(proc, str)})
+        return out
+
+    @Property(int, notify=pageChanged)
+    def chainNode(self):
+        """The selected side chain node: the chain controllers on a chain page, else the
+        current processor"""
+        nodes = getattr(self, "_nodes", None) or self._chain_nodes()
+        entries = self.pages.entries
+        on_chain_page = 0 <= self._page < len(entries) and entries[self._page]["data"] \
+            and entries[self._page]["data"][0] == "chain"
+        for i, n in enumerate(nodes):
+            if on_chain_page and n["proc"] == "chain_controllers":
+                return i
+            if not on_chain_page and n["proc"] is self.ui.current_processor:
+                return i
+        return -1
+
+    @Slot(int)
+    def nodeTapped(self, i):
+        """A tap on a side chain node (zynthian_side_chain.on_release): a processor's pages, a
+        second tap its options; the other nodes open their screen (Tk: a subscreen)"""
+        nodes = getattr(self, "_nodes", None) or self._chain_nodes()
+        if not 0 <= i < len(nodes):
+            return
+        proc = nodes[i]["proc"]
+        if self.ui.movingProcessor:
+            self.ui.endMoveProcessor()
+        if proc == "chain_controllers":
+            first = next((r for r, e in enumerate(self.pages.entries)
+                          if not e["separator"] and e["data"][0] == "chain"), None)
+            if first is not None:
+                self.setPage(first)
+        elif isinstance(proc, str):
+            self.ui.openChainScreen(self._NODE_SCREENS[proc])
+        elif i == self.chainNode:
+            self.ui.show_screen("processor_options")
+        else:
+            self.selectProcessor(self._processors.index(proc) if proc in self._processors else -1)
+
+    @Slot(int)
+    def nodeLongPressed(self, i):
+        """Long press on a processor node: move it (zynthian_side_chain.on_long_press)"""
+        nodes = getattr(self, "_nodes", None) or self._chain_nodes()
+        if 0 <= i < len(nodes) and not isinstance(nodes[i]["proc"], str):
+            proc = nodes[i]["proc"]
+            if proc in self._processors:
+                self.selectProcessor(self._processors.index(proc))
+            if self.chain_manager.can_move_processor(proc):
+                self.ui.start_move_processor(proc, stay=True)
+
+    @Property(str, notify=selectPathChanged)
+    def selectPath(self):
+        """The title as zynthian_gui_control.set_select_path: the processor's preset path (with
+        the MIDI learn mode while learning), else the chain's title"""
+        proc = self.ui.current_processor
+        if proc is not None:
+            if self._mode == "control" and self.midi_learning:
+                kind = "GLOBAL" if self.midi_learning == MIDI_LEARNING_GLOBAL else "CHAIN"
+                return f"{proc.get_basepath()}/{kind} Control MIDI-Learn"
+            return proc.get_presetpath()
+        chain = self.chain_manager.get_active_chain()
+        return chain.get_title() if chain else ""
 
     @Property(QObject, constant=True)
     def pageModel(self):

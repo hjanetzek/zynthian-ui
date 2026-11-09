@@ -27,7 +27,7 @@ Rectangle {
     }
     Label {
         anchors.top: iconBox.bottom
-        anchors.topMargin: -8
+        anchors.topMargin: 2
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.leftMargin: 4
@@ -37,6 +37,5 @@ Rectangle {
         color: Theme.text
         body: true
         size: Theme.infoTextSize
-        lineHeight: 0.84
     }
 }

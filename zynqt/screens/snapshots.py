@@ -16,6 +16,7 @@ class Options(SelectorScreen):
     """A list of options, each with its own action: config(), then show the screen"""
 
     name = "option"
+    default_icon = "zynthian_logo.png"   # Tk's selector_info default
 
     def __init__(self, ui, parent=None):
         super().__init__(ui, parent)

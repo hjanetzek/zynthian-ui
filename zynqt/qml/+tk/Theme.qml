@@ -35,6 +35,7 @@ ThemeBase {
     midiActivity: tkColor("midi", "#19b1f7")
     bindChain: tkColor("hl", "#00c000")
     bindGlobal: tkColor("ml", "#f0f000")
+    statusLine: tkColor("ml", "#f0f000")
     marker: "#ffff00"
     frameActive: "#ffff00"   // grid selection: a yellow outline
 
@@ -59,5 +60,7 @@ ThemeBase {
     mainMenuColumns: _cfg && _cfg.mainMenuColumns > 0 ? _cfg.mainMenuColumns : (screenWidth < 800 || (_cfg && _cfg.v5) ? 3 : 4)
     addChainColumns: 3
     gridBackground: tkColor("panel_bg", "#3a424d")
-    infoTextSize: tkPx(f)
+    // zynthian_gui_selector_info.update_info: min(max(0.7 F, side width // 16), F) points
+    readonly property int _infoSideWidth: Math.floor(infoWidth * (screenWidth - (keypadShown ? keypadWidth : 0)))
+    infoTextSize: tkPx(Math.min(Math.max(Math.floor(0.7 * f), Math.floor(_infoSideWidth / 16)), f))
 }

@@ -44,7 +44,7 @@ zynqt/qml/
   +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
   +tk/Theme.qml, MixerScreen.qml, TopBar.qml, InfoPane.qml, GridTile.qml, KeyFace.qml,
       ChainControlScreen.qml, Controller.qml, PatternEditorScreen.qml, PatternToolbar.qml,
-      LauncherPad.qml
+      LauncherPad.qml, ChainManagerMetrics.qml, SelectorControls.qml, PatternCcLane.qml
 ```
 
 Components split out so a theme can replace them: `KeyPlate`, `TopBarRule`, `Elbow`, `InfoPane`
@@ -53,7 +53,12 @@ around the shared `MixerView`; tk draws Tk's strips, also in launcher mode: the 
 the faders), `LauncherPad` (a launcher pad), `TopBar` (tk replaces it whole, with the same
 properties and signals), `KeyFace` (a keypad key's label; tk colours it with the LED of
 `zyn.keypadLeds`), `Controller` (a controller slot; tk: Tk's arc), `PatternToolbar` (the pattern
-editor's toolbar; tk: none).
+editor's toolbar; tk: none), `ChainManagerMetrics` (the chain manager's block sizes, spacings,
+margins, node text and selection outline; tk: Tk's formulas from the screen size),
+`SelectorControls` (controller widgets under a selector's info pane: none by default; tk: Tk's
+selector counter on the screens with `zsel_hidden = False`: bank, preset, MIDI recorder).
+Selector screens can also show a status line under the list (`set_status_line()`, token
+`statusLine`: the ZS3 screen's "Waiting for MIDI Program Change...").
 
 Shared parts that theme screens reuse: `ControlWidget` (chain control's page widget: waveform,
 envelope, filter, plugin widgets) and `ControlOverlays` (MIDI learn banner, processor move keys),

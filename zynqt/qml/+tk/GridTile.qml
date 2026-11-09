@@ -41,7 +41,9 @@ Item {
         Label {
             x: 2 * tile.bw / 3 - width / 2
             anchors.verticalCenter: parent.verticalCenter
-            width: tile.bw / 2
+            // Tk wraps at BLOCK_WIDTH // 2; Qt's Audiowide lines run a few px wider at the same
+            // size, so a little slack keeps Tk's line breaks ("Start Audio / Recording")
+            width: Math.floor(tile.bw / 2) + 6
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
             text: tile.tileTitle

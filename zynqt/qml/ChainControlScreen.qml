@@ -183,6 +183,9 @@ Item {
         anchors.bottom: parent.bottom
         width: parent.width * 0.3
         spacing: 2
+        // Select mode (SELECT, MENU): the knobs choose page and processor, as Tk's disabled
+        // controllers
+        opacity: root.cc.selectMode ? 0.5 : 1.0
         Repeater {
             model: [root.cc.c0, root.cc.c1, root.cc.c2, root.cc.c3]
             Controller {

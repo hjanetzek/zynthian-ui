@@ -866,6 +866,8 @@ class ZynUI(QObject):
                     screen = "preset"
         if processor and processor.eng_code == "CL":
             screen = "launcher"
+        # As zynthian_gui_chain_control.set_chain(reset=True): control mode
+        self.chain_control_screen.set_mode("control")
         self.show_screen(screen)
 
     def get_current_screen(self):
@@ -983,11 +985,6 @@ class ZynUI(QObject):
         screen = self._screen_obj()
         func = getattr(screen, "zynpot", None)
         if not self._overlay_shown() and callable(func) and func(i, d):
-            return
-        order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
-        if screen is self.chain_control_screen:
-            if i in order:
-                self.chain_control_screen.controllers[order.index(i)].nudge(d)
             return
         if i == zynthian_gui_config.select_ctrl:
             if self.current_screen in self.list_screens and screen is not None:
@@ -1478,8 +1475,34 @@ class ZynUI(QObject):
         self.show_screen("chain_options")
 
     def cuia_bank_preset(self, params=None):
-        if self.current_processor:
-            self.show_screen("preset" if self.current_screen == "bank" else "bank")
+        """As zynthian_gui.cuia_bank_preset: from the bank list back; from the presets to the
+        banks (back with a single bank); elsewhere the presets of the current processor if it
+        has a preset list, else its banks"""
+        sm = self.state_manager
+        if self.current_screen == "alsa_mixer":
+            return
+        if self.current_processor is not sm.audio_player or self.current_screen != "audio_player":
+            chain = self.chain_manager.get_active_chain()
+            if chain is not None and chain.current_processor is not None:
+                self.current_processor = chain.current_processor
+        proc = self.current_processor
+        if proc is None:
+            return
+        if self.current_screen == "bank":
+            self.back()
+        elif self.current_screen == "preset":
+            if len(proc.get_bank_list()) > 1:
+                self.replace_screen("bank")
+            else:
+                self.back()
+        else:
+            bank_list = proc.get_bank_list()
+            if proc.preset_list and proc.preset_list[0][0] != "":
+                self.show_screen("preset")
+            elif bank_list and bank_list[0][0] != "":
+                self.show_screen("bank")
+            else:
+                self.show_screen("preset")
 
     def _recorder_state_changed(self):
         if self.current_screen in ("main_menu", "midi_recorder"):

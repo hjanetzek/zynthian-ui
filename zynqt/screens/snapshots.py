@@ -60,6 +60,10 @@ class Snapshots(SelectorScreen):
             self.set_title("Snapshots" if self.files.bankless_mode else f"Snapshots > {sm.snapshot_bank}")
         self.set_entries(list_data_entries(rows, "Bold to show options."), index)
 
+    def show_menu(self):
+        """MENU: the selected entry's options (Tk's show_menu: bold select)"""
+        self.activate(self._index, "B")
+
     def select_action(self, index, t):
         sm = self.state_manager
         row = self.entries[index]["data"]
@@ -73,15 +77,6 @@ class Snapshots(SelectorScreen):
             self.fill()
         elif fpath:
             self.show_options(fpath, title, title == "Last State")
-
-    def back(self):
-        # Inside a bank (with several banks): back to the bank list
-        sm = self.state_manager
-        if sm.snapshot_bank is not None and not self.files.bankless_mode:
-            sm.snapshot_bank = None
-            self.fill()
-            return True
-        return False
 
     def show_options(self, fpath, title, restricted):
         options = [

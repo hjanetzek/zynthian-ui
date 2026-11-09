@@ -16,6 +16,17 @@ Rectangle {
 
     color: Theme.background
 
+    // Galactica: a steel rule under the bar, an amber tick at its left end
+    Rectangle {
+        visible: Theme.isGalactica
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 2
+        color: Theme.frame
+        Rectangle { width: 48; height: parent.height; color: Theme.frameActive }
+    }
+
     // The title brings up the overlay keypad, the status area docks / undocks it
     Item {
         id: titleArea
@@ -32,7 +43,7 @@ Rectangle {
         }
     }
 
-    Text {
+    Label {
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
         anchors.leftMargin: 8
@@ -40,8 +51,8 @@ Rectangle {
         elide: Text.ElideRight
         text: (root.overlayHint ? "☰ " : "") + root.title
         color: Theme.text
-        font.pixelSize: 28
-        font.family: Theme.fontFamily
+        size: 28
+        title: true
     }
 
     // Status area as the Tk UI's: top row the main meters, the mute flag and the heart (its
@@ -93,7 +104,7 @@ Rectangle {
             text: "\uf32f"
             font.family: statusRow.iconFont
             font.pixelSize: 20
-            color: "#ff0000"
+            color: Theme.alert
         }
         Text {
             id: heart
@@ -110,9 +121,9 @@ Rectangle {
             }
             color: {
                 const s = statusRow.st
-                if (s.xrunLevel === 2 || s.overtemp) return "#ff0000"
-                if (s.xrunLevel === 1) return "#ff9000"
-                if (s.undervoltage) return "#ff0000"
+                if (s.xrunLevel === 2 || s.overtemp) return Theme.alert
+                if (s.xrunLevel === 1) return Theme.warning
+                if (s.undervoltage) return Theme.alert
                 // As zynthian_gui_base: green below 50 %, to yellow at 75 %, to red at 100 %
                 const load = Math.max(0, Math.min(100, s.cpuLoad || 0))
                 const cr = load < 50 ? 0 : (load < 75 ? Math.round((load - 50) * 0xcc / 25) : 0xcc)
@@ -127,12 +138,12 @@ Rectangle {
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 3
             spacing: 4
-            FlagIcon { glyph: "\uf111"; on: !!statusRow.st.audioRecorder; color: "#b00000" }
-            FlagIcon { glyph: "\uf04b"; on: !!statusRow.st.audioPlayer; color: "#00c000" }
-            FlagIcon { glyph: "\uf111"; on: !!statusRow.st.midiRecorder; color: "#ff00ff" }
-            FlagIcon { glyph: "\uf04b"; on: !!statusRow.st.midiPlayer; color: "#ff00ff" }
-            FlagIcon { glyph: "\uf111"; on: !!statusRow.st.seqRecord; color: "#ff9000" }
-            FlagIcon { glyph: "\uf04b"; on: !!statusRow.st.seqPlay; color: "#ff9000" }
+            FlagIcon { glyph: "\uf111"; on: !!statusRow.st.audioRecorder; color: Theme.flagRecord }
+            FlagIcon { glyph: "\uf04b"; on: !!statusRow.st.audioPlayer; color: Theme.flagPlay }
+            FlagIcon { glyph: "\uf111"; on: !!statusRow.st.midiRecorder; color: Theme.flagMidi }
+            FlagIcon { glyph: "\uf04b"; on: !!statusRow.st.midiPlayer; color: Theme.flagMidi }
+            FlagIcon { glyph: "\uf111"; on: !!statusRow.st.seqRecord; color: Theme.flagSeq }
+            FlagIcon { glyph: "\uf04b"; on: !!statusRow.st.seqPlay; color: Theme.flagSeq }
         }
         Row {
             anchors.right: parent.right
@@ -166,14 +177,14 @@ Rectangle {
                     text: "m"
                     font.family: statusRow.iconFont
                     font.pixelSize: 20
-                    color: "#19b1f7"
+                    color: Theme.midiActivity
                 }
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
                     height: 2
                     visible: !!statusRow.st.midiClock
-                    color: "#19b1f7"
+                    color: Theme.midiActivity
                 }
             }
         }
@@ -207,15 +218,23 @@ Rectangle {
         property color color: Theme.textOff
         width: metrics.width
         height: metrics.height
-        TextMetrics { id: metrics; text: slot.sample; font.pixelSize: 12 }
-        Text {
+        // In the font of the Labels below
+        TextMetrics {
+            id: metrics
+            text: slot.sample
+            font.pixelSize: Math.round(12 * Theme.fontScale)
+            font.family: Theme.textFamily
+            font.capitalization: Theme.caps ? Font.AllUppercase : Font.MixedCase
+            font.letterSpacing: Theme.letterSpacing
+        }
+        Label {
             visible: slot.label !== ""
             anchors.left: parent.left
-            text: slot.label; color: slot.color; font.pixelSize: 12
+            text: slot.label; color: slot.color; size: 12
         }
-        Text {
+        Label {
             anchors.right: parent.right
-            text: slot.text; color: slot.color; font.pixelSize: 12
+            text: slot.text; color: slot.color; size: 12
         }
     }
 }

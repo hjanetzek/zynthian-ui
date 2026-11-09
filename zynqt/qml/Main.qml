@@ -123,7 +123,7 @@ Window {
     }
 
     // Info message, as zynthian_gui.show_info
-    Rectangle {
+    Panel {
         anchors.horizontalCenter: screens.horizontalCenter
         anchors.bottom: screens.bottom
         anchors.bottomMargin: 16
@@ -131,9 +131,11 @@ Window {
         height: infoText.implicitHeight + 20
         radius: 6
         visible: zyn.info !== ""
-        color: "#e0202830"
-        border.color: Theme.keyText
-        Text {
+        color: Theme.overlay
+        borderColor: Theme.keyText
+        borderWidth: Math.max(1, Theme.frameWidth)
+        cut: Theme.cutLarge
+        Label {
             id: infoText
             anchors.centerIn: parent
             width: Math.min(implicitWidth, screens.width - 80)
@@ -141,7 +143,8 @@ Window {
             horizontalAlignment: Text.AlignHCenter
             text: zyn.info
             color: Theme.text
-            font.pixelSize: 20
+            body: true
+            size: 20
         }
     }
 
@@ -149,27 +152,28 @@ Window {
     Rectangle {
         anchors.fill: screens
         visible: zyn.confirmText !== ""
-        color: "#d0000000"
+        color: Theme.dim
         MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }   // modal: keeps touches from the screen below
 
         Column {
             anchors.centerIn: parent
             spacing: 30
-            Text {
+            Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: screens.width - 80
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
                 text: zyn.confirmText
                 color: Theme.text
-                font.pixelSize: 28
-                font.family: Theme.fontFamily
+                body: true
+                size: 28
+                title: true
             }
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 40
-                DialogButton { text: "NO"; color: "#802020"; onTapped: zyn.confirmNo() }
-                DialogButton { text: "YES"; color: "#208020"; onTapped: zyn.confirmYes() }
+                DialogButton { text: "NO"; color: Theme.dialogNo; onTapped: zyn.confirmNo() }
+                DialogButton { text: "YES"; color: Theme.dialogYes; onTapped: zyn.confirmYes() }
             }
         }
     }
@@ -195,7 +199,7 @@ Window {
             contentHeight: helpText.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            Text {
+            Label {
                 id: helpText
                 width: helpFlick.width
                 textFormat: Text.RichText
@@ -203,8 +207,9 @@ Window {
                 baseUrl: zyn.helpBaseUrl
                 text: zyn.helpHtml
                 color: Theme.text
-                linkColor: "#5ab4f0"
-                font.pixelSize: 20
+                linkColor: Theme.link
+                body: true
+                size: 20
                 onLinkActivated: (link) => zyn.helpLink(link)
                 onTextChanged: helpFlick.contentY = 0
             }
@@ -232,25 +237,26 @@ Window {
     Rectangle {
         anchors.fill: screens
         visible: zyn.valueEditorShown
-        color: "#d0000000"
+        color: Theme.dim
         MouseArea { anchors.fill: parent; onWheel: (wheel) => zyn.valueEditorStep(wheel.angleDelta.y > 0 ? 1 : -1) }
 
         Column {
             anchors.centerIn: parent
             spacing: 24
-            Text {
+            Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: zyn.valueEditorTitle
                 color: Theme.textOff
-                font.pixelSize: 24
-                font.family: Theme.fontFamily
+                size: 24
+                title: true
             }
-            Text {
+            Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: zyn.valueEditorText
                 color: Theme.text
-                font.pixelSize: 56
-                font.family: Theme.fontFamily
+                body: true
+                size: 56
+                title: true
             }
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -263,8 +269,8 @@ Window {
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 40
-                DialogButton { text: "Cancel"; color: "#802020"; onTapped: zyn.valueEditorCancel() }
-                DialogButton { text: "OK"; color: "#208020"; onTapped: zyn.valueEditorAccept() }
+                DialogButton { text: "Cancel"; color: Theme.dialogNo; onTapped: zyn.valueEditorCancel() }
+                DialogButton { text: "OK"; color: Theme.dialogYes; onTapped: zyn.valueEditorAccept() }
             }
         }
     }
@@ -273,19 +279,20 @@ Window {
     Rectangle {
         anchors.fill: screens
         visible: zyn.busy
-        color: "#c0000000"
+        color: Theme.dimBusy
         Column {
             anchors.centerIn: parent
             width: parent.width - 80
             spacing: 16
-            Text {
+            Label {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
                 text: zyn.busyMessage || "Busy..."
                 color: Theme.text
-                font.pixelSize: 28
-                font.family: Theme.fontFamily
+                body: true
+                size: 28
+                title: true
             }
             // Tasks with counted steps (snapshot loading): a progress bar and the current step
             Rectangle {
@@ -303,14 +310,15 @@ Window {
                     Behavior on width { NumberAnimation { duration: 150 } }
                 }
             }
-            Text {
+            Label {
                 visible: zyn.busyProgress >= 0
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
                 text: zyn.busyDetails
                 color: Theme.textOff
-                font.pixelSize: 16
+                body: true
+                size: 16
             }
         }
         MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }   // swallow taps while busy
@@ -329,28 +337,30 @@ Window {
     component PlaceholderScreen: Rectangle {
         property alias text: label.text
         color: Theme.panel
-        Text {
+        Label {
             id: label
             anchors.centerIn: parent
             color: Theme.textOff
-            font.pixelSize: 24
-            font.family: Theme.fontFamily
+            size: 24
+            title: true
         }
     }
 
-    component DialogButton: Rectangle {
+    component DialogButton: Panel {
         id: button
         property alias text: label.text
         signal tapped
         width: 160
         height: 70
         radius: 4
-        Text {
+        borderColor: Theme.isGalactica ? Theme.frameActive : "transparent"
+        cut: Theme.cutLarge
+        Label {
             id: label
             anchors.centerIn: parent
             color: Theme.text
-            font.pixelSize: 26
-            font.family: Theme.fontFamily
+            size: 26
+            title: true
         }
         TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: button.tapped() }
     }

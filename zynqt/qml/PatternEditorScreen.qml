@@ -42,7 +42,7 @@ Item {
         spacing: 6
         ToolButton { text: root.pe.playing ? "■ Stop" : "▶ Play"; width: 120; on: root.pe.playing; onTapped: root.pe.togglePlayback() }
         ToolButton {
-            text: "\u25cf Rec"; width: 90; on: root.pe.recording; onColor: "#a02020"
+            text: "\u25cf Rec"; width: 90; on: root.pe.recording; onColor: Theme.buttonRecord
             onTapped: root.pe.toggleRecording()
         }
         ToolButton { text: "Undo"; onTapped: root.pe.undo() }
@@ -58,13 +58,14 @@ Item {
         ToolButton { text: "Cut"; width: 70; visible: root.pe.selectMode; onTapped: root.pe.copyBlock(true) }
         ToolButton { text: "Del"; width: 70; visible: root.pe.selectMode; onTapped: root.pe.deleteBlock() }
         ToolButton { text: "Menu"; onTapped: root.pe.menu() }
-        Text {
+        Label {
             anchors.verticalCenter: parent.verticalCenter
             width: Math.max(0, toolbar.width - x)
             elide: Text.ElideRight
             text: root.pe.title
             color: Theme.textOff
-            font.pixelSize: 16
+            body: true
+            size: 16
         }
     }
 
@@ -148,8 +149,8 @@ Item {
                     y: index * root.rowHeight
                     width: content.width
                     height: root.rowHeight
-                    color: root.rows[root.nRows - 1 - index].black ? "#262c34" : "#323a45"
-                    Rectangle { width: parent.width; height: 1; color: "#1c2128" }
+                    color: root.rows[root.nRows - 1 - index].black ? Theme.gridRowDark : Theme.gridRow
+                    Rectangle { width: parent.width; height: 1; color: Theme.gridRowLine }
                 }
             }
             // Step lines: thicker at beats, brighter at bars
@@ -162,7 +163,7 @@ Item {
                     x: index * root.stepWidth
                     width: bar ? 2 : 1
                     height: content.height
-                    color: bar ? "#8090a0" : (beat ? "#566270" : "#2a3038")
+                    color: bar ? Theme.gridBar : (beat ? Theme.gridBeat : Theme.gridStep)
                 }
             }
             // Notes (brighter with velocity; faded if never played), with their stutter (ticks:
@@ -180,8 +181,8 @@ Item {
                     height: root.rowHeight - 4
                     radius: 3
                     opacity: modelData.muted ? 0.35 : 1
-                    color: Qt.hsla(0.58, 0.8, 0.25 + 0.45 * modelData.velocity / 127, 1)
-                    border.color: "#e0f0ff"
+                    color: Qt.hsla(Theme.noteHue, 0.8, 0.25 + 0.45 * modelData.velocity / 127, 1)
+                    border.color: Theme.noteFrame
                     border.width: 1
                     Repeater {
                         id: ticks
@@ -225,8 +226,8 @@ Item {
                 y: root.rowY(b[3] || 0)
                 width: ((b[2] || 0) - (b[0] || 0) + 1) * root.stepWidth
                 height: ((b[3] || 0) - (b[1] || 0) + 1) * root.rowHeight
-                color: "#305a9ef0"
-                border.color: "#5a9ef0"
+                color: Theme.selectionFill
+                border.color: Theme.selectionFrame
                 border.width: 2
             }
             // Select mode: drag marks a block
@@ -285,7 +286,7 @@ Item {
         readonly property real sw: width / root.steps
         readonly property var values: root.pe.ccValues
 
-        Rectangle { anchors.fill: parent; color: "#262c34" }
+        Rectangle { anchors.fill: parent; color: Theme.gridRowDark }
         // Value lines every 16
         Repeater {
             model: 9
@@ -294,15 +295,15 @@ Item {
                 y: ccLane.height - index * 16 / 127 * ccLane.height
                 width: ccLane.width
                 height: 1
-                color: index % 4 === 0 ? "#566270" : "#323a45"
-                Text {
+                color: index % 4 === 0 ? Theme.gridBeat : Theme.gridRow
+                Label {
                     x: -root.keyWidth
                     y: -8
                     width: root.keyWidth - 6
                     horizontalAlignment: Text.AlignRight
                     text: Math.min(127, parent.index * 16)
                     color: Theme.textOff
-                    font.pixelSize: 12
+                    size: 12
                 }
             }
         }
@@ -315,7 +316,7 @@ Item {
                 width: 1
                 height: ccLane.height
                 visible: index % root.pe.stepsPerBeat === 0
-                color: "#566270"
+                color: Theme.gridBeat
             }
         }
         // Values
@@ -333,8 +334,8 @@ Item {
                     x: 2
                     width: parent.width - 4
                     height: parent.v ? parent.v[0] / 127 * ccLane.height : 0
-                    color: index === root.pe.ccCursor ? "#4080c0" : "#305070"
-                    border.color: "#e0f0ff"
+                    color: index === root.pe.ccCursor ? Theme.ccBarCurrent : Theme.ccBar
+                    border.color: Theme.noteFrame
                     border.width: 1
                 }
             }
@@ -365,21 +366,22 @@ Item {
         }
     }
 
-    component ToolButton: Rectangle {
+    component ToolButton: Panel {
         id: button
         property alias text: label.text
         property bool on: false
-        property color onColor: "#206030"
+        property color onColor: Theme.buttonOn
         signal tapped
         width: 100
         height: parent.height
         radius: 4
         color: tap.pressed ? Theme.keyText : (on ? onColor : Theme.keyBackground)
-        Text {
+        Label {
             id: label
             anchors.centerIn: parent
             color: Theme.text
-            font.pixelSize: 16
+            body: true   // the entry and CC titles keep their case
+            size: 16
         }
         TapHandler { id: tap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: button.tapped() }
     }

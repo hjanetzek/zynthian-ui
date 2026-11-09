@@ -8,14 +8,15 @@ Item {
 
     readonly property var xy: zyn.controlXY
 
-    Rectangle {
+    Panel {
         id: pad
         anchors.fill: parent
         anchors.margins: 12
         color: Theme.panelHighlight
-        border.color: Theme.panel
-        border.width: 2
+        borderColor: Theme.isGalactica ? Theme.frame : Theme.panel
+        borderWidth: 2
         radius: 6
+        cut: Theme.cutLarge
 
         // Grid lines at quarters
         Repeater {
@@ -47,16 +48,17 @@ Item {
         Column {
             x: 16; y: 12
             spacing: 6
-            Text { text: root.xy.xText; color: Theme.text; font.pixelSize: 22; font.family: Theme.fontFamily }
-            Text { text: root.xy.yText; color: Theme.text; font.pixelSize: 22; font.family: Theme.fontFamily }
+            Label { text: root.xy.xText; color: Theme.text; size: 22; title: true; body: true }
+            Label { text: root.xy.yText; color: Theme.text; size: 22; title: true; body: true }
         }
-        Text {
+        Label {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 8
             text: "X: left → right    Y: down → up    Tap 3 times to exit"
             color: Theme.disabled
-            font.pixelSize: 16
+            body: true
+            size: 16
         }
 
         function moveTo(p) {

@@ -7,7 +7,7 @@ Rectangle {
     id: root
 
     property var view
-    color: "#101418"
+    color: Theme.widgetBackground
     clip: true
 
     onViewChanged: if (view && wave.width > 0) view.setSize(wave.width, wave.height)
@@ -25,13 +25,13 @@ Rectangle {
         Rectangle {
             width: Math.max(0, Math.min(wave.width, root.view.markers.cropStart || 0))
             height: wave.height
-            color: "#181e24"
+            color: Theme.widgetOutside
         }
         Rectangle {
             x: Math.max(0, root.view.markers.cropEnd || wave.width)
             width: Math.max(0, wave.width - x)
             height: wave.height
-            color: "#181e24"
+            color: Theme.widgetOutside
         }
 
         Repeater {
@@ -43,7 +43,7 @@ Rectangle {
                 ShapePath {
                     strokeWidth: 0
                     strokeColor: "transparent"
-                    fillColor: "#4a90d0"
+                    fillColor: Theme.widgetWave
                     PathPolyline { path: modelData }
                 }
             }

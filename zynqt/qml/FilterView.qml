@@ -7,7 +7,7 @@ Rectangle {
     id: root
 
     property var view
-    color: "#101418"
+    color: Theme.widgetBackground
     clip: true
 
     onWidthChanged: if (view && width > 0) view.setSize(width, height)
@@ -19,14 +19,14 @@ Rectangle {
         model: root.view ? root.view.gridY : []
         Rectangle {
             required property real modelData
-            x: 10; y: modelData; width: root.width - 20; height: 1; color: "#2e4a2e"
+            x: 10; y: modelData; width: root.width - 20; height: 1; color: Theme.widgetGrid
         }
     }
     Repeater {
         model: 9
         Rectangle {
             required property int index
-            x: 10 + (root.width - 20) * index / 8; y: 10; width: 1; height: root.height - 20; color: "#2e4a2e"
+            x: 10 + (root.width - 20) * index / 8; y: 10; width: 1; height: root.height - 20; color: Theme.widgetGrid
         }
     }
     Shape {
@@ -34,8 +34,8 @@ Rectangle {
         preferredRendererType: Shape.GeometryRenderer
         ShapePath {
             strokeWidth: 2
-            strokeColor: "#5a9ef0"
-            fillColor: "#203a58"
+            strokeColor: Theme.widgetLine
+            fillColor: Theme.widgetFill
             PathPolyline { path: root.view ? root.view.shape : [] }
         }
     }

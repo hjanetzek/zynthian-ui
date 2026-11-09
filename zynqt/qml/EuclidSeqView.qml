@@ -9,7 +9,7 @@ Rectangle {
 
     property var view
     readonly property var p: view ? view.panel : ({})
-    color: "#000000"
+    color: Theme.background
     clip: true
 
     Grid {

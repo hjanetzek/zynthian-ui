@@ -8,7 +8,7 @@ Rectangle {
     property bool shift: false
     readonly property var rows: ["1234567890", "qwertyuiop", "asdfghjkl'", "zxcvbnm-_."]
 
-    color: "#f0101418"
+    color: Theme.isGalactica ? Theme.overlay : "#f0101418"
     visible: zyn.keyboardShown
 
     onVisibleChanged: if (visible) { field.text = zyn.keyboardText; field.selectAll(); field.forceActiveFocus() }
@@ -25,17 +25,18 @@ Rectangle {
         anchors.margins: 8
         spacing: 6
 
-        Text {
+        Label {
             text: zyn.keyboardTitle
             color: Theme.textOff
-            font.pixelSize: 18
-            font.family: Theme.fontFamily
+            size: 18
+            title: true
         }
 
-        Rectangle {
+        Panel {
             width: parent.width
             height: 48
             color: Theme.panel
+            borderColor: Theme.isGalactica ? Theme.frameActive : "transparent"
             TextInput {
                 id: field
                 anchors.fill: parent
@@ -81,7 +82,7 @@ Rectangle {
         }
     }
 
-    component Key: Rectangle {
+    component Key: Panel {
         id: key
         property string label
         property bool highlighted: false
@@ -89,13 +90,15 @@ Rectangle {
         width: 70
         height: 52
         radius: 3
-        color: tap.pressed ? Theme.keyText : (highlighted ? "#205080" : Theme.keyBackground)
-        Text {
+        color: tap.pressed ? Theme.keyText : (highlighted ? (Theme.isGalactica ? Theme.select : "#205080")
+                                                           : Theme.keyBackground)
+        Label {
             anchors.centerIn: parent
             text: key.label
-            color: Theme.text
-            font.pixelSize: 22
-            font.family: Theme.fontFamily
+            color: key.highlighted && Theme.isGalactica && !tap.pressed ? Theme.selectText : Theme.text
+            size: 22
+            body: true   // letter keys show their case
+            title: true
         }
         TapHandler { id: tap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: key.tapped() }
     }

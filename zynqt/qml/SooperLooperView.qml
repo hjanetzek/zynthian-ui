@@ -12,7 +12,7 @@ Rectangle {
     readonly property var loops: d.loops || []
     readonly property real rowH: Math.max(24, (height - 3 * 36 - 8) / 9)
     readonly property color asserted: "#b00000"
-    color: "#000000"
+    color: Theme.background
     clip: true
 
     Column {

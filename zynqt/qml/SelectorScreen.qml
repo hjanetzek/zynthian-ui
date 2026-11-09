@@ -74,7 +74,7 @@ Item {
         clip: true
         model: root.isGrid ? null : root.entries
         currentIndex: root.screen ? root.screen.index : -1
-        spacing: Theme.isGalactica ? 2 : 0
+        spacing: Theme.listSpacing
         boundsBehavior: Flickable.StopAtBounds
         highlightMoveDuration: 0
         onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
@@ -124,7 +124,7 @@ Item {
         anchors.bottom: parent.bottom
         width: root.isGrid ? 0 : parent.width * 0.28
         visible: !root.isGrid
-        color: Theme.isGalactica ? Theme.panelHighlight : Theme.background
+        color: Theme.infoBackground
         cut: Theme.cutLarge
 
         Image {
@@ -181,14 +181,14 @@ Item {
 
             Panel {
                 anchors.fill: parent
-                anchors.margins: Theme.isGalactica ? 3 : 1
+                anchors.margins: Theme.tileMargin
                 visible: tile.separator
                 color: Theme.panelHighlight
                 cut: Theme.cutLarge
             }
             Panel {
                 anchors.fill: parent
-                anchors.margins: Theme.isGalactica ? 3 : 1
+                anchors.margins: Theme.tileMargin
                 visible: !tile.separator
                 color: tile.index === grid.currentIndex ? Theme.select : Theme.panel
                 borderColor: tap.pressed ? Theme.frameActive : Theme.frame

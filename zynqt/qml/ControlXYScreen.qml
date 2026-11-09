@@ -13,7 +13,7 @@ Item {
         anchors.fill: parent
         anchors.margins: 12
         color: Theme.panelHighlight
-        borderColor: Theme.isGalactica ? Theme.frame : Theme.panel
+        borderColor: Theme.xyFrame
         borderWidth: 2
         radius: 6
         cut: Theme.cutLarge

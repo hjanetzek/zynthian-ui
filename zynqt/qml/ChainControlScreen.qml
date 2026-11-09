@@ -141,7 +141,7 @@ Item {
         clip: true
         model: root.cc.pageModel
         currentIndex: root.cc.page
-        spacing: Theme.isGalactica ? 2 : 0
+        spacing: Theme.listSpacing
         boundsBehavior: Flickable.StopAtBounds
         highlightMoveDuration: 0
         onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)

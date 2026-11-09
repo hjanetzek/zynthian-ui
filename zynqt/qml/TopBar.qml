@@ -19,15 +19,11 @@ Rectangle {
 
     color: Theme.background
 
-    // Galactica: a steel rule under the bar, an amber tick at its left end
-    Rectangle {
-        visible: Theme.isGalactica
+    // Decoration along the bottom edge (galactica: a rule; +<theme>/TopBarRule.qml)
+    TopBarRule {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 2
-        color: Theme.frame
-        Rectangle { width: 48; height: parent.height; color: Theme.frameActive }
     }
 
     // The title brings up the overlay keypad, the status area docks / undocks it

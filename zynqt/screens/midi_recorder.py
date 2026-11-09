@@ -57,6 +57,10 @@ class MidiRecorder(SelectorScreen):
         zynconf.save_config({"ZYNTHIAN_MIDI_PLAY_LOOP": str(int(zynthian_gui_config.midi_play_loop))})
         self.fill()
 
+    def show_menu(self):
+        """MENU: the selected entry's options (Tk's show_menu: bold select)"""
+        self.activate(self._index, "B")
+
     def select_action(self, index, t):
         e = self.entries[index]
         if callable(e["action"]):

@@ -11,6 +11,7 @@ import logging
 from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
 from zyngine.zynthian_signal_manager import zynsigman
+from zyngui import zynthian_gui_config
 from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
 from zyngui import zynthian_sooperlooper_data as sld
@@ -154,6 +155,7 @@ class ChainControl(QObject):
     pageChanged = Signal()
     learnChanged = Signal()
     sidebarChanged = Signal()
+    modeChanged = Signal()
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -165,6 +167,9 @@ class ChainControl(QObject):
         self.controllers = [ControllerProxy(i, self) for i in range(4)]
         self._shown = False
         self._sidebar_shown = True   # the processor list (Tk's chain sidebar)
+        # Tk's modes (zynthian_gui_control / chain_control): "control" (the knobs turn the
+        # controllers) or "select" (the chain is shown: knob 3 the page, knob 2 the processor)
+        self._mode = "control"
         # A processor without chain (tempo, ALSA mixer), shown instead of the active chain
         self.special_processor = None
         self._timer = QTimer(self, interval=50)
@@ -180,6 +185,8 @@ class ChainControl(QObject):
         self.sl_view = SooperLooperView(ui, self)
         self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
+        # Another chain selected while shown (arrows, switch 0): show it (Tk's cb_set_active_chain)
+        ui.bridge.activeChainChanged.connect(self._active_chain_changed)
         # MIDI learn (zynthian_gui_control): MIDI_LEARNING_*; learn_preselect: learning without a
         # controller chosen (all show "??#??", touching one chooses it); note_learn: the key range
         # page learning its notes (zynthian_gui_midi_key_range: -1, then the first note)
@@ -231,6 +238,15 @@ class ChainControl(QObject):
 
     def rebuild(self):
         self._build()
+
+    def _active_chain_changed(self):
+        if not self._shown or self.special_processor is not None:
+            return
+        chain = self.chain_manager.get_active_chain()
+        procs = chain.get_processors() if chain else []
+        if chain and self.ui.current_processor not in procs:
+            self.ui.set_current_processor(chain.current_processor)
+            self._build()
 
     def _rebuild_if_shown(self):
         if self._shown:
@@ -457,6 +473,146 @@ class ChainControl(QObject):
         if rows:
             self.setPage(rows[min(page, len(rows) - 1)])
 
+    # Knobs, switches and keys, as zynthian_gui_chain_control + zynthian_gui_control
+
+    @Property(bool, notify=modeChanged)
+    def selectMode(self):
+        return self._mode == "select"
+
+    def set_mode(self, mode):
+        if mode != self._mode:
+            if mode == "select":
+                self.exit_midi_learn()
+            self._mode = mode
+            self.modeChanged.emit()
+
+    def _knob_controller(self, i):
+        """The controller knob i turns (the layout's ctrl_order), or None"""
+        order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
+        return self.controllers[order.index(i)] if i in order else None
+
+    def _processor_step(self, step):
+        """The chain's previous / next processor (Tk: the chain sidebar's cursor)"""
+        procs = self._processors
+        if not procs:
+            return
+        cur = self.ui.current_processor
+        i = procs.index(cur) if cur in procs else 0
+        i = max(0, min(len(procs) - 1, i + step))
+        self.selectProcessor(i)
+
+    def zynpot(self, i, d):
+        """zynthian_gui_chain_control.zynpot_cb: in select mode knob 2 the processor, knob 3 the
+        page; in control mode knob i its controller (learning it while MIDI learning)"""
+        if self._mode == "select":
+            if i == 2 and self.isChain:
+                self._processor_step(1 if d > 0 else -1)
+            elif i == zynthian_gui_config.select_ctrl:
+                self.move_page(1 if d > 0 else -1)
+            return True
+        c = self._knob_controller(i)
+        if c is not None and c.zctrl is not None:
+            c.nudge(d)
+            if self.midi_learning:
+                self.midi_learn(c.index, self.midi_learning)
+        return True
+
+    def switch(self, i, t):
+        """zynthian_gui_chain_control.switch (+ the control subscreen's): bold while MIDI
+        learning the controller's options; 3 bold bank / preset; 0 short rotate the chains; 1
+        bold the main menu; 2 in select mode the processor's select"""
+        if t == "B" and self.midi_learning:
+            c = self._knob_controller(i)
+            if c is not None:
+                c.options()
+            return True
+        if i == 3 and t == "B":
+            self.ui.cuia_bank_preset()
+            return True
+        if i == 0 and t == "S":
+            if self.isChain:
+                self.chain_manager.rotate_chain()
+            return True
+        if i == 1 and t == "B":
+            self.ui.show_screen("main_menu")
+            return True
+        if i == 2 and self._mode == "select":
+            self._processor_select(t)
+            return True
+        return False
+
+    def _processor_select(self, t):
+        """Select on the chain sidebar (zynthian_side_chain.switch_select): short the
+        processor's options, bold move it (select again ends the move)"""
+        proc = self.ui.current_processor
+        if self.ui.movingProcessor:
+            self.ui.endMoveProcessor()
+            if t == "S":
+                return
+        if proc is None:
+            return
+        if t == "S":
+            self.ui.show_screen("processor_options")
+        elif t == "B":
+            self.ui.start_move_processor(proc, stay=True)
+
+    def switch_select(self, t="S"):
+        """SELECT: short toggles control / select mode, bold the processor's options"""
+        if t == "S":
+            self.set_mode("select" if self._mode == "control" else "control")
+            return True
+        if t == "B":
+            self.show_menu_processor()
+            return True
+        return False
+
+    def show_menu_processor(self):
+        self.ui.show_screen("processor_options")
+
+    def show_menu(self):
+        """MENU (zynthian_gui_chain_control.show_menu): in select mode the processor's options,
+        else select mode"""
+        if self._mode == "select":
+            self.show_menu_processor()
+        else:
+            self.set_mode("select")
+
+    def cuia_v5_zynpot_switch(self, params):
+        """V5 knob pushes: in select mode 2 the processor's select, 3 SELECT; in control mode
+        short MIDI learn of that controller (a file path: open it), bold / long its options"""
+        try:
+            i, t = int(params[0]), str(params[1]).upper()
+        except (TypeError, ValueError, IndexError):
+            return False
+        if self._mode == "select":
+            if i == 2:
+                self._processor_select(t)
+                return True
+            if i == 3:
+                self.switch_select(t)
+                return True
+            return False
+        c = self._knob_controller(i)
+        if t == "S":
+            if c is not None and c.zctrl is not None and getattr(c.zctrl, "is_path", False):
+                c.zctrl.nudge(0)
+            else:
+                self.toggle_midi_learn(c.index if c is not None else None)
+            return True
+        if t in ("B", "L"):
+            if c is not None:
+                c.options()
+            return True
+        return False
+
+    def cuia_arrow_right(self, params=None):
+        self.navigate("right")
+        return True
+
+    def cuia_arrow_left(self, params=None):
+        self.navigate("left")
+        return True
+
     def move_page(self, step):
         entries = self.pages.entries
         i = self._page + step
@@ -466,16 +622,33 @@ class ChainControl(QObject):
             self.setPage(i)
 
     def navigate(self, what):
+        """Arrows: up / down the page; left / right the processor in select mode, else the
+        chain; SELECT as switch_select"""
         if what == "up":
             self.move_page(-1)
         elif what == "down":
             self.move_page(1)
+        elif what in ("left", "right"):
+            step = 1 if what == "right" else -1
+            if self._mode == "select":
+                self._processor_step(step)
+            elif self.isChain:
+                if step > 0:
+                    self.chain_manager.next_chain()
+                else:
+                    self.chain_manager.previous_chain()
+        elif what == "select":
+            self.switch_select("S")
         elif what == "select_bold":
-            self.ui.cuia_bank_preset()
+            self.switch_select("B")
 
     def back(self):
+        """BACK: leave MIDI learn, then select mode (zynthian_gui_chain_control.back_action)"""
         if self.midi_learning or self.note_learn:
             self.exit_midi_learn()
+            return True
+        if self._mode == "select":
+            self.set_mode("control")
             return True
         return False
 

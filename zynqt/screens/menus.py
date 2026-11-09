@@ -99,4 +99,5 @@ class AddChain(SelectorScreen):
             entries[2] = entry("Clip Launcher\nMax. 16 reached!", icon="audio.png", enabled=False,
                                info="There are 16 clip launchers already.")
         # A 4x4 grid; the empty cells are for favourite instruments / chain setups later
-        self.set_entries(fill_grid(entries, pad=self.grid_placeholders), 0)
+        # Tk keeps the selected tile between visits (selected_node)
+        self.set_entries(fill_grid(entries, pad=self.grid_placeholders))

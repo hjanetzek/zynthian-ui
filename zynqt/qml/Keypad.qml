@@ -61,22 +61,11 @@ Item {
                                       : (k.key === 14 || k.key === 2 ? Theme.keyYes
                                          : (Theme.keyFills.length ? Theme.keyFills[k.key % Theme.keyFills.length] : Theme.keyBackground))
 
-        // Classic: square keys with a 1 px gap; galactica: plates with clipped corners;
-        // enterprise: filled pills (wide keys) or rounded plates. In the overlay translucent,
-        // the blurred screen showing through.
-        Panel {
+        KeyPlate {
             anchors.fill: parent
-            anchors.margins: Theme.isGalactica ? 2 : (Theme.keyFilled ? 3 : 0)
-            button: Theme.keyFilled && width > height
-            color: {
-                const c = Theme.keyFilled ? (tap.pressed ? Qt.lighter(k.fill, 1.25) : k.fill)
-                                          : (tap.pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground)
-                return root.translucent ? Qt.rgba(c.r, c.g, c.b, tap.pressed ? 0.85 : (Theme.keyFilled ? 0.7 : 0.55)) : c
-            }
-            borderColor: Theme.isGalactica ? (tap.pressed ? Theme.frameActive : Theme.frame)
-                                           : (Theme.keyFilled ? "transparent"
-                                              : (root.translucent ? Qt.rgba(1, 1, 1, 0.15) : Theme.background))
-            borderWidth: Theme.isGalactica ? Theme.frameWidth : (Theme.keyFilled ? 0 : 1)
+            fill: k.fill
+            pressed: tap.pressed
+            translucent: root.translucent
         }
 
         Label {
@@ -91,7 +80,7 @@ Item {
                                    : (k.key === 12 ? Theme.keyBack : (k.key === 14 || k.key === 2 ? Theme.keyYes : Theme.keyText))
             size: 20
             title: true
-            lineHeight: Theme.isGalactica || Theme.keyFilled ? 0.85 : 1.0
+            lineHeight: Theme.keyLineHeight
         }
 
         TapHandler {

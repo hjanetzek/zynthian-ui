@@ -96,8 +96,12 @@ def main():
     ctx.setContextProperty("mixerMeters", meters)
     ctx.setContextProperty("mainMeters", main_meters)
     ctx.setContextProperty("startFullScreen", os.environ.get("ZYNTHIAN_FULLSCREEN") == "1")
-    # UI theme (zynqt/qml/Theme.qml): "classic", "galactica" or "enterprise"
-    ctx.setContextProperty("zynThemeName", os.environ.get("ZYNTHIAN_QT_THEME", "classic"))
+    # UI theme: the theme's name is a file selector, so zynqt/qml/+<theme>/X.qml replaces X.qml
+    # (its Theme.qml, the components it draws differently); classic is zynqt/qml/ itself
+    theme = os.environ.get("ZYNTHIAN_QT_THEME", "classic") or "classic"
+    ctx.setContextProperty("zynThemeName", theme)
+    if theme != "classic":
+        engine.setExtraFileSelectors([theme])
     engine.load(QUrl.fromLocalFile(os.path.join(QML_DIR, "Main.qml")))
     if engine.rootObjects():
         key_filter = KeyBindingFilter(ui, engine.rootObjects()[0])

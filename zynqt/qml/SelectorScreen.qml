@@ -160,7 +160,7 @@ Item {
             target: root
             function onScreenChanged() { grid.reportLayout() }
         }
-        Component.onCompleted: reportLayout()
+        Component.onCompleted: { reportLayout(); Qt.callLater(showCurrent) }
         cellWidth: sp > 0 ? 2 * Math.floor((root.width - sp) / (columns * 2)) : Math.floor(width / columns)
         cellHeight: sp > 0 ? 2 * Math.floor((root.height - sp) / (columns * 2))
                            : Math.floor(height / Math.max(1, Math.ceil(count / columns)))
@@ -170,14 +170,20 @@ Item {
         interactive: contentHeight + topMargin > height
         boundsBehavior: Flickable.StopAtBounds
         // the selected tile into view (Tk's _draw_selection), the top spacing shown on the first row
-        onCurrentIndexChanged: {
-            if (currentIndex < 0)
+        function showCurrent() {
+            if (currentIndex < 0 || count === 0 || cellHeight <= 0)
                 return
+            forceLayout()
             if (currentIndex < columns)
                 contentY = -topMargin
             else
                 positionViewAtIndex(currentIndex, GridView.Contain)
         }
+        onCurrentIndexChanged: showCurrent()
+        // also once the cells have their size and the entries are there (a screen shown again
+        // with a selection further down)
+        onCountChanged: Qt.callLater(showCurrent)
+        onCellHeightChanged: Qt.callLater(showCurrent)
 
         delegate: GridTile {
             required property int index

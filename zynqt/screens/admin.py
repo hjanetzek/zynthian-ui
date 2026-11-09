@@ -57,32 +57,35 @@ class Admin(SelectorScreen):
         e = [separator("> MIDI")]
         if cfg.midi_prog_change_zs3:
             e.append(entry("Program Change => ZS3", toggle(s.toggle_prog_change_zs3), icon="midi_settings.png",
-                           info="MIDI program changes load ZS3s. Select to load processor presets instead."))
+                           info="MIDI Program Change messages can be used for learning/recalling ZS3s (subsnapshots) or for changing processor presets."))
         else:
             e.append(entry("Program Change => Processor Presets", toggle(s.toggle_prog_change_zs3),
                            icon="midi_settings.png",
-                           info="MIDI program changes load processor presets. Select to load ZS3s instead."))
+                           info="MIDI Program Change messages can be used for learning/recalling ZS3s (subsnapshots) or for changing processor presets."))
             e.append(entry(_check(cfg.midi_bank_change) + "MIDI Bank Change", toggle(s.toggle_bank_change),
-                           icon="midi_settings.png", info="MIDI bank changes select processor banks."))
+                           icon="midi_settings.png", info=("Select bank when MIDI Program Change received" if cfg.midi_bank_change
+                                 else "Don't select bank when MIDI Program Change received")))
         gtrans = lib_zyncore.get_global_transpose()
         e.append(entry(f"Global Transpose ({_signed(gtrans) if gtrans else 'None'})",
                        lambda x: self.pick("Global Transpose", [(_signed(v), v) for v in range(-24, 25)],
                                            lib_zyncore.get_global_transpose(), lib_zyncore.set_global_transpose),
                        icon="midi_settings.png",
-                       info="MIDI note transpose. It affects all MIDI messages, in addition to each chain's transpose."))
+                       info="MIDI note transpose.\nThis effects all MIDI messages and is in addition to individual chain transpose."))
         e.append(entry(_check(lib_zyncore.get_active_midi_chan()) + "Active MIDI channel",
                        toggle(s.toggle_active_midi_channel), icon="midi_settings.png",
-                       info="MIDI from devices in active mode goes to the active chain's channel."))
+                       info="Send active MIDI channel messages to all chains with the same MIDI channel. When disabled, only "
+                            "active chain receives."))
         e.append(entry(_check(cfg.midi_usb_by_port) + "MIDI-USB mapped by port", toggle(s.toggle_usbmidi_by_port),
-                       icon="midi_settings.png", info="Identify USB MIDI devices by the port they are plugged into."))
+                       icon="midi_settings.png", info=("MIDI ports are indexed by their device name and the physical USB port to which they are plugged"
+                             if cfg.midi_usb_by_port else "MIDI ports are indexed by their device name only.")))
         e.append(entry(f"Channel Pressure => CC ({cfg.midi_chanpress_cc or 'NONE'})",
                        lambda x: self.pick("Channel Pressure => CC",
                                            [("NONE", 0)] + [(f"CC {v}", v) for v in range(1, 120)],
                                            cfg.midi_chanpress_cc or 0,
                                            lambda v: s.set_chanpress_cc(v, self.state_manager)),
-                       icon="midi_settings.png", info="Map channel pressure messages (mono AT) to the selected CC."))
+                       icon="midi_settings.png", info="Map channel pressure messages (monoAT) to the selected CC."))
         e.append(entry("Test MIDI", lambda x: self.test_midi(), icon="midi_output.png",
-                       info="Play a MIDI track through the loaded chains."))
+                       info="Play a MIDI track to test MIDI output.\n\nThis will play the MIDI through any loaded chains."))
 
         e.append(separator("> AUDIO"))
         e.append(entry(f"Main Output ({s.main_output_label()})",
@@ -93,23 +96,25 @@ class Admin(SelectorScreen):
         e.append(entry(f"PFL Output ({cfg.pfl_output})",
                        lambda x: self.pick("PFL Output", [(v, v) for v in s.pfl_output_labels()], cfg.pfl_output,
                                            s.set_pfl_output),
-                       icon="headphones.png", info="The audio output for pre-fader listening."))
+                       icon="headphones.png", info="Select the audio output device for pre-fader listening."))
         e.append(todo("ZynVoice", "audio_options.png"))
         e.append(entry("Hotplug USB Audio", lambda x: self.hotplug_menu(), icon="audio_options.png",
                        info="Use USB audio devices plugged in at runtime (alsa_in/alsa_out). Not needed with "
                             "PipeWire, which adds them itself."))
         e.append(entry(_check(cfg.snapshot_mixer_settings) + "Audio Levels on Snapshots",
-                       toggle(s.toggle_snapshot_mixer_settings), icon="audio_options.png",
-                       info="Save and restore the audio levels with snapshots."))
+                       toggle(s.toggle_snapshot_mixer_settings), icon="meter.png",
+                       info="Soundcard parameters are saved with snapshot" if cfg.snapshot_mixer_settings
+                       else "Soundcard parameters are not saved with snapshot"))
         e.append(entry(_check(cfg.enable_dpm) + "Mixer Peak Meters", toggle(s.toggle_dpm), icon="meters.png",
-                       info="Show the peak meters of the chain strips (the main strip always has them)."))
+                       info="Peak programme meters are enabled." if cfg.enable_dpm
+                       else "Peak programme meters are disabled.\nThis saves a little CPU power."))
         if self.test_audio_proc and self.test_audio_proc.poll() is None:
             e.append(entry("\u25a0 Stop Test Audio", lambda x: self.stop_test_audio(), icon="audio_test.png",
                            info="Stop the test audio."))
         else:
-            e.append(entry("Test Audio", lambda x: self.test_audio(), icon="audio_test.png",
+            e.append(entry("Test Audio", lambda x: self.test_audio(), icon="audio_output.png",
                            enabled=self.audio_test_command() is not None,
-                           info="Play an audio file to test the audio output (mplayer or pw-play)."))
+                           info="Play an audio track to test audio output.\n\nPress BACK to cancel playback."))
 
         e.append(separator("> USER INTERFACE"))
         vis = cfg.visible_mixer_strips
@@ -117,20 +122,21 @@ class Admin(SelectorScreen):
                        lambda x: self.pick("Visible chains", [("Auto", 0)] + [(str(v), v) for v in range(4, 17)],
                                            cfg.visible_mixer_strips,
                                            lambda v: (s.set_visible_mixer_strips(v), self.ui.mixer_settings_changed())),
-                       icon="settings.png", info="Mixer strips shown at once (others by flicking). Auto: all."))
+                       icon="settings.png", info="Quantity of chains shown in mixer"))
         e.append(entry(f"Visible Launchers ({cfg.visible_launchers})",
                        lambda x: self.pick("Visible launchers", [(str(v), v) for v in range(1, 17)],
                                            cfg.visible_launchers, self.set_visible_launchers),
-                       icon="settings.png", info="Launcher pads shown at once per strip."))
+                       icon="settings.png", info="Quantity of launchers shown in mixer"))
         e.append(entry(f"Mixer Toggle Control ({cfg.mixer_toggle})",
                        lambda x: self.pick("Toggle Control", [(v, v) for v in s.MIXER_TOGGLES], cfg.mixer_toggle,
                                            lambda v: (s.set_mixer_toggle(v), self.ui.mixer_settings_changed())),
-                       icon="settings.png", info="The mixer strips' second button."))
+                       icon="settings.png", info="The toggle control to show at top of each mixer channel"))
         e.append(entry(_check(self.ui.keypadDocked) + "Docked Touch Keypad", toggle(self.ui.toggleKeypadDocked),
                        icon="settings.png", info="The touch keys beside the screens. Off: an overlay, brought "
                        "up by a tap or swipe down on the top bar (for small screens)."))
         e.append(entry(_check(cfg.preset_preload) + "Preset Preload", toggle(s.toggle_preset_preload),
-                       icon="settings.png", info="Load presets when they are selected in the list."))
+                       icon="settings.png", info="Pre-load presets while browsing the list" if cfg.preset_preload
+                       else "Do not pre-load preset for while browsing the list"))
 
         nav = {"v5_keypad_left": "V5 keypad at Left", "v5_keypad_right": "V5 keypad at right"}.get(
             cfg.touch_navigation, "None")
@@ -139,7 +145,8 @@ class Admin(SelectorScreen):
 
         e.append(separator("> SCREEN"))
         e.append(entry("Calibrate Touchscreen", lambda x: self.ui.cuia_screen_calibrate(), icon="settings.png",
-                       info="Show touchscreen calibration."))
+                       info="Show touchscreen calibration.\nTouch each crosshair until it changes color.\n"
+                            "Screen closes after 15s of inactivity."))
         e.append(entry("Clean Screen", lambda x: self.ui.cuia_screen_clean(), icon="settings.png",
                        info="10s countdown with no touch trigger. Allows screen to be cleaned without "
                             "triggering any action."))
@@ -149,7 +156,7 @@ class Admin(SelectorScreen):
                                                                  lambda: self.ui.exit(102)),
                        icon="settings.png", info="Save the state and restart zynthian."))
         e.append(entry("Exit", lambda x: self.ui.confirm("Exit zynthian?", lambda: self.ui.exit(101)),
-                       icon="poweroff.png", info="Save the state and exit zynthian."))
+                       icon="poweroff.png", info="Stop zynthian UI but do not reboot."))
         # The selection stays where it was (Tk's selector keeps its index)
         self.set_entries(e, self._index if 0 < self._index < len(e) else None)
 

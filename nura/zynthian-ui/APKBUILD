@@ -12,7 +12,7 @@
 # tkinterweb (help viewer) is left out: its Tkhtml library isn't packaged.
 pkgname=zynthian-ui
 pkgver=2610_git20261102
-pkgrel=3
+pkgrel=4
 pkgdesc="zynthian synthesizer platform: user interface and engine manager"
 url="https://github.com/zynthian/zynthian-ui"
 arch="aarch64 x86_64"
@@ -22,6 +22,7 @@ depends="
 	aeolus
 	bash
 	ffmpeg
+	font-dejavu
 	lilv
 	py3-beautifulsoup4
 	py3-cffi

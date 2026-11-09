@@ -36,7 +36,7 @@ class MainMenu(SelectorScreen):
             entry("Capture\nWorkflow", icon="capture.png", enabled=False,
                   info="Capturing a workflow (WORKFLOW_CAPTURE_START) is not in the Qt UI yet."),
             entry("Power", lambda e: ui.cuia_power(), icon="poweroff.png"),
-        ]))
+        ], pad=self.grid_placeholders))
 
     def audio_rec_entry(self):
         rec = bool(self.state_manager.audio_recorder.status)
@@ -99,4 +99,4 @@ class AddChain(SelectorScreen):
             entries[2] = entry("Clip Launcher\nMax. 16 reached!", icon="audio.png", enabled=False,
                                info="There are 16 clip launchers already.")
         # A 4x4 grid; the empty cells are for favourite instruments / chain setups later
-        self.set_entries(fill_grid(entries), 0)
+        self.set_entries(fill_grid(entries, pad=self.grid_placeholders), 0)

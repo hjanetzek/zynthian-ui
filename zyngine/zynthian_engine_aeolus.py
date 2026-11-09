@@ -23,8 +23,10 @@
 # ******************************************************************************
 
 from zynconf import zynthian_paths
+import os
 import copy
 import json
+import shutil
 import logging
 import pexpect
 from time import sleep
@@ -268,8 +270,28 @@ class zynthian_engine_aeolus(zynthian_engine):
         self.keyboard_config = None
         self.temperament = None
         self.restart_flag = False
+        self.stops_fpath = self.get_writable_stops_dir()
         self.get_current_config()
         self.load_presets()
+
+    def get_writable_stops_dir(self):
+        """Aeolus saves its presets and tuning into the stops directory (Aeolus/definition,
+        Aeolus/presets). With a read-only data directory (installed by a distribution package)
+        it uses a copy in my-data, made on first use.
+        """
+
+        stops_dir = self.__class__.stops_fpath
+        if os.access(f"{stops_dir}/Aeolus", os.W_OK):
+            return stops_dir
+        my_stops_dir = f"{zynthian_paths.my_data_dir}/aeolus/stops"
+        if not file_exists(f"{my_stops_dir}/Aeolus/definition"):
+            try:
+                shutil.copytree(stops_dir, my_stops_dir, dirs_exist_ok=True)
+                logging.info(f"Aeolus stops copied to {my_stops_dir} (data directory not writable)")
+            except Exception as e:
+                logging.error(f"Can't copy the Aeolus stops to {my_stops_dir}: {e}")
+                return stops_dir
+        return my_stops_dir
 
     def wait_for_ready(self, timeout=10):
         """Wait for aeolus to be ready

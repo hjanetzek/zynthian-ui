@@ -1,4 +1,4 @@
-// tk: a launcher pad as zynthian_gui_launcher_pad draws it: a pad with a 2 px outline (yellow
+// tk: a launcher pad as zynthian_gui_launcher_pad draws it: a pad without outline (a 2 px yellow one
 // when selected), the play mode at the top left, the play state at the top right, the title in
 // the middle, the length at the bottom left (phrases: the tempo at the bottom right); the
 // phrases' loop indicators in a column left of the pad
@@ -63,14 +63,18 @@ Item {
 
     Rectangle {
         id: body
-        x: pad.loopInfoWidth
-        width: pad.width - pad.loopInfoWidth - 1
-        height: pad.height - 1
+        // Tk: the rectangle (x, y) .. (x + w - 1, y + h - 1), no outline (outline=""): a 1 px line
+        // of the canvas between the pads; the selected one a 2 px yellow outline centred on the edge
+        x: pad.loopInfoWidth - (pad.selected ? 1 : 0)
+        y: pad.selected ? -1 : 0
+        z: pad.selected ? 1 : 0
+        width: pad.width - pad.loopInfoWidth - 1 + (pad.selected ? 2 : 0)
+        height: pad.height - 1 + (pad.selected ? 2 : 0)
         // Chains without a sequencer: no pads
         visible: pad.info.hasSequence !== false || pad.isMain
         color: pad.info.color || Theme.panel
-        border.width: 2
-        border.color: pad.selected ? "#ffff00" : "#000000"
+        border.width: pad.selected ? 2 : 0
+        border.color: "#ffff00"
 
         Text {     // play mode
             x: 4; y: -2

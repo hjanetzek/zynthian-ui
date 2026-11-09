@@ -50,7 +50,8 @@ class ProcessorOptions(SelectorScreen):
         if p.eng_code not in ("MI", "MR"):
             if (p.type != "MIDI Synth" or p.engine.get_options()["replace"]) and p.eng_code != "CL":
                 e.append(entry(f"Replace {p.name}", lambda x: self.replace(), icon="replace_processor.png",
-                               info="Replace this processor with another of similar type."))
+                               info="Replace this processor with another of similar type.\n\nThe engine selection list will show, "
+                                    "allowing selection of a new engine type."))
             if p.type in ("MIDI Tool", "Audio Effect"):
                 e.append(entry("Remove", lambda x: self.remove(), icon="delete.png",
                                info="Remove this processor from the chain."))

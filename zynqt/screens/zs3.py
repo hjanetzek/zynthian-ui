@@ -76,7 +76,7 @@ class ZS3(SelectorScreen):
         index = None
         if "zs3-0" in sm.zs3:
             entries.append(entry("Default state", data="zs3-0", icon="zs3_default.png",
-                                 info="Load default ZS3 state.\n\nLong press for options."))
+                                 info="Load default ZS3 state.\n\nBold select for options."))
         if len(sm.zs3) > 1:
             entries.append(separator("> SAVED ZS3s"))
         for zs3_id, state in sm.zs3.items():
@@ -93,7 +93,7 @@ class ZS3(SelectorScreen):
                         title = f"{state['title']} -> CH#{int(parts[0]) + 1}:PRG#{parts[1]}"
                 else:
                     title = f"{state['title']} ({zs3_id})"
-            info = "Restore ZS3.\n\nLong press for options."
+            info = "Restore ZS3.\n\nBold select for options."
             if zs3_id == self.moving_zs3:
                 # Same marks as a phrase being moved in the launcher
                 mark = "\u21d3" if zs3_id == zs3_ids[0] else ("\u21d1" if zs3_id == zs3_ids[-1] else "\u21d5")

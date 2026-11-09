@@ -63,7 +63,8 @@ class Snapshots(SelectorScreen):
         else:
             rows, index, _ = self.files.snapshot_list(self.index)
             self.set_title("Snapshots" if self.files.bankless_mode else f"Snapshots: {sm.snapshot_bank}")
-        self.set_entries(list_data_entries(rows, "Bold to show options."), index)
+        # Tk's snapshot screen has no default info (only its action rows have texts)
+        self.set_entries(list_data_entries(rows), index)
 
     def show_menu(self):
         """MENU: the selected entry's options (Tk's show_menu: bold select)"""

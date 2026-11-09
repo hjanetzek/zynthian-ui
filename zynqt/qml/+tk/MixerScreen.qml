@@ -52,6 +52,8 @@ Item {
     readonly property color faderColor: Theme.tkColor("off", "#5a626d")
     readonly property color faderColorHl: "#6a727d"
     readonly property color legendHl: Theme.tkColor("on", "#ff0000")
+    // The strips' meters run while the mixer is shown (MixerView does the same)
+    Binding { target: mixerMeters; property: "active"; value: root.visible }
     readonly property var stripLevels: mixerMeters.levels
     readonly property var mainLevels: mainMeters.levels
     property int activeMidiChan: -1   // the selected chain's MIDI channel: its strips underlined

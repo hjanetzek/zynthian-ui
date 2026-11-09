@@ -56,29 +56,42 @@ Item {
         id: k
 
         property int key
+        // Enterprise: filled keys, BACK red, SEL and CTRL green, the others in shades of amber
+        readonly property color fill: k.key === 12 ? Theme.keyBack
+                                      : (k.key === 14 || k.key === 2 ? Theme.keyYes
+                                         : (Theme.keyFills.length ? Theme.keyFills[k.key % Theme.keyFills.length] : Theme.keyBackground))
 
-        // Classic: square keys with a 1 px gap; galactica: plates with clipped corners. In the
-        // overlay translucent, the blurred screen showing through.
+        // Classic: square keys with a 1 px gap; galactica: plates with clipped corners;
+        // enterprise: filled pills (wide keys) or rounded plates. In the overlay translucent,
+        // the blurred screen showing through.
         Panel {
             anchors.fill: parent
-            anchors.margins: Theme.isGalactica ? 2 : 0
+            anchors.margins: Theme.isGalactica ? 2 : (Theme.keyFilled ? 3 : 0)
+            button: Theme.keyFilled && width > height
             color: {
-                const c = tap.pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground
-                return root.translucent ? Qt.rgba(c.r, c.g, c.b, tap.pressed ? 0.85 : 0.55) : c
+                const c = Theme.keyFilled ? (tap.pressed ? Qt.lighter(k.fill, 1.25) : k.fill)
+                                          : (tap.pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground)
+                return root.translucent ? Qt.rgba(c.r, c.g, c.b, tap.pressed ? 0.85 : (Theme.keyFilled ? 0.7 : 0.55)) : c
             }
             borderColor: Theme.isGalactica ? (tap.pressed ? Theme.frameActive : Theme.frame)
-                                           : (root.translucent ? Qt.rgba(1, 1, 1, 0.15) : Theme.background)
-            borderWidth: Theme.isGalactica ? Theme.frameWidth : 1
+                                           : (Theme.keyFilled ? "transparent"
+                                              : (root.translucent ? Qt.rgba(1, 1, 1, 0.15) : Theme.background))
+            borderWidth: Theme.isGalactica ? Theme.frameWidth : (Theme.keyFilled ? 0 : 1)
         }
 
         Label {
-            anchors.centerIn: parent
-            horizontalAlignment: Text.AlignHCenter
+            anchors.centerIn: Theme.keyFilled ? undefined : parent
+            anchors.right: Theme.keyFilled ? parent.right : undefined
+            anchors.bottom: Theme.keyFilled ? parent.bottom : undefined
+            anchors.rightMargin: Theme.keyFilled ? (parent.width > parent.height ? parent.height / 2 : 12) : 0
+            anchors.bottomMargin: Theme.keyFilled ? 8 : 0
+            horizontalAlignment: Theme.keyFilled ? Text.AlignRight : Text.AlignHCenter
             text: root.labels[k.key]
-            color: k.key === 12 ? Theme.keyBack : (k.key === 14 || k.key === 2 ? Theme.keyYes : Theme.keyText)
+            color: Theme.keyFilled ? Theme.keyFilledText
+                                   : (k.key === 12 ? Theme.keyBack : (k.key === 14 || k.key === 2 ? Theme.keyYes : Theme.keyText))
             size: 20
             title: true
-            lineHeight: Theme.isGalactica ? 0.85 : 1.0
+            lineHeight: Theme.isGalactica || Theme.keyFilled ? 0.85 : 1.0
         }
 
         TapHandler {

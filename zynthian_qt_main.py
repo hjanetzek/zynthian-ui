@@ -96,7 +96,7 @@ def main():
     ctx.setContextProperty("mixerMeters", meters)
     ctx.setContextProperty("mainMeters", main_meters)
     ctx.setContextProperty("startFullScreen", os.environ.get("ZYNTHIAN_FULLSCREEN") == "1")
-    # UI theme (zynqt/qml/Theme.qml): "classic" or "galactica"
+    # UI theme (zynqt/qml/Theme.qml): "classic", "galactica" or "enterprise"
     ctx.setContextProperty("zynThemeName", os.environ.get("ZYNTHIAN_QT_THEME", "classic"))
     engine.load(QUrl.fromLocalFile(os.path.join(QML_DIR, "Main.qml")))
     if engine.rootObjects():

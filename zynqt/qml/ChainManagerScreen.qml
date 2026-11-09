@@ -8,10 +8,16 @@ Item {
 
     readonly property var cm: zyn.chainManager
     readonly property var sel: cm.selection
-    readonly property int blockWidth: 150
-    readonly property int blockHeight: 56
-    readonly property int hSpacing: 16
-    readonly property int vSpacing: 20
+    ChainManagerMetrics {
+        id: m
+        screenWidth: root.width
+        screenHeight: root.height
+    }
+    readonly property int blockWidth: m.blockWidth
+    readonly property int blockHeight: m.blockHeight
+    readonly property int hSpacing: m.hSpacing
+    readonly property int vSpacing: m.vSpacing
+    readonly property int maxRows: Math.max(0, ...cm.graph.map(c => c.rows.length))
 
     function kindColor(kind) {
         switch (kind) {
@@ -23,11 +29,16 @@ Item {
         }
     }
 
+    Rectangle { anchors.fill: parent; color: m.background }
+
     Flickable {
         id: flick
 
         anchors.fill: parent
-        anchors.margins: 8
+        anchors.leftMargin: m.marginLeft
+        anchors.rightMargin: m.marginLeft
+        anchors.topMargin: m.marginTop
+        anchors.bottomMargin: m.marginTop
         contentWidth: chains.width
         contentHeight: chains.height
         clip: true
@@ -49,7 +60,8 @@ Item {
                     readonly property int cols: Math.max(1, ...modelData.rows.map(r => r.length))
 
                     width: cols * (root.blockWidth + root.hSpacing)
-                    height: Math.max(flick.height, nodes.height + root.vSpacing)
+                    height: m.fullHeight ? Math.max(flick.height, nodes.height + root.vSpacing)
+                                         : root.maxRows * (root.blockHeight + root.vSpacing)
                     color: modelData.pinned ? Theme.pinnedBackground : "transparent"
                     border.color: zyn.movingChain && modelData.active ? Theme.marker : "transparent"
                     border.width: 3
@@ -60,8 +72,8 @@ Item {
                     Column {
                         id: nodes
 
-                        x: root.hSpacing / 2
-                        y: root.vSpacing / 2
+                        x: m.nodeX
+                        y: m.nodeY
                         spacing: root.vSpacing
 
                         Repeater {
@@ -88,8 +100,8 @@ Item {
                                         width: root.blockWidth
                                         height: root.blockHeight
                                         color: root.kindColor(modelData.kind)
-                                        borderColor: selected ? (zyn.movingProcessor ? Theme.marker : Theme.select) : color
-                                        borderWidth: selected ? 3 : 1
+                                        borderColor: selected ? (zyn.movingProcessor ? Theme.marker : m.selectColor) : color
+                                        borderWidth: selected ? m.selectWidth : 1
 
                                         // Connection from the row above (into processors and outputs)
                                         Rectangle {
@@ -117,12 +129,13 @@ Item {
                                             verticalAlignment: Text.AlignVCenter
                                             wrapMode: Text.Wrap
                                             elide: Text.ElideRight
-                                            fontSizeMode: Text.Fit
+                                            fontSizeMode: m.fitText ? Text.Fit : Text.FixedSize
                                             minimumPixelSize: 10
                                             text: node.modelData.title
                                             color: node.modelData.bypassed ? Theme.textBypassed : Theme.text
-                                            size: node.modelData.kind === "chain" ? 18 : 15
-                                            font.weight: node.modelData.kind === "chain" && column.modelData.active ? Font.Bold : Font.Normal
+                                            title: m.displayFont
+                                            size: node.modelData.kind === "chain" ? m.chainTextSize : m.textSize
+                                            font.weight: m.boldActiveChain && node.modelData.kind === "chain" && column.modelData.active ? Font.Bold : Font.Normal
                                         }
 
                                         TapHandler {
@@ -147,7 +160,7 @@ Item {
         if (!col)
             return
         const x = col.x + sel[2] * (blockWidth + hSpacing)
-        const y = vSpacing / 2 + sel[1] * (blockHeight + vSpacing)
+        const y = m.nodeY + sel[1] * (blockHeight + vSpacing)
         if (x < flick.contentX)
             flick.contentX = x
         else if (x + blockWidth + hSpacing > flick.contentX + flick.width)

@@ -15,6 +15,16 @@ Window {
                                         chain_manager: "Chain Manager", launcher: "Launcher",
                                         pattern_editor: "Pattern Editor", control_xy: "X-Y Touchpad" })
 
+    // Titles of the QML screens; the chain manager's as Tk's: "Chain: " and the selected node's chain
+    function screenTitle(screen) {
+        if (screen === "chain_manager") {
+            const g = zyn.chainManager.graph, sel = zyn.chainManager.selection
+            if (sel.length && g[sel[0]])
+                return "Chain: " + g[sel[0]].rows[0][0].title
+        }
+        return root.qmlTitles[screen] || screen
+    }
+
     width: 960
     height: 600
     visible: true
@@ -103,7 +113,7 @@ Window {
         height: zyn.topBarShown ? (Theme.elbow ? Theme.topBarHeight + Theme.elbowBar - 4 : Theme.topBarHeight) : 0
         visible: zyn.topBarShown
         barStart: root.elbowShown ? root.elbowArm + 6 : 0
-        title: zyn.currentList ? zyn.currentList.title : (root.qmlTitles[zyn.currentScreen] || zyn.currentScreen)
+        title: zyn.currentList ? zyn.currentList.title : root.screenTitle(zyn.currentScreen)
     }
 
     Elbow {

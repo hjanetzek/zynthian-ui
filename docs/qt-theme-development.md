@@ -144,5 +144,11 @@ nura/tools/sync_ui.sh -q        # copy only zynqt/qml, no restart: the UI reload
 - `import ".."` is missing in a file under `+<theme>/`: its shared components are "not a type".
 - `qmlpreview` must be Qt 6's (`/usr/lib/qt6/bin/qmlpreview`); `/usr/bin/qmlpreview` on some desktops
   is Qt 5's and silently does nothing.
+- A Python syntax error synced into the VM (`sync_ui.sh -V -R`) makes zynthian fail at import; the
+  launcher gives up after a few tries and tinydm restarts the whole session (the VM window looks
+  like a reboot, zynthian then starts without the last state). Compile first:
+  `python -m compileall -q zynqt zyngui zyngine zynthian_qt_main.py`.
+- Translucent fills (`Qt.rgba(..., a)`) on a shape show what is under it: tk's controller widgets
+  use that to let the grid show through the curve, as Tk draws its grid over the curve.
 - Fixed pixel sizes in a component make it unthemable: use or add tokens in `ThemeBase.qml`
   (sizes derive from Tk's font size F there, as `zynthian_gui_config` does).

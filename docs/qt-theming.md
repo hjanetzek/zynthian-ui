@@ -44,7 +44,8 @@ zynqt/qml/
   +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
   +tk/Theme.qml, MixerScreen.qml, TopBar.qml, InfoPane.qml, GridTile.qml, KeyFace.qml,
       ChainControlScreen.qml, Controller.qml, PatternEditorScreen.qml, PatternToolbar.qml,
-      LauncherPad.qml, ChainManagerMetrics.qml, SelectorControls.qml, PatternCcLane.qml
+      LauncherPad.qml, ChainManagerMetrics.qml, SelectorControls.qml, PatternCcLane.qml,
+      KeyPlate.qml, SelectorCategories.qml
 ```
 
 Components split out so a theme can replace them: `KeyPlate`, `TopBarRule`, `Elbow`, `InfoPane`
@@ -56,7 +57,10 @@ properties and signals), `KeyFace` (a keypad key's label; tk colours it with the
 editor's toolbar; tk: none), `ChainManagerMetrics` (the chain manager's block sizes, spacings,
 margins, node text and selection outline; tk: Tk's formulas from the screen size),
 `SelectorControls` (controller widgets under a selector's info pane: none by default; tk: Tk's
-selector counter on the screens with `zsel_hidden = False`: bank, preset, MIDI recorder).
+selector counter on the screens with `zsel_hidden = False`: bank, preset, MIDI recorder),
+`SelectorCategories` (the engine screen's category list; tk: Tk's listbox2). `InfoPane` gets
+`quality` / `complexity` on the engine screen (-1 elsewhere): classic writes stars and gears
+above the description, tk draws Tk's big stars and gears in place of the icon.
 Selector screens can also show a status line under the list (`set_status_line()`, token
 `statusLine`: the ZS3 screen's "Waiting for MIDI Program Change...").
 
@@ -116,7 +120,8 @@ Tokens:
 | Widgets | `widgetBackground`, `widgetLine`, `widgetFill`, `widgetGrid`, `widgetWave`, `widgetOutside` | the controller page widgets: envelope and filter curves, waveform, plugin meters' background |
 
 Sizes (classic's values; tk derives them from F): `topBarHeight`, `titleSize`, `listRowHeight`,
-`listTextSize`, `listTextMargin`, `listPadding`, `infoWidth`, `infoTextSize`, `gridSpacing`
+`listTextSize`, `listTextMargin`, `listPadding`, `infoWidth`, `categoryWidth`, `categoryInfoWidth`
+(the engine screen's category list and info pane), `infoTextSize`, `gridSpacing`
 (gaps between grid tiles as Tk's `zynthian_gui_selector_grid`), `gridBackground`.
 
 Tk's configuration: `zynthian_qt_main.py` passes `zynConfig` (`fontSize`, `uiScale`,

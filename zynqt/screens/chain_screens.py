@@ -40,19 +40,32 @@ class Engine(SelectorScreen):
         self.show_all = False
         super().build()
 
+    def _set_path_title(self):
+        """Tk's breadcrumb (zynthian_gui_engine.set_select_path), e.g. MIDI Instrument/Synth"""
+        proc_type = self.ui.chain_edit.status.get("type", "")
+        if self.show_all:
+            self.set_title(f"Enable engines ({proc_type})")
+            return
+        from zyngine import zynthian_lv2
+        path = zynthian_lv2.engine_type_title.get(proc_type, proc_type)
+        if self.categories:
+            path += "/" + self.categories[self.categoryIndex]
+        self.set_title(path)
+
     def fill(self):
         proc_type = self.ui.chain_edit.status.get("type", "")
-        self.set_title(f"Enable engines ({proc_type})" if self.show_all else f"Engine ({proc_type})")
         self.chain_manager.get_engine_info()
         self.engines_by_cat = self.chain_manager.filtered_engines_by_cat(proc_type, all=self.show_all)
         for exclude in ("MI", "MR", "MX"):
             self.engines_by_cat.get("Other", {}).pop(exclude, None)
         cats = list(self.engines_by_cat.keys())
         self.set_categories(cats, self.category_by_type.get(proc_type, 0))
+        self._set_path_title()
         self._fill_category()
 
     def category_changed(self):
         self.category_by_type[self.ui.chain_edit.status.get("type", "")] = self.categoryIndex
+        self._set_path_title()
         self._fill_category()
 
     def _fill_category(self):
@@ -63,15 +76,15 @@ class Engine(SelectorScreen):
         cats = self.categories
         if cats:
             for code, info in self.engines_by_cat[cats[self.categoryIndex]].items():
-                # zynthian_gui_engine.update_info: quality stars, complexity gears, the description
-                q = int(info.get("QUALITY", 0) or 0)
-                c = int(info.get("COMPLEX", 0) or 0)
-                stars = "★" * q + "☆" * (5 - q) + "\n" + "⚙" * c
+                # zynthian_gui_engine.update_info: quality stars, complexity gears (the info
+                # pane draws them: currentQuality, currentComplexity), the description
                 title = info["TITLE"]
                 if self.show_all:
                     title = ("☒ " if info["ENABLED"] else "☐ ") + title
-                entries.append(entry(title, data=code,
-                                     info=f"{stars}\n\n{info.get('DESCR', '')}"))
+                e = entry(title, data=code, info=info.get("DESCR", "") or "")
+                e["quality"] = int(info.get("QUALITY", 0) or 0)
+                e["complexity"] = int(info.get("COMPLEX", 0) or 0)
+                entries.append(e)
         if not entries:
             entries.append(entry("No engines available", enabled=False,
                                  info="No engine of this type is installed or enabled.\n"

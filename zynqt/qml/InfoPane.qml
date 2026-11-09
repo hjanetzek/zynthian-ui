@@ -1,11 +1,14 @@
 import QtQuick
 import QtQuick.Effects
 
-// The selector's info pane: the selected entry's icon above its description
+// The selector's info pane: the selected entry's icon above its description (engines: their
+// quality stars and complexity gears first)
 Panel {
     id: pane
     property string icon
     property string info
+    property int quality: -1
+    property int complexity: -1
 
     color: Theme.infoBackground
     cut: Theme.cutLarge
@@ -30,7 +33,9 @@ Panel {
         anchors.right: parent.right
         anchors.margins: 6
         wrapMode: Text.WordWrap
-        text: pane.info
+        text: pane.quality < 0 ? pane.info
+              : "★".repeat(pane.quality) + "☆".repeat(Math.max(0, 5 - pane.quality)) + "\n"
+                + "⚙".repeat(Math.max(0, pane.complexity)) + "\n\n" + pane.info
         color: Theme.text
         body: true
         size: Theme.infoTextSize

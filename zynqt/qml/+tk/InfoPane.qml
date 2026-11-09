@@ -2,16 +2,70 @@ import QtQuick
 import ".."
 
 // Tk: the icon in a square as wide as the pane (zynthian_gui_selector's info canvas), the text
-// below it
+// below it. Engines (quality >= 0): zynthian_gui_engine's info canvas instead: big quality stars
+// and complexity gears (color_on over color_off), the description below in sans-serif 0.8 F.
 Rectangle {
     id: pane
     property string icon
     property string info
+    property int quality: -1
+    property int complexity: -1
+    readonly property bool engine: quality >= 0
 
     color: Theme.infoBackground
+    clip: true
+
+    // zynthian_gui_engine.__init__: star_fs = ctrl_width * 0.16 points, x = 0.1 star_fs,
+    // y = -0.3 star_fs, the gears 1.2 star_fs lower, the description 1.6 star_fs below them
+    readonly property int starPt: Math.floor(width * 0.16)
+    readonly property int starX: Math.floor(0.1 * starPt)
+    readonly property int starY: Math.trunc(-0.3 * starPt)
+    readonly property int gearY: starY + Math.floor(1.2 * starPt)
+    readonly property int descrY: gearY + Math.floor(1.6 * starPt)
+    component Stars: Item {
+        property string glyph
+        property int count
+        x: pane.starX
+        Text {
+            text: parent.glyph.repeat(5)
+            color: Theme.tkColor("off", "#5a626d")
+            font.family: "DejaVu Sans"
+            font.pixelSize: Theme.tkPx(pane.starPt)
+        }
+        Text {
+            text: parent.glyph.repeat(Math.max(0, Math.min(5, parent.count)))
+            color: Theme.tkColor("on", "#ff0000")
+            font.family: "DejaVu Sans"
+            font.pixelSize: Theme.tkPx(pane.starPt)
+        }
+    }
+    Stars {
+        visible: pane.engine
+        y: pane.starY
+        glyph: "★"
+        count: pane.quality
+    }
+    Stars {
+        visible: pane.engine
+        y: pane.gearY
+        glyph: "⚙"
+        count: pane.complexity
+    }
+    Text {
+        visible: pane.engine
+        x: pane.starX
+        y: pane.descrY
+        width: pane.width - pane.starX
+        wrapMode: Text.WordWrap
+        text: pane.info
+        color: Theme.tkColor("panel_tx", "#ffffff")
+        font.family: "DejaVu Sans"
+        font.pixelSize: Theme.tkPx(Math.floor(0.8 * Theme.tkFontSize))
+    }
 
     Item {
         id: iconBox
+        visible: !pane.engine
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
@@ -26,6 +80,7 @@ Rectangle {
         }
     }
     Label {
+        visible: !pane.engine
         anchors.top: iconBox.bottom
         anchors.topMargin: 2
         anchors.left: parent.left

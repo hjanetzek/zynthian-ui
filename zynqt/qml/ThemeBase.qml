@@ -164,6 +164,7 @@ QtObject {
     property int mainMenuColumns: 0          // 0: the screen's (Python) columns
     property int addChainColumns: 0
     property real gridSpacing: 0            // gaps between grid tiles (part of the width per column)
+    property bool gridPlaceholders: true    // grids padded with empty placeholder cells
     property color gridBackground: background
 
     // Spacing and outlines that differ per theme (values only; structural differences are

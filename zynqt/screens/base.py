@@ -44,8 +44,11 @@ def placeholder():
     return entry("", separator=True)
 
 
-def fill_grid(entries, cells=16):
-    """entries padded with placeholders to cells (a full 4x4 grid)"""
+def fill_grid(entries, cells=16, pad=True):
+    """entries padded with placeholders to cells (a full 4x4 grid); pad False: as they are (the
+    theme shows no placeholders)"""
+    if not pad:
+        return entries
     return entries + [placeholder() for _ in range(max(0, cells - len(entries)))]
 
 
@@ -185,6 +188,19 @@ class SelectorScreen(QObject):
 
     viewKind = Property(str, _get_kind, constant=True)
     gridColumns = Property(int, _get_columns, constant=True)
+
+    grid_placeholders = True   # grids padded with placeholder cells (themes without: False)
+
+    @Slot(int, bool)
+    def setGridLayout(self, columns, placeholders):
+        """The theme's grid: its columns (up / down move by them) and whether it shows
+        placeholder cells (fill_grid pads with them; the theme without: no empty rows to
+        scroll to)"""
+        if columns > 0:
+            self.columns = columns
+        if placeholders != self.grid_placeholders:
+            self.grid_placeholders = placeholders
+            self.fill()
     # The screen's name (main_menu, add_chain, ...): themes size some grids by it
     screenName = Property(str, lambda self: self.name, constant=True)
 

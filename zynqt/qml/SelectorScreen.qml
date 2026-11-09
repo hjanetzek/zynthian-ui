@@ -145,7 +145,7 @@ Item {
         readonly property real sp: Theme.gridSpacing > 0 ? 2 * Math.floor(root.width * Theme.gridSpacing / columns) : 0
         anchors.fill: parent
         anchors.leftMargin: sp
-        anchors.topMargin: sp
+        topMargin: sp
         visible: root.isGrid
         clip: true
         model: root.isGrid ? root.entries : null
@@ -154,11 +154,30 @@ Item {
             const c = name === "main_menu" ? Theme.mainMenuColumns : (name === "add_chain" ? Theme.addChainColumns : 0)
             return c > 0 ? c : (root.screen ? root.screen.gridColumns : 4)
         }
+        function reportLayout() { if (root.isGrid) root.screen.setGridLayout(columns, Theme.gridPlaceholders) }
+        onColumnsChanged: reportLayout()
+        Connections {
+            target: root
+            function onScreenChanged() { grid.reportLayout() }
+        }
+        Component.onCompleted: reportLayout()
         cellWidth: sp > 0 ? 2 * Math.floor((root.width - sp) / (columns * 2)) : Math.floor(width / columns)
         cellHeight: sp > 0 ? 2 * Math.floor((root.height - sp) / (columns * 2))
                            : Math.floor(height / Math.max(1, Math.ceil(count / columns)))
         currentIndex: root.screen ? root.screen.index : -1
-        interactive: false
+        // More rows than fit (tk: as many rows shown as columns, as Tk; other aspect ratios than
+        // 5:3): the grid scrolls as Tk's canvas (drag, wheel) and keeps the selection in view
+        interactive: contentHeight + topMargin > height
+        boundsBehavior: Flickable.StopAtBounds
+        // the selected tile into view (Tk's _draw_selection), the top spacing shown on the first row
+        onCurrentIndexChanged: {
+            if (currentIndex < 0)
+                return
+            if (currentIndex < columns)
+                contentY = -topMargin
+            else
+                positionViewAtIndex(currentIndex, GridView.Contain)
+        }
 
         delegate: GridTile {
             required property int index

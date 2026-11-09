@@ -863,4 +863,54 @@ class PatternEditor(QObject):
                 self._play_preview(note, self.velocity)
 
     def back(self):
+        """BACK leaves the block selection (zynthian_gui_pated_base.back_action)"""
+        if self.select_mode:
+            self.toggleSelectMode()
+            return True
+        return False
+
+    # Knobs and switches (zynthian_gui_pated_base; the Qt editor has no zoom knob, history or
+    # multi-edit modes: those stay on the toolbar)
+
+    def zynpot(self, i, d):
+        """Knob 3 the step, knob 2 the row (as Tk: turning right goes down)"""
+        if i == 3:
+            for _ in range(abs(d)):
+                self.navigate("right" if d > 0 else "left")
+            return True
+        if i == 2:
+            for _ in range(abs(d)):
+                self.navigate("down" if d > 0 else "up")
+            return True
+        return True
+
+    def switch(self, i, t):
+        """Switch 0 short the pattern menu, 2 short play, 2 bold record"""
+        if i == 0 and t == "S":
+            self.menu()
+            return True
+        if i == 2:
+            if t == "S":
+                self.cuia_toggle_play()
+                return True
+            if t == "B":
+                self.cuia_toggle_record()
+                return True
+        return False
+
+    def cuia_v5_zynpot_switch(self, params):
+        """Knob pushes: 0 the CC / note editor, 1 bold the length, 2 the block selection"""
+        try:
+            i, t = int(params[0]), str(params[1]).upper()
+        except (TypeError, ValueError, IndexError):
+            return False
+        if i == 0 and t == "S":
+            self.toggleCcMode()
+            return True
+        if i == 1 and t == "B":
+            self._pick_length()
+            return True
+        if i == 2 and t == "S":
+            self.toggleSelectMode()
+            return True
         return False

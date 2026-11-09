@@ -22,17 +22,31 @@ Rectangle {
     readonly property int starY: Math.trunc(-0.3 * starPt)
     readonly property int gearY: starY + Math.floor(1.2 * starPt)
     readonly property int descrY: gearY + Math.floor(1.6 * starPt)
+    // Tk draws the glyphs (from a fallback font) on the line of the theme font (Audiowide):
+    // DejaVu Sans' line here, moved down by the difference of the ascents
+    FontMetrics {
+        id: themeMetrics
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.tkPx(pane.starPt)
+    }
+    FontMetrics {
+        id: glyphMetrics
+        font.family: "DejaVu Sans"
+        font.pixelSize: Theme.tkPx(pane.starPt)
+    }
     component Stars: Item {
         property string glyph
         property int count
         x: pane.starX
         Text {
+            y: Math.round(themeMetrics.ascent - glyphMetrics.ascent)
             text: parent.glyph.repeat(5)
             color: Theme.tkColor("off", "#5a626d")
             font.family: "DejaVu Sans"
             font.pixelSize: Theme.tkPx(pane.starPt)
         }
         Text {
+            y: Math.round(themeMetrics.ascent - glyphMetrics.ascent)
             text: parent.glyph.repeat(Math.max(0, Math.min(5, parent.count)))
             color: Theme.tkColor("on", "#ff0000")
             font.family: "DejaVu Sans"

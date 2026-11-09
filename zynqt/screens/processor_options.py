@@ -27,7 +27,7 @@ class ProcessorOptions(SelectorScreen):
         if p is None:
             self.set_entries([])
             return
-        self.set_title(f"{p.get_name()}: Options")
+        self.set_title(f"{p.get_basepath()} > Processor Options")   # zynthian_gui_processor_options
         e = [separator("> Manage this processor")]
         if len(p.get_bank_list()) > 1 or p.preset_list:
             e.append(entry("Presets", lambda x: self.ui.cuia_bank_preset(), icon="preset.png",

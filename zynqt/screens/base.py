@@ -215,7 +215,10 @@ class SelectorScreen(QObject):
     @Property(str, notify=indexChanged)
     def currentIcon(self):
         e = self._current()
-        return icon_url(e["icon"]) if e else ""
+        if not e:
+            return ""
+        # The screen's default icon for entries without one (Tk's selector default_icon)
+        return icon_url(e["icon"] or getattr(self, "default_icon", ""))
 
     def selection_changed(self):
         """Selection moved (override to update things that depend on it)"""

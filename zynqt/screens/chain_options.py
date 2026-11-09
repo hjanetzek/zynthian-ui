@@ -15,7 +15,7 @@ class ChainOptions(SelectorScreen):
         if chain is None:
             self.set_entries([])
             return
-        self.set_title(f"{chain.get_name()}: Chain Options")
+        self.set_title(f"{chain.get_name()}/Chain Options")   # zynthian_gui_chain_options
         midi_procs = chain.get_processor_count("MIDI Tool")
         audio_procs = max(0, chain.get_processor_count("Audio Effect") - 1)
         processors = []

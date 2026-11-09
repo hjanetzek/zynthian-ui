@@ -25,6 +25,10 @@ Window {
     // Touch keypad: an overlay brought up from the top edge (tap or swipe down on the title),
     // hidden again 4 s after the last key or by another tap on the title; or docked (the screens
     // beside and above it). Tapping the status area (or Admin > Docked Touch Keypad) switches.
+    // The theme's sizes that follow the window (tk: as zynthian_gui_config)
+    Binding { target: Theme; property: "screenWidth"; value: root.width }
+    Binding { target: Theme; property: "screenHeight"; value: root.height }
+
     readonly property bool keypadDocked: zyn.keypadDocked
     property bool keypadOverlay: false
     readonly property real screensLeft: keypadDocked ? keypad.width : 0
@@ -88,7 +92,7 @@ Window {
         anchors.right: parent.right
         anchors.top: parent.top
         // HIDE_TOPBAR: the screens get its height. Enterprise: taller, the segments below the status
-        height: zyn.topBarShown ? (Theme.elbow ? 50 + Theme.elbowBar - 4 : 50) : 0
+        height: zyn.topBarShown ? (Theme.elbow ? Theme.topBarHeight + Theme.elbowBar - 4 : Theme.topBarHeight) : 0
         visible: zyn.topBarShown
         barStart: root.elbowShown ? root.elbowArm + 6 : 0
         title: zyn.currentList ? zyn.currentList.title : (root.qmlTitles[zyn.currentScreen] || zyn.currentScreen)

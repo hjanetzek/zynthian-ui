@@ -99,6 +99,16 @@ def main():
     # UI theme: the theme's name is a file selector, so zynqt/qml/+<theme>/X.qml replaces X.qml
     # (its Theme.qml, the components it draws differently); classic is zynqt/qml/ itself
     theme = os.environ.get("ZYNTHIAN_QT_THEME", "classic") or "classic"
+    # What the Tk UI sizes and colours itself by (zynthian_gui_config), for themes that follow it
+    # (tk): the font size before scaling, the scale ("auto": screen height / 600), the colours
+    cfg = zynthian_gui_config
+    ctx.setContextProperty("zynConfig", {
+        "fontSize": zynthian_gui_config.get_env_int("ZYNTHIAN_UI_FONT_SIZE", 16),
+        "uiScale": os.environ.get("ZYNTHIAN_UI_SCALE", "").strip(),
+        "mainMenuColumns": zynthian_gui_config.get_env_int("ZYNTHIAN_UI_MAIN_MENU_COLUMNS", 0),
+        "v5": bool(cfg.check_wiring_layout(("V5", "Z2"))),
+        "colors": {k[6:]: getattr(cfg, k) for k in dir(cfg) if k.startswith("color_") and isinstance(getattr(cfg, k), str)},
+    })
     ctx.setContextProperty("zynThemeName", theme)
     if theme != "classic":
         engine.setExtraFileSelectors([theme])

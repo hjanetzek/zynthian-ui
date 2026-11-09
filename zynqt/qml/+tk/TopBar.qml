@@ -30,7 +30,11 @@ Rectangle {
         anchors.right: statusArea.left
         anchors.verticalCenter: parent.verticalCenter
         elide: Text.ElideRight
-        text: root.onMixer && root.status.snapshotTitle ? root.status.snapshotTitle : root.title
+        // Chain control (and the special processors' control screens): Tk's select path, the
+        // processor's preset path
+        text: root.onMixer && root.status.snapshotTitle ? root.status.snapshotTitle
+            : ["chain_control", "audio_player", "tempo", "alsa_mixer"].indexOf(zyn.currentScreen) >= 0
+              ? zyn.chainControl.selectPath : root.title
         color: Theme.text
         size: Theme.titleSize
         title: true

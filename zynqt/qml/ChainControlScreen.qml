@@ -77,50 +77,15 @@ Item {
 
     // The page's widget above the pages (zynthian_gui_control's widgets): waveform of audio
     // file processors, envelope, filter
-    Item {
+    ControlWidget {
         id: waveform
-        visible: root.cc.widgetType !== ""
+        cc: root.cc
         anchors.left: procs.right
         anchors.leftMargin: 4
         anchors.right: controllers.left
         anchors.rightMargin: 2
         anchors.top: parent.top
         height: visible ? parent.height * 0.5 : 0
-        WaveformView {
-            anchors.fill: parent
-            visible: root.cc.widgetType === "audio_file"
-            view: root.cc.waveform
-        }
-        EnvelopeView {
-            anchors.fill: parent
-            visible: root.cc.widgetType === "envelope"
-            view: root.cc.envelope
-        }
-        FilterView {
-            anchors.fill: parent
-            visible: root.cc.widgetType === "filter"
-            view: root.cc.filterView
-        }
-        PluginWidgetView {
-            anchors.fill: parent
-            visible: root.cc.widgetType === "plugin"
-            view: root.cc.pluginView
-        }
-        EuclidSeqView {
-            anchors.fill: parent
-            visible: root.cc.widgetType === "euclid"
-            view: root.cc.euclidView
-        }
-        OrganelleView {
-            anchors.fill: parent
-            visible: root.cc.widgetType === "organelle"
-            view: root.cc.organelleView
-        }
-        SooperLooperView {
-            anchors.fill: parent
-            visible: root.cc.widgetType === "sooperlooper"
-            view: root.cc.sooperLooperView
-        }
     }
 
     // Controller pages (grey also below the last page, as the selector lists)
@@ -197,75 +162,10 @@ Item {
         }
     }
 
-    // MIDI learn in progress: what to do, and a button to stop (as BACK)
-    Panel {
-        anchors.horizontalCenter: pages.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 20
-        width: Math.min(pages.width - 16, learnLabel.implicitWidth + stopLearn.width + 48)
-        height: 64
-        radius: 6
-        z: 10
-        visible: root.cc.learnText !== ""
-        color: Theme.keyBackground
-        borderColor: Theme.bindGlobal
-        borderWidth: 2
-        cut: Theme.cutLarge
-        Label {
-            id: learnLabel
-            anchors.left: parent.left
-            anchors.right: stopLearn.left
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.margins: 16
-            text: root.cc.learnText
-            color: Theme.text
-            wrapMode: Text.WordWrap
-            body: true
-            size: 18
-        }
-        MoveKey {
-            id: stopLearn
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.rightMargin: 8
-            text: "Stop"
-            height: 48
-            onTapped: root.cc.stopLearn()
-        }
-    }
-
-    // Moving the current processor (processor options: Move)
-    Grid {
-        anchors.horizontalCenter: pages.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 20
-        columns: 3
-        spacing: 8
-        visible: zyn.movingProcessor
-        z: 10
-        Item { width: 80; height: 56 }
-        MoveKey { text: "\u25b2"; onTapped: zyn.moveProcessor("up") }
-        Item { width: 80; height: 56 }
-        MoveKey { text: "\u25c0"; onTapped: zyn.moveProcessor("left") }
-        MoveKey { text: "Done"; onTapped: zyn.endMoveProcessor() }
-        MoveKey { text: "\u25b6"; onTapped: zyn.moveProcessor("right") }
-        Item { width: 80; height: 56 }
-        MoveKey { text: "\u25bc"; onTapped: zyn.moveProcessor("down") }
-    }
-
-    component MoveKey: Panel {
-        id: moveKey
-        property alias text: moveKeyLabel.text
-        signal tapped
-        width: 80
-        height: 56
-        radius: 4
-        button: true
-        color: moveKeyTap.pressed ? Theme.keyText : Theme.overlay
-        borderColor: Theme.select
-        borderWidth: 2
-        Label { id: moveKeyLabel; anchors.centerIn: parent; color: Theme.text; size: 22 }
-        TapHandler { id: moveKeyTap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: moveKey.tapped() }
+    ControlOverlays {
+        anchors.fill: parent
+        cc: root.cc
+        area: pages
     }
 
     component SideButton: Panel {

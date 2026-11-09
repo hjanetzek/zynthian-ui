@@ -122,7 +122,17 @@ Tokens:
 Sizes (classic's values; tk derives them from F): `topBarHeight`, `titleSize`, `listRowHeight`,
 `listTextSize`, `listTextMargin`, `listPadding`, `infoWidth`, `categoryWidth`, `categoryInfoWidth`
 (the engine screen's category list and info pane), `infoTextSize`, `gridSpacing`
-(gaps between grid tiles as Tk's `zynthian_gui_selector_grid`), `gridBackground`.
+(gaps between grid tiles as Tk's `zynthian_gui_selector_grid`), `gridBackground`,
+`gridPlaceholders` (grids padded with empty placeholder cells to a full 4x4: classic; tk false,
+as Tk). With `gridSpacing` the grid shows as many rows as columns (Tk's tile height); grids with
+more rows scroll (drag, wheel; the selection kept in view) in all themes. The grid reports its
+columns to the screen (`setGridLayout`), so up / down move by the columns shown.
+
+Shared behaviour that themes get for free: the top bar's title (`ScrollingTitle`) scrolls back
+and forth as Tk's when it doesn't fit (2 px every 50 ms, 1 s at each end); the pattern grids'
+two-finger pinch (`PatternPinch`: the zoom follows the fingers' distance, the cell under their
+centre stays under it; a theme's `PatternEditorScreen` declares it inside its grid Flickable and
+makes the Flickable non-interactive while it is active).
 
 Tk's configuration: `zynthian_qt_main.py` passes `zynConfig` (`fontSize`, `uiScale`,
 `mainMenuColumns`, `v5`, `colors`: the `color_*` values of `zynthian_gui_config`, so the

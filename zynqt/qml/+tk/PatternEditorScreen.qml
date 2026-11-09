@@ -33,7 +33,7 @@ Rectangle {
     readonly property int gridFont: Math.min(20, Math.floor(rowHeight / 2))
     // Rows shown (Tk's view_rows, for the cursor row of the next pattern loaded)
     readonly property int viewRows: Math.max(1, Math.floor(gridHeight / rowHeight))
-    onViewRowsChanged: pe.setViewRows(viewRows)
+    onViewRowsChanged: if (height > 0) pe.setViewRows(viewRows)
 
     function reportZoomLimits() {
         if (gridWidth > 0 && gridHeight > 0)
@@ -106,7 +106,8 @@ Rectangle {
         showCursor()
     }
     Component.onCompleted: {
-        pe.setViewRows(viewRows)
+        if (height > 0)
+            pe.setViewRows(viewRows)
         Qt.callLater(showRefRow)
     }
 

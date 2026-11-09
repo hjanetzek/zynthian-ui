@@ -123,6 +123,41 @@ QtObject {
     property real letterSpacing: 0
     property real fontScale: 1.0
 
+    // The window (Main.qml sets it), and the Tk UI's font size F derived from it as
+    // zynthian_gui_config does (ZYNTHIAN_UI_FONT_SIZE, times ZYNTHIAN_UI_SCALE; "auto": the screen
+    // height / 600). Tk gives font sizes in points (96 dpi: 4/3 px); tkPx(n) converts.
+    property real screenWidth: 800
+    property real screenHeight: 480
+    readonly property var _cfg: typeof zynConfig !== "undefined" ? zynConfig : null
+    readonly property real _uiScale: {
+        const s = _cfg ? _cfg.uiScale : ""
+        if (s === "auto")
+            return screenHeight / 600
+        const f = parseFloat(s)
+        return f > 0 ? f : 1.0
+    }
+    readonly property int tkFontSize: {
+        const f = _cfg && _cfg.fontSize ? _cfg.fontSize : Math.floor(screenWidth / 40)
+        return _uiScale !== 1.0 ? Math.max(1, Math.round(f * _uiScale)) : f
+    }
+    function tkPx(points) { return Math.round(points * 4 / 3) }
+    // Tk's colours (ZYNTHIAN_UI_COLOR_*, e.g. tkColor("panel_bg"))
+    function tkColor(name, fallback) {
+        return _cfg && _cfg.colors && _cfg.colors[name] ? _cfg.colors[name] : fallback
+    }
+
+    // Sizes (classic's values)
+    property real topBarHeight: 50          // without the enterprise frame
+    property real titleSize: 28             // the top bar's title
+    property real listRowHeight: 44         // list entries
+    property real listTextSize: 24
+    property real listTextMargin: 10        // left of the entry's text
+    property real listPadding: 0            // around the list, inside its background
+    property real infoWidth: 0.28           // the selector's info pane, part of the width
+    property real infoTextSize: 16
+    property real gridSpacing: 0            // gaps between grid tiles (part of the width per column)
+    property color gridBackground: background
+
     // Spacing and outlines that differ per theme (values only; structural differences are
     // components in the theme's directory)
     property real listSpacing: 0                    // between list rows and controller pages

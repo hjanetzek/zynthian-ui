@@ -66,14 +66,21 @@ class PatternEditor(QObject):
         self.clipboard = 4 * [None]
         self._timer = QTimer(self, interval=40)
         self._timer.timeout.connect(self._poll)
+        # libseq's selected pattern is only valid while the screen is shown (load() selects it):
+        # before, none is selected, and a snapshot load deletes the patterns but leaves the
+        # selection pointing at the old one. QML evaluates the bindings when it creates the
+        # (hidden) screen: reading the pattern then crashed in Pattern::getControlValue.
+        self._shown = False
 
     # Screen (ZynUI): shown / hidden
 
     def build(self):
+        self._shown = True
         self.load()
         self._timer.start()
 
     def hide(self):
+        self._shown = False
         self._timer.stop()
         # As zynthian_gui_pated_base.hide: no recording into a pattern that isn't shown
         self.setRecording(False)
@@ -196,11 +203,11 @@ class PatternEditor(QObject):
 
     @Property(int, notify=patternChanged)
     def steps(self):
-        return self.libseq.getSteps()
+        return self.libseq.getSteps() if self._shown else 16
 
     @Property(int, notify=patternChanged)
     def stepsPerBeat(self):
-        return self.libseq.getStepsPerBeat()
+        return self.libseq.getStepsPerBeat() if self._shown else 4
 
     @Property(int, notify=patternChanged)
     def beatsPerBar(self):
@@ -261,12 +268,14 @@ class PatternEditor(QObject):
 
     @Property(bool, notify=ccChanged)
     def ccInterpolate(self):
-        return bool(self.libseq.getInterpolateCC(self.cc_num))
+        return self._shown and bool(self.libseq.getInterpolateCC(self.cc_num))
 
     @Property("QVariantList", notify=ccChanged)
     def ccValues(self):
         """Per step: [value, end value, duration] or None"""
         values = []
+        if not self._shown:
+            return values
         for step in range(self.libseq.getSteps()):
             v = self.libseq.getControlValue(step, self.cc_num)
             if v <= 127:

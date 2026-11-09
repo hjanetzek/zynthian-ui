@@ -16,11 +16,13 @@
 #   -m MEM      memory (default 4G)
 #   -c CPUS     virtual CPUs (default: half of this machine's)
 #   -R WxH      the screen's resolution (default 1280x800: 16:10 as the Duet, whose 1920x1200 at
-#               the kiosk's scale 1.5 is the same 1280x800 logical pixels), e.g. 1024x600, 800x480
+#               the kiosk's scale 1.5 is the same 1280x800 logical pixels), e.g. 1024x600, 800x480.
+#               With a window the image's kiosk sets it (postmarketos-ui-zynthian r21 or newer)
 #   -D DISPLAY  gtk (default), sdl, or none: no window (agents, tests; screenshots with grim in the
 #               guest): OpenGL through egl-headless if QEMU has it (qemu-ui-egl-headless), else
 #               software rendering in the guest. Headless (or without a terminal) the serial console
-#               goes to serial.log in the cache directory, QEMU's PID to qemu.pid
+#               goes to serial.log in the cache directory, QEMU's PID to qemu.pid. With QEMU display
+#               options after a comma, e.g. -D gtk,zoom-to-fit=off
 #   -n          no OpenGL (software rendering in the guest: slow, for checking a GL problem)
 #   -A AUDIO    virtio (default: virtio-sound, QEMU 8.2+) or hda (emulated Intel HDA), none, or
 #               silent (Intel HDA without host output: the guest's audio clock runs, nothing is
@@ -145,7 +147,7 @@ if [ "$display" = none ]; then
 	echo "$displays" | grep -qx egl-headless || gl=off
 	has_device virtio-vga-gl || gl=off
 else
-	echo "$displays" | grep -qx "$display" || missing="$missing qemu-ui-$display"
+	echo "$displays" | grep -qx "${display%%,*}" || missing="$missing qemu-ui-${display%%,*}"
 fi
 if [ "$audio" != none ] && [ "$audio" != silent ]; then
 	echo "$audiodevs" | grep -qx -e pipewire -e pa || missing="$missing qemu-audio-pipewire"
@@ -188,9 +190,9 @@ else
 	echo "warning: no access to /dev/kvm, QEMU emulates the CPU (slow)" >&2
 fi
 
-# The screen: the guest's preferred mode (virtio-gpu's EDID). A GTK window reports its own first
-# size instead, so the size also goes to the guest as SMBIOS SKU "nura-screen=WxH": the kiosk
-# session (postmarketos-ui-zynthian's zynthian-session.sh) sets that mode.
+# The screen: the guest's preferred mode (virtio-gpu's EDID). A GTK/SDL window reports its own
+# size instead (the firmware's 640x480 at first), so the size also goes to the guest as SMBIOS SKU
+# "nura-screen=WxH" (/sys/class/dmi/id/product_sku): the zynthian kiosk sets that mode
 xres=${res%x*} yres=${res#*x}
 set -- "$@" -smbios "type=1,sku=nura-screen=${xres}x${yres}"
 if [ "$display" = none ]; then

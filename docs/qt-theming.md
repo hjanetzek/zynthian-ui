@@ -14,6 +14,7 @@ display only):
 |---|---|
 | `classic` (default) | zynthian's colours (as `zynthian_gui_config`): black, slate-blue plates, red selection, blue keys, Audiowide |
 | `galactica` | a battlestar CIC console: gun-metal plates with clipped corners and steel outlines, amber console text in Khand (upper case), an amber selection bar, red alerts |
+| `tk` | upstream zynthian's Tk UI: its colours (`ZYNTHIAN_UI_COLOR_*`), sizes from its font size F (`ZYNTHIAN_UI_FONT_SIZE` x `ZYNTHIAN_UI_SCALE`), Tk's mixer, top bar, list rows, info pane and grid tiles |
 | `enterprise` | a starship console: filled pill keys in orange, blue-gray, mauve and violet with dark labels, pill rows, mauve section headers, a curved frame (elbow) around the screens |
 
 On the Duet (or in the QEMU VM): `export ZYNTHIAN_QT_THEME=enterprise` in `/etc/default/zynthian`
@@ -39,7 +40,13 @@ zynqt/qml/
   +galactica/Theme.qml    ThemeBase { only the tokens galactica changes }
   +galactica/KeyPlate.qml, TopBarRule.qml                               its own components
   +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
+  +tk/Theme.qml, MixerScreen.qml, TopBar.qml, InfoPane.qml, GridTile.qml
 ```
+
+Components split out so a theme can replace them: `KeyPlate`, `TopBarRule`, `Elbow`, `InfoPane`
+(the selector's info pane), `GridTile` (main menu / add chain tiles), `MixerScreen` (a wrapper
+around the shared `MixerView`; tk draws Tk's strips and uses `MixerView` for the launcher only),
+`TopBar` (tk replaces it whole, with the same properties and signals).
 
 With the theme's name as a file selector (`QQmlApplicationEngine.setExtraFileSelectors`, in
 `zynthian_qt_main.py`), QML loads `+<theme>/X.qml` wherever `X.qml` is used, the `Theme` singleton
@@ -88,6 +95,16 @@ Tokens:
 | Chain manager | `nodeMidi`, `nodeSynth`, `nodeAudio`, `nodeSpecial`, `nodeOther`, `pinnedBackground`, `divider`, `connector` | blocks by kind, the pinned (main) chains, lines between chains and nodes |
 | Pattern editor | `gridRow`, `gridRowDark`, `gridRowLine`, `gridBar`, `gridBeat`, `gridStep`, `noteHue`, `noteFrame`, `selectionFill`, `selectionFrame`, `ccBar`, `ccBarCurrent`, `buttonOn`, `buttonRecord` | grid rows (black keys darker) and lines, notes (a hue, lighter with velocity), the selected block, CC bars, toolbar buttons |
 | Widgets | `widgetBackground`, `widgetLine`, `widgetFill`, `widgetGrid`, `widgetWave`, `widgetOutside` | the controller page widgets: envelope and filter curves, waveform, plugin meters' background |
+
+Sizes (classic's values; tk derives them from F): `topBarHeight`, `titleSize`, `listRowHeight`,
+`listTextSize`, `listTextMargin`, `listPadding`, `infoWidth`, `infoTextSize`, `gridSpacing`
+(gaps between grid tiles as Tk's `zynthian_gui_selector_grid`), `gridBackground`.
+
+Tk's configuration: `zynthian_qt_main.py` passes `zynConfig` (`fontSize`, `uiScale`,
+`mainMenuColumns`, `v5`, `colors`: the `color_*` values of `zynthian_gui_config`, so the
+`ZYNTHIAN_UI_COLOR_*` environment). `ThemeBase` computes `tkFontSize` (F) from it and the window
+(`screenWidth`, `screenHeight`, set by `Main.qml`) as `zynthian_gui_config` does, `tkPx(points)`
+converts Tk's point sizes to pixels (96 dpi), `tkColor(name, fallback)` reads a colour.
 
 Values that used to be theme conditions in the components: `tintIcons`, `listSpacing`,
 `tileMargin`, `infoBackground`, `dialogFrame`, `xyFrame`, `keyboardBackground`,
@@ -171,6 +188,18 @@ docked keypad, at the window's edge with the overlay keypad (which covers it whi
   the selection is light).
 
 ## Previewing
+
+### A single scene, offscreen
+
+`nura/tools/qml_preview.py SCENE.qml OUT.png [-t THEME] [--mixer]` renders a QML scene (a file
+importing `"@QML@"`, i.e. `zynqt/qml/`, with mock data) at 800x480 offscreen, with the theme's file
+selector, the repository's fonts and Tk's default configuration (`ZYNTHIAN_UI_SCALE=auto`);
+`--mixer` adds mock mixer strips (the compare snapshot). `PREVIEW_QML_DIR` points it at another
+copy of `zynqt/qml` (e.g. `git archive HEAD zynqt/qml` for a before/after check of classic).
+Scenes used so far are in zynthian-stuff `ui-parity/tools/scenes/` (list, grid, mixer). Compare
+against Tk screenshots from the compare VM (`docs/qemu-testing.md`) with `magick ... +append`.
+
+### The whole UI
 
 `desktop/preview_qt.sh` runs the UI in a headless labwc at the Duet's output (1920×1200, scale 1.5)
 and takes screenshots, optionally after CUIAs (it needs OSC port 1370 free):

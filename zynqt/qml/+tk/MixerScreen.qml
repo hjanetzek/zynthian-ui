@@ -365,6 +365,9 @@ Item {
                 anchors.verticalCenterOffset: 2
                 textFormat: Text.RichText
                 text: {
+                    // Tk: the chain being moved shows arrows
+                    if (zyn.movingChain && strip.active && strip.chainId !== 0)
+                        return "⇦⇨"
                     let out = ""
                     for (const ch of strip.legend) {
                         const c = ch.codePointAt(0)

@@ -15,6 +15,9 @@ from zynconf import zynthian_paths
 
 class MidiRecorder(SelectorScreen):
     name = "midi_recorder"
+    selcap = "MIDI file"
+    zsel_hidden = False
+    tiny_ctrls = False
     default_icon = "file_midi.png"   # Tk's selector_info default
 
     def fill(self):

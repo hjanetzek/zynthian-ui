@@ -193,7 +193,7 @@ Rectangle {
                     y: content.rowsTop + root.rowY(index) + root.rowHeight
                     width: content.width
                     height: 1
-                    color: root.rows[index].note % 12 === root.pe.tonic ? "#a0a0a0" : "#505050"
+                    color: root.pe && root.rows[index].note % 12 === root.pe.tonic ? "#a0a0a0" : "#505050"
                 }
             }
             // Step lines: bars white, beats grey, steps dark

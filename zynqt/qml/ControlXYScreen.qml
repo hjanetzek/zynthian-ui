@@ -35,8 +35,8 @@ Item {
         }
 
         // Cursor
-        readonly property real cx: root.xy.fx * width
-        readonly property real cy: (1 - root.xy.fy) * height
+        readonly property real cx: root.xy ? root.xy.fx * width : 0
+        readonly property real cy: root.xy ? (1 - root.xy.fy) * height : 0
         Rectangle { x: pad.cx; width: 2; height: pad.height; color: Theme.keyText }
         Rectangle { y: pad.cy; height: 2; width: pad.width; color: Theme.keyText }
         Rectangle {
@@ -48,8 +48,8 @@ Item {
         Column {
             x: 16; y: 12
             spacing: 6
-            Label { text: root.xy.xText; color: Theme.text; size: 22; title: true; body: true }
-            Label { text: root.xy.yText; color: Theme.text; size: 22; title: true; body: true }
+            Label { text: root.xy ? root.xy.xText : ""; color: Theme.text; size: 22; title: true; body: true }
+            Label { text: root.xy ? root.xy.yText : ""; color: Theme.text; size: 22; title: true; body: true }
         }
         Label {
             anchors.horizontalCenter: parent.horizontalCenter

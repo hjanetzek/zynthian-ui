@@ -28,6 +28,7 @@ Window {
     // The theme's sizes that follow the window (tk: as zynthian_gui_config)
     Binding { target: Theme; property: "screenWidth"; value: root.width }
     Binding { target: Theme; property: "screenHeight"; value: root.height }
+    Binding { target: Theme; property: "keypadShown"; value: root.keypadDocked }
 
     readonly property bool keypadDocked: zyn.keypadDocked
     property bool keypadOverlay: false
@@ -68,7 +69,8 @@ Window {
         // The overlay leaves the top bar free: its title hides the keypad again
         anchors.top: root.keypadDocked ? parent.top : topBar.bottom
         anchors.bottom: parent.bottom
-        width: 192
+        width: Theme.keypadWidth
+        keyHeight: Theme.keypadKeyHeight
         z: 20
         visible: root.keypadDocked || root.keypadOverlay
         translucent: !root.keypadDocked

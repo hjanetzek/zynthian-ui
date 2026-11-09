@@ -43,7 +43,11 @@ ThemeBase {
     fontFamily: "Audiowide"
 
     // Sizes from F (Tk gives points: tkPx)
+    // Tk sizes the top bar once at start, without the keypad (it stays 40 px when shown)
     topBarHeight: screenWidth >= 800 ? Math.floor(screenHeight / 12) : Math.floor(screenHeight / 10)
+    // Keypad: W / 5 wide, the bottom row the rest below 5/6 of the height
+    keypadWidth: Math.floor(screenWidth / 5)
+    keypadKeyHeight: screenHeight - Math.floor(5 * screenHeight / 6)
     titleSize: tkPx(screenWidth >= 800 ? Math.floor(1.5 * f) : Math.floor(1.1 * f))
     listRowHeight: Math.ceil(1.8 * f)
     listTextSize: tkPx(f)

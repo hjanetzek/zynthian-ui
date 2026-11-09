@@ -1035,6 +1035,17 @@ class ZynUI(QObject):
         if i < 4:
             self.zynswitch(i, t)
             return
+        # The screen's switch(i, t) first, as zynthian_gui.zynswitch_short / bold / long (the
+        # pattern editor's ALT clipboard, block and CC keys)
+        screen = self._screen_obj()
+        func = getattr(screen, "switch", None)
+        if t in ("S", "B", "L") and not self._overlay_shown() and callable(func):
+            try:
+                if func(i, t):
+                    return
+            except Exception as e:
+                logging.exception(f"switch {i},{t} of screen {self.current_screen} failed: {e}")
+                return
         try:
             config = zynthian_gui_config.custom_switch_ui_actions[i - 4]
         except IndexError:

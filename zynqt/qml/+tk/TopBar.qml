@@ -24,6 +24,18 @@ Rectangle {
 
     color: Theme.background
 
+    // The pattern editor's edit modes (set_edit_mode): their title inverted (color_header_bg on
+    // color_panel_tx)
+    readonly property bool onPatternEditor: zyn.currentScreen === "pattern_editor"
+    readonly property bool inverted: onPatternEditor && zyn.patternEditor.modeTitle !== ""
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: statusArea.left
+        height: parent.height
+        visible: root.inverted
+        color: Theme.text
+    }
+
     Label {
         anchors.left: parent.left
         anchors.leftMargin: 2
@@ -31,11 +43,13 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         elide: Text.ElideRight
         // Chain control (and the special processors' control screens): Tk's select path, the
-        // processor's preset path
+        // processor's preset path; the pattern editor: its title or the edit mode's
         text: root.onMixer && root.status.snapshotTitle ? root.status.snapshotTitle
             : ["chain_control", "audio_player", "tempo", "alsa_mixer"].indexOf(zyn.currentScreen) >= 0
-              ? zyn.chainControl.selectPath : root.title
-        color: Theme.text
+              ? zyn.chainControl.selectPath
+            : root.onPatternEditor ? (root.inverted ? zyn.patternEditor.modeTitle : zyn.patternEditor.tkTitle)
+            : root.title
+        color: root.inverted ? Theme.background : Theme.text
         size: Theme.titleSize
         title: true
     }

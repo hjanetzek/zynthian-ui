@@ -18,6 +18,19 @@ from zyngui.zynthian_pated_smf import PATTERNS_DIR, SMF_EXPORT_DIR, analyze_smf,
 from zynlibs.zynseq import zynseq
 from zynqt.screens.file_picker import FilePicker
 
+# Edit modes (zynthian_gui_pated_base): what the knobs and SELECT do
+EDIT_MODE_NONE = 0      # move the cursor, SELECT toggles the note
+EDIT_MODE_BLOCK = 1     # select a block (knobs), copy it, move the copy, paste it
+EDIT_MODE_SINGLE = 2    # the note's (or the new notes') parameters
+EDIT_MODE_MULTI = 3     # duration and velocity of the selected notes
+EDIT_MODE_HISTORY = 4   # undo / redo
+
+# Parameters of the single note edit mode (EDIT_PARAM_* of zynthian_gui_pated_notes): duration,
+# velocity, then NOTE_PARAMS; the titles as Tk's set_edit_title
+EDIT_PARAM_TITLES = ("Duration", "Velocity", "Offset", "Stutter speed", "Stutter velo", "Stutter ramp",
+                     "Play frequency", "Play chance", "Stutter frequency", "Stutter chance")
+EDIT_PARAM_LAST_MULTI = 1
+
 
 class PatternEditor(QObject):
     name = "pattern_editor"
@@ -30,6 +43,8 @@ class PatternEditor(QObject):
     ccChanged = Signal()            # CC view: mode, CC number, values
     blockChanged = Signal()         # select mode, selected block, copied buffer
     recordChanged = Signal()        # recording from MIDI
+    modeChanged = Signal()          # edit mode, its parameter, the title
+    zoomChanged = Signal()
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -56,7 +71,15 @@ class PatternEditor(QObject):
         self.cc_mode = False        # CC view instead of the notes
         self.cc_num = 64
         self.cc_cursor = 0          # step
-        self.select_mode = False    # touch selects a block instead of adding notes
+        self.select_mode = False    # block edit mode: touch selects a block instead of adding notes
+        self.edit_mode = EDIT_MODE_NONE
+        self.edit_param = 0         # EDIT_PARAM_TITLES index
+        self._block_start = None    # block selection with the knobs: start and end cell [step, row]
+        self._block_end = None
+        self._cp_offset = [0, 0]    # copied block moved by [steps, rows] (knobs)
+        self.selected_events = None  # selected notes ({event key: True}, zynseq.get_pattern_selection)
+        self.zoom = 0               # cell size change in pixels (knob 1), as Tk's set_grid_zoom
+        self._zoom_limits = (-1000, 1000)
         self._block = None           # selected block: [step1, row1, step2, row2] (inclusive)
         self.copied = None          # copied block (its [step1, row1, step2, row2]); taps paste it
         self._pending = False       # changes without their undo snapshot yet
@@ -82,8 +105,11 @@ class PatternEditor(QObject):
     def hide(self):
         self._shown = False
         self._timer.stop()
-        # As zynthian_gui_pated_base.hide: no recording into a pattern that isn't shown
+        # As zynthian_gui_pated_base.hide: no recording into a pattern that isn't shown, no edit
+        # mode
         self.setRecording(False)
+        if self.edit_mode != EDIT_MODE_NONE:
+            self.set_edit_mode(EDIT_MODE_NONE)
 
     # Recording from MIDI (zynthian_gui_pated_base.toggle_midi_record): libseq writes the notes
     # played into the pattern while it plays; _poll shows them (isPatternModified)
@@ -180,6 +206,13 @@ class PatternEditor(QObject):
                 self.cursor[1] = row_of.get(60, len(self.keymap) // 2)
         self.libseq.isPatternModified()   # reset the flag
         self._pending = False
+        self.selected_events = None
+        self.copied = None
+        # The pattern's zoom (Tk: set_grid_zoom(getPatternZoom()), within the grid's limits; a
+        # pattern without one gives garbage)
+        z = self.libseq.getPatternZoom()
+        self.zoom = max(self._zoom_limits[0], min(self._zoom_limits[1], z)) if -1000 < z < 1000 else 0
+        self.zoomChanged.emit()
         self.patternChanged.emit()
         self.eventsChanged.emit()
         self.cursorChanged.emit()
@@ -232,7 +265,8 @@ class PatternEditor(QObject):
         row_of = {k["note"]: i for i, k in enumerate(self.keymap)}
         return [{"step": e.position + e.offset, "row": row_of[e.val1_start], "duration": e.duration,
                  "velocity": e.val2_start, "label": note_label(e), "muted": note_muted(e),
-                 "stutter": e.stut_speed, "stutterFx": e.stut_velfx, "stutterMuted": stutter_muted(e)}
+                 "stutter": e.stut_speed, "stutterFx": e.stut_velfx, "stutterMuted": stutter_muted(e),
+                 "selected": bool(self.selected_events) and e.get_key() in self.selected_events}
                 for e in self._events if e.val1_start in row_of]
 
     @Property(int, notify=playheadChanged)
@@ -379,6 +413,7 @@ class PatternEditor(QObject):
     def _changed(self):
         self._snapshot()
         self._reload_events()
+        self.cursorChanged.emit()
 
     def _play_preview(self, note, velocity):
         if self.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence) == zynseq.SEQ_STOPPED:
@@ -532,11 +567,8 @@ class PatternEditor(QObject):
 
     @Slot()
     def toggleSelectMode(self):
-        self.select_mode = not self.select_mode
-        if not self.select_mode:
-            self._block = None
-            self.copied = None
-        self.blockChanged.emit()
+        """The block edit mode on / off (the Select key)"""
+        self.set_edit_mode(EDIT_MODE_NONE if self.edit_mode == EDIT_MODE_BLOCK else EDIT_MODE_BLOCK)
 
     @Slot(int, int, int, int)
     def selectBlock(self, step1, row1, step2, row2):
@@ -564,11 +596,13 @@ class PatternEditor(QObject):
             self._changed()
         if n:
             self.copied = list(self._block)
+            self._cp_offset = [0, 0]
             self.ui.show_info(f"{'Cut' if cut else 'Copied'} {n} notes: tap where to paste")
         else:
             self.copied = None
             self.ui.show_info("No notes in the selection")
         self.blockChanged.emit()
+        self.modeChanged.emit()
 
     @Slot()
     def deleteBlock(self):
@@ -592,6 +626,349 @@ class PatternEditor(QObject):
         self._flush_pending()
         self.libseq.pastePatternBuffer(self.pattern, dstep, 0.0, max(-127, min(127, dnote)), False)
         self._changed()
+
+    # Edit modes and knobs as zynthian_gui_pated_base / _notes
+
+    @Property(int, notify=modeChanged)
+    def editMode(self):
+        return self.edit_mode
+
+    @Property(str, notify=modeChanged)
+    def modeTitle(self):
+        """The title of the edit mode (Tk shows it inverted in the top bar), "" without one"""
+        m = self.edit_mode
+        if m == EDIT_MODE_HISTORY:
+            return "Undo/Redo"
+        if m == EDIT_MODE_BLOCK:
+            return "Paste" if self.copied else "Select Block"
+        if m == EDIT_MODE_MULTI:
+            return "MULTI Duration " if self.edit_param == 0 else "MULTI Velocity"
+        if m == EDIT_MODE_SINGLE:
+            return self._edit_title()
+        return ""
+
+    @Property(str, notify=patternChanged)
+    def tkTitle(self):
+        """The title as zynthian_gui_pated_notes.get_title: "<sequence> <chain>: Notes" """
+        zs = self.zynseq
+        name = zs.get_sequence_name(zs.scene, self.phrase, self.sequence) if self._shown else ""
+        if name:
+            try:
+                chain_name = self.ui.chain_manager.get_synth_chain(self.channel).get_title()
+            except Exception:
+                chain_name = ""
+            title = f"{name} {chain_name or f'MIDI-{self.channel + 1}'}"
+        else:
+            title = f"Pattern {self.pattern}"
+        return f"{title}: {'Chords' if self.chord_mode else 'Notes'}"
+
+    def _cursor_note_data(self):
+        step, row = self.cursor
+        note = self._note(row)
+        return step, row, note, (self.zynseq.get_note_data(step, note) if note is not None else None)
+
+    def _param_value(self, ev, index):
+        """Edit parameter index of the note (ev) or of the new notes (ev None)"""
+        if index == 0:
+            return ev.duration if ev else self.duration
+        if index == 1:
+            return ev.val2_start if ev else self.velocity
+        key = NOTE_PARAMS[index - 2]["key"]
+        return getattr(ev, key) if ev else self.entry_params[key]
+
+    def _edit_title(self):
+        _, _, _, ev = self._cursor_note_data()
+        i = self.edit_param
+        val = self._param_value(ev, i)
+        if i == 0:
+            return f"Duration: {val:0.1f} steps"
+        if i == 1:
+            return f"Velocity: {val}"
+        return f"{EDIT_PARAM_TITLES[i]}: {note_param_text(NOTE_PARAMS[i - 2], val)}"
+
+    def set_edit_mode(self, mode):
+        """zynthian_gui_pated_base.set_edit_mode: the block mode starts a block at the cursor;
+        back to none clears the block and the copy"""
+        self.edit_mode = mode
+        self.select_mode = mode == EDIT_MODE_BLOCK
+        if mode == EDIT_MODE_BLOCK and not self.copied:
+            self.selected_events = None
+            self._block_start = list(self.cursor)
+            self._block_end = list(self.cursor)
+            self._update_block()
+            self.eventsChanged.emit()
+        elif mode != EDIT_MODE_BLOCK:
+            self._block = None
+            self.copied = None
+            self.blockChanged.emit()
+        self.modeChanged.emit()
+
+    def _update_block(self):
+        s1, s2 = sorted((self._block_start[0], self._block_end[0]))
+        r1, r2 = sorted((self._block_start[1], self._block_end[1]))
+        self._block = [s1, r1, s2, r2]
+        self.blockChanged.emit()
+
+    def _clamp_cell(self, cell):
+        return [max(0, min(self.steps - 1, cell[0])), max(0, min(len(self.keymap) - 1, cell[1]))]
+
+    def select_block(self, dstep, drow):
+        """Move the block's end (zynthian_gui_pated_base.select_block)"""
+        if self._block_end is None:
+            self._block_start = list(self.cursor)
+            self._block_end = list(self.cursor)
+        self._block_end = self._clamp_cell([self._block_end[0] + dstep, self._block_end[1] + drow])
+        self.cursor = list(self._block_end)
+        self.cursorChanged.emit()
+        self._update_block()
+
+    def select_block_all(self):
+        """All notes, the block their rows over the whole pattern (select_block_all)"""
+        self.selected_events = self.zynseq.get_pattern_selection(self.pattern, 0, self.steps, 0, 127)
+        rows = [r for r in (self._row_of_note(k // zynseq.MAX_STEPS_PATTERN) for k in self.selected_events)
+                if r is not None]
+        if rows:
+            self._block_start = [0, max(rows)]
+            self._block_end = [self.steps - 1, min(rows)]
+            self._update_block()
+        self.eventsChanged.emit()
+
+    def select_block_events(self):
+        """The notes in the block (select_block_events)"""
+        if not self._block:
+            return
+        note1, note2 = self._block_notes(self._block)
+        self.selected_events = self.zynseq.get_pattern_selection(self.pattern, self._block[0], self._block[2],
+                                                                 note1, note2)
+        self.eventsChanged.emit()
+
+    def clean_selected_events(self):
+        if self.selected_events:
+            self.selected_events = None
+            self.eventsChanged.emit()
+
+    def _row_of_note(self, note):
+        for i, k in enumerate(self.keymap):
+            if k["note"] == note:
+                return i
+        return None
+
+    def move_block(self, dstep, drow):
+        """Move the copied block (move_block): rows within the keymap, steps around the pattern"""
+        if not self.copied:
+            return
+        n_rows = len(self.keymap)
+        dr = self._cp_offset[1] + drow
+        if self.copied[1] + dr < 0 or self.copied[3] + dr >= n_rows:
+            return
+        ds = (self._cp_offset[0] + dstep) % self.steps
+        self._cp_offset = [ds, dr]
+        # The (hidden) cursor as Tk: the block's end step moving right, its start moving left;
+        # its top row moving up, else the row above its bottom
+        step = self.copied[2] + ds if dstep > 0 else self.copied[0] + ds
+        row = self.copied[3] + dr if drow > 0 else self.copied[1] + dr + 1
+        self.cursor = self._clamp_cell([step % self.steps, row])
+        self.cursorChanged.emit()
+        self.blockChanged.emit()
+
+    @Property("QVariantList", notify=blockChanged)
+    def copyEvents(self):
+        """The copied notes at their moved place (Tk draws them green): {step, row, duration,
+        velocity}"""
+        if not self.copied or not self._shown:
+            return []
+        out = []
+        evdata = zynseq.event_data()
+        src_row = self.copied[1]
+        dnote = self._paste_dnote()
+        i = 0
+        while self.libseq.getBufferEventDataAt(i, evdata) >= 0:
+            i += 1
+            if evdata.command != zynseq.MIDI_NOTE_ON:
+                continue
+            row = self._row_of_note(evdata.val1_start + dnote)
+            if row is None:
+                continue
+            out.append({"step": (evdata.position + self._cp_offset[0]) % self.steps, "row": row,
+                        "duration": evdata.duration, "velocity": evdata.val2_start, "label": "",
+                        "muted": False, "stutter": 0, "stutterFx": 0, "stutterMuted": False,
+                        "selected": False})
+        return out
+
+    def _paste_dnote(self):
+        src_row = self.copied[1]
+        dst_row = max(0, min(len(self.keymap) - 1, src_row + self._cp_offset[1]))
+        return self.keymap[dst_row]["note"] - self.keymap[src_row]["note"]
+
+    def paste_block(self):
+        """Paste the moved copy (paste_block); the copy stays for more"""
+        if not self.copied:
+            return
+        self._flush_pending()
+        self.libseq.pastePatternBuffer(self.pattern, self._cp_offset[0], 0.0,
+                                       max(-127, min(127, self._paste_dnote())), False)
+        self._changed()
+
+    @Slot(int)
+    def setZoom(self, zoom):
+        zoom = max(self._zoom_limits[0], min(self._zoom_limits[1], zoom))
+        if zoom != self.zoom:
+            self.zoom = zoom
+            if self._shown:
+                self.libseq.setPatternZoom(zoom)
+            self.zoomChanged.emit()
+
+    @Slot(int, int)
+    def setZoomLimits(self, lo, hi):
+        """The zoom range of the grid shown (QML: from its cell size limits, as Tk's
+        calculate_geometry_limits)"""
+        self._zoom_limits = (min(lo, 0), max(hi, 0))
+        if not lo <= self.zoom <= hi:
+            self.setZoom(self.zoom)
+
+    @Property(int, notify=zoomChanged)
+    def zoomValue(self):
+        return self.zoom
+
+    def reset_grid_zoom(self):
+        self.setZoom(0)
+
+    def undo_all(self):
+        self._undo_all()
+
+    def redo_all(self):
+        if not self._pending and self.libseq.redoPatternAll():
+            self._reload_events()
+
+    def _edit_single(self, knob, dval):
+        """Single note edit (zynthian_gui_pated_notes.zynpot_cb): knob 1 the duration in 0.1 steps,
+        knob 2 the parameter; the note at the cursor or the new notes' values"""
+        step, row, note, ev = self._cursor_note_data()
+        i = self.edit_param
+        if knob == 1:
+            if i != 0:
+                return
+            delta = 0.1 * dval
+        else:
+            delta = dval
+        val = self._param_value(ev, i)
+        if i == 0:
+            val += delta
+            if val > self.steps or val < 0.05:
+                return
+            if ev:
+                self._flush_pending()
+                self.libseq.addNote(step, note, ev.val2_start, val, ev.offset)
+                self._changed()
+            else:
+                self.duration = val
+                self.entryChanged.emit()
+            return
+        if i == 1:
+            val += int(delta)
+            if not 1 <= val <= 127:
+                return
+            if ev:
+                self._flush_pending()
+                self.libseq.setNoteVelocity(step, note, val)
+                self._changed()
+            else:
+                self.velocity = val
+                self.entryChanged.emit()
+            return
+        p = NOTE_PARAMS[i - 2]
+        if p["kind"] == "percent":
+            v = round(100 * val) + int(delta)
+            if not p["min"] <= v <= p["max"]:
+                return
+            val = v / 100
+        elif p["kind"] == "options":
+            val += int(delta)
+            if not 0 <= val < len(p["labels"]):
+                return
+        else:
+            val += int(delta)
+            if not p["min"] <= val <= p["max"]:
+                return
+        if ev:
+            self._flush_pending()
+            set_note_param(self.libseq, step, note, p, val)
+            self._changed()
+        else:
+            self.entry_params[p["key"]] = val
+            self.entryChanged.emit()
+
+    def _edit_multi(self, knob, dval):
+        """Multi edit: duration (knob 1: 0.1 steps, knob 2: 1) or velocity of the selected notes"""
+        if not self.selected_events:
+            return
+        n = len(self.selected_events)
+        self._flush_pending()
+        if self.edit_param == 0:
+            self.libseq.changeDurationList((0.1 if knob == 1 else 1) * dval, zynseq.event_key_buffer, n)
+        else:
+            self.libseq.changeVelocityList(dval, zynseq.event_key_buffer, n)
+        self._changed()
+
+    def move_cursor(self, dstep, drow):
+        """The cursor (select_cell): within the pattern and keymap, over notes covering steps"""
+        step, row = self.cursor
+        row = max(0, min(len(self.keymap) - 1, row + drow))
+        step = max(0, min(self.steps - 1, step + dstep))
+        note = self._note(row)
+        if dstep and note is not None:
+            # Skip the steps a longer note covers (Tk: hidden, overlapping cells)
+            for prev in range(step - 1, -1, -1):
+                d = self.libseq.getNoteDuration(prev, note)
+                if not d:
+                    continue
+                d = int(-(-d // 1))
+                if d > step - prev:
+                    step = prev + d if dstep > 0 else prev
+                break
+            step = max(0, min(self.steps - 1, step))
+        self.cursor = [step, row]
+        self.cursorChanged.emit()
+        if self.edit_mode == EDIT_MODE_SINGLE:
+            self.modeChanged.emit()
+
+    @Slot(int, int)
+    def touchBold(self, step, row):
+        """A bold press on the grid (zynthian_gui_pated_notes.on_grid_release): the cell's note
+        parameters (the selected notes' in an edit mode)"""
+        note = self._note(row)
+        if note is None:
+            return
+        start = self.libseq.getNoteStart(step, note)
+        self.cursor = [start if start >= 0 else step, row]
+        self.cursorChanged.emit()
+        self.set_edit_mode(EDIT_MODE_SINGLE if self.edit_mode == EDIT_MODE_NONE else EDIT_MODE_MULTI)
+
+    @Slot(int)
+    def playRow(self, row):
+        """Piano key tapped: play its note (on_pianoroll_release_action)"""
+        note = self._note(row)
+        if note is not None:
+            self.libseq.playNote(note, self.velocity, self.channel, 200)
+
+    @Property(int, notify=cursorChanged)
+    def cursorVelocity(self):
+        """The velocity under the cursor (the note's, else the new notes'): Tk's velocity bar"""
+        if not self._shown:
+            return self.velocity
+        _, _, _, ev = self._cursor_note_data()
+        return ev.val2_start if ev else self.velocity
+
+    @Property(float, notify=cursorChanged)
+    def cursorDuration(self):
+        if not self._shown:
+            return 1.0
+        _, _, _, ev = self._cursor_note_data()
+        return ev.duration if ev else 1.0
+
+    @Property(int, notify=patternChanged)
+    def tonic(self):
+        return self.libseq.getTonic() if self._shown else 0
 
     @Slot()
     def entryOptions(self):
@@ -618,52 +995,173 @@ class PatternEditor(QObject):
         else:
             self.libseq.setPlayState(zs.scene, self.phrase, self.sequence, zynseq.SEQ_STOPPED)
 
-    # Menu (zynthian_gui_pated_base / _notes menu, the main entries)
+    # Menu: "Pattern options" as zynthian_gui_pated_base / _notes / _cc get_menu_options (titles,
+    # order, sections). Tk edits the values in the title bar with the knobs; here the value
+    # editor or a list. Kept from the Qt editor (Tk lacks them): "Record MIDI", "New note values",
+    # "Undo all".
+
+    def _seq_info(self):
+        zs = self.zynseq
+        try:
+            return zs.state["scenes"][zs.scene]["phrases"][self.phrase]["sequences"][self.sequence]
+        except Exception:
+            return {}
+
+    def _pattern_length_text(self, beats=None, bpb=4):
+        """zynthian_gui_pated_base.get_pattern_length (bars and beats of 4 beats per bar)"""
+        if beats is None:
+            beats = self.libseq.getBeatsInPattern(self.pattern)
+        bars = beats // bpb if bpb > 1 else 0
+        extra = beats % bpb
+        beats_text = "" if extra == 0 else ("1 beat" if extra == 1 else f"{extra} beats")
+        bars_text = "" if bars == 0 else ("1 bar" if bars == 1 else f"{bars} bars")
+        return f"{bars_text} + {beats_text}" if bars and extra else bars_text + beats_text
 
     @Slot()
     def menu(self):
         ls = self.libseq
-        beats = ls.getBeatsInPattern(self.pattern)
-        scales = scale_names(self.ui.chain_manager, self.channel)
-        scale = ls.getScale()
-        chord_label = CHORD_MODES[self.chord_mode] + (f": {CHORDS[self.chord_type][0]}" if self.chord_mode == 1 else "")
-        opts = [
-            ("Edit notes" if self.cc_mode else "Edit CC", self.toggleCcMode, None, None),
-            (f"Length ({beats} beats)", self._pick_length, None, None),
-            (f"Steps/Beat ({ls.getStepsPerBeat()})", self._pick_steps_per_beat, None, None),
-            (f"Scale ({scales[scale] if scale < len(scales) else scale})", lambda: self._pick(
-                "Scale", list(zip(scales, range(len(scales)))), scale, self._set_scale), None, None),
-            (f"Tonic ({NOTE_NAMES[ls.getTonic() % 12]})", lambda: self._pick(
-                "Tonic", list(zip(NOTE_NAMES, range(12))), ls.getTonic(), self._set_tonic), None, None),
-            (f"Velocity humanization ({round(ls.getHumanVelo())})", lambda: self.ui.edit_value(
-                "Velocity humanization", round(ls.getHumanVelo()), 0, 100, lambda v: ls.setHumanVelo(float(v))),
-             None, None),
-            (f"Note play chance ({round(100 * ls.getPlayChance())}%)", lambda: self.ui.edit_value(
-                "Note play chance (%)", round(100 * ls.getPlayChance()), 0, 100, lambda v: ls.setPlayChance(v / 100)),
-             None, None),
-            (f"Rest-step note ({self._rest_name(ls.getInputRest())})", self._pick_rest, None, None),
-            ("Transpose up", lambda: self._transpose(1), None, None),
-            ("Transpose down", lambda: self._transpose(-1), None, None),
-            ("New note values", self.entry_options, None, None),
-            (f"Chord mode ({chord_label})", self._pick_chord_mode, None, None),
-            (f"{'☒' if ls.isMidiRecord() else '☐'} Record MIDI", self.toggleRecording, None, None),
-            ("Load pattern", self._load_pattern_file, None, None),
-            ("Save pattern", lambda: self._ask_file_name(PATTERNS_DIR, "zpat", self._save_pattern_file),
-             None, None),
-            ("Import from MIDI file", self._import_smf, None, None),
-            ("Export to MIDI file", lambda: self._ask_file_name(SMF_EXPORT_DIR, "mid", self._export_smf),
-             None, None),
-            ("Undo all", self._undo_all, None, None),
-            ("Clear pattern", lambda: self.ui.confirm(f"Clear pattern {self.pattern}?", self._clear), None, None),
-        ]
+        zs = self.zynseq
+        info = self._seq_info()
+        opts = []
+
+        def head(t):
+            opts.append((f"> {t}", None, None, None))
+
+        def add(label, action):
+            opts.append((label, action, None, None))
+
+        # _SEQUENCE (no heading)
+        if info:
+            name = info.get("name") or ""
+            add(f"Rename ({name})" if name else "Rename", self._rename_sequence)
+            repeat = info.get("repeat", 0)
+            mode = ("LOOP" if repeat == 255 else "ONESHOT" if repeat == 1 else f"PLAY {repeat} TIMES") \
+                if repeat > 0 else "DISABLED"
+            add(f"Play mode ({mode})", self._pick_playmode)
+            pc = ls.getProgramChange(0)
+            add(f"Program Change ({pc if pc <= 127 else 'None'})", self._pick_program_change)
+        # _PATTERN (no heading)
+        add("Edit Notes" if self.cc_mode else "Edit CC", self.toggleCcMode)
+        add(f"Length ({self._pattern_length_text()})", self._pick_length)
+        add(f"Steps/Beat ({ls.getStepsPerBeat()})", self._pick_steps_per_beat)
+        qn = ls.getQuantizeNotes()
+        qval = "DISABLED" if qn <= 0 else ("1 step" if qn == 1 else f"1/{qn} step")
+        add(f"Quantization ({qval})", self._pick_quantization)
+        add(f"Swing Amount ({int(100.0 * ls.getSwingAmount())}%)", lambda: self.ui.edit_value(
+            "Swing Amount", int(100.0 * ls.getSwingAmount()), 0, 100, lambda v: ls.setSwingAmount(v / 100.0)))
+        add(f"Swing Divisor ({ls.getSwingDiv()})", lambda: self.ui.edit_value(
+            "Swing Divisor", ls.getSwingDiv(), 1, max(1, ls.getStepsPerBeat()), lambda v: ls.setSwingDiv(int(v))))
+        add(f"Time Humanization ({int(100.0 * ls.getHumanTime())})", lambda: self.ui.edit_value(
+            "Time Humanization", int(100.0 * ls.getHumanTime()), 0, 100, lambda v: ls.setHumanTime(v / 100.0)))
         if self.cc_mode:
             interp = bool(ls.getInterpolateCC(self.cc_num))
-            opts.insert(1, (f"{'☒' if interp else '☐'} Interpolate CC{self.cc_num} values",
-                            lambda: (ls.setInterpolateCC(self.cc_num, not interp), self.ccChanged.emit()), None, None))
-            opts.insert(2, (f"CC number ({self.cc_num})", self.pickCc, None, None))
-            opts.append((f"Clear pattern CC{self.cc_num}", lambda: self.ui.confirm(
-                f"Clear CC{self.cc_num} in pattern {self.pattern}?", self._clear_cc), None, None))
-        self.ui.show_options("Pattern Editor", opts)
+            add(("\u2612" if interp else "\u2610") + f" Interpolate CC{self.cc_num} values",
+                lambda: (ls.setInterpolateCC(self.cc_num, not interp), self.ccChanged.emit()))
+            add(f"CC number ({self.cc_num})", self.pickCc)
+        else:
+            add(f"Velocity Humanization ({int(ls.getHumanVelo())})", lambda: self.ui.edit_value(
+                "Velocity Humanization", int(ls.getHumanVelo()), 0, 100, lambda v: ls.setHumanVelo(float(v))))
+            add(f"Note Play Chance ({round(100 * ls.getPlayChance())}%)", lambda: self.ui.edit_value(
+                "Note Play Chance", round(100 * ls.getPlayChance()), 0, 100, lambda v: ls.setPlayChance(v / 100)))
+            scales = scale_names(self.ui.chain_manager, self.channel)
+            scale = ls.getScale()
+            add(f"Scale ({scales[scale] if scale < len(scales) else scale})", lambda: self._pick(
+                "Scale", list(zip(scales, range(len(scales)))), scale, self._set_scale))
+            add(f"Tonic ({NOTE_NAMES[ls.getTonic() % 12]})", lambda: self._pick(
+                "Tonic", list(zip(NOTE_NAMES, range(12))), ls.getTonic(), self._set_tonic))
+        add(("\u2612" if ls.isMidiRecord() else "\u2610") + " Record MIDI", self.toggleRecording)
+        # EDIT
+        head("EDIT")
+        if not self.cc_mode:
+            rest = ls.getInputRest()
+            add(f"Rest-step note ({NOTE_NAMES[rest % 12]}{rest // 12 - 1})" if rest < 128 else "Rest note (None)",
+                self._pick_rest)
+            add(f"Chord mode ({CHORD_MODES[self.chord_mode]})", self._pick_chord_mode)
+            if self.chord_mode == 1:
+                add(f"Chord type ({CHORDS[self.chord_type][0]})", lambda: self._pick(
+                    "Chord type", [(c[0], i) for i, c in enumerate(CHORDS)], self.chord_type, self._set_chord_type))
+            elif self.chord_mode >= 2:
+                add(f"Diatonic key ({NOTE_NAMES[self.chord_tonic]})", lambda: self._pick(
+                    "Diatonic key", list(zip(NOTE_NAMES, range(12))), self.chord_tonic, self._set_chord_tonic))
+            add("Transpose pattern", lambda: self._pick(
+                "Transpose", [("down", -1), ("up", 1)], 0, self._transpose))
+        add("Grid zoom", lambda: self.ui.edit_value("Zoom", self.zoom, self._zoom_limits[0], self._zoom_limits[1],
+                                                   lambda v: self.setZoom(int(v))))
+        if info:
+            name = zs.get_sequence_name(zs.scene, self.phrase, self.sequence)
+            add(f"Copy this ({name}) to clipboard #1", lambda: self.cuia_copy([0]))
+            add(f"Copy this ({name}) to clipboard #2", lambda: self.cuia_copy([1]))
+            for i, src in enumerate(self.clipboard):
+                if src is not None and src[2] != self.pattern:
+                    sname = zs.get_sequence_name(zs.scene, src[0], src[1])
+                    add(f"Paste {sname} from clipboard #{i + 1}", lambda i=i: self.cuia_paste([i]))
+        add("Clear pattern ALL", lambda: self.ui.confirm(f"Clear pattern {self.pattern}?", self._clear))
+        if self.cc_mode:
+            add(f"Clear pattern CC{self.cc_num}", lambda: self.ui.confirm(
+                f"Clear CC{self.cc_num} in pattern {self.pattern}?", self._clear_cc))
+        else:
+            add("Clear pattern notes", lambda: self.ui.confirm(
+                f"Clear notes in pattern {self.pattern}?", self._clear_notes))
+            add("Load pattern", self._load_pattern_file)
+            add("Save pattern", lambda: self._ask_file_name(PATTERNS_DIR, "zpat", self._save_pattern_file))
+            add("Import from SMF", self._import_smf)
+            add("Export to SMF", lambda: self._ask_file_name(SMF_EXPORT_DIR, "mid", self._export_smf))
+        add("New note values", self.entry_options)
+        add("Undo all", self._undo_all)
+        title = "Pattern options" + (f": {info['name']}" if info.get("name") else "")
+        self.ui.show_options(title, opts)
+
+    def _set_chord_type(self, t):
+        self.chord_type = t
+        self.entryChanged.emit()
+
+    def _set_chord_tonic(self, t):
+        self.chord_tonic = t
+        self.entryChanged.emit()
+
+    def _rename_sequence(self):
+        zs = self.zynseq
+
+        def named(name):
+            zs.set_sequence_param(zs.scene, self.phrase, self.sequence, "name", name[:8])
+            self.patternChanged.emit()
+        self.ui.show_keyboard(named, zs.get_sequence_name(zs.scene, self.phrase, self.sequence), "Rename")
+
+    def _pick_playmode(self):
+        zs = self.zynseq
+        labels = ["DISABLED", "LOOP", "ONESHOT"] + [f"PLAY {i} TIMES" for i in range(2, 25)]
+        repeat = self._seq_info().get("repeat", 0)
+        value = 0 if repeat == 0 else (1 if repeat == 255 else 1 + repeat)
+
+        def apply(v):
+            zs.set_sequence_param(zs.scene, self.phrase, self.sequence, "repeat",
+                                  0 if v == 0 else (255 if v == 1 else v - 1))
+        self._pick("Playmode", list(zip(labels, range(len(labels)))), value, apply)
+
+    def _pick_program_change(self):
+        ls = self.libseq
+        program = ls.getProgramChange(0) + 1
+        if program > 128:
+            program = 0
+
+        def apply(v):
+            v -= 1
+            if v < 0 or v > 127:
+                ls.removeProgramChange(0)
+            else:
+                ls.addProgramChange(0, v)
+        self._pick("Program", [("None", 0)] + [(str(i), i + 1) for i in range(128)], program, apply)
+
+    def _pick_quantization(self):
+        divs = [0, 1, 2, 3, 4, 6, 8]
+        labels = ["DISABLED", "1 step", "1/2 step", "1/3 step", "1/4 step", "1/6 step", "1/8 step"]
+        self._pick("Quantization Divisor", list(zip(labels, divs)), self.libseq.getQuantizeNotes(),
+                   self.libseq.setQuantizeNotes)
+
+    def _clear_notes(self):
+        self._flush_pending()
+        self.libseq.clearNotes()
+        self._changed()
 
     @staticmethod
     def _rest_name(note):
@@ -834,60 +1332,146 @@ class PatternEditor(QObject):
         if self.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence) != zynseq.SEQ_STOPPED:
             self.libseq.sendMidiCommand(0xB0 | self.channel, 123, 0)   # all notes off
 
-    # Keys
+    # Keys, knobs and switches (zynthian_gui_pated_base / _notes, with the edit modes)
+
+    def _ctrl(self, n):
+        """The knob of controller slot n (layout ctrl_order)"""
+        from zyngui import zynthian_gui_config
+        order = zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3))
+        return order[n] if n < len(order) else n
+
+    def _history_keys(self):
+        return (self.ui.alt_mode and self.edit_mode == EDIT_MODE_NONE) or self.edit_mode == EDIT_MODE_HISTORY
 
     def navigate(self, what):
         if self.cc_mode:
             self._cc_navigate(what)
             return
-        step, row = self.cursor
-        if what == "left":
-            step = max(0, step - 1)
-        elif what == "right":
-            step = min(self.steps - 1, step + 1)
-        elif what == "up":
-            row = min(len(self.keymap) - 1, row + 1)
-        elif what == "down":
-            row = max(0, row - 1)
+        if what in ("left", "right"):
+            if self._history_keys():
+                self.redo() if what == "right" else self.undo()
+            else:
+                self.zynpot(self._ctrl(3), 1 if what == "right" else -1)
+        elif what in ("up", "down"):
+            up = what == "up"
+            if self._history_keys():
+                self.redo_all() if up else self.undo_all()
+            elif self.edit_mode in (EDIT_MODE_SINGLE, EDIT_MODE_MULTI):
+                self.zynpot(self._ctrl(2), 1 if up else -1)
+            else:
+                self.zynpot(self._ctrl(2), -1 if up else 1)
+                if self.edit_mode == EDIT_MODE_NONE:
+                    note = self._note(self.cursor[1])
+                    if note is not None:
+                        self._play_preview(note, self.velocity)
         elif what == "select":
-            self.toggleNote(step, row)
-            return
+            self.switch_select("S")
         elif what == "select_bold":
-            self.editNote(step, row)
-            return
-        self.cursor = [step, row]
-        self.cursorChanged.emit()
-        if what in ("up", "down"):
-            note = self._note(row)
-            if note is not None:
-                self._play_preview(note, self.velocity)
+            self.switch_select("B")
 
     def back(self):
-        """BACK leaves the block selection (zynthian_gui_pated_base.back_action)"""
-        if self.select_mode:
-            self.toggleSelectMode()
-            return True
-        return False
-
-    # Knobs and switches (zynthian_gui_pated_base; the Qt editor has no zoom knob, history or
-    # multi-edit modes: those stay on the toolbar)
+        """BACK (zynthian_gui_pated_base.back_action): clears the selected notes, leaves the edit
+        mode; else the screen goes back"""
+        if self.edit_mode == EDIT_MODE_NONE:
+            if self.selected_events:
+                self.clean_selected_events()
+                return True
+            self.libseq.updateSequenceInfo()
+            return False
+        self.selected_events = None if self.edit_mode == EDIT_MODE_BLOCK else self.selected_events
+        self.set_edit_mode(EDIT_MODE_NONE)
+        self.eventsChanged.emit()
+        return True
 
     def zynpot(self, i, d):
-        """Knob 3 the step, knob 2 the row (as Tk: turning right goes down)"""
-        if i == 3:
-            for _ in range(abs(d)):
-                self.navigate("right" if d > 0 else "left")
+        """Knob 1 zoom (or the duration while editing), 2 the row (block, parameter value), 3 the
+        step (block, edit parameter, undo / redo)"""
+        if self.cc_mode:
+            if i == self._ctrl(3):
+                self._cc_navigate("right" if d > 0 else "left")
+            elif i == self._ctrl(2):
+                for _ in range(abs(d)):
+                    self._cc_navigate("down" if d > 0 else "up")
             return True
-        if i == 2:
-            for _ in range(abs(d)):
-                self.navigate("down" if d > 0 else "up")
+        m = self.edit_mode
+        if i == self._ctrl(1):
+            if m == EDIT_MODE_SINGLE:
+                self._edit_single(1, d)
+                self.modeChanged.emit()
+                return True
+            if m == EDIT_MODE_MULTI and self.edit_param == 0:
+                self._edit_multi(1, d)
+                return True
+            self.setZoom(self.zoom + d)
+            return True
+        if i == self._ctrl(2):
+            if m == EDIT_MODE_SINGLE:
+                self._edit_single(2, d)
+                self.modeChanged.emit()
+            elif m == EDIT_MODE_MULTI:
+                self._edit_multi(2, d)
+            elif m == EDIT_MODE_BLOCK:
+                self.move_block(0, -d) if self.copied else self.select_block(0, -d)
+            elif m == EDIT_MODE_NONE:
+                self.move_cursor(0, -d)
+            return True
+        if i == self._ctrl(3):
+            if m == EDIT_MODE_HISTORY:
+                self.redo() if d > 0 else self.undo()
+            elif m == EDIT_MODE_BLOCK:
+                self.move_block(d, 0) if self.copied else self.select_block(d, 0)
+            elif m in (EDIT_MODE_SINGLE, EDIT_MODE_MULTI):
+                last = len(EDIT_PARAM_TITLES) - 1 if m == EDIT_MODE_SINGLE else EDIT_PARAM_LAST_MULTI
+                self.edit_param = max(0, min(last, self.edit_param + d))
+                self.modeChanged.emit()
+            elif m == EDIT_MODE_NONE:
+                self.move_cursor(d, 0)
             return True
         return True
 
+    def switch_select(self, t="S"):
+        """SELECT (zynthian_gui_pated_base.switch_select): short toggles the note / copies, pastes
+        the block / ends the edit mode; bold the note's parameters (the selected notes')"""
+        if self.cc_mode:
+            if t == "S":
+                self._cc_navigate("select")
+            return True
+        m = self.edit_mode
+        if t == "S":
+            if m == EDIT_MODE_NONE:
+                self.toggleNote(*self.cursor)
+            elif m == EDIT_MODE_BLOCK:
+                if not self.copied:
+                    self.copyBlock(False)
+                    if not self.copied:
+                        self.set_edit_mode(EDIT_MODE_NONE)
+                else:
+                    self.paste_block()
+            else:
+                self.set_edit_mode(EDIT_MODE_NONE)
+        elif t == "B":
+            if m == EDIT_MODE_NONE:
+                self.set_edit_mode(EDIT_MODE_MULTI if self.selected_events else EDIT_MODE_SINGLE)
+            elif m == EDIT_MODE_BLOCK:
+                if not self.copied:
+                    self.select_block_events()
+                if self.selected_events:
+                    self._block = None
+                    self.copied = None
+                    self.blockChanged.emit()
+                    self.set_edit_mode(EDIT_MODE_MULTI)
+                else:
+                    self.set_edit_mode(EDIT_MODE_NONE)
+        return True
+
     def switch(self, i, t):
-        """Switch 0 short the pattern menu, 2 short play, 2 bold record"""
+        """Switch 0 short the menu, 1 bold undo / redo mode, 2 short play, 2 bold record; ALT:
+        F1 / F2 paste / copy the pattern (bold copy), F3 the block selection, F4 CC / notes"""
         if i == 0 and t == "S":
             self.menu()
+            return True
+        if i == 1 and t == "B":
+            self.set_edit_mode(EDIT_MODE_HISTORY)
             return True
         if i == 2:
             if t == "S":
@@ -896,10 +1480,21 @@ class PatternEditor(QObject):
             if t == "B":
                 self.cuia_toggle_record()
                 return True
+        if self.ui.alt_mode and t in ("S", "B"):
+            # V5 / touch keypad wiring: F3 = switch 19, F4 = 23, F1 / F2 = 11 / 15 (clipboard)
+            if i == 23:
+                return self.cuia_v5_zynpot_switch([0, t])
+            if i == 19:
+                return self.cuia_v5_zynpot_switch([2, t])
+            if i in (11, 15):
+                n = (11, 15).index(i)
+                self.cuia_paste([n]) if t == "S" else self.cuia_copy([n])
+                return True
         return False
 
     def cuia_v5_zynpot_switch(self, params):
-        """Knob pushes: 0 the CC / note editor, 1 bold the length, 2 the block selection"""
+        """Knob pushes: 0 the CC / note editor, 1 short reset the zoom, bold the length; 2 short
+        the block selection (in it: cut), bold all notes"""
         try:
             i, t = int(params[0]), str(params[1]).upper()
         except (TypeError, ValueError, IndexError):
@@ -907,10 +1502,23 @@ class PatternEditor(QObject):
         if i == 0 and t == "S":
             self.toggleCcMode()
             return True
-        if i == 1 and t == "B":
-            self._pick_length()
-            return True
-        if i == 2 and t == "S":
-            self.toggleSelectMode()
-            return True
+        if i == 1:
+            if t == "S":
+                self.reset_grid_zoom()
+                return True
+            if t == "B":
+                self._pick_length()
+                return True
+        if i == 2:
+            if t == "S":
+                if self.edit_mode == EDIT_MODE_NONE:
+                    self.set_edit_mode(EDIT_MODE_BLOCK)
+                elif self.edit_mode == EDIT_MODE_BLOCK and not self.copied:
+                    self.copyBlock(True)
+                return True
+            if t == "B":
+                if self.edit_mode == EDIT_MODE_NONE:
+                    self.set_edit_mode(EDIT_MODE_BLOCK)
+                self.select_block_all()
+                return True
         return False

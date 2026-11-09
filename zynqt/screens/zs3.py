@@ -60,10 +60,11 @@ class ZS3(SelectorScreen):
             self.fill()
 
     def build(self):
-        """Shown: "Save as new ZS3" selected (zynthian_gui_zs3.build_view sets index 0 after
-        filling; the loaded ZS3 is selected when the list is refilled)"""
+        """Shown: the row of the last visit selected, the loaded ZS3's when that was the first
+        row. Tk's build_view fills the list that way, then sets index 0 without moving the
+        listbox's selection: the row of the last visit stays highlighted and SELECT acts on it
+        (only knob / arrow moves start from row 0: upstream inconsistency, not copied)"""
         self.fill()
-        self.set_index(0)
 
     def fill(self):
         sm = self.state_manager
@@ -100,7 +101,8 @@ class ZS3(SelectorScreen):
                 title = f"{mark} {title}"
                 info = "Use knob, arrows or touch-drag to move.\n\nSelect or back to finish."
                 index = len(entries)
-            elif zs3_id == sm.last_zs3_id and not self.moving_zs3:
+            elif zs3_id == sm.last_zs3_id and not self.moving_zs3 and self._index == 0:
+                # Tk's fill_list: only from the first row
                 index = len(entries)
             entries.append(entry(title, data=zs3_id, info=info))
         self.set_entries(entries, index)
@@ -143,8 +145,8 @@ class ZS3(SelectorScreen):
             self.end_moving_zs3()
             return
         zs3_id = self.entries[index]["data"]
-        sm.disable_learn_pc()
         if t == "S":
+            sm.disable_learn_pc()
             if zs3_id == "SAVE_ZS3":
                 sm.save_zs3()
                 self.fill()
@@ -152,6 +154,8 @@ class ZS3(SelectorScreen):
                 sm.load_zs3(zs3_id)
                 self.ui.back()
         elif zs3_id != "SAVE_ZS3":
+            # Tk's show_menu: learning stays on for "Save as new ZS3"
+            sm.disable_learn_pc()
             self.show_options(zs3_id)
 
     # ZS3 options (zynthian_gui_zs3_options)

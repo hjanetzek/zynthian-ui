@@ -32,7 +32,7 @@ COLORS = {"bg": "#000000", "tx": "#ffffff", "tx_off": "#e0e0e0", "on": "#ff0000"
 class MockStrips(QAbstractListModel):
     """Mixer strips as zynqt.models.mixer.MixerModel's roles (--mixer)"""
     ROLES = ["chainId", "name", "midiChan", "level", "balance", "mute", "solo", "record", "isMixbus",
-             "meterIndex", "active", "toggle", "toggleLabel", "description", "legend", "hasMixer"]
+             "meterIndex", "active", "toggle", "toggleLabel", "description", "legend", "hasMixer", "activeMidi"]
     countChanged = Signal()
 
     def __init__(self, rows):
@@ -126,7 +126,7 @@ def strip(cid, desc, legend, level, active=False, midi=0, mixbus=False, mute=Fal
     return {"chainId": cid, "name": desc.split("\n")[0], "midiChan": midi, "level": level, "balance": 0.0,
             "mute": mute, "solo": False, "record": toggle, "isMixbus": mixbus, "meterIndex": 0,
             "active": active, "toggle": toggle, "toggleLabel": "R", "description": desc,
-            "legend": legend, "hasMixer": True}
+            "legend": legend, "hasMixer": True, "activeMidi": False}
 
 
 def main():

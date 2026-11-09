@@ -27,14 +27,15 @@ def db_to_fraction(db):
 class MixerModel(QAbstractListModel):
     ChainIdRole, NameRole, MidiChanRole, LevelRole, BalanceRole, MuteRole, SoloRole, RecordRole, \
         IsMixbusRole, MeterIndexRole, ActiveRole, ToggleRole, ToggleLabelRole, DescriptionRole, \
-        LegendRole, HasMixerRole = range(Qt.UserRole + 1, Qt.UserRole + 17)
+        LegendRole, HasMixerRole, ActiveMidiRole = range(Qt.UserRole + 1, Qt.UserRole + 18)
 
     _ROLE_NAMES = {ChainIdRole: b"chainId", NameRole: b"name", MidiChanRole: b"midiChan",
                    LevelRole: b"level", BalanceRole: b"balance", MuteRole: b"mute",
                    SoloRole: b"solo", RecordRole: b"record", IsMixbusRole: b"isMixbus",
                    MeterIndexRole: b"meterIndex", ActiveRole: b"active",
                    ToggleRole: b"toggle", ToggleLabelRole: b"toggleLabel",
-                   DescriptionRole: b"description", LegendRole: b"legend", HasMixerRole: b"hasMixer"}
+                   DescriptionRole: b"description", LegendRole: b"legend", HasMixerRole: b"hasMixer",
+                   ActiveMidiRole: b"activeMidi"}
     _SYMBOL_ROLES = {"level": LevelRole, "balance": BalanceRole, "mute": MuteRole,
                      "solo": SoloRole, "record": RecordRole}
 
@@ -123,6 +124,10 @@ class MixerModel(QAbstractListModel):
         if role == self.ActiveRole:
             active = self.chain_manager.active_chain
             return bool(active and active.chain_id == chain.chain_id)
+        if role == self.ActiveMidiRole:
+            # The chain that gets the MIDI input (Tk: legend_strip_midi_bg in the highlight colour)
+            active = getattr(self.chain_manager, "active_midi_chain", None)
+            return bool(active and active.chain_id == chain.chain_id)
         for symbol, r in self._SYMBOL_ROLES.items():
             if role == r:
                 zctrl = self._controller(chain, symbol)
@@ -172,7 +177,8 @@ class MixerModel(QAbstractListModel):
     @Slot()
     def _active_chain(self):
         if self.chain_ids:
-            self.dataChanged.emit(self.index(0), self.index(len(self.chain_ids) - 1), [self.ActiveRole])
+            self.dataChanged.emit(self.index(0), self.index(len(self.chain_ids) - 1),
+                                  [self.ActiveRole, self.ActiveMidiRole])
 
     @Slot(bool, int, str, float)
     def _mixer_value(self, mixbus, chan, symbol, value):
@@ -215,16 +221,23 @@ class MixerModel(QAbstractListModel):
 
 class MixerMeters(QObject):
     """Levels of the strips of a MixerModel: for row r, levels[4r..4r+3] are channel A, channel
-    B, hold A, hold B, as fractions of the meter height (0 = empty). Runs while active."""
+    B, hold A, hold B, as fractions of the meter height (0 = empty). Runs while active.
+
+    Also per row, as the Tk mixer's refresh_status: progress[r], the clip progress (0..100 %) of
+    the chain's sequencer channel (the main strip: the phrase, zynseq.progress[32]), and
+    midiActivity[r], whether the chain's ZMOP saw MIDI (state_manager.status_midi_zmop)."""
 
     levelsChanged = Signal()
     activeChanged = Signal()
+    activityChanged = Signal()
 
     def __init__(self, state_manager, model, parent=None):
         super().__init__(parent)
         self.state_manager = state_manager
         self.model = model
         self._levels = []
+        self._progress = []
+        self._midi = []
         self._active = False
         hz = int(os.environ.get("ZYNTHIAN_QT_METER_HZ", 30))
         self._timer = QTimer(self, interval=max(10, round(1000 / hz)), timerType=Qt.PreciseTimer)
@@ -233,6 +246,38 @@ class MixerMeters(QObject):
     @Property("QVariantList", notify=levelsChanged)
     def levels(self):
         return self._levels
+
+    @Property("QVariantList", notify=activityChanged)
+    def progress(self):
+        return self._progress
+
+    @Property("QVariantList", notify=activityChanged)
+    def midiActivity(self):
+        return self._midi
+
+    def _update_activity(self):
+        sm = self.state_manager
+        zynseq = getattr(sm, "zynseq", None)
+        zmop = sm.status_midi_zmop or 0
+        progress, midi = [], []
+        for row in range(self.model.rowCount()):
+            chain = self.model.chain(row)
+            p = 0.0
+            try:
+                if chain is not None and zynseq is not None:
+                    if chain.midi_chan is not None and chain.midi_chan < 32:
+                        p = float(zynseq.progress[chain.midi_chan])
+                    elif chain.chain_id == 0:
+                        p = float(zynseq.progress[32])
+            except (IndexError, TypeError, ValueError):
+                p = 0.0
+            progress.append(max(0.0, min(100.0, p)))
+            midi.append(bool(chain is not None and chain.zmop_index is not None
+                             and zmop & (1 << chain.zmop_index)))
+        if progress != self._progress or midi != self._midi:
+            self._progress = progress
+            self._midi = midi
+            self.activityChanged.emit()
 
     def _get_active(self):
         return self._active
@@ -256,6 +301,10 @@ class MixerMeters(QObject):
     @Slot()
     def update(self):
         sm = self.state_manager
+        try:
+            self._update_activity()
+        except Exception as e:
+            logging.debug(f"Mixer activity update: {e}")
         try:
             sm.zynmixer_chan.update_dpm_states()
             sm.zynmixer_bus.update_dpm_states()

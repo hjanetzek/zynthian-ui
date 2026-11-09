@@ -108,7 +108,11 @@ nura/tools/switch_ui.sh -V tomita    # upstream zynthian-ui (Tk) instead of the 
 - Native changes: the package, built locally for x86_64 and installed:
   `nura/deploy.sh -a x86_64 -H 127.0.0.1 -P 2232 -u user -r zynthian-ui` (pmbootstrap builds missing
   x86_64 dependencies locally, which can take long; or let nura-builds CI build it and
-  `sudo apk upgrade` in the VM, which has nura-builds' x86_64 repository).
+  `sudo apk upgrade` in the VM). The image doesn't have nura-builds' repository: add it once
+  (`qemu_compare.sh` does this for its VMs):
+  `sudo wget -O /etc/apk/keys/nura-builds-ci.rsa.pub https://raw.githubusercontent.com/hjanetzek/nura-builds/main/keys/nura-builds-ci.rsa.pub`,
+  `echo https://github.com/hjanetzek/nura-builds/releases/download | sudo tee -a /etc/apk/repositories`
+  (apk appends the architecture: release `x86_64`), then `sudo apk update`.
 - Other packages (drivenbymoss, zynthian-webconf, ...): `deploy.sh -a x86_64 -H 127.0.0.1 -P 2232
   -u user <package>`, or from the CI repository with `sudo apk add`/`upgrade`.
 - zynthian's state and config in the VM: `~user/.config/zynthian`,
@@ -155,7 +159,8 @@ nura/tools/qemu_compare.sh stop
   (Tk), webconf 8100 and 8101 (`-p PORT` moves both): its own VMs, not the user's or another
   agent's. The other tools reach them with `-V` and `NURA_VM_PORT=2242` / `2243`.
 - A new disk (first start, `-r`) links the user's downloaded image (`-i` for another), and is set up
-  once: SSH key and sudo (`qemu_setup.sh`), `apk upgrade`, grim and font-dejavu, and
+  once: SSH key and sudo (`qemu_setup.sh`), nura-builds' package repository (the image has none),
+  `apk upgrade`, grim and font-dejavu, and
   `ZYNTHIAN_OUTPUT_SCALE=1` in `/etc/default/zynthian` (the image's kiosk package before r21 uses the
   Duet's scale 1.5 in a VM). Then `switch_ui.sh` installs each VM's zynthian-ui package.
 - The Tk VM needs `zynthian-ui-tomita` (or `-vangelis`) in nura-builds' **x86_64** release (its

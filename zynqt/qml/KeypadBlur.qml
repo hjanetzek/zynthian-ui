@@ -9,6 +9,7 @@ Item {
 
     property Item source             // the screens item, at (0, 0) of this item
     property real sideWidth
+    property bool sideRight: false   // the side columns on the right (v5_keypad_right)
     property real bottomHeight
 
     component BlurArea: Item {
@@ -33,6 +34,6 @@ Item {
         }
     }
 
-    BlurArea { x: 0; y: 0; width: root.sideWidth; height: root.height - root.bottomHeight }
+    BlurArea { x: root.sideRight ? root.width - root.sideWidth : 0; y: 0; width: root.sideWidth; height: root.height - root.bottomHeight }
     BlurArea { x: 0; y: root.height - root.bottomHeight; width: root.width; height: root.bottomHeight }
 }

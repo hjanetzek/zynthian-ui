@@ -188,6 +188,9 @@ class Launcher(QObject):
             return True
         return self._mixer().cuia_v5_zynpot_switch(params)
 
+    def update_wsleds(self, leds):
+        return self._mixer().update_wsleds(leds)
+
     def cuia_back(self, params=None):
         return self._mixer().cuia_back(params)
 

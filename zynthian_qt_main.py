@@ -107,6 +107,8 @@ def main():
         "uiScale": os.environ.get("ZYNTHIAN_UI_SCALE", "").strip(),
         "mainMenuColumns": zynthian_gui_config.get_env_int("ZYNTHIAN_UI_MAIN_MENU_COLUMNS", 0),
         "v5": bool(cfg.check_wiring_layout(("V5", "Z2"))),
+        # The touch keypad on the right (ZYNTHIAN_UI_TOUCH_NAVIGATION v5_keypad_right)
+        "keypadRight": cfg.touch_navigation == "v5_keypad_right",
         "colors": {k[6:]: getattr(cfg, k) for k in dir(cfg) if k.startswith("color_") and isinstance(getattr(cfg, k), str)},
     })
     ctx.setContextProperty("zynThemeName", theme)

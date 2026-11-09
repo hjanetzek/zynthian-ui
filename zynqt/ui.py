@@ -31,6 +31,7 @@ from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
 from zynqt.models.control_xy import ControlXY
 from zynqt.models.launcher import Launcher
+from zynqt.keypad_leds import KeypadLeds
 from zynqt.screens.pattern_editor import PatternEditor
 from zynqt.screens.chain_manager import ChainManager
 from zynqt.screens.control import ChainControl
@@ -151,6 +152,8 @@ class ZynUI(QObject):
         self._cuiaRequested.connect(self._run_cuia)
         self.bridge.recorderStateChanged.connect(self._recorder_state_changed)
         self._startFinished.connect(self._start_finished)
+        # The touch keypad's LEDs (zynthian_wsleds_v5)
+        self.keypad_leds = KeypadLeds(self, self)
         self._status_timer = QTimer(self, interval=200)
         self._status_timer.timeout.connect(self._poll_status)
         self._status_timer.start()
@@ -349,6 +352,10 @@ class ZynUI(QObject):
     @Property(QObject, constant=True)
     def controlXY(self):
         return self.control_xy
+
+    @Property(QObject, constant=True)
+    def keypadLeds(self):
+        return self.keypad_leds
 
     @Property(QObject, constant=True)
     def launcherModel(self):

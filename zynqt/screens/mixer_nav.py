@@ -24,6 +24,16 @@ class MixerNav:
         self.ui.show_screen("launcher", history=False)
         return True
 
+    def update_wsleds(self, leds):
+        """zynthian_gui_mixer.update_wsleds: in ALT mode CTRL orange; in the launcher F3 (add
+        chain) orange too"""
+        if not self.ui.alt_mode:
+            return
+        wsl = self.ui.keypad_leds
+        wsl.set_led(leds[15], wsl.wscolor_active2)
+        if self.ui.current_screen == "launcher":
+            wsl.set_led(leds[12], wsl.wscolor_active2)
+
     def cuia_back(self, params=None):
         """BACK:B on the mixer: the chain manager (zynthian_gui_mixer.cuia_back)"""
         if params and str(params[0]).upper() == "B":

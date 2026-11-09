@@ -116,8 +116,10 @@ nura/tools/sync_ui.sh -q        # copy only zynqt/qml, no restart: the UI reload
   seen twice with a new item in a screen that was shown). A new file isn't picked up. For those,
   and for Python changes (models, screens, `zynthian_qt_main.py`), use `sync_ui.sh -R`.
 - Python tools still work under it: `zyninject.sh` finds the UI process (qmlpreview's child).
-- **Development only**: the QML debug server can control the UI. Remove the line from
-  `zynthian_custom_config.sh` (and `RESTART_UI`) when done. Without the variable nothing changes.
+- **Development only**: the QML debug server can control the UI. To switch it off, set
+  `export ZYNTHIAN_QT_QMLPREVIEW=0` in `zynthian_custom_config.sh` and `RESTART_UI`: only deleting
+  the line isn't enough, the running launcher keeps the variable it exported (until the session
+  restarts). Without the variable nothing changes.
 - How it works and why (each detail broke it once): [qt-theming.md](qt-theming.md), "Previewing" →
   "QML hot reload (qmlpreview)".
 

@@ -919,8 +919,10 @@ class PatternEditor(QObject):
 
     @Slot(int)
     def setViewRows(self, rows):
-        """The rows the grid shows at the current zoom (QML), Tk's view_rows"""
-        self._view_rows = max(1, rows)
+        """The rows the grid shows at the current zoom (QML), Tk's view_rows; not while hidden
+        (the screen's teardown and set-up pass through other sizes)"""
+        if self._shown and rows > 0:
+            self._view_rows = rows
 
     @Slot(int, int)
     def setZoomLimits(self, lo, hi):

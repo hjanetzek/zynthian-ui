@@ -14,8 +14,9 @@ Usage: qemu_compare.sh [options] [start | stop | status | shot [DIR] | ssh qt|tk
 
   -g          windows and sound: GTK windows, audio through the desktop'"'"'s PipeWire (default:
               headless, a silent sound card; screenshots with "shot")
-  -T BRANCH   the upstream zynthian-ui in the Tk VM: vangelis (default, stable) or tomita
-              (development); "port" for this repository'"'"'s own Tk UI (ZYNTHIAN_UI=tk) instead
+  -T BRANCH   the upstream zynthian-ui in the Tk VM: tomita (default: development, the branch the
+              Qt port is based on) or vangelis (stable); "port" for this repository'"'"'s own Tk UI
+              (ZYNTHIAN_UI=tk) instead
   -R WxH      screen size (default 800x480: the V5 kit'"'"'s display)
   -r          fresh disks from the image (discards both VMs'"'"' changes)
   -i IMAGE    the image (.img.zst) for new disks (default: the user'"'"'s downloaded one,
@@ -25,7 +26,7 @@ Usage: qemu_compare.sh [options] [start | stop | status | shot [DIR] | ssh qt|tk
               (default 2242: 2242/2243, webconf 8100/8101)
   -m MEM      memory per VM (default 3G)
 
-The Qt VM runs the image'"'"'s zynthian-ui (the Qt port), the Tk VM zynthian-ui-vangelis or -tomita
+The Qt VM runs the image'"'"'s zynthian-ui (the Qt port), the Tk VM zynthian-ui-tomita or -vangelis
 from nura-builds'"'"' x86_64 package repository (upstream zynthian-ui with the port patches). To
 test changes of this checkout in the Qt VM: NURA_VM_PORT=2242 nura/tools/sync_ui.sh -V -r.'
 set -eu
@@ -33,7 +34,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 
 usage() { printf '%s\n' "$usage_text"; exit "${1:-0}"; }
 
-gui=0 tk=vangelis res=800x480 reset=0 base=$HOME/.cache/nura-builds-compare port=2242 mem=3G
+gui=0 tk=tomita res=800x480 reset=0 base=$HOME/.cache/nura-builds-compare port=2242 mem=3G
 image=${XDG_CACHE_HOME:-$HOME/.cache}/nura-builds/zynthian-qemu-amd64.img.zst
 while getopts gT:R:ri:d:p:m:h opt; do
 	case $opt in

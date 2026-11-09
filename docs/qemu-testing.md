@@ -138,8 +138,9 @@ The tools take the port from `NURA_VM_PORT` with `-V` (`NURA_VM_PORT=2233 nura/t
 
 `nura/tools/qemu_compare.sh` runs two VMs from the same image at the V5 kit's screen size
 (800x480, its MIPI DSI panel; scale 1 in both): one with the Qt port (the image's `zynthian-ui`),
-one with upstream zynthian-ui, the Tk UI (`zynthian-ui-vangelis` from nura-builds: upstream's
-vangelis branch with the port patches; `-T tomita` for the development branch).
+one with upstream zynthian-ui, the Tk UI (`zynthian-ui-tomita` from nura-builds: upstream's
+tomita branch, which the Qt port is based on, with the port patches; `-T vangelis` for the stable
+branch).
 
 ```sh
 cd ~/bastel/github/zynthian-ui
@@ -157,7 +158,7 @@ nura/tools/qemu_compare.sh stop
   once: SSH key and sudo (`qemu_setup.sh`), `apk upgrade`, grim and font-dejavu, and
   `ZYNTHIAN_OUTPUT_SCALE=1` in `/etc/default/zynthian` (the image's kiosk package before r21 uses the
   Duet's scale 1.5 in a VM). Then `switch_ui.sh` installs each VM's zynthian-ui package.
-- The Tk VM needs `zynthian-ui-vangelis` (or `-tomita`) in nura-builds' **x86_64** release (its
+- The Tk VM needs `zynthian-ui-tomita` (or `-vangelis`) in nura-builds' **x86_64** release (its
   `upstream` stage, published by Run workflow > architecture `x86_64`). Until then `-T port` runs
   this repository's own Tk UI (`ZYNTHIAN_UI=tk`) in the Tk VM instead: not upstream's code.
 - Test your changes of the Qt port in the Qt VM: `NURA_VM_PORT=2242 nura/tools/sync_ui.sh -V -r`.

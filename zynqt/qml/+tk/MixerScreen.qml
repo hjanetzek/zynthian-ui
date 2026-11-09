@@ -243,6 +243,20 @@ Item {
                 width: strip.wwidth - strip.faderWidth; height: 1
                 color: "#c8c8c8"
             }
+            // dB scale on the main strip (0 dB at 80 % of the fader, 2 % per dB)
+            Repeater {
+                model: strip.isMain ? [9, 6, 3, 0, -3, -6, -10, -20, -30] : []
+                Text {
+                    required property int modelData
+                    anchors.right: parent.right
+                    anchors.rightMargin: 2 * strip.dpmWidth + 6
+                    y: fader.height * (1 - (0.8 + modelData * 0.02)) - height / 2
+                    text: (modelData > 0 ? "+" : "") + modelData
+                    color: modelData > 6 ? "#f00000" : (modelData > 0 ? "#c8c800" : (modelData === 0 ? "#c8c8c8" : "#00c800"))
+                    font.family: "DejaVu Sans"
+                    font.pixelSize: Math.max(8, Math.round(root.fontPt * 0.55))
+                }
+            }
             // Label: engine and preset, vertical, bottom to top
             Text {
                 x: 0

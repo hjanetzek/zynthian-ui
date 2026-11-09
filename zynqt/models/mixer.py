@@ -140,6 +140,10 @@ class MixerModel(QAbstractListModel):
             return "Main"
         try:
             if chain.is_generator():
+                # Clip launcher chains (MIDI channels 16-31): the launcher column's letter
+                if chain.midi_chan is not None and 15 < chain.midi_chan < 32:
+                    from zynlibs.zynseq.zynseq import CHANNEL_CHARS
+                    return f"{speaker} {CHANNEL_CHARS[chain.midi_chan]}"
                 return speaker
             if chain.is_midi():
                 txt = (mic + quaver) if chain.audio_thru else quaver + " "

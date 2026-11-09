@@ -31,17 +31,20 @@ Rectangle {
     Rectangle {
         anchors.left: parent.left
         anchors.right: statusArea.left
+        anchors.rightMargin: Math.floor(0.36 * root.height)   // Tk's title canvas
         height: parent.height
         visible: root.inverted
         color: Theme.text
     }
 
-    Label {
+    ScrollingTitle {
         anchors.left: parent.left
         anchors.leftMargin: 2
         anchors.right: statusArea.left
-        anchors.verticalCenter: parent.verticalCenter
-        elide: Text.ElideRight
+        // Tk's title canvas ends status_lpad (0.36 of the top bar's height) before the status area
+        anchors.rightMargin: Math.floor(0.36 * root.height)
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
         // Chain control (and the special processors' control screens): Tk's select path, the
         // processor's preset path; the pattern editor: its title or the edit mode's
         text: root.onMixer && root.status.snapshotTitle ? root.status.snapshotTitle
@@ -51,7 +54,6 @@ Rectangle {
             : root.title
         color: root.inverted ? Theme.background : Theme.text
         size: Theme.titleSize
-        title: true
     }
 
     // Zynthian's tap timing on the title (zynthian_gui_base.cb_topbar_*): short, bold, long

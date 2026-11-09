@@ -87,12 +87,15 @@ class ChainManager(QObject):
         if chain is None or not self.nodes:
             return
         proc = getattr(self.ui, "current_processor", None)
-        for c, column in enumerate(self.nodes):
-            for r, row in enumerate(column):
-                for i, n in enumerate(row):
-                    if proc is not None and n["proc"] is proc and n["chain_id"] == chain.chain_id:
-                        self._set_selected([c, r, i])
-                        return
+        # The current processor, else (the audio player, ...: not in the graph) the chain's own
+        # current processor, as Tk's select_node
+        for p in (proc, chain.current_processor):
+            for c, column in enumerate(self.nodes):
+                for r, row in enumerate(column):
+                    for i, n in enumerate(row):
+                        if p is not None and n["proc"] is p and n["chain_id"] == chain.chain_id:
+                            self._set_selected([c, r, i])
+                            return
         idx = self.chain_manager.get_chain_index(chain.chain_id)
         if idx is not None and 0 <= idx < len(self.nodes):
             self._set_selected([idx, 0, 0])

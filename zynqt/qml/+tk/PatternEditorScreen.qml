@@ -152,7 +152,8 @@ Rectangle {
         flickDeceleration: 3000
 
         // The bottom row shown is the pattern's reference note (Tk's keymap_offset): kept
-        onContentYChanged: refNoteTimer.restart()
+        // (only after the user scrolled: the programmatic centring would drift by rounding)
+        onMovementEnded: refNoteTimer.restart()
         Timer {
             id: refNoteTimer
             interval: 300

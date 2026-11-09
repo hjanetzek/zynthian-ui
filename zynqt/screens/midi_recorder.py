@@ -64,8 +64,8 @@ class MidiRecorder(SelectorScreen):
     def select_action(self, index, t):
         e = self.entries[index]
         if callable(e["action"]):
-            if t == "S":
-                e["action"](e)
+            # (Tk: short and bold alike on the recording / playback rows)
+            e["action"](e)
             return
         fpath = e["data"][0] if e["data"] else None
         if not fpath:

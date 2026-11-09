@@ -8,6 +8,10 @@ ZYNTHIAN_UI=qt
 # empty: leave cage's scale 1). The Tk UI always runs at scale 1.
 #ZYNTHIAN_OUTPUT_SCALE=1.5
 
+# Output mode WxH (wlr-randr --custom-mode), for outputs whose preferred mode is wrong; default:
+# none, in a QEMU VM the size of run-qemu.sh's -R. Empty: leave cage's mode.
+#ZYNTHIAN_OUTPUT_MODE=1280x800
+
 # Output rotation (wlr-randr --transform: normal, 90, 180, 270, flipped, ...) for panels without a
 # DRM panel orientation; default: none, Pixel 3: 90 (landscape). Empty: leave cage's rotation.
 #ZYNTHIAN_OUTPUT_TRANSFORM=90

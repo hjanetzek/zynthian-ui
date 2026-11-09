@@ -12,6 +12,12 @@ zynthian_set_output() {
 	done
 }
 
+# Output mode (ZYNTHIAN_OUTPUT_MODE in /etc/default/zynthian, WxH; in a VM the size of
+# run-qemu.sh's -R, zynthian-session.sh), before rotation and scale
+if [ -n "$zynthian_output_mode" ]; then
+	zynthian_set_output --custom-mode "$zynthian_output_mode" || true
+fi
+
 # Output rotation (ZYNTHIAN_OUTPUT_TRANSFORM in /etc/default/zynthian: normal, 90, 180, 270, ...;
 # default per device, zynthian-session.sh), for both UIs
 if [ -n "$zynthian_output_transform" ]; then

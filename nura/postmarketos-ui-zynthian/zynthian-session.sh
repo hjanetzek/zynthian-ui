@@ -9,6 +9,7 @@
 zynthian_device_defaults() {
 	zynthian_transform=
 	zynthian_scale=1.5
+	zynthian_mode=
 	case "$(tr '\0' '\n' < /proc/device-tree/compatible 2>/dev/null | head -n 1)" in
 		google,blueline)
 			# Pixel 3: portrait panel (1080x2160) without panel orientation; landscape, and at 443 ppi
@@ -19,8 +20,15 @@ zynthian_device_defaults() {
 	esac
 	# A virtual machine (nura-builds' qemu-amd64 image, tools/run-qemu.sh): a window on a desktop
 	# screen, no device tree; scale 1 (the default window, 1280x800, then shows the Duet's layout)
+	# and the screen size run-qemu.sh's -R asked for (its SMBIOS SKU "nura-screen=WxH"): QEMU's GTK
+	# window otherwise reports its first size, the firmware's 640x480, as the preferred mode
 	case "$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null)" in
-		QEMU*) zynthian_scale=1 ;;
+		QEMU*)
+			zynthian_scale=1
+			case "$(cat /sys/class/dmi/id/product_sku 2>/dev/null)" in
+				nura-screen=*x*) zynthian_mode=$(sed -n 's/^nura-screen=\([0-9]*x[0-9]*\)$/\1/p' /sys/class/dmi/id/product_sku) ;;
+			esac
+			;;
 	esac
 	ZYNTHIAN_UI=qt
 	[ -f /etc/default/zynthian ] && . /etc/default/zynthian
@@ -31,6 +39,8 @@ zynthian_device_defaults() {
 	zynthian_output_transform=${ZYNTHIAN_OUTPUT_TRANSFORM-$zynthian_transform}
 	# shellcheck disable=SC2034
 	zynthian_output_scale=${ZYNTHIAN_OUTPUT_SCALE-$zynthian_scale}
+	# shellcheck disable=SC2034
+	zynthian_output_mode=${ZYNTHIAN_OUTPUT_MODE-$zynthian_mode}
 }
 
 # zynthian connects to JACK (PipeWire's pipewire-jack) once, at start-up. During login PipeWire is

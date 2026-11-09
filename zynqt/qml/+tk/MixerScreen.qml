@@ -232,6 +232,7 @@ Item {
             width: strip.width
             height: root.legendY - root.launcherY
             clip: true
+            Rectangle { anchors.fill: parent; color: root.panelBg }   // the canvas between the pads
             Column {
                 y: -root.launcherScroll
                 Repeater {
@@ -261,6 +262,57 @@ Item {
             WheelHandler {
                 onWheel: (event) => root.launcherScroll = Math.max(0, Math.min(
                     root.padAreaHeight - parent.height, root.launcherScroll - event.angleDelta.y / 2))
+            }
+        }
+        // Launcher mode: the peak meters over the buttons' right side (set_launcher_mode: dpm_bg,
+        // dpm_a, dpm_b from the top to balance_y, the scale gap between them), vertical
+        // zynthian_gui_dpm: #222222 above the level, the tri-colour scale below, the -10 dB line
+        Item {
+            visible: root.launcherMode && strip.hasMixer
+            readonly property int scaleWidth: Math.floor(strip.dpmWidth * 0.7)
+            x: strip.width - 2 * strip.dpmWidth - scaleWidth
+            width: strip.width - x
+            height: root.balanceY
+            z: 1
+            Rectangle { anchors.fill: parent; color: root.panelBg }
+            Repeater {
+                model: 2
+                Item {
+                    id: ldpm
+                    required property int index
+                    readonly property real v: strip.lvl(index)
+                    readonly property real h: strip.lvl(2 + index)
+                    x: index * (strip.dpmWidth + parent.scaleWidth)
+                    width: strip.dpmWidth
+                    height: parent.height
+                    Rectangle {
+                        anchors.fill: parent
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: "#c80000" }
+                            GradientStop { position: 0.03; color: "#c80000" }
+                            GradientStop { position: 0.10; color: "#ffff00" }
+                            GradientStop { position: 0.20; color: "#ffff00" }
+                            GradientStop { position: 0.27; color: "#00ff00" }
+                            GradientStop { position: 1.0; color: "#009600" }
+                        }
+                    }
+                    Rectangle {
+                        width: parent.width
+                        height: Math.ceil(parent.height * (1 - ldpm.v))
+                        color: "#222222"
+                    }
+                    Rectangle {
+                        visible: ldpm.h > 0
+                        y: Math.floor(parent.height * (1 - ldpm.h))
+                        width: parent.width; height: 1
+                        color: ldpm.h >= 0.94 ? "#ff0000" : (ldpm.h >= 0.8 ? "#ffff00" : "#00ff00")
+                    }
+                    Rectangle {
+                        y: Math.floor(parent.height * 0.2)
+                        width: parent.width; height: 1
+                        color: "#999999"
+                    }
+                }
             }
         }
         // Fader

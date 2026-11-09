@@ -9,9 +9,24 @@ Item {
     readonly property var rows: pe.rows
     readonly property int nRows: rows.length
     readonly property int steps: Math.max(1, pe.steps)
-    readonly property real rowHeight: 34
     readonly property real keyWidth: 72
-    readonly property real stepWidth: Math.max(30, grid.width / Math.min(steps, 32))
+    // Zoom (knob 1, pinch) as Tk's set_grid_zoom: base sizes plus the zoom, within limits
+    readonly property real baseRowHeight: 34
+    readonly property real baseStepWidth: Math.max(30, grid.width / Math.min(steps, 32))
+    readonly property real minRowHeight: Math.floor(grid.height / Math.min(36, Math.max(6, nRows)))
+    readonly property real maxRowHeight: Math.max(baseRowHeight, Math.floor(grid.height / 6))
+    readonly property real minStepWidth: Math.min(baseStepWidth, Math.floor(grid.width / Math.min(64, Math.max(8, steps))))
+    readonly property real maxStepWidth: Math.max(baseStepWidth, Math.floor(grid.width / 8))
+    readonly property real rowHeight: Math.max(Math.min(minRowHeight, baseRowHeight), Math.min(maxRowHeight, baseRowHeight + pe.zoomValue))
+    readonly property real stepWidth: Math.max(minStepWidth, Math.min(maxStepWidth, baseStepWidth + pe.zoomValue))
+    function reportZoomLimits() {
+        if (grid.width > 0 && grid.height > 0)
+            pe.setZoomLimits(Math.round(Math.min(minRowHeight - baseRowHeight, minStepWidth - baseStepWidth)),
+                             Math.round(Math.max(maxRowHeight - baseRowHeight, maxStepWidth - baseStepWidth)))
+    }
+    onMinRowHeightChanged: Qt.callLater(reportZoomLimits)
+    onMaxStepWidthChanged: Qt.callLater(reportZoomLimits)
+    onBaseStepWidthChanged: Qt.callLater(reportZoomLimits)
     readonly property var cursor: pe.cursorCell
 
     function rowY(row) { return (nRows - 1 - row) * rowHeight }
@@ -31,42 +46,14 @@ Item {
         function onPatternChanged() { Qt.callLater(root.showCursor) }
     }
 
-    // Toolbar
-    Row {
+    // Toolbar (+tk: none, as Tk)
+    PatternToolbar {
         id: toolbar
+        pe: root.pe
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: 4
-        height: 48
-        spacing: 6
-        ToolButton { text: root.pe.playing ? "■ Stop" : "▶ Play"; width: 120; on: root.pe.playing; onTapped: root.pe.togglePlayback() }
-        ToolButton {
-            text: "\u25cf Rec"; width: 90; on: root.pe.recording; onColor: Theme.buttonRecord
-            onTapped: root.pe.toggleRecording()
-        }
-        ToolButton { text: "Undo"; onTapped: root.pe.undo() }
-        ToolButton { text: "Redo"; onTapped: root.pe.redo() }
-        ToolButton { text: root.pe.ccMode ? "Notes" : "CC"; width: 80; onTapped: root.pe.toggleCcMode() }
-        ToolButton {
-            text: root.pe.ccMode ? root.pe.ccTitle : root.pe.entryText
-            width: 230
-            onTapped: root.pe.ccMode ? root.pe.pickCc() : root.pe.entryOptions()
-        }
-        ToolButton { text: "Select"; width: 90; on: root.pe.selectMode; onTapped: root.pe.toggleSelectMode() }
-        ToolButton { text: "Copy"; width: 80; visible: root.pe.selectMode; onTapped: root.pe.copyBlock(false) }
-        ToolButton { text: "Cut"; width: 70; visible: root.pe.selectMode; onTapped: root.pe.copyBlock(true) }
-        ToolButton { text: "Del"; width: 70; visible: root.pe.selectMode; onTapped: root.pe.deleteBlock() }
-        ToolButton { text: "Menu"; onTapped: root.pe.menu() }
-        Label {
-            anchors.verticalCenter: parent.verticalCenter
-            width: Math.max(0, toolbar.width - x)
-            elide: Text.ElideRight
-            text: root.pe.title
-            color: Theme.textOff
-            body: true
-            size: 16
-        }
     }
 
     // Playhead strip
@@ -135,6 +122,19 @@ Item {
         clip: true
         interactive: !root.pe.selectMode   // select mode: drags select a block
         boundsBehavior: Flickable.StopAtBounds
+        // Pinch: the zoom (Tk's on_gesture)
+        PinchHandler {
+            target: null
+            property real last: 1
+            onActiveChanged: last = 1
+            onActiveScaleChanged: {
+                const d = Math.round(10 * (activeScale - last))
+                if (d !== 0) {
+                    root.pe.setZoom(root.pe.zoomValue + d)
+                    last = activeScale
+                }
+            }
+        }
 
         Item {
             id: content
@@ -171,51 +171,21 @@ Item {
             // or chance
             Repeater {
                 model: root.pe.events
-                Rectangle {
-                    id: noteItem
-                    required property var modelData
-                    readonly property color decoColor: modelData.velocity >= 58 ? "#101010" : "#e0e0e0"
-                    x: modelData.step * root.stepWidth + 1
-                    y: root.rowY(modelData.row) + 2
-                    width: Math.max(6, modelData.duration * root.stepWidth - 2)
-                    height: root.rowHeight - 4
-                    radius: 3
-                    opacity: modelData.muted ? 0.35 : 1
-                    color: Qt.hsla(Theme.noteHue, 0.8, 0.25 + 0.45 * modelData.velocity / 127, 1)
-                    border.color: Theme.noteFrame
-                    border.width: 1
-                    Repeater {
-                        id: ticks
-                        model: noteItem.modelData.stutter > 0
-                               ? Math.max(1, Math.min(Math.floor(noteItem.width / 4),
-                                                      Math.round(noteItem.modelData.duration * noteItem.modelData.stutter)))
-                               : 0
-                        Rectangle {
-                            required property int index
-                            readonly property real level: {
-                                const n = Math.max(1, ticks.count - 1)
-                                const fx = noteItem.modelData.stutterFx
-                                return fx === 1 ? 0.3 + 0.7 * index / n : (fx === 2 ? 1 - 0.7 * index / n : 0.5)
-                            }
-                            x: index * noteItem.width / ticks.count + 1
-                            width: Math.max(1, noteItem.width / ticks.count / 2)
-                            // Lower half with a label, so it stays readable
-                            height: (noteItem.height - 4) * level * (noteItem.modelData.label ? 0.4 : 1)
-                            y: noteItem.height - 2 - height
-                            color: noteItem.decoColor
-                            opacity: noteItem.modelData.stutterMuted ? 0.3 : 0.6
-                        }
-                    }
-                    Text {
-                        visible: text !== ""
-                        anchors.centerIn: parent
-                        width: parent.width - 2
-                        horizontalAlignment: Text.AlignHCenter
-                        elide: Text.ElideRight
-                        text: noteItem.modelData.label
-                        color: noteItem.decoColor
-                        font.pixelSize: Math.min(13, noteItem.height - 2)
-                    }
+                PatternNote {
+                    stepWidth: root.stepWidth
+                    rowHeight: root.rowHeight
+                    nRows: root.nRows
+                }
+            }
+            // The copied block moved by the knobs (block edit mode), before it is pasted
+            Repeater {
+                model: root.pe.copyEvents
+                PatternNote {
+                    stepWidth: root.stepWidth
+                    rowHeight: root.rowHeight
+                    nRows: root.nRows
+                    opacity: 0.6
+                    fill: Theme.selectionFill
                 }
             }
             // Selected block
@@ -272,10 +242,8 @@ Item {
         }
     }
 
-    // CC view: the steps fit the width; a bar per step with a value (0..127, end value for
-    // interpolated ramps); drag paints values, long press removes a step's value
-    Item {
-        id: ccLane
+    // CC view
+    PatternCcLane {
         visible: root.pe.ccMode
         anchors.left: parent.left
         anchors.right: parent.right
@@ -283,107 +251,8 @@ Item {
         anchors.bottom: parent.bottom
         anchors.leftMargin: root.keyWidth + 2
         anchors.topMargin: 4
-        readonly property real sw: width / root.steps
-        readonly property var values: root.pe.ccValues
-
-        Rectangle { anchors.fill: parent; color: Theme.gridRowDark }
-        // Value lines every 16
-        Repeater {
-            model: 9
-            Rectangle {
-                required property int index
-                y: ccLane.height - index * 16 / 127 * ccLane.height
-                width: ccLane.width
-                height: 1
-                color: index % 4 === 0 ? Theme.gridBeat : Theme.gridRow
-                Label {
-                    x: -root.keyWidth
-                    y: -8
-                    width: root.keyWidth - 6
-                    horizontalAlignment: Text.AlignRight
-                    text: Math.min(127, parent.index * 16)
-                    color: Theme.textOff
-                    size: 12
-                }
-            }
-        }
-        // Beat lines
-        Repeater {
-            model: root.steps
-            Rectangle {
-                required property int index
-                x: index * ccLane.sw
-                width: 1
-                height: ccLane.height
-                visible: index % root.pe.stepsPerBeat === 0
-                color: Theme.gridBeat
-            }
-        }
-        // Values
-        Repeater {
-            model: ccLane.values.length
-            Item {
-                required property int index
-                readonly property var v: ccLane.values[index]
-                x: index * ccLane.sw
-                width: ccLane.sw
-                height: ccLane.height
-                visible: v !== null && v !== undefined
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    x: 2
-                    width: parent.width - 4
-                    height: parent.v ? parent.v[0] / 127 * ccLane.height : 0
-                    color: index === root.pe.ccCursor ? Theme.ccBarCurrent : Theme.ccBar
-                    border.color: Theme.noteFrame
-                    border.width: 1
-                }
-            }
-        }
-        // Playhead and cursor
-        Rectangle {
-            x: root.pe.ccCursor * ccLane.sw
-            width: ccLane.sw
-            height: ccLane.height
-            color: "transparent"
-            border.color: Theme.select
-            border.width: 2
-        }
-        MouseArea {
-            anchors.fill: parent
-            pressAndHoldInterval: 600
-            property bool held: false
-            function paint(mouse) {
-                if (held)
-                    return
-                root.pe.setCc(Math.floor(mouse.x / ccLane.sw),
-                              Math.round(127 * (1 - Math.max(0, Math.min(ccLane.height, mouse.y)) / ccLane.height)))
-            }
-            onPressed: (mouse) => { held = false; paint(mouse) }
-            onPositionChanged: (mouse) => paint(mouse)
-            onReleased: root.pe.ccEditDone()
-            onPressAndHold: (mouse) => { held = true; root.pe.removeCc(Math.floor(mouse.x / ccLane.sw)) }
-        }
-    }
-
-    component ToolButton: Panel {
-        id: button
-        property alias text: label.text
-        property bool on: false
-        property color onColor: Theme.buttonOn
-        signal tapped
-        width: 100
-        height: parent.height
-        radius: 4
-        button: true
-        color: tap.pressed ? Theme.keyText : (on ? onColor : Theme.keyBackground)
-        Label {
-            id: label
-            anchors.centerIn: parent
-            color: Theme.text
-            body: true   // the entry and CC titles keep their case
-            size: 16
-        }
-        TapHandler { id: tap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: button.tapped() }
+        pe: root.pe
+        steps: root.steps
+        keyWidth: root.keyWidth
     }
 }

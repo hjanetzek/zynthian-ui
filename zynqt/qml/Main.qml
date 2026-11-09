@@ -32,7 +32,10 @@ Window {
 
     readonly property bool keypadDocked: zyn.keypadDocked
     property bool keypadOverlay: false
-    readonly property real screensLeft: keypadDocked ? keypad.width : 0
+    // The keypad on the right (ZYNTHIAN_UI_TOUCH_NAVIGATION v5_keypad_right)
+    readonly property bool keypadRight: typeof zynConfig !== "undefined" && zynConfig.keypadRight === true
+    readonly property real screensLeft: keypadDocked && !keypadRight ? keypad.width : 0
+    readonly property real screensRight: keypadDocked && keypadRight ? keypad.width : 0
     onKeypadDockedChanged: keypadOverlay = false
 
     Timer {
@@ -59,13 +62,15 @@ Window {
             item.source = screens
             item.sideWidth = Qt.binding(() => keypad.width)
             item.bottomHeight = Qt.binding(() => keypad.keyHeight)
+            item.sideRight = Qt.binding(() => root.keypadRight)
         }
     }
 
     Keypad {
         id: keypad
 
-        anchors.left: parent.left
+        x: root.keypadRight ? root.width - width : 0
+        rightHanded: root.keypadRight
         // The overlay leaves the top bar free: its title hides the keypad again
         anchors.top: root.keypadDocked ? parent.top : topBar.bottom
         anchors.bottom: parent.bottom
@@ -92,6 +97,7 @@ Window {
         onTitleSwipedDown: if (!root.keypadDocked) root.showKeypadOverlay(true)
         onStatusTapped: zyn.toggleKeypadDocked()
         anchors.right: parent.right
+        anchors.rightMargin: root.screensRight
         anchors.top: parent.top
         // HIDE_TOPBAR: the screens get its height. Enterprise: taller, the segments below the status
         height: zyn.topBarShown ? (Theme.elbow ? Theme.topBarHeight + Theme.elbowBar - 4 : Theme.topBarHeight) : 0
@@ -104,7 +110,7 @@ Window {
         visible: root.elbowShown
         x: root.screensLeft + (root.keypadDocked && Theme.keyFilled ? 3 : 0)
         y: topBar.height - thickness
-        width: parent.width - x
+        width: parent.width - x - root.screensRight
         height: screens.y + screens.height - y
         arm: root.elbowArm
     }
@@ -116,6 +122,7 @@ Window {
         anchors.leftMargin: root.screensLeft + (root.elbowShown ? Theme.elbowBar * 1.6 + 8 : 0)
         anchors.topMargin: root.elbowShown ? 6 : 0
         anchors.right: parent.right
+        anchors.rightMargin: root.screensRight
         anchors.top: topBar.bottom
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.keypadDocked ? keypad.keyHeight : 0

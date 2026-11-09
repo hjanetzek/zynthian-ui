@@ -15,8 +15,14 @@ Item {
     readonly property var labels: ["OPT\nADMIN", "MIX\nLEVEL", "CTRL\nPRSET", "ZS3\nSHOT",
         "ALT\nHELP", "METRO", "PAD\nSTEP", "F1", "REC", "STOP", "PLAY", "F2", "BACK\nNO", "▲",
         "SEL\nYES", "F3", "◀", "▼", "▶", "F4"]
-    readonly property var sideLayout: [0, 1, 2, 6, 5, 3, 12, 14, 4, 13]
-    readonly property var bottomLayout: [16, 17, 18, 8, 9, 10, 7, 11, 15, 19]
+    // F1-F4 while their LED shows ALT (zynthian_gui_touchkeypad_v5: the ALT labels)
+    readonly property var altLabels: ({ 7: "F5", 11: "F6", 15: "F7", 19: "F8" })
+    // Layouts v5_keypad_left / v5_keypad_right (rightHanded: the columns on the right, the
+    // arrows at the right end of the bottom row)
+    property bool rightHanded: false
+    readonly property var sideLayout: rightHanded ? [0, 1, 2, 6, 5, 3, 12, 14, 13, 4] : [0, 1, 2, 6, 5, 3, 12, 14, 4, 13]
+    readonly property var bottomLayout: rightHanded ? [7, 11, 15, 19, 8, 9, 10, 16, 17, 18]
+                                                    : [16, 17, 18, 8, 9, 10, 7, 11, 15, 19]
 
     Grid {
         id: side
@@ -39,6 +45,8 @@ Item {
         id: bottomRow
 
         y: parent.height - root.keyHeight
+        // The whole window's width (right-handed: from the window's left edge)
+        x: root.rightHanded ? root.width - width : 0
         width: Window.window ? Window.window.width : 960
         height: root.keyHeight
         Repeater {
@@ -71,7 +79,7 @@ Item {
         KeyFace {
             anchors.fill: parent
             key: k.key
-            label: root.labels[k.key]
+            label: zyn.keypadLeds.altLabels[k.key] && root.altLabels[k.key] ? root.altLabels[k.key] : root.labels[k.key]
         }
 
         TapHandler {

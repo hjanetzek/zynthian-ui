@@ -52,25 +52,33 @@ Item {
         }
     }
 
-    component Key: Rectangle {
+    component Key: Item {
         id: k
 
         property int key
 
-        color: {
-            const c = tap.pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground
-            return root.translucent ? Qt.rgba(c.r, c.g, c.b, tap.pressed ? 0.85 : 0.55) : c
+        // Classic: square keys with a 1 px gap; galactica: plates with clipped corners. In the
+        // overlay translucent, the blurred screen showing through.
+        Panel {
+            anchors.fill: parent
+            anchors.margins: Theme.isGalactica ? 2 : 0
+            color: {
+                const c = tap.pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground
+                return root.translucent ? Qt.rgba(c.r, c.g, c.b, tap.pressed ? 0.85 : 0.55) : c
+            }
+            borderColor: Theme.isGalactica ? (tap.pressed ? Theme.frameActive : Theme.frame)
+                                           : (root.translucent ? Qt.rgba(1, 1, 1, 0.15) : Theme.background)
+            borderWidth: Theme.isGalactica ? Theme.frameWidth : 1
         }
-        border.color: root.translucent ? Qt.rgba(1, 1, 1, 0.15) : Theme.background
-        border.width: 1
 
-        Text {
+        Label {
             anchors.centerIn: parent
             horizontalAlignment: Text.AlignHCenter
             text: root.labels[k.key]
-            color: k.key === 12 ? "#ff3030" : (k.key === 14 || k.key === 2 ? "#30e030" : Theme.keyText)
-            font.pixelSize: 20
-            font.family: Theme.fontFamily
+            color: k.key === 12 ? Theme.keyBack : (k.key === 14 || k.key === 2 ? Theme.keyYes : Theme.keyText)
+            size: 20
+            title: true
+            lineHeight: Theme.isGalactica ? 0.85 : 1.0
         }
 
         TapHandler {

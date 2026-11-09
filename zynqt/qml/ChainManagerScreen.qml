@@ -15,11 +15,11 @@ Item {
 
     function kindColor(kind) {
         switch (kind) {
-        case "midi": return "#805050"
-        case "synth": return "#32a893"
-        case "audio": return "#505080"
-        case "special": return "#708050"
-        default: return "#505050"
+        case "midi": return Theme.nodeMidi
+        case "synth": return Theme.nodeSynth
+        case "audio": return Theme.nodeAudio
+        case "special": return Theme.nodeSpecial
+        default: return Theme.nodeOther
         }
     }
 
@@ -50,12 +50,12 @@ Item {
 
                     width: cols * (root.blockWidth + root.hSpacing)
                     height: Math.max(flick.height, nodes.height + root.vSpacing)
-                    color: modelData.pinned ? "#333333" : "transparent"
-                    border.color: zyn.movingChain && modelData.active ? "yellow" : "transparent"
+                    color: modelData.pinned ? Theme.pinnedBackground : "transparent"
+                    border.color: zyn.movingChain && modelData.active ? Theme.marker : "transparent"
                     border.width: 3
 
                     // Divider between chains
-                    Rectangle { width: 1; height: parent.height; color: "#666666" }
+                    Rectangle { width: 1; height: parent.height; color: Theme.divider }
 
                     Column {
                         id: nodes
@@ -77,7 +77,7 @@ Item {
                                 Repeater {
                                     model: nodeRow.modelData
 
-                                    Rectangle {
+                                    Panel {
                                         id: node
 
                                         required property var modelData
@@ -88,8 +88,8 @@ Item {
                                         width: root.blockWidth
                                         height: root.blockHeight
                                         color: root.kindColor(modelData.kind)
-                                        border.color: selected ? (zyn.movingProcessor ? "yellow" : Theme.select) : color
-                                        border.width: selected ? 3 : 1
+                                        borderColor: selected ? (zyn.movingProcessor ? Theme.marker : Theme.select) : color
+                                        borderWidth: selected ? 3 : 1
 
                                         // Connection from the row above (into processors and outputs)
                                         Rectangle {
@@ -98,7 +98,7 @@ Item {
                                             y: -root.vSpacing
                                             width: 2
                                             height: root.vSpacing
-                                            color: "#aaaaaa"
+                                            color: Theme.connector
                                         }
                                         // Parallel processors: joined to the first one's line
                                         Rectangle {
@@ -107,10 +107,10 @@ Item {
                                             y: -root.vSpacing / 2
                                             width: root.blockWidth + root.hSpacing + 1
                                             height: 2
-                                            color: "#aaaaaa"
+                                            color: Theme.connector
                                         }
 
-                                        Text {
+                                        Label {
                                             anchors.fill: parent
                                             anchors.margins: 4
                                             horizontalAlignment: Text.AlignHCenter
@@ -120,9 +120,9 @@ Item {
                                             fontSizeMode: Text.Fit
                                             minimumPixelSize: 10
                                             text: node.modelData.title
-                                            color: node.modelData.bypassed ? "#b0b0b0" : Theme.text
-                                            font.pixelSize: node.modelData.kind === "chain" ? 18 : 15
-                                            font.bold: node.modelData.kind === "chain" && column.modelData.active
+                                            color: node.modelData.bypassed ? Theme.textBypassed : Theme.text
+                                            size: node.modelData.kind === "chain" ? 18 : 15
+                                            font.weight: node.modelData.kind === "chain" && column.modelData.active ? Font.Bold : Font.Normal
                                         }
 
                                         TapHandler {
@@ -159,13 +159,13 @@ Item {
     }
     onSelChanged: Qt.callLater(ensureVisible)
 
-    Text {
+    Label {
         anchors.centerIn: parent
         visible: root.cm.graph.length === 0
         text: "No chains"
         color: Theme.textOff
-        font.pixelSize: 24
-        font.family: Theme.fontFamily
+        size: 24
+        title: true
     }
 
     // Moving a chain (left/right) or processor (arrows), as in the mixer and chain control
@@ -189,17 +189,17 @@ Item {
         Item { width: 80; height: 56; visible: !zyn.movingProcessor }
     }
 
-    component MoveKey: Rectangle {
+    component MoveKey: Panel {
         id: moveKey
         property alias text: moveKeyLabel.text
         signal tapped
         width: 80
         height: 56
         radius: 4
-        color: moveKeyTap.pressed ? Theme.keyText : "#e0202830"
-        border.color: Theme.select
-        border.width: 2
-        Text { id: moveKeyLabel; anchors.centerIn: parent; color: Theme.text; font.pixelSize: 22 }
+        color: moveKeyTap.pressed ? Theme.keyText : Theme.overlay
+        borderColor: Theme.select
+        borderWidth: 2
+        Label { id: moveKeyLabel; anchors.centerIn: parent; color: Theme.text; size: 22 }
         TapHandler { id: moveKeyTap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: moveKey.tapped() }
     }
 }

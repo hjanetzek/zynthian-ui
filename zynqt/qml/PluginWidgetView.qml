@@ -9,7 +9,7 @@ Rectangle {
 
     property var view
     readonly property var d: view ? view.data : ({})
-    color: "#101418"
+    color: Theme.widgetBackground
     clip: true
 
     // Bars

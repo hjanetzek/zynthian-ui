@@ -7,7 +7,7 @@ Rectangle {
     id: root
 
     property var view
-    color: "#101418"
+    color: Theme.widgetBackground
     clip: true
 
     onWidthChanged: if (view && width > 0) view.setSize(width, height)
@@ -19,8 +19,8 @@ Rectangle {
         preferredRendererType: Shape.GeometryRenderer
         ShapePath {
             strokeWidth: 3
-            strokeColor: "#5a9ef0"
-            fillColor: "#203a58"
+            strokeColor: Theme.widgetLine
+            fillColor: Theme.widgetFill
             joinStyle: ShapePath.RoundJoin
             PathPolyline { path: root.view ? root.view.shape : [] }
         }
@@ -32,8 +32,8 @@ Rectangle {
         preferredRendererType: Shape.GeometryRenderer
         ShapePath {
             strokeWidth: 3
-            strokeColor: "#5a9ef0"
-            fillColor: "#5a9ef0"
+            strokeColor: Theme.widgetLine
+            fillColor: Theme.widgetLine
             PathPolyline { path: root.view ? root.view.dragShape : [] }
         }
     }

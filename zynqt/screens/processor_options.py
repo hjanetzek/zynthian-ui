@@ -4,7 +4,7 @@ randomize, clean MIDI learn, insert processors"""
 import random
 
 import zynautoconnect
-from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry, separator
+from zynqt.screens.base import SelectorScreen, entry, separator
 
 
 class ProcessorOptions(SelectorScreen):
@@ -62,7 +62,8 @@ class ProcessorOptions(SelectorScreen):
                                info="Undo the last parameter randomization."))
         e.append(entry("Clean MIDI-learn", lambda x: self.midi_clean(), icon="delete_presets.png",
                        info="Remove CC bindings from all parameters in this processor."))
-        e.append(entry("Info", icon="info.png", enabled=False, info=NOT_PORTED))
+        e.append(entry("Info", lambda x: self.show_details(), icon="info.png",
+                       info="Show information about this processor."))
 
         add = []
         pos = "series" if p.type in ("MIDI Synth", "MIDI Tool") or p.eng_code in ("MI", "MX") else "parallel"
@@ -77,6 +78,28 @@ class ProcessorOptions(SelectorScreen):
         if add:
             e += [separator("> Add to chain")] + add
         self.set_entries(e)
+
+    def show_details(self):
+        """Info (zynthian_gui_engine.show_details): the engine's name, type, quality, complexity
+        and description, in the help viewer"""
+        import html as html_mod
+        from zyngine import zynthian_lv2
+        p = self.processor
+        cm = self.ui.chain_manager
+        if not cm.engine_info:
+            cm.get_engine_info()
+        info = (cm.engine_info or {}).get(p.eng_code)
+        if not info:
+            self.ui.show_info(f"No information about {p.name}.")
+            return
+        path = zynthian_lv2.engine_type_title.get(info.get("TYPE"), info.get("TYPE", ""))
+        if info.get("CAT"):
+            path += "/" + info["CAT"]
+        descr = html_mod.escape(info.get("DESCR", "")).replace("\n", "</p>\n<p>")
+        page = (f"<html><body><h1>{html_mod.escape(info.get('NAME', p.name))}</h1><p>{path}</p>"
+                f"<p>Quality: {'★' * int(info.get('QUALITY', 0))}</p>"
+                f"<p>Complexity: {'⚙' * int(info.get('COMPLEX', 0))}</p><p>{descr}</p></body></html>")
+        self.ui._set_help(page, "")
 
     def toggle_bypass(self):
         self.processor.toggle_bypass()

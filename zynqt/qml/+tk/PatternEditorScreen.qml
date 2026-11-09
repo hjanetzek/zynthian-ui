@@ -151,6 +151,13 @@ Rectangle {
         boundsBehavior: Flickable.StopAtBounds
         flickDeceleration: 3000
 
+        // The bottom row shown is the pattern's reference note (Tk's keymap_offset): kept
+        onContentYChanged: refNoteTimer.restart()
+        Timer {
+            id: refNoteTimer
+            interval: 300
+            onTriggered: root.pe.setRefNote(Math.max(0, Math.round((grid.contentHeight - grid.contentY - grid.height) / root.rowHeight)))
+        }
         PinchHandler {
             target: null
             property real last: 1
@@ -267,21 +274,71 @@ Rectangle {
                                                 root.nRows - 1 - Math.floor(centroid.position.y / root.rowHeight))
                 }
                 TapHandler {
-                    longPressThreshold: 0.8
-                    function cell(p) {
-                        return [Math.floor(p.x / root.stepWidth), root.nRows - 1 - Math.floor(p.y / root.rowHeight)]
+                    enabled: root.pe.selectMode && root.pe.hasCopy
+                    onTapped: (eventPoint) => root.pe.pasteAt(Math.floor(eventPoint.position.x / root.stepWidth),
+                        root.nRows - 1 - Math.floor(eventPoint.position.y / root.rowHeight))
+                }
+                // zynthian_gui_pated_notes on_grid_press / drag / release: a tap toggles the
+                // note; held (800 ms) without moving: the note's parameters (edit mode); held,
+                // then dragged: on a note up / down its velocity, sideways its duration; on an
+                // empty cell the cursor follows and the note is added on release. A drag
+                // without holding scrolls (the Flickable).
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: !root.pe.selectMode
+                    pressAndHoldInterval: 800
+                    preventStealing: held
+                    property bool held: false
+                    property bool dragged: false
+                    property var start: null      // [step, row]
+                    property var note: []          // [start step, velocity, duration]
+                    property point pressPos
+                    function cell(x, y) {
+                        return [Math.floor(x / root.stepWidth), root.nRows - 1 - Math.floor(y / root.rowHeight)]
                     }
-                    onTapped: (eventPoint) => {
-                        const c = cell(eventPoint.position)
-                        if (root.pe.selectMode && root.pe.hasCopy)
-                            root.pe.pasteAt(c[0], c[1])
-                        else if (!root.pe.selectMode)
-                            root.pe.toggleNote(c[0], c[1])
+                    onPressed: (mouse) => {
+                        held = false; dragged = false
+                        pressPos = Qt.point(mouse.x, mouse.y)
+                        start = cell(mouse.x, mouse.y)
+                        note = root.pe.noteAt(start[0], start[1])
+                        if (note.length)
+                            start[0] = note[0]
+                        root.pe.setCursor(start[0], start[1])
                     }
-                    onLongPressed: {
-                        const c = cell(point.position)
-                        root.pe.touchBold(c[0], c[1])
+                    onPressAndHold: held = true
+                    onPositionChanged: (mouse) => {
+                        if (!held)
+                            return
+                        dragged = true
+                        if (note.length) {
+                            if (Math.abs(mouse.y - pressPos.y) > root.rowHeight / 2 && !durationMode)
+                                velocityMode = true
+                            else if ((mouse.x > (start[0] + 1) * root.stepWidth || mouse.x < start[0] * root.stepWidth) && !velocityMode)
+                                durationMode = true
+                            if (velocityMode)
+                                root.pe.dragVelocity(start[0], start[1],
+                                    Math.round(note[1] + (pressPos.y - mouse.y) / root.rowHeight * root.height / 100))
+                            if (durationMode)
+                                root.pe.dragDuration(start[0], start[1], Math.floor(mouse.x / root.stepWidth) - start[0])
+                        } else {
+                            const c = cell(mouse.x, mouse.y)
+                            root.pe.setCursor(c[0], c[1])
+                        }
                     }
+                    property bool velocityMode: false
+                    property bool durationMode: false
+                    onReleased: (mouse) => {
+                        if (!held)
+                            root.pe.toggleNote(start[0], start[1])
+                        else if (!dragged)
+                            root.pe.touchBold(start[0], start[1])
+                        else if (!note.length)
+                            root.pe.toggleNote(root.cursor[0], root.cursor[1])
+                        else
+                            root.pe.editDone()
+                        held = false; velocityMode = false; durationMode = false
+                    }
+                    onCanceled: { held = false; velocityMode = false; durationMode = false; root.pe.editDone() }
                 }
             }
         }

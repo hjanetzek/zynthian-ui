@@ -59,7 +59,11 @@ Rectangle {
     Text {
         anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 3
         anchors.leftMargin: (pad.info.loops || []).length ? 3 + 7 * pad.info.loops.length : 3
-        text: pad.info.state_text || ""; color: pad.info.state_color || Theme.text; font.pixelSize: 13
+        // ⏹ / ▶ as forkawesome glyphs (the text faces would take them from the colour emoji font)
+        readonly property string st: pad.info.state_text || ""
+        readonly property string glyph: st === "\u23f9" ? "\uf04d" : (st === "\u25b6" ? "\uf04b" : "")
+        text: glyph || st; color: pad.info.state_color || Theme.text; font.pixelSize: glyph ? 11 : 13
+        font.family: glyph ? "forkawesome" : Qt.application.font.family
     }
     Text {
         anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 3

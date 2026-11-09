@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Render a QML scene of the Qt UI offscreen to a PNG, for iterating on themes without a device:
 
     QT_QPA_PLATFORM=offscreen python3 nura/tools/qml_preview.py SCENE.qml OUT.png [-t THEME] [-s WxH]
@@ -132,14 +132,25 @@ def strip(cid, desc, legend, level, active=False, midi=0, mixbus=False, mute=Fal
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("scene")
-    ap.add_argument("out")
+    ap.add_argument("out", nargs="?", default="", help="PNG to write (not with --live)")
+    ap.add_argument("--live", action="store_true",
+                    help="show the scene in a window and keep running, with QML debugging for Qt 6's "
+                         "qmlpreview (hot reload of zynqt/qml): /usr/lib/qt6/bin/qmlpreview "
+                         "./nura/tools/qml_preview.py SCENE.qml --live")
     ap.add_argument("-t", "--theme", default="classic")
     ap.add_argument("-s", "--size", default="800x480")
     ap.add_argument("--mixer", action="store_true", help="mock mixer strips (the compare snapshot)")
-    a = ap.parse_args()
+    # qmlpreview adds -qmljsdebugger=... (Qt reads it from sys.argv)
+    a, _ = ap.parse_known_args()
     w, h = (int(x) for x in a.size.split("x"))
 
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    if a.live:
+        from PySide6.QtQml import QQmlDebuggingEnabler
+        QQmlDebuggingEnabler.enableDebugging(True)
+    else:
+        if not a.out:
+            ap.error("OUT is needed without --live")
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     app = QGuiApplication(sys.argv)
     for root, _, files in os.walk(os.path.join(REPO, "fonts")):
         for f in files:
@@ -199,7 +210,8 @@ Window {{
             img = win.grabWindow()
             img.save(a.out)
             app.quit()
-        QTimer.singleShot(int(os.environ.get("PREVIEW_WAIT_MS", "700")), grab)
+        if not a.live:
+            QTimer.singleShot(int(os.environ.get("PREVIEW_WAIT_MS", "700")), grab)
         app.exec()
     os.unlink(tmp.name)
     os.unlink(run_path)

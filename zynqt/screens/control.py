@@ -788,7 +788,9 @@ class ChainControl(QObject):
             if self.isChain:
                 self.chain_manager.rotate_chain()
             return True
-        if i == 1 and t == "B":
+        if i == 1 and t == "B" and self.isChain:
+            # zynthian_gui_chain_control; the special processors' screens (Tk's plain control
+            # screen) take the default: the root
             self.ui.show_screen("main_menu")
             return True
         if i == 2 and self._mode == "select":

@@ -148,7 +148,11 @@ Item {
         visible: root.isGrid
         clip: true
         model: root.isGrid ? root.entries : null
-        readonly property int columns: root.screen ? root.screen.gridColumns : 4
+        readonly property int columns: {
+            const name = root.screen ? (root.screen.screenName || "") : ""
+            const c = name === "main_menu" ? Theme.mainMenuColumns : (name === "add_chain" ? Theme.addChainColumns : 0)
+            return c > 0 ? c : (root.screen ? root.screen.gridColumns : 4)
+        }
         cellWidth: sp > 0 ? 2 * Math.floor((root.width - sp) / (columns * 2)) : Math.floor(width / columns)
         cellHeight: sp > 0 ? 2 * Math.floor((root.height - sp) / (columns * 2))
                            : Math.floor(height / Math.max(1, Math.ceil(count / columns)))

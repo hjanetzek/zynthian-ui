@@ -13,7 +13,7 @@ class MainMenu(SelectorScreen):
     columns = 4
 
     def fill(self):
-        self.set_title("Main")
+        self.set_title("Main Menu")
         ui = self.ui
         # A full 4x4 grid: the cells left over are placeholders
         self.set_entries(fill_grid([
@@ -30,6 +30,12 @@ class MainMenu(SelectorScreen):
             self.midi_rec_entry(),
             entry("MIDI\nPlayer", lambda e: ui.show_screen("midi_recorder"), icon="folder_midi.png"),
             entry("Admin", lambda e: ui.show_screen("admin"), icon="settings.png"),
+            # As zynthian_gui_main_menu: Audio Levels, Capture Workflow (not in the Qt UI: the
+            # entry says so), Power
+            entry("Audio\nLevels", lambda e: ui.cuia_screen_alsa_mixer(), icon="audio_options.png"),
+            entry("Capture\nWorkflow", icon="capture.png", enabled=False,
+                  info="Capturing a workflow (WORKFLOW_CAPTURE_START) is not in the Qt UI yet."),
+            entry("Power", lambda e: ui.cuia_power(), icon="poweroff.png"),
         ]))
 
     def audio_rec_entry(self):

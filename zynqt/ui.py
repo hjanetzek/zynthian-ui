@@ -1453,6 +1453,19 @@ class ZynUI(QObject):
         self.chain_control(chain_id)
 
     @Slot(int)
+    def selectChain(self, chain_id):
+        """A mixer strip touched: make its chain the active one (Tk's fader / strip press)"""
+        if chain_id >= 0:
+            self.chain_manager.set_active_chain_by_id(chain_id)
+
+    @Slot(int)
+    def openChainManagerOptions(self, chain_id):
+        """Long press on a mixer strip's legend (Tk): the chain manager at the chain's options"""
+        if chain_id >= 0:
+            self.chain_manager.set_active_chain_by_id(chain_id)
+        self.show_screen("chain_manager")
+
+    @Slot(int)
     def openChainOptions(self, chain_id):
         if chain_id >= 0:
             self.chain_manager.set_active_chain_by_id(chain_id)

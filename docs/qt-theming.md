@@ -14,12 +14,14 @@ display only):
 |---|---|
 | `classic` (default) | zynthian's colours (as `zynthian_gui_config`): black, slate-blue plates, red selection, blue keys, Audiowide |
 | `galactica` | a battlestar CIC console: gun-metal plates with clipped corners and steel outlines, amber console text in Khand (upper case), an amber selection bar, red alerts |
-| `tk` | upstream zynthian's Tk UI: its colours (`ZYNTHIAN_UI_COLOR_*`), sizes from its font size F (`ZYNTHIAN_UI_FONT_SIZE` x `ZYNTHIAN_UI_SCALE`), Tk's mixer, top bar, list rows, info pane and grid tiles |
+| `tk` | upstream zynthian's Tk UI: its colours (`ZYNTHIAN_UI_COLOR_*`), sizes from its font size F (`ZYNTHIAN_UI_FONT_SIZE` x `ZYNTHIAN_UI_SCALE`), Tk's mixer and launcher, top bar, list rows, info pane, grid tiles, chain control, pattern editor and keypad LEDs |
 | `enterprise` | a starship console: filled pill keys in orange, blue-gray, mauve and violet with dark labels, pill rows, mauve section headers, a curved frame (elbow) around the screens |
 
-On the Duet (or in the QEMU VM): `export ZYNTHIAN_QT_THEME=enterprise` in `/etc/default/zynthian`
-(sourced by the kiosk session, `/usr/libexec/zynthian/zynthian-session.sh`), then
-`sudo systemctl restart tinydm`. On the desktop: set the
+On the Duet (or in the QEMU VM): `export ZYNTHIAN_QT_THEME=enterprise` in
+`~/.config/zynthian/zynthian_custom_config.sh`, which the launcher (`desktop/zynthian_desktop.sh`)
+reads at each start, then restart zynthian only: the CUIA `RESTART_UI` (the launcher starts it
+again on exit code 102, without restarting the session). `/etc/default/zynthian` is read only at
+session start (`sudo systemctl restart tinydm`); keep the theme in one of the two. On the desktop: set the
 variable before `desktop/zynthian_desktop.sh` (with `ZYNTHIAN_UI=qt`) or `desktop/preview_qt.sh`.
 
 The theme is fixed for a run: switching means restarting the UI.
@@ -40,13 +42,25 @@ zynqt/qml/
   +galactica/Theme.qml    ThemeBase { only the tokens galactica changes }
   +galactica/KeyPlate.qml, TopBarRule.qml                               its own components
   +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
-  +tk/Theme.qml, MixerScreen.qml, TopBar.qml, InfoPane.qml, GridTile.qml
+  +tk/Theme.qml, MixerScreen.qml, TopBar.qml, InfoPane.qml, GridTile.qml, KeyFace.qml,
+      ChainControlScreen.qml, Controller.qml, PatternEditorScreen.qml, PatternToolbar.qml,
+      LauncherPad.qml
 ```
 
 Components split out so a theme can replace them: `KeyPlate`, `TopBarRule`, `Elbow`, `InfoPane`
 (the selector's info pane), `GridTile` (main menu / add chain tiles), `MixerScreen` (a wrapper
-around the shared `MixerView`; tk draws Tk's strips and uses `MixerView` for the launcher only),
-`TopBar` (tk replaces it whole, with the same properties and signals).
+around the shared `MixerView`; tk draws Tk's strips, also in launcher mode: the pads in place of
+the faders), `LauncherPad` (a launcher pad), `TopBar` (tk replaces it whole, with the same
+properties and signals), `KeyFace` (a keypad key's label; tk colours it with the LED of
+`zyn.keypadLeds`), `Controller` (a controller slot; tk: Tk's arc), `PatternToolbar` (the pattern
+editor's toolbar; tk: none).
+
+Shared parts that theme screens reuse: `ControlWidget` (chain control's page widget: waveform,
+envelope, filter, plugin widgets) and `ControlOverlays` (MIDI learn banner, processor move keys),
+`PatternNote` (a note of the pattern grid, its fill a property) and `PatternCcLane` (the CC
+view). tk replaces `ChainControlScreen` (Tk's page list, a quarter-width controller column, the
+side chain only in select mode) and `PatternEditorScreen` (Tk's grid, piano roll and play ruler)
+whole with these.
 
 With the theme's name as a file selector (`QQmlApplicationEngine.setExtraFileSelectors`, in
 `zynthian_qt_main.py`), QML loads `+<theme>/X.qml` wherever `X.qml` is used, the `Theme` singleton
@@ -224,9 +238,9 @@ only if unset), with a factory snapshot as `last_state.zss`, and wait for the sn
 with `compare -metric AE` leaves only what changes between any two runs: the CPU percentage, and a
 few single pixels.
 
-In the QEMU VM (`docs/qemu-testing.md`; Khand is installed there): `nura/tools/sync_ui.sh -V -r`,
-`export ZYNTHIAN_QT_THEME=...` in the VM's `/etc/default/zynthian`, `sudo systemctl restart tinydm`,
-CUIAs with `oscsend localhost 1370 /cuia/...` in the VM, `nura/tools/screenshot.sh -V`.
+In the QEMU VM (`docs/qemu-testing.md`; Khand is installed there): `nura/tools/sync_ui.sh -V`,
+`export ZYNTHIAN_QT_THEME=...` in the VM's `~/.config/zynthian/zynthian_custom_config.sh`, the
+CUIA `RESTART_UI` (QML errors at load end up in `~/.local/state/tinydm.log`), CUIAs with `oscsend localhost 1370 /cuia/...` in the VM, `nura/tools/screenshot.sh -V`.
 
 On the Duet: copy the changed files into `/usr/share/zynthian/zynthian-ui` (as in
 `docs/performance-measurement.md`), restart the session, `nura/tools/screenshot.sh`.

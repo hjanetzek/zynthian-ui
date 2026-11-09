@@ -83,7 +83,8 @@ Item {
     Rectangle {
         readonly property real cx: lane.pe.ccCursor * lane.sw + 1
         readonly property real cy: lane.rowY(lane.pe.ccRow + 1) + 1
-        readonly property int m: lane.markerWidth + 1
+        // Tk: the square +-(marker width + 1) around the point, its 2 px outline centred on that
+        readonly property int m: lane.markerWidth + 2
         x: lane.pe.ccInterpolate ? cx - m : cx
         y: lane.pe.ccInterpolate ? cy - m : cy
         width: lane.pe.ccInterpolate ? 2 * m : lane.sw - 1

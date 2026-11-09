@@ -30,8 +30,8 @@ Item {
     readonly property var cursor: pe.cursorCell
     // Rows shown (Tk's view_rows, for the cursor row of the next pattern loaded)
     readonly property int viewRows: Math.max(1, Math.floor(grid.height / rowHeight))
-    onViewRowsChanged: pe.setViewRows(viewRows)
-    Component.onCompleted: pe.setViewRows(viewRows)
+    onViewRowsChanged: if (height > 0) pe.setViewRows(viewRows)
+    Component.onCompleted: if (height > 0) pe.setViewRows(viewRows)
 
     function rowY(row) { return (nRows - 1 - row) * rowHeight }
 

@@ -119,7 +119,9 @@ nura/tools/sync_ui.sh -q        # copy only zynqt/qml, no restart: the UI reload
 - **Development only**: the QML debug server can control the UI. To switch it off, set
   `export ZYNTHIAN_QT_QMLPREVIEW=0` in `zynthian_custom_config.sh` and `RESTART_UI`: only deleting
   the line isn't enough, the running launcher keeps the variable it exported (until the session
-  restarts). Without the variable nothing changes.
+  restarts). Without the variable nothing changes. The same holds for any variable a test put in
+  the config (e.g. `ZYNTHIAN_UI_MAIN_MENU_COLUMNS`): to get rid of it, put `unset VAR` in the
+  config for one `RESTART_UI` (the launcher sources it in its own shell), then delete the line.
 - How it works and why (each detail broke it once): [qt-theming.md](qt-theming.md), "Previewing" →
   "QML hot reload (qmlpreview)".
 

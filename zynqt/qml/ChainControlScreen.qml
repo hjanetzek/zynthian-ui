@@ -45,6 +45,7 @@ Item {
             width: procs.width
             height: 56
             radius: Theme.radius
+            button: true
             color: modelData.current ? Theme.panel : Theme.panelHighlight
             borderColor: modelData.current ? Theme.frameActive : Theme.frame
             borderWidth: modelData.current ? Math.max(1, Theme.frameWidth) : Theme.frameWidth
@@ -153,8 +154,9 @@ Item {
             readonly property bool current: index === pages.currentIndex
             width: pages.width
             height: 44
-            color: separator ? Theme.panelHighlight : (current ? Theme.select : Theme.panel)
+            color: separator ? Theme.separator : (current ? Theme.select : Theme.panel)
             borderColor: separator ? "transparent" : Theme.frame
+            button: true
             Label {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
@@ -162,7 +164,7 @@ Item {
                 anchors.leftMargin: 10
                 elide: Text.ElideRight
                 text: row.title
-                color: row.separator ? Theme.textOff : (row.current ? Theme.selectText : Theme.text)
+                color: row.separator ? Theme.separatorText : (row.current ? Theme.selectText : Theme.text)
                 size: 22
                 title: true
             }
@@ -255,6 +257,7 @@ Item {
         width: 80
         height: 56
         radius: 4
+        button: true
         color: moveKeyTap.pressed ? Theme.keyText : Theme.overlay
         borderColor: Theme.select
         borderWidth: 2
@@ -269,6 +272,7 @@ Item {
         width: procs.width
         height: visible ? 44 : 0
         radius: Theme.radius
+        button: true
         color: Theme.keyBackground
         Label {
             id: label

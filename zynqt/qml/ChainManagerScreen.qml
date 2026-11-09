@@ -196,6 +196,7 @@ Item {
         width: 80
         height: 56
         radius: 4
+        button: true
         color: moveKeyTap.pressed ? Theme.keyText : Theme.overlay
         borderColor: Theme.select
         borderWidth: 2

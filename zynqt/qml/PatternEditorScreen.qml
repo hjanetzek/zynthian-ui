@@ -375,6 +375,7 @@ Item {
         width: 100
         height: parent.height
         radius: 4
+        button: true
         color: tap.pressed ? Theme.keyText : (on ? onColor : Theme.keyBackground)
         Label {
             id: label

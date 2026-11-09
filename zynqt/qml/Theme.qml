@@ -3,14 +3,19 @@ import QtQuick
 
 // UI theme: colours, fonts and shapes. The theme is chosen at start with ZYNTHIAN_QT_THEME
 // (zynthian_qt_main.py sets the context property zynThemeName): "classic" (zynthian's default
-// colours, as zynthian_gui_config) or "galactica" (a battlestar CIC console: gun-metal panels with
-// clipped corners, amber console text in a condensed face, red alerts).
+// colours, as zynthian_gui_config), "galactica" (a battlestar CIC console: gun-metal panels with
+// clipped corners, amber console text in a condensed face, red alerts) or "enterprise" (a starship
+// console in galactica's amber: pill buttons with dark labels, coloured header bars, a curved
+// frame around the screen).
 QtObject {
     id: theme
 
     property string name: typeof zynThemeName !== "undefined" && zynThemeName ? zynThemeName : "classic"
-    readonly property QtObject p: name === "galactica" ? galactica : classic
+    readonly property QtObject p: name === "galactica" ? galactica : (name === "enterprise" ? enterprise : classic)
     readonly property bool isGalactica: name === "galactica"
+    readonly property bool isEnterprise: name === "enterprise"
+    // Icons (white line art) tinted in the text colour
+    readonly property bool tintIcons: isGalactica || isEnterprise
 
     // Colours
     readonly property color background: p.background
@@ -87,6 +92,10 @@ QtObject {
     readonly property color widgetGrid: p.widgetGrid
     readonly property color widgetWave: p.widgetWave
     readonly property color widgetOutside: p.widgetOutside
+    readonly property color dialogText: p.dialogText
+    // List section headers ("> MIDI")
+    readonly property color separator: p.separator
+    readonly property color separatorText: p.separatorText
 
     // Outlines: frame around panels, frameActive around the current/active one
     readonly property color frame: p.frame
@@ -97,6 +106,21 @@ QtObject {
     readonly property real cut: p.cut
     readonly property real cutLarge: p.cutLarge
     readonly property real radius: p.radius
+    // Rounded themes: corner radius of plates (0: as each component draws it), buttons as pills
+    readonly property real panelRadius: p.panelRadius
+    readonly property bool pillButtons: p.pillButtons
+
+    // Keypad: filled keys (keyFills by key, BACK in keyBack, SEL and CTRL in keyYes) with dark
+    // labels (keyFilledText) at the bottom right
+    readonly property bool keyFilled: p.keyFilled
+    readonly property var keyFills: p.keyFills
+    readonly property color keyFilledText: p.keyFilledText
+
+    // Frame: an elbow from the top bar down the left of the screens, bar colours of the top bar
+    readonly property bool elbow: p.elbow
+    readonly property real elbowBar: p.elbowBar
+    readonly property color elbowColor: p.elbowColor
+    readonly property var barColors: p.barColors
 
     // Type: fontFamily for titles, list entries and keys; textFamily for small and body text
     // ("" in a palette: Qt's default font); caps puts titles and labels in upper case
@@ -172,6 +196,18 @@ QtObject {
         readonly property color widgetGrid: "#2e4a2e"
         readonly property color widgetWave: "#4a90d0"
         readonly property color widgetOutside: "#181e24"
+        readonly property color dialogText: "#ffffff"
+        readonly property color separator: "#2a323d"
+        readonly property color separatorText: "#e0e0e0"
+        readonly property real panelRadius: 0
+        readonly property bool pillButtons: false
+        readonly property bool keyFilled: false
+        readonly property var keyFills: []
+        readonly property color keyFilledText: "#000000"
+        readonly property bool elbow: false
+        readonly property real elbowBar: 0
+        readonly property color elbowColor: "transparent"
+        readonly property var barColors: []
         readonly property color frame: "transparent"
         readonly property color frameActive: "#ffffff"
         readonly property real frameWidth: 0
@@ -251,6 +287,18 @@ QtObject {
         readonly property color widgetGrid: "#3a3832"
         readonly property color widgetWave: "#d09030"
         readonly property color widgetOutside: "#1d1e1f"
+        readonly property color dialogText: "#f0ad3c"
+        readonly property color separator: "#18191a"
+        readonly property color separatorText: "#a98a55"
+        readonly property real panelRadius: 0
+        readonly property bool pillButtons: false
+        readonly property bool keyFilled: false
+        readonly property var keyFills: []
+        readonly property color keyFilledText: "#000000"
+        readonly property bool elbow: false
+        readonly property real elbowBar: 0
+        readonly property color elbowColor: "transparent"
+        readonly property var barColors: []
         readonly property color frame: "#5f5b50"           // steel / khaki edge
         readonly property color frameActive: "#f0ad3c"
         readonly property real frameWidth: 1.5
@@ -263,5 +311,96 @@ QtObject {
         readonly property bool caps: true
         readonly property real letterSpacing: 1.2
         readonly property real fontScale: 1.15             // Khand is condensed, with a small x-height
+    }
+
+    property QtObject enterprise: QtObject {
+        readonly property color background: "#000000"
+        readonly property color panel: "#17120c"           // dark, warm plates
+        readonly property color panelHighlight: "#000000"
+        readonly property color text: "#f0ad3c"            // galactica's amber
+        readonly property color textOff: "#c9a16a"
+        readonly property color disabled: "#6b5a44"
+        readonly property color select: "#f6c870"          // butterscotch pill ...
+        readonly property color selectText: "#000000"      // ... with black type
+        readonly property color keyBackground: "#2a2016"
+        readonly property color keyText: "#f0ad3c"
+        readonly property color keyBack: "#e8432e"
+        readonly property color keyYes: "#8fc46a"
+        readonly property color meterLow: "#8fc46a"
+        readonly property color meterMid: "#f0b030"
+        readonly property color meterHigh: "#e8432e"
+        readonly property color mute: "#e8432e"
+        readonly property color solo: "#8e9ee8"            // lavender
+        readonly property color overlay: "#f0000000"
+        readonly property color dialogNo: "#e8432e"
+        readonly property color dialogYes: "#8fc46a"
+        readonly property color dialogText: "#000000"
+        readonly property color separator: "#b8742e"       // header bar
+        readonly property color separatorText: "#000000"
+        readonly property color listBackground: "#000000"  // pills on black
+        readonly property color dim: "#d8000000"
+        readonly property color dimBusy: "#c8000000"
+        readonly property color link: "#f6c870"
+        readonly property color alert: "#e8432e"
+        readonly property color warning: "#f0b030"
+        readonly property color flagRecord: "#e8432e"
+        readonly property color flagPlay: "#8fc46a"
+        readonly property color flagMidi: "#8e9ee8"
+        readonly property color flagSeq: "#f0b030"
+        readonly property color midiActivity: "#8e9ee8"
+        readonly property color bindChain: "#8fc46a"
+        readonly property color bindGlobal: "#f6c870"
+        readonly property color bindXy: "#f0b030"
+        readonly property color marker: "#f6c870"
+        readonly property color textBypassed: "#6b5a44"
+        readonly property color nodeMidi: "#3a2614"
+        readonly property color nodeSynth: "#3a3014"
+        readonly property color nodeAudio: "#1e2236"
+        readonly property color nodeSpecial: "#26301a"
+        readonly property color nodeOther: "#17120c"
+        readonly property color pinnedBackground: "#120e09"
+        readonly property color divider: "#6b5a44"
+        readonly property color connector: "#c9a16a"
+        readonly property color gridRow: "#17120c"
+        readonly property color gridRowDark: "#0e0b07"
+        readonly property color gridRowLine: "#000000"
+        readonly property color gridBar: "#c9a16a"
+        readonly property color gridBeat: "#6b5a44"
+        readonly property color gridStep: "#2a2016"
+        readonly property real noteHue: 0.1
+        readonly property color noteFrame: "#ffe2a8"
+        readonly property color selectionFill: "#30f6c870"
+        readonly property color selectionFrame: "#f6c870"
+        readonly property color ccBar: "#6a4a20"
+        readonly property color ccBarCurrent: "#d4884a"
+        readonly property color buttonOn: "#5d7f3f"
+        readonly property color buttonRecord: "#b03020"
+        readonly property color widgetBackground: "#0b0906"
+        readonly property color widgetLine: "#f0ad3c"
+        readonly property color widgetFill: "#4a3418"
+        readonly property color widgetGrid: "#2a2016"
+        readonly property color widgetWave: "#d4884a"
+        readonly property color widgetOutside: "#17120c"
+        readonly property color frame: "transparent"
+        readonly property color frameActive: "#f6c870"
+        readonly property real frameWidth: 0
+        readonly property real cut: 0
+        readonly property real cutLarge: 0
+        readonly property real radius: 0
+        readonly property real panelRadius: 14
+        readonly property bool pillButtons: true
+        readonly property bool keyFilled: true
+        readonly property var keyFills: ["#f0ad3c", "#d4884a", "#e7b77a", "#b8742e", "#f6c870"]
+        readonly property color keyFilledText: "#000000"
+        readonly property bool elbow: true
+        readonly property real elbowBar: 14
+        readonly property color elbowColor: "#d4884a"
+        readonly property var barColors: ["#e7b77a", "#b8742e", "#f0ad3c", "#e8432e"]
+        readonly property string fontFamily: "Khand"
+        readonly property string textFamily: "Khand"
+        readonly property int fontWeight: Font.DemiBold
+        readonly property bool caps: true
+        readonly property real letterSpacing: 0.6
+        readonly property real fontScale: 1.2
     }
 }

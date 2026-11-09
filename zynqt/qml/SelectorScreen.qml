@@ -35,6 +35,7 @@ Item {
                 required property string modelData
                 width: catList.width
                 height: 40
+                button: true
                 color: index === catList.currentIndex ? Theme.text : Theme.listBackground
                 borderColor: "transparent"
                 Label {
@@ -89,8 +90,9 @@ Item {
 
             width: list.width
             height: 44
-            color: separator ? Theme.panelHighlight : (current ? Theme.select : Theme.panel)
+            color: separator ? Theme.separator : (current ? Theme.select : Theme.panel)
             borderColor: separator ? "transparent" : Theme.frame
+            button: true
 
             Label {
                 anchors.verticalCenter: parent.verticalCenter
@@ -99,7 +101,7 @@ Item {
                 anchors.leftMargin: 10
                 elide: Text.ElideRight
                 text: row.title
-                color: row.separator ? Theme.textOff : (row.current ? Theme.selectText
+                color: row.separator ? Theme.separatorText : (row.current ? Theme.selectText
                                                         : (row.entryEnabled ? Theme.text : Theme.disabled))
                 size: 24
                 title: true
@@ -135,8 +137,8 @@ Item {
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             source: root.screen ? root.screen.currentIcon : ""
-            // Galactica: icons (white line art) in the console amber
-            layer.enabled: Theme.isGalactica
+            // Icons (white line art) in the theme's text colour
+            layer.enabled: Theme.tintIcons
             layer.effect: MultiEffect { colorization: 1.0; colorizationColor: Theme.text }
         }
         Label {
@@ -206,7 +208,7 @@ Item {
                     sourceSize.width: width
                     sourceSize.height: height
                     asynchronous: true
-                    layer.enabled: Theme.isGalactica
+                    layer.enabled: Theme.tintIcons
                     layer.effect: MultiEffect {
                         colorization: 1.0
                         colorizationColor: tile.index === grid.currentIndex ? Theme.selectText : Theme.text

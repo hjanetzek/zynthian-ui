@@ -71,6 +71,11 @@ Window {
         onKeyPressed: if (root.keypadOverlay) keypadHide.restart()
     }
 
+    // Enterprise: the elbow frames the screens, its arm continues as the top bar's segments
+    // (not with the top bar hidden)
+    readonly property real elbowArm: 180
+    readonly property bool elbowShown: Theme.elbow && zyn.topBarShown
+
     TopBar {
         id: topBar
 
@@ -82,17 +87,28 @@ Window {
         onStatusTapped: zyn.toggleKeypadDocked()
         anchors.right: parent.right
         anchors.top: parent.top
-        // HIDE_TOPBAR: the screens get its height
-        height: zyn.topBarShown ? 50 : 0
+        // HIDE_TOPBAR: the screens get its height. Enterprise: taller, the segments below the status
+        height: zyn.topBarShown ? (Theme.elbow ? 50 + Theme.elbowBar - 4 : 50) : 0
         visible: zyn.topBarShown
+        barStart: root.elbowShown ? root.elbowArm + 6 : 0
         title: zyn.currentList ? zyn.currentList.title : (root.qmlTitles[zyn.currentScreen] || zyn.currentScreen)
+    }
+
+    Elbow {
+        visible: root.elbowShown
+        x: root.screensLeft + (root.keypadDocked && Theme.keyFilled ? 3 : 0)
+        y: topBar.height - thickness
+        width: parent.width - x
+        height: screens.y + screens.height - y
+        arm: root.elbowArm
     }
 
     StackLayout {
         id: screens
 
         anchors.left: parent.left
-        anchors.leftMargin: root.screensLeft
+        anchors.leftMargin: root.screensLeft + (root.elbowShown ? Theme.elbowBar * 1.6 + 8 : 0)
+        anchors.topMargin: root.elbowShown ? 6 : 0
         anchors.right: parent.right
         anchors.top: topBar.bottom
         anchors.bottom: parent.bottom
@@ -229,6 +245,7 @@ Window {
             height: 64
             text: "✕"
             color: Theme.keyBackground
+            textColor: Theme.text
             onTapped: zyn.helpClose()
         }
     }
@@ -261,10 +278,10 @@ Window {
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 16
-                DialogButton { text: "−10"; width: 110; color: Theme.keyBackground; onTapped: zyn.valueEditorStep(-10) }
-                DialogButton { text: "−1"; width: 110; color: Theme.keyBackground; onTapped: zyn.valueEditorStep(-1) }
-                DialogButton { text: "+1"; width: 110; color: Theme.keyBackground; onTapped: zyn.valueEditorStep(1) }
-                DialogButton { text: "+10"; width: 110; color: Theme.keyBackground; onTapped: zyn.valueEditorStep(10) }
+                DialogButton { text: "−10"; width: 110; color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(-10) }
+                DialogButton { text: "−1"; width: 110; color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(-1) }
+                DialogButton { text: "+1"; width: 110; color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(1) }
+                DialogButton { text: "+10"; width: 110; color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(10) }
             }
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -349,16 +366,18 @@ Window {
     component DialogButton: Panel {
         id: button
         property alias text: label.text
+        property color textColor: Theme.dialogText   // on dialogNo / dialogYes
         signal tapped
         width: 160
         height: 70
         radius: 4
+        button: true
         borderColor: Theme.isGalactica ? Theme.frameActive : "transparent"
         cut: Theme.cutLarge
         Label {
             id: label
             anchors.centerIn: parent
-            color: Theme.text
+            color: button.textColor
             size: 26
             title: true
         }

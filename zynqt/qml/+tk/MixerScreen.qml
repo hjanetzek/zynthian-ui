@@ -5,18 +5,17 @@ import ".."
 // toggle button, a mute button (speaker icon), a flags row, the balance bar, the fader (a fill
 // from the bottom, no handle) with two peak meters and a vertical two-line label, and the legend
 // (chain kind and MIDI channel; red when selected, dark red main, dark blue mixbus). The main
-// strip on the right, the others scroll. Launcher mode: the shared view (MixerView).
+// strip on the right, the others scroll. Launcher mode (zynthian_gui_mixer.set_launcher_mode):
+// the same strips, the fader replaced by the level as a horizontal bar and a column of pads (the
+// main strip: the phrases).
 Item {
     id: root
 
     property bool shown: true
     readonly property bool launcherMode: zyn.currentScreen === "launcher"
 
-    MixerView {
-        anchors.fill: parent
-        shown: root.shown
-        visible: root.launcherMode
-    }
+    readonly property var launcher: zyn.launcherModel
+    property real launcherScroll: 0
 
     // Geometry as zynthian_gui_mixer.update_layout
     readonly property int visibleChains: zyn.visibleChains > 0 ? zyn.visibleChains
@@ -31,6 +30,21 @@ Item {
     readonly property int faderY: balanceY + balanceHeight
     readonly property int legendY: height - legendHeight
     readonly property int faderHeight: legendY - faderY
+    readonly property int launcherY: faderY + balanceHeight
+    readonly property int padHeight: Math.floor((legendY - launcherY) / (launcher.visiblePads + 0.2))
+    readonly property real padAreaHeight: padHeight * launcher.phrases
+    function showPhrase(phrase) {
+        const top = phrase * padHeight
+        const view = legendY - launcherY
+        if (top < launcherScroll)
+            launcherScroll = Math.max(0, top)
+        else if (top + padHeight > launcherScroll + view)
+            launcherScroll = Math.max(0, top + padHeight - view)
+    }
+    Connections {
+        target: root.launcher
+        function onPhraseChanged() { root.showPhrase(root.launcher.phrase) }
+    }
     // Fonts in Tk points: min(legend / 2, W / 4); labels 0.9, icons 1.2 of it
     readonly property int fontPt: Math.min(Math.floor(0.5 * legendHeight), Math.floor(0.25 * width))
 
@@ -45,13 +59,11 @@ Item {
     visible: true
     Rectangle {
         anchors.fill: parent
-        visible: !root.launcherMode
         color: root.panelBg
     }
 
     ListView {
         id: strips
-        visible: !root.launcherMode
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -90,7 +102,6 @@ Item {
 
     // Black gap left of the main strip
     Rectangle {
-        visible: !root.launcherMode
         anchors.right: mainView.left
         width: 4
         height: root.faderY + root.faderHeight
@@ -99,7 +110,6 @@ Item {
 
     ListView {
         id: mainView
-        visible: !root.launcherMode
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -180,10 +190,11 @@ Item {
             }
             TapHandler { onTapped: strip.stripModel.toggleMute(strip.index) }
         }
-        // Separator between strips (black), over the buttons and the balance
+        // Separator between strips (black), over the buttons and the balance (launcher mode:
+        // also the level bar)
         Rectangle {
             x: strip.wwidth; width: strip.sepWidth
-            height: root.faderY
+            height: root.launcherMode ? root.launcherY : root.faderY
             color: "#000000"
         }
         // Balance
@@ -205,9 +216,55 @@ Item {
                 onWheel: (ev) => strip.nudge("balance", ev.angleDelta.y > 0 ? 1 : -1)
             }
         }
+        // Launcher mode: the level as a horizontal bar, the pads
+        Rectangle {
+            visible: root.launcherMode && strip.hasMixer
+            y: root.faderY
+            width: strip.wwidth * strip.level
+            height: root.balanceHeight
+            color: strip.active ? root.faderColorHl : root.faderColor
+        }
+        Item {
+            visible: root.launcherMode
+            y: root.launcherY
+            width: strip.width
+            height: root.legendY - root.launcherY
+            clip: true
+            Column {
+                y: -root.launcherScroll
+                Repeater {
+                    model: root.launcher.phrases
+                    LauncherPad {
+                        required property int index
+                        launcher: root.launcher
+                        shown: root.launcherMode
+                        chainId: strip.chainId
+                        phrase: index
+                        isMain: strip.isMain
+                        selected: strip.active && index === root.launcher.phrase
+                        fontPt: root.fontPt
+                        width: strip.width
+                        height: root.padHeight
+                    }
+                }
+            }
+            DragHandler {
+                target: null
+                xAxis.enabled: false
+                property real startScroll: 0
+                onActiveChanged: if (active) startScroll = root.launcherScroll
+                onTranslationChanged: root.launcherScroll = Math.max(0, Math.min(
+                    root.padAreaHeight - parent.height, startScroll - translation.y))
+            }
+            WheelHandler {
+                onWheel: (event) => root.launcherScroll = Math.max(0, Math.min(
+                    root.padAreaHeight - parent.height, root.launcherScroll - event.angleDelta.y / 2))
+            }
+        }
         // Fader
         Item {
             id: fader
+            visible: !root.launcherMode
             y: root.faderY
             width: strip.width
             height: root.faderHeight

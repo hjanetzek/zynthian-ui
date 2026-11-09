@@ -85,8 +85,9 @@ Rectangle {
         anchors.topMargin: 2
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 4
-        anchors.rightMargin: 4
+        // Tk: the text at the canvas' left edge, wrapped at side_width - 2
+        anchors.leftMargin: 2
+        anchors.rightMargin: 0
         wrapMode: Text.WordWrap
         text: pane.info
         color: Theme.text

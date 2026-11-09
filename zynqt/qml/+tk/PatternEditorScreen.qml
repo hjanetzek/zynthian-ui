@@ -66,6 +66,11 @@ Rectangle {
     property real lastRowHeight: rowHeight
     property real lastStepWidth: stepWidth
     onRowHeightChanged: {
+        // Not while the screen gets its size (the bindings start from 0): showRefRow places it
+        if (lastRowHeight <= 0 || grid.height <= 0) {
+            lastRowHeight = rowHeight
+            return
+        }
         const bottom = (grid.contentHeight - grid.contentY - grid.height) / lastRowHeight
         lastRowHeight = rowHeight
         Qt.callLater(() => {
@@ -84,15 +89,17 @@ Rectangle {
     }
     Connections {
         target: root.pe
-        function onPatternChanged() {
-            // Tk: the cursor's row in the middle of the view
-            Qt.callLater(() => {
-                grid.contentY = Math.max(0, Math.min(grid.contentHeight - grid.height,
-                                                     root.rowY(root.cursor[1]) - grid.height / 2))
-                root.showCursor()
-            })
-        }
+        function onPatternChanged() { Qt.callLater(root.showRefRow) }
     }
+    // Tk (load_pattern, set_keymap_offset): the pattern's reference note as the bottom row, the
+    // cursor in the middle of the view rows above it. Also when this screen is created: the
+    // pattern was loaded before (the Loader creates the screen after the switch)
+    function showRefRow() {
+        grid.contentY = Math.max(0, Math.min(grid.contentHeight - grid.height,
+                                             grid.contentHeight - grid.height - pe.refRow * rowHeight))
+        showCursor()
+    }
+    Component.onCompleted: Qt.callLater(showRefRow)
 
     color: Theme.background
 

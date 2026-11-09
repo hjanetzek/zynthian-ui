@@ -81,6 +81,7 @@ class PatternEditor(QObject):
         self._cp_offset = [0, 0]    # copied block moved by [steps, rows] (knobs)
         self.selected_events = None  # selected notes ({event key: True}, zynseq.get_pattern_selection)
         self.zoom = 0               # cell size change in pixels (knob 1), as Tk's set_grid_zoom
+        self._view_rows = 16        # rows the grid shows (QML), Tk's view_rows
         self._zoom_limits = (-1000, 1000)
         self._block = None           # selected block: [step1, row1, step2, row2] (inclusive)
         self.copied = None          # copied block (its [step1, row1, step2, row2]); taps paste it
@@ -198,10 +199,11 @@ class PatternEditor(QObject):
         self._events = note_events(self.libseq)
         # The cursor as zynthian_gui_pated_notes.load_pattern: the step kept (within the
         # pattern), the row in the middle of the view from the pattern's reference note (the
-        # bottom row shown, libseq's RefNote; 16 rows shown at zoom 0)
+        # bottom row shown, libseq's RefNote). As Tk, the rows shown before the pattern's zoom
+        # applies (Tk computes the row before set_grid_zoom)
         if self.cursor[0] >= self.steps:
             self.cursor[0] = self.steps - 1
-        view_rows = 16
+        view_rows = self._view_rows
         offset = int(self.libseq.getRefNote()) if len(self.keymap) > view_rows else 0
         offset = max(0, min(offset, len(self.keymap) - view_rows))
         self.ref_row = offset
@@ -915,6 +917,11 @@ class PatternEditor(QObject):
                 self.libseq.setPatternZoom(zoom)
             self.zoomChanged.emit()
 
+    @Slot(int)
+    def setViewRows(self, rows):
+        """The rows the grid shows at the current zoom (QML), Tk's view_rows"""
+        self._view_rows = max(1, rows)
+
     @Slot(int, int)
     def setZoomLimits(self, lo, hi):
         """The zoom range of the grid shown (QML: from its cell size limits, as Tk's
@@ -1453,7 +1460,8 @@ class PatternEditor(QObject):
                 self.ui.confirm("Reducing beats in pattern will truncate pattern", do)
             else:
                 do()
-        self._pick("Length (beats)", [(str(b), b) for b in range(1, 65)],
+        # Tk's param editor 'Length' (menu_cb): the lengths as bars and beats
+        self._pick("Length", [(self._pattern_length_text(b, self.bpb), b) for b in range(1, 65)],
                    self.libseq.getBeatsInPattern(self.pattern), apply)
 
     def _pick_steps_per_beat(self):

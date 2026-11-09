@@ -31,6 +31,9 @@ Rectangle {
     readonly property int stepWidth: Math.max(minStepWidth, Math.min(maxStepWidth, baseStepWidth + pe.zoomValue))
     readonly property int selectThickness: 1 + Math.floor(width / 500)
     readonly property int gridFont: Math.min(20, Math.floor(rowHeight / 2))
+    // Rows shown (Tk's view_rows, for the cursor row of the next pattern loaded)
+    readonly property int viewRows: Math.max(1, Math.floor(gridHeight / rowHeight))
+    onViewRowsChanged: pe.setViewRows(viewRows)
 
     function reportZoomLimits() {
         if (gridWidth > 0 && gridHeight > 0)
@@ -66,8 +69,9 @@ Rectangle {
     property real lastRowHeight: rowHeight
     property real lastStepWidth: stepWidth
     onRowHeightChanged: {
-        // Not while the screen gets its size (the bindings start from 0): showRefRow places it
-        if (lastRowHeight <= 0 || grid.height <= 0) {
+        // Not while the screen gets its size (the bindings start from 0): showRefRow places it;
+        // a pinch places the grid itself (under the fingers)
+        if (lastRowHeight <= 0 || grid.height <= 0 || pinch.active) {
             lastRowHeight = rowHeight
             return
         }
@@ -82,6 +86,8 @@ Rectangle {
     onStepWidthChanged: {
         const left = grid.contentX / lastStepWidth
         lastStepWidth = stepWidth
+        if (pinch.active)
+            return
         Qt.callLater(() => {
             grid.contentX = Math.max(0, Math.min(grid.contentWidth - grid.width, left * stepWidth))
             showCursor()
@@ -99,7 +105,10 @@ Rectangle {
                                              grid.contentHeight - grid.height - pe.refRow * rowHeight))
         showCursor()
     }
-    Component.onCompleted: Qt.callLater(showRefRow)
+    Component.onCompleted: {
+        pe.setViewRows(viewRows)
+        Qt.callLater(showRefRow)
+    }
 
     color: Theme.background
 
@@ -154,7 +163,7 @@ Rectangle {
         contentWidth: root.steps * root.stepWidth
         contentHeight: Math.max(root.nRows * root.rowHeight, height)
         clip: true
-        interactive: !root.pe.selectMode
+        interactive: !root.pe.selectMode && !pinch.active
         boundsBehavior: Flickable.StopAtBounds
         flickDeceleration: 3000
 
@@ -166,17 +175,12 @@ Rectangle {
             interval: 300
             onTriggered: root.pe.setRefNote(Math.max(0, Math.round((grid.contentHeight - grid.contentY - grid.height) / root.rowHeight)))
         }
-        PinchHandler {
-            target: null
-            property real last: 1
-            onActiveChanged: last = 1
-            onActiveScaleChanged: {
-                const d = Math.round(10 * (activeScale - last))
-                if (d !== 0) {
-                    root.pe.setZoom(root.pe.zoomValue + d)
-                    last = activeScale
-                }
-            }
+        PatternPinch {
+            id: pinch
+            grid: grid
+            view: root
+            // the bottom row kept as the reference note (as after a scroll)
+            onActiveChanged: if (!active) refNoteTimer.restart()
         }
 
         Item {

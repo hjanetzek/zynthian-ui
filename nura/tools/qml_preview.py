@@ -15,7 +15,7 @@ import os
 import sys
 import tempfile
 
-from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, Property, Qt, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow
@@ -29,12 +29,102 @@ COLORS = {"bg": "#000000", "tx": "#ffffff", "tx_off": "#e0e0e0", "on": "#ff0000"
           "alt2": "#ff9000", "error": "#ff0000", "warn": "#ff9000"}
 
 
+class MockStrips(QAbstractListModel):
+    """Mixer strips as zynqt.models.mixer.MixerModel's roles (--mixer)"""
+    ROLES = ["chainId", "name", "midiChan", "level", "balance", "mute", "solo", "record", "isMixbus",
+             "meterIndex", "active", "toggle", "toggleLabel", "description", "legend", "hasMixer"]
+    countChanged = Signal()
+
+    def __init__(self, rows):
+        super().__init__()
+        self.rows = rows
+
+    def rowCount(self, parent=QModelIndex()):
+        return len(self.rows)
+
+    def roleNames(self):
+        return {Qt.UserRole + 1 + i: r.encode() for i, r in enumerate(self.ROLES)}
+
+    def data(self, index, role):
+        return self.rows[index.row()].get(self.ROLES[role - Qt.UserRole - 1])
+
+    @Property(int, notify=countChanged)
+    def count(self):
+        return len(self.rows)
+
+    @Slot(int, float)
+    def setLevel(self, r, v): pass
+
+    @Slot(int, float)
+    def setBalance(self, r, v): pass
+
+    @Slot(int)
+    def toggleMute(self, r): pass
+
+    @Slot(int)
+    def toggleControl(self, r): pass
+
+
+class MockMeters(QObject):
+    levelsChanged = Signal()
+    activeChanged = Signal()
+
+    def __init__(self, levels):
+        super().__init__()
+        self._levels = levels
+        self._active = False
+
+    @Property("QVariantList", notify=levelsChanged)
+    def levels(self):
+        return self._levels
+
+    def _ga(self):
+        return self._active
+
+    def _sa(self, v):
+        self._active = v
+    active = Property(bool, _ga, _sa, notify=activeChanged)
+
+
+class MockZyn(QObject):
+    changed = Signal()
+
+    def __init__(self, screen="mixer"):
+        super().__init__()
+        self._screen = screen
+
+    @Property(str, notify=changed)
+    def currentScreen(self):
+        return self._screen
+
+    @Property(int, notify=changed)
+    def visibleChains(self):
+        return 0
+
+    @Slot(int)
+    def selectChain(self, c): pass
+
+    @Slot(int)
+    def openChain(self, c): pass
+
+    @Slot(int)
+    def openChainManagerOptions(self, c): pass
+
+
+def strip(cid, desc, legend, level, active=False, midi=0, mixbus=False, mute=False, toggle=False):
+    return {"chainId": cid, "name": desc.split("\n")[0], "midiChan": midi, "level": level, "balance": 0.0,
+            "mute": mute, "solo": False, "record": toggle, "isMixbus": mixbus, "meterIndex": 0,
+            "active": active, "toggle": toggle, "toggleLabel": "R", "description": desc,
+            "legend": legend, "hasMixer": True}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("scene")
     ap.add_argument("out")
     ap.add_argument("-t", "--theme", default="classic")
     ap.add_argument("-s", "--size", default="800x480")
+    ap.add_argument("--mixer", action="store_true", help="mock mixer strips (the compare snapshot)")
     a = ap.parse_args()
     w, h = (int(x) for x in a.size.split("x"))
 
@@ -71,6 +161,19 @@ Window {{
         "fontSize": int(os.environ.get("ZYNTHIAN_UI_FONT_SIZE", "16")),
         "uiScale": os.environ.get("ZYNTHIAN_UI_SCALE", "auto"),
         "mainMenuColumns": 0, "v5": False, "colors": COLORS})
+    if a.mixer:
+        rows = [strip(1, "ZynAddSubFX\nMetal Drips", "\u266b 1", 0.383),
+                strip(2, "ZynAddSubFX\nVangelis Saw - C", "\u266b 1", 0.459, active=True),
+                strip(3, "Audio Input 1,2\nCalf Phaser", "\uf130", 0.57)]
+        for i, r in enumerate(rows):
+            r["meterIndex"] = i
+        mocks = [MockStrips(rows), MockStrips([strip(0, "Main\nSC4", "Main", 0.8)]),
+                 MockMeters([0.0] * 12), MockMeters([0.0] * 4), MockZyn()]
+        app._mocks = mocks
+        for m in mocks:
+            m.setParent(app)
+        for name, m in zip(("mixerStrips", "mainStrip", "mixerMeters", "mainMeters", "zyn"), mocks):
+            ctx.setContextProperty(name, m)
     engine.warnings.connect(lambda ws: [print("QML:", x.toString(), file=sys.stderr) for x in ws])
     engine.load(QUrl.fromLocalFile(tmp.name))
     roots = engine.rootObjects()

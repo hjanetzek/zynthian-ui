@@ -52,7 +52,7 @@ class Launcher(QObject):
     def phrase(self):
         return self.zynseq.phrase
 
-    @Property(int, constant=True)
+    @Property(int, notify=padsChanged)
     def visiblePads(self):
         """Pads shown at once (admin: Visible Launchers)"""
         return zynthian_gui_config.visible_launchers if zynthian_gui_config.visible_launchers > 0 else 8

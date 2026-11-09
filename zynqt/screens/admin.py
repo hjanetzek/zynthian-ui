@@ -9,6 +9,7 @@ import subprocess
 import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 from zyngui import zynthian_admin_settings, zynthian_gui_config as cfg
+import zynconf
 from zynconf import zynthian_paths
 from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry, separator
 
@@ -62,17 +63,17 @@ class Admin(SelectorScreen):
                            info="MIDI program changes load processor presets. Select to load ZS3s instead."))
             e.append(entry(_check(cfg.midi_bank_change) + "MIDI Bank Change", toggle(s.toggle_bank_change),
                            icon="midi_settings.png", info="MIDI bank changes select processor banks."))
-        e.append(entry(_check(lib_zyncore.get_active_midi_chan()) + "Active MIDI channel",
-                       toggle(s.toggle_active_midi_channel), icon="midi_settings.png",
-                       info="MIDI from devices in active mode goes to the active chain's channel."))
-        e.append(entry(_check(cfg.midi_usb_by_port) + "MIDI-USB mapped by port", toggle(s.toggle_usbmidi_by_port),
-                       icon="midi_settings.png", info="Identify USB MIDI devices by the port they are plugged into."))
         gtrans = lib_zyncore.get_global_transpose()
         e.append(entry(f"Global Transpose ({_signed(gtrans) if gtrans else 'None'})",
                        lambda x: self.pick("Global Transpose", [(_signed(v), v) for v in range(-24, 25)],
                                            lib_zyncore.get_global_transpose(), lib_zyncore.set_global_transpose),
                        icon="midi_settings.png",
                        info="MIDI note transpose. It affects all MIDI messages, in addition to each chain's transpose."))
+        e.append(entry(_check(lib_zyncore.get_active_midi_chan()) + "Active MIDI channel",
+                       toggle(s.toggle_active_midi_channel), icon="midi_settings.png",
+                       info="MIDI from devices in active mode goes to the active chain's channel."))
+        e.append(entry(_check(cfg.midi_usb_by_port) + "MIDI-USB mapped by port", toggle(s.toggle_usbmidi_by_port),
+                       icon="midi_settings.png", info="Identify USB MIDI devices by the port they are plugged into."))
         e.append(entry(f"Channel Pressure => CC ({cfg.midi_chanpress_cc or 'NONE'})",
                        lambda x: self.pick("Channel Pressure => CC",
                                            [("NONE", 0)] + [(f"CC {v}", v) for v in range(1, 120)],
@@ -116,8 +117,10 @@ class Admin(SelectorScreen):
                                            cfg.visible_mixer_strips,
                                            lambda v: (s.set_visible_mixer_strips(v), self.ui.mixer_settings_changed())),
                        icon="settings.png", info="Mixer strips shown at once (others by flicking). Auto: all."))
-        e.append(entry(f"Visible Launchers ({cfg.visible_launchers})", icon="settings.png", enabled=False,
-                       info="The launcher is not ported yet."))
+        e.append(entry(f"Visible Launchers ({cfg.visible_launchers})",
+                       lambda x: self.pick("Visible launchers", [(str(v), v) for v in range(1, 17)],
+                                           cfg.visible_launchers, self.set_visible_launchers),
+                       icon="settings.png", info="Launcher pads shown at once per strip."))
         e.append(entry(f"Mixer Toggle Control ({cfg.mixer_toggle})",
                        lambda x: self.pick("Toggle Control", [(v, v) for v in s.MIXER_TOGGLES], cfg.mixer_toggle,
                                            lambda v: (s.set_mixer_toggle(v), self.ui.mixer_settings_changed())),
@@ -128,6 +131,18 @@ class Admin(SelectorScreen):
         e.append(entry(_check(cfg.preset_preload) + "Preset Preload", toggle(s.toggle_preset_preload),
                        icon="settings.png", info="Load presets when they are selected in the list."))
 
+        nav = {"v5_keypad_left": "V5 keypad at Left", "v5_keypad_right": "V5 keypad at right"}.get(
+            cfg.touch_navigation, "None")
+        e.append(entry(f"Touch Navigation: {nav}", lambda x: self.touch_navigation_menu(), icon="settings.png",
+                       info="Enable touch-screen V5 buttons."))
+
+        e.append(separator("> SCREEN"))
+        e.append(entry("Calibrate Touchscreen", lambda x: self.ui.cuia_screen_calibrate(), icon="settings.png",
+                       info="Show touchscreen calibration."))
+        e.append(entry("Clean Screen", lambda x: self.ui.cuia_screen_clean(), icon="settings.png",
+                       info="10s countdown with no touch trigger. Allows screen to be cleaned without "
+                            "triggering any action."))
+
         e.append(separator("> SYSTEM"))
         e.append(entry("Restart UI", lambda x: self.ui.confirm("Restart the user interface?",
                                                                  lambda: self.ui.exit(102)),
@@ -135,6 +150,21 @@ class Admin(SelectorScreen):
         e.append(entry("Exit", lambda x: self.ui.confirm("Exit zynthian?", lambda: self.ui.exit(101)),
                        icon="poweroff.png", info="Save the state and exit zynthian."))
         self.set_entries(e)
+
+    def set_visible_launchers(self, value):
+        zynthian_admin_settings.set_visible_launchers(value)
+        self.ui.launcher.padsChanged.emit()
+
+    def touch_navigation_menu(self):
+        """zynthian_gui_admin.touch_navigation_menu: None / keypad left / right, then restart"""
+        def apply(value):
+            if value != cfg.touch_navigation:
+                def do():
+                    zynconf.save_config({"ZYNTHIAN_UI_TOUCH_NAVIGATION": value})
+                    self.ui.exit(102)
+                self.ui.confirm("Restart UI to apply touch-navigation settings?", do)
+        self.pick("Touch Navigation", [("None", ""), ("V5 keypad at left", "v5_keypad_left"),
+                                       ("V5 keypad at right", "v5_keypad_right")], cfg.touch_navigation, apply)
 
     # Hotplug USB audio
 

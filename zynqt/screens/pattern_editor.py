@@ -71,6 +71,8 @@ class PatternEditor(QObject):
         self.cc_mode = False        # CC view instead of the notes
         self.cc_num = 64
         self.cc_cursor = 0          # step
+        self.cc_row = 64            # the value row of the cursor (zynthian_gui_pated_cc.selected_cell)
+        self.cc_show_all = False    # the CC knob also offers CCs without a controller (V5 knob 0 bold)
         self.select_mode = False    # block edit mode: touch selects a block instead of adding notes
         self.edit_mode = EDIT_MODE_NONE
         self.edit_param = 0         # EDIT_PARAM_TITLES index
@@ -194,16 +196,15 @@ class PatternEditor(QObject):
         self.keymap_name, self.keymap = load_keymap(self.ui.chain_manager, self.channel, self.libseq.getScale(),
                                                     self.libseq.getTonic())
         self._events = note_events(self.libseq)
-        row_of = {k["note"]: i for i, k in enumerate(self.keymap)}
-        notes = sorted((e.position, e.val1_start) for e in self._events if e.val1_start in row_of)
-        if notes:
-            # Start at the first note, so the pattern's notes are in view
-            self.cursor = [notes[0][0], row_of[notes[0][1]]]
-        else:
-            if self.cursor[0] >= self.steps:
-                self.cursor[0] = 0
-            if not 0 <= self.cursor[1] < len(self.keymap):
-                self.cursor[1] = row_of.get(60, len(self.keymap) // 2)
+        # The cursor as zynthian_gui_pated_notes.load_pattern: the step kept (within the
+        # pattern), the row in the middle of the view from the pattern's reference note (the
+        # bottom row shown, libseq's RefNote; 16 rows shown at zoom 0)
+        if self.cursor[0] >= self.steps:
+            self.cursor[0] = self.steps - 1
+        view_rows = 16
+        offset = int(self.libseq.getRefNote()) if len(self.keymap) > view_rows else 0
+        offset = max(0, min(offset, len(self.keymap) - view_rows))
+        self.cursor[1] = max(0, min(len(self.keymap) - 1, offset + view_rows // 2))
         self.libseq.isPatternModified()   # reset the flag
         self._pending = False
         self.selected_events = None
@@ -326,7 +327,12 @@ class PatternEditor(QObject):
     @Slot()
     def toggleCcMode(self):
         self.cc_mode = not self.cc_mode
+        if self.edit_mode != EDIT_MODE_NONE:
+            self.set_edit_mode(EDIT_MODE_NONE)
+        if self.cc_mode:
+            self._cc_select()
         self.ccChanged.emit()
+        self.patternChanged.emit()   # the title
 
     @Slot(int, int)
     def setCc(self, step, value):
@@ -339,6 +345,7 @@ class PatternEditor(QObject):
         else:
             self.libseq.addControl(step, self.cc_num, value, value, 1, 0)
         self.cc_cursor = step
+        self.cc_row = value
         self._pending = True    # one undo step at the end of the gesture (ccEditDone)
         self.libseq.isPatternModified()
         self.ccChanged.emit()
@@ -366,26 +373,102 @@ class PatternEditor(QObject):
 
         def apply(n):
             self.cc_num = n
-            self.ccChanged.emit()
+            self._cc_select()
+            self.patternChanged.emit()
 
         self._pick("CC number", [(label(n), n) for n in range(1, 128)], self.cc_num, apply)
 
+    # CC editor keys and knobs as zynthian_gui_pated_cc: a step and a value row cursor; knob 0
+    # the CC number, knob 2 the value (of the step's event) or the row, knob 3 the step
+
+    @Property(int, notify=ccChanged)
+    def ccRow(self):
+        return self.cc_row
+
+    def _cc_value(self, step):
+        v = self.libseq.getControlValue(step, self.cc_num) if self._shown else 255
+        return v if v <= 127 else None
+
+    def _cc_select(self, step=None, row=None):
+        """zynthian_gui_pated_cc.select_cell: the cursor on the step's event value, else row"""
+        step = self.cc_cursor if step is None else step
+        step = max(0, min(self.steps - 1, int(step)))
+        val = self._cc_value(step)
+        if val is not None:
+            row = val
+        else:
+            row = self.cc_row if row is None else max(0, min(127, int(row)))
+        self.cc_cursor, self.cc_row = step, row
+        self.ccChanged.emit()
+
+    def nudge_cc_num(self, dval=0):
+        """The next CC with a controller mapped (all CCs with cc_show_all), as nudge_cc_num"""
+        cm = self.ui.chain_manager
+        cc = 0 if dval == 0 else self.cc_num
+        while (dval >= 0 and cc < 127) or (dval < 0 and cc > 1):
+            cc += 1 if dval >= 0 else -1
+            if self.cc_show_all or cm.get_zynstep_mapped_zctrl(self.channel, cc):
+                self.cc_num = cc
+                self._cc_select()
+                self.patternChanged.emit()
+                return
+
+    def _cc_toggle(self):
+        step, row = self.cc_cursor, self.cc_row
+        self._flush_pending()
+        if self._cc_value(step) is None:
+            self.libseq.addControl(step, self.cc_num, row, row, 1, 0)
+        else:
+            self.libseq.removeControl(step, self.cc_num)
+        self._snapshot()
+        self.libseq.isPatternModified()
+        self._cc_select()
+
+    def _cc_zynpot(self, i, d):
+        m = self.edit_mode
+        if i == self._ctrl(0):
+            if m == EDIT_MODE_NONE:
+                self.nudge_cc_num(d)
+        elif i == self._ctrl(1):
+            self.setZoom(self.zoom + d)
+        elif i == self._ctrl(2):
+            if m == EDIT_MODE_NONE:
+                step = self.cc_cursor
+                val = self._cc_value(step)
+                if val is not None:
+                    new = max(0, min(127, val - d))
+                    if new != val:
+                        self._flush_pending()
+                        self.libseq.setControlValue(step, self.cc_num, new, new)
+                        self._pending = True
+                        self.libseq.isPatternModified()
+                self._cc_select(step, self.cc_row - d)
+        elif i == self._ctrl(3):
+            if m == EDIT_MODE_HISTORY:
+                self.redo() if d > 0 else self.undo()
+                self.ccChanged.emit()
+            elif m == EDIT_MODE_NONE:
+                self._cc_select(self.cc_cursor + d, None)
+        return True
+
     def _cc_navigate(self, what):
-        step = self.cc_cursor
         if what in ("left", "right"):
-            self.cc_cursor = max(0, min(self.steps - 1, step + (1 if what == "right" else -1)))
-            self.ccChanged.emit()
-        elif what in ("up", "down"):
-            v = self.libseq.getControlValue(step, self.cc_num)
-            v = 64 if v > 127 else v + (1 if what == "up" else -1)
-            self.setCc(step, v)
-            self.ccEditDone()
-        elif what == "select":
-            if self.libseq.getControlValue(step, self.cc_num) <= 127:
-                self.removeCc(step)
+            if self._history_keys():
+                self.redo() if what == "right" else self.undo()
+                self.ccChanged.emit()
             else:
-                self.setCc(step, 64)
-                self.ccEditDone()
+                self._cc_zynpot(self._ctrl(3), 1 if what == "right" else -1)
+        elif what in ("up", "down"):
+            if self._history_keys():
+                self.redo_all() if what == "up" else self.undo_all()
+                self.ccChanged.emit()
+            else:
+                self._cc_zynpot(self._ctrl(2), -1 if what == "up" else 1)
+        elif what == "select":
+            if self.edit_mode == EDIT_MODE_NONE:
+                self._cc_toggle()
+            else:
+                self.set_edit_mode(EDIT_MODE_NONE)
 
     # Editing (undo snapshots around each change, as the Tk editor)
 
@@ -660,6 +743,17 @@ class PatternEditor(QObject):
             title = f"{name} {chain_name or f'MIDI-{self.channel + 1}'}"
         else:
             title = f"Pattern {self.pattern}"
+        if self.cc_mode:
+            # zynthian_gui_pated_cc.get_title
+            title = f"{title}: CC{self.cc_num}"
+            zctrl = self.ui.chain_manager.get_zynstep_mapped_zctrl(self.channel, self.cc_num) if self._shown else None
+            if zctrl:
+                return f"{title} ({zctrl.name})"
+            names = {1: "ModWheel", 2: "Breath", 5: "Portamento", 7: "Volume", 8: "Balance", 10: "Pan",
+                     11: "Expression", 64: "Sustain Pedal", 66: "Sostenuto Pedal", 67: "Soft Pedal",
+                     71: "Resonance", 72: "Release", 73: "Attack", 74: "Cutoff", 91: "Reverb", 92: "Tremolo",
+                     93: "Chorus", 94: "Detune"}
+            return f"{title} (MIDI {names[self.cc_num]})" if self.cc_num in names else title
         return f"{title}: {'Chords' if self.chord_mode else 'Notes'}"
 
     def _cursor_note_data(self):
@@ -689,6 +783,8 @@ class PatternEditor(QObject):
     def set_edit_mode(self, mode):
         """zynthian_gui_pated_base.set_edit_mode: the block mode starts a block at the cursor;
         back to none clears the block and the copy"""
+        if self.cc_mode and mode in (EDIT_MODE_SINGLE, EDIT_MODE_MULTI, EDIT_MODE_BLOCK):
+            mode = EDIT_MODE_NONE
         self.edit_mode = mode
         self.select_mode = mode == EDIT_MODE_BLOCK
         if mode == EDIT_MODE_BLOCK and not self.copied:
@@ -943,6 +1039,65 @@ class PatternEditor(QObject):
         self.cursor = [start if start >= 0 else step, row]
         self.cursorChanged.emit()
         self.set_edit_mode(EDIT_MODE_SINGLE if self.edit_mode == EDIT_MODE_NONE else EDIT_MODE_MULTI)
+
+    # Touch: hold a note, then drag (zynthian_gui_pated_notes.on_grid_drag with drag_note): up /
+    # down its velocity, sideways its duration; an empty cell: the cursor follows, the note is
+    # added on release
+
+    @Slot(int, int, result="QVariantList")
+    def noteAt(self, step, row):
+        """[start step, velocity, duration] of the note covering the cell, [] if none"""
+        note = self._note(row)
+        if note is None:
+            return []
+        start = self.libseq.getNoteStart(step, note)
+        if start < 0:
+            return []
+        return [start, self.libseq.getNoteVelocity(start, note), self.libseq.getNoteDuration(start, note)]
+
+    @Slot(int, int, int)
+    def dragVelocity(self, step, row, velocity):
+        note = self._note(row)
+        if note is not None and 1 <= velocity <= 127 and self.libseq.getNoteVelocity(step, note) != velocity:
+            self._flush_pending() if not self._pending else None
+            self.libseq.setNoteVelocity(step, note, velocity)
+            self._pending = True
+            self._reload_events()
+            self.cursorChanged.emit()
+
+    @Slot(int, int, int)
+    def dragDuration(self, step, row, duration):
+        note = self._note(row)
+        if note is None or duration <= 0:
+            return
+        if self.libseq.getNoteDuration(step, note) != duration:
+            vel = self.libseq.getNoteVelocity(step, note)
+            self._flush_pending() if not self._pending else None
+            self.libseq.addNote(step, note, vel, float(duration), 0.0)
+            self._pending = True
+            self._reload_events()
+            self.cursorChanged.emit()
+
+    @Slot(int, int)
+    def setCursor(self, step, row):
+        if 0 <= step < self.steps and 0 <= row < len(self.keymap):
+            if [step, row] != self.cursor:
+                self.cursor = [step, row]
+                self.cursorChanged.emit()
+                if self.edit_mode == EDIT_MODE_SINGLE:
+                    self.modeChanged.emit()
+
+    @Slot(int)
+    def setRefNote(self, row):
+        """The bottom row shown (the grid scrolled): libseq keeps it per pattern (Tk's
+        set_keymap_offset)"""
+        if self._shown and row >= 0:
+            self.libseq.setRefNote(int(row))
+
+    @Slot()
+    def editDone(self):
+        """End of a drag: one undo step"""
+        self._flush_pending()
 
     @Slot(int)
     def playRow(self, row):
@@ -1424,12 +1579,7 @@ class PatternEditor(QObject):
         """Knob 1 zoom (or the duration while editing), 2 the row (block, parameter value), 3 the
         step (block, edit parameter, undo / redo)"""
         if self.cc_mode:
-            if i == self._ctrl(3):
-                self._cc_navigate("right" if d > 0 else "left")
-            elif i == self._ctrl(2):
-                for _ in range(abs(d)):
-                    self._cc_navigate("down" if d > 0 else "up")
-            return True
+            return self._cc_zynpot(i, d)
         m = self.edit_mode
         if i == self._ctrl(1):
             if m == EDIT_MODE_SINGLE:
@@ -1470,6 +1620,7 @@ class PatternEditor(QObject):
         """SELECT (zynthian_gui_pated_base.switch_select): short toggles the note / copies, pastes
         the block / ends the edit mode; bold the note's parameters (the selected notes')"""
         if self.cc_mode:
+            # The CC editor has no block / note edit modes (zynthian_gui_pated_cc.set_edit_mode)
             if t == "S":
                 self._cc_navigate("select")
             return True
@@ -1538,6 +1689,10 @@ class PatternEditor(QObject):
             return False
         if i == 0 and t == "S":
             self.toggleCcMode()
+            return True
+        if i == 0 and t == "B" and self.cc_mode:
+            self.cc_show_all = not self.cc_show_all
+            self.nudge_cc_num()
             return True
         if i == 1:
             if t == "S":

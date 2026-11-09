@@ -242,6 +242,30 @@ In the QEMU VM (`docs/qemu-testing.md`; Khand is installed there): `nura/tools/s
 `export ZYNTHIAN_QT_THEME=...` in the VM's `~/.config/zynthian/zynthian_custom_config.sh`, the
 CUIA `RESTART_UI` (QML errors at load end up in `~/.local/state/tinydm.log`), CUIAs with `oscsend localhost 1370 /cuia/...` in the VM, `nura/tools/screenshot.sh -V`.
 
+### QML hot reload (qmlpreview)
+
+For development only, QML changes can reach the running UI without `RESTART_UI`, with Qt 6's QML
+Preview:
+
+- `export ZYNTHIAN_QT_QMLPREVIEW=1` in `~/.config/zynthian/zynthian_custom_config.sh`, then
+  `RESTART_UI` (`nura/tools/sync_ui.sh -V -R`). The launcher (`desktop/zynthian_desktop.sh`, which
+  `sync_ui.sh` copies too) then starts `/usr/lib/qt6/bin/qmlpreview --verbose ./zynthian_qt_main.py`,
+  and `zynthian_qt_main.py` enables QML debugging (`QQmlDebuggingEnabler`) before the application
+  is created. On success qmlpreview logs "Inplace updates configuration: enabled" (in
+  `~/.local/state/tinydm.log`). Exit codes (restart, power off) pass through as before.
+- `nura/tools/sync_ui.sh -V -q` copies only `zynqt/qml` (file by file, no restart); qmlpreview
+  sees the changed files and reloads them in the running UI.
+- Gotchas: the tool must be Qt 6's (`/usr/lib/qt6/bin/qmlpreview`, package
+  `qt6-qtdeclarative-dev`; `/usr/bin/qmlpreview` on a desktop may be Qt 5's, which silently does
+  nothing). qmlpreview inserts `-qmljsdebugger=...` after the program, so the script is started
+  directly (it is executable, `#!/usr/bin/python3`); `qmlpreview python3 script.py` breaks.
+- Limits: a change of a literal updates in place; a structural change rebuilds the component
+  (its state is lost); Python changes still need `RESTART_UI`. Never in production: the QML
+  debug server can control the UI. Without the variable nothing changes.
+- The component preview has a live mode for the same: `/usr/lib/qt6/bin/qmlpreview
+  ./nura/tools/qml_preview.py SCENE.qml --live [-t THEME]` (a window instead of a PNG; zynqt/qml
+  files reload, the scene itself is a copy and doesn't).
+
 On the Duet: copy the changed files into `/usr/share/zynthian/zynthian-ui` (as in
 `docs/performance-measurement.md`), restart the session, `nura/tools/screenshot.sh`.
 

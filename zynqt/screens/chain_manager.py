@@ -22,6 +22,7 @@ class ChainManager(QObject):
         self._graph = []
         self._pinned = 0
         self.selected = [0, 0, 0]
+        self._last_proc = None      # the current processor when last hidden
         self._shown = False
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
         ui.bridge.snapshotLoaded.connect(self._rebuild_if_shown)
@@ -33,15 +34,18 @@ class ChainManager(QObject):
         self._shown = True
         self._build()
         # Back from a node's screen: keep that node selected if it is still in the active chain
+        # (Tk's build_view: also when the current processor changed since it was last shown)
         node = self._node(self.selected)
         active = self.chain_manager.active_chain
-        if node is None or active is None or node["chain_id"] != active.chain_id:
+        if node is None or active is None or node["chain_id"] != active.chain_id \
+                or getattr(self.ui, "current_processor", None) is not self._last_proc:
             self._select_active()
         else:
             self.selectionChanged.emit()
 
     def hide(self):
         self._shown = False
+        self._last_proc = getattr(self.ui, "current_processor", None)
 
     def _rebuild_if_shown(self):
         if self._shown:

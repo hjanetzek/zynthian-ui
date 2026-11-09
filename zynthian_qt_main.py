@@ -63,6 +63,13 @@ def add_switch_timing(ui, window):
 
 def main():
     logging.info("STARTING ZYNTHIAN-UI (Qt) ...")
+    # QML hot reload for development (docs/qt-theming.md): ZYNTHIAN_QT_QMLPREVIEW=1 and the
+    # launcher starts this script through Qt 6's qmlpreview, which passes -qmljsdebugger=... (Qt
+    # reads it from sys.argv). Never without the variable: the debug server is a remote control.
+    if os.environ.get("ZYNTHIAN_QT_QMLPREVIEW") == "1":
+        from PySide6.QtQml import QQmlDebuggingEnabler
+        QQmlDebuggingEnabler.enableDebugging(True)
+        logging.warning("QML debugging enabled (ZYNTHIAN_QT_QMLPREVIEW=1)")
     app = QGuiApplication(sys.argv)
     app.setApplicationName("zynthian")
     # The Wayland app_id: compositors match windows by it (zynthian-niri's window rules)

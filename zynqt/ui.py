@@ -1236,7 +1236,15 @@ class ZynUI(QObject):
 
     def cuia_toggle_midi_learn(self, params=None):
         screen = self._learn_screen()
-        if screen is not None:
+        if screen is self.chain_control_screen:
+            # As zynthian_gui: the state manager's learn state is the screen's learning mode
+            # (nothing in select mode)
+            if screen.selectMode:
+                self.state_manager.set_midi_learn(None)
+                return
+            screen.toggle_midi_learn()
+            self.state_manager.set_midi_learn(screen.midi_learning)
+        elif screen is not None:
             screen.toggle_midi_learn()
         elif self.state_manager.midi_learn_state:
             self.state_manager.set_midi_learn(False)

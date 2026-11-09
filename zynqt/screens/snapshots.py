@@ -46,6 +46,7 @@ class Options(SelectorScreen):
 
 class Snapshots(SelectorScreen):
     name = "snapshot"
+    default_icon = "snapshot.png"
 
     def __init__(self, ui, parent=None):
         super().__init__(ui, parent)
@@ -56,10 +57,11 @@ class Snapshots(SelectorScreen):
         self.files.check_bankless_mode()
         if sm.snapshot_bank is None:
             rows, index, _ = self.files.bank_list(self.index)
-            self.set_title("Snapshots")
+            # (zynthian_gui_snapshot.set_select_path)
+            self.set_title("Snapshots" if self.files.bankless_mode else "Snapshot Bank")
         else:
             rows, index, _ = self.files.snapshot_list(self.index)
-            self.set_title("Snapshots" if self.files.bankless_mode else f"Snapshots > {sm.snapshot_bank}")
+            self.set_title("Snapshots" if self.files.bankless_mode else f"Snapshots: {sm.snapshot_bank}")
         self.set_entries(list_data_entries(rows, "Bold to show options."), index)
 
     def show_menu(self):

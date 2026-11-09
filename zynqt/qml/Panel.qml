@@ -1,5 +1,5 @@
 // A plate: the background of keys, list rows, strips, controllers and buttons. With the theme's
-// corner cut 0 a rectangle (with radius), otherwise an octagon with clipped corners,
+// corner cut 0 a rectangle (rounded as the theme says), otherwise an octagon with clipped corners,
 // filled and outlined by one ShapePath (default renderer: triangulated once per size change).
 import QtQuick
 import QtQuick.Shapes
@@ -11,18 +11,21 @@ Item {
     property color borderColor: Theme.frame
     property real borderWidth: Theme.frameWidth
     property real cut: Theme.cut
-    property real radius: 0
+    property real radius: 0          // radius in themes without their own (classic)
+    property bool button: false      // keys and buttons: pills in themes with pillButtons
 
     readonly property bool cutCorners: cut > 0
     // Keep the outline inside the item
     readonly property real _i: borderWidth / 2
     readonly property real _c: Math.min(cut, width / 2, height / 2)
+    readonly property real _r: Theme.pillButtons && button ? Math.min(width, height) / 2
+                               : (Theme.panelRadius > 0 ? Math.min(Theme.panelRadius, width / 2, height / 2) : radius)
 
     Rectangle {
         visible: !root.cutCorners
         anchors.fill: parent
         color: root.color
-        radius: root.radius
+        radius: root._r
         border.color: root.borderWidth > 0 ? root.borderColor : "transparent"
         border.width: root.borderWidth
     }

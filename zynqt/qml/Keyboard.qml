@@ -90,6 +90,7 @@ Rectangle {
         width: 70
         height: 52
         radius: 3
+        button: true
         color: tap.pressed ? Theme.keyText : (highlighted ? (Theme.isGalactica ? Theme.select : "#205080")
                                                            : Theme.keyBackground)
         Label {

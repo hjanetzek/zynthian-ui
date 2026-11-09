@@ -442,6 +442,7 @@ Item {
         height: 36
         color: on ? onColor : Theme.keyBackground
         cut: Theme.cut / 2
+        button: true
         Label { id: t; anchors.centerIn: parent; color: Theme.text; size: 16 }
         TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: button.tapped() }
     }
@@ -453,6 +454,7 @@ Item {
         width: 90
         height: 60
         radius: 4
+        button: true
         color: moveTap.pressed ? Theme.keyText : Theme.overlay
         borderColor: Theme.select
         borderWidth: 2

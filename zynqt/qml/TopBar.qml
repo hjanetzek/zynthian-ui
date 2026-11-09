@@ -6,6 +6,9 @@ Rectangle {
 
     property string title
     property bool overlayHint: false   // undocked keypad: the title brings it up
+    property real barStart: 0   // enterprise: where the segments start (after the elbow's arm)
+    // Enterprise: title and status above the segment bar
+    readonly property real _shift: Theme.elbow ? -Theme.elbowBar / 2 : 0
 
     signal titleTapped
     signal titleSwipedDown
@@ -43,8 +46,33 @@ Rectangle {
         }
     }
 
+    // Enterprise: segments continuing the elbow's arm, the last one with a rounded end
+    Row {
+        visible: Theme.elbow
+        anchors.left: parent.left
+        anchors.leftMargin: root.barStart
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: Theme.elbowBar
+        spacing: 5
+        readonly property var c: Theme.barColors.length ? Theme.barColors : ["transparent"]
+        Rectangle { width: parent.width - 3 * parent.spacing - 70 - 34 - 56; height: parent.height; color: parent.c[0 % parent.c.length] }
+        Rectangle { width: 70; height: parent.height; color: parent.c[1 % parent.c.length] }
+        Rectangle { width: 34; height: parent.height; color: parent.c[2 % parent.c.length] }
+        Item {
+            width: 56; height: parent.height
+            clip: true
+            Rectangle {   // rounded on the right only
+                x: -parent.height; width: parent.width + parent.height; height: parent.height
+                radius: parent.height / 2
+                color: parent.parent.c[3 % parent.parent.c.length]
+            }
+        }
+    }
+
     Label {
         anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: root._shift
         anchors.left: parent.left
         anchors.leftMargin: 8
         anchors.right: statusRow.left
@@ -70,6 +98,7 @@ Rectangle {
         anchors.rightMargin: 6
         anchors.top: parent.top
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: Theme.elbow ? Theme.elbowBar : 0
         width: 300
 
         TapHandler { onTapped: root.statusTapped() }

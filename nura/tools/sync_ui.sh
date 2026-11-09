@@ -2,9 +2,12 @@
 usage_text='Copy this checkout'"'"'s Python code into the zynthian-ui installed on the device (or the QEMU
 VM with -V), for testing changes without building packages.
 
-Usage: sync_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-r] [-n]
+Usage: sync_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-r | -R] [-n]
 
   -r   restart the kiosk session afterwards (systemctl restart tinydm), so zynthian runs the new code
+  -R   restart only zynthian (CUIA RESTART_UI over OSC: the launcher starts it again inside the
+       running compositor, no new session; it re-reads ~/.config/zynthian/zynthian_envars.sh and
+       zynthian_custom_config.sh, not /etc/default/zynthian). Falls back to -r without a running UI.
   -n   dry run: list what would be copied
 
 Copies what desktop/install.sh installs as Python: zyngui, zyngine, zynconf, zynautoconnect, zynqt,
@@ -20,10 +23,11 @@ here=$(cd "$(dirname "$0")" && pwd)
 checkout=$(cd "$here/../.." && pwd)
 restart=0
 dry=0
-tool_opts="rn"
+tool_opts="rRn"
 tool_opt() {
 	case $1 in
 		r) restart=1 ;;
+		R) restart=2 ;;
 		n) dry=1 ;;
 	esac
 }
@@ -65,6 +69,14 @@ echo "$files" | (cd "$checkout" && tar -cf - -T -) |
 		sudo chown -R root:root $dst; rm -rf \"\$t\""
 echo "copied $(echo "$files" | wc -l) files to $target:$dst"
 
+if [ $restart = 2 ]; then
+	# An OSC message without arguments: address and type tags, each padded to 4 bytes
+	if dev 'pgrep -f "zynthian_(qt_)?main.py" >/dev/null && python3 -c "import socket; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(b\"/CUIA/RESTART_UI\\0\\0\\0\\0,\\0\\0\\0\", (\"127.0.0.1\", 1370))"'; then
+		echo "zynthian restarted (RESTART_UI)"
+	else
+		restart=1
+	fi
+fi
 if [ $restart = 1 ]; then
 	dev 'sudo systemctl restart tinydm'
 	echo "kiosk session restarted"

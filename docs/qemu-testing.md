@@ -96,12 +96,19 @@ This repository's `nura/tools` take `-V` for the VM (user@127.0.0.1, port `NURA_
 cd ~/bastel/github/zynthian-ui
 export NURA_VM_PORT=2232
 nura/tools/sync_ui.sh -V -r          # copy this checkout's Python code into the VM, restart the session
+nura/tools/sync_ui.sh -V -R          # ... and restart only zynthian (RESTART_UI), not the session
 nura/tools/screenshot.sh -V out.png  # the kiosk screen (once: ssh ... sudo apk add grim)
 nura/tools/zyninject.sh -V ...       # run code inside the running zynthian (see the script)
 nura/tools/thread_cpu.sh -V          # CPU per thread (not the Duet's numbers)
 nura/tools/switch_ui.sh -V tomita    # upstream zynthian-ui (Tk) instead of the Qt UI, and back: qt
 ```
 
+- Prefer `-R` over `-r`: `systemctl restart tinydm` restarts the compositor too (the window goes
+  black and the screen reinitialises, which looks like a reboot to the user watching). `-R` sends
+  the CUIA RESTART_UI over OSC; the launcher starts zynthian again in the running compositor and
+  re-reads `~/.config/zynthian/zynthian_envars.sh` and `zynthian_custom_config.sh` (so set
+  `ZYNTHIAN_QT_THEME` there to switch themes without a session restart). `/etc/default/zynthian`
+  is only read at session start: changes there need `-r`.
 - `sync_ui.sh` copies what `desktop/install.sh` installs as Python (zyngui, zyngine, zynconf,
   zynautoconnect, zynqt, the zynlibs modules, fonts, icons, img, the main scripts) into
   `/usr/share/zynthian/zynthian-ui`. Native code (zynlibs `.so`, zyncoder) isn't copied.

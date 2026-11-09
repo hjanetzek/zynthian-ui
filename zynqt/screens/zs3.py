@@ -8,6 +8,7 @@ from zynqt.screens.base import SelectorScreen, entry, separator
 
 class ZS3(SelectorScreen):
     name = "zs3"
+    default_icon = "zs3.png"   # Tk's selector_info default
 
     def __init__(self, ui, parent=None):
         super().__init__(ui, parent)
@@ -70,8 +71,8 @@ class ZS3(SelectorScreen):
         zs3_ids = sm.get_zs3_ids()
         entries = [entry("Save as new ZS3", data="SAVE_ZS3", icon="zs3_new.png",
                          info="Save current state as a new ZS3.")]
-        if sm.midi_learn_pc is not None:
-            entries.append(separator("Waiting for MIDI Program Change..."))
+        # Tk: a status label under the list while learning
+        self.set_status_line("Waiting for MIDI Program Change..." if sm.midi_learn_pc is not None else "")
         index = None
         if "zs3-0" in sm.zs3:
             entries.append(entry("Default state", data="zs3-0", icon="zs3_default.png",

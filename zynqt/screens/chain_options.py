@@ -9,6 +9,7 @@ from zynqt.screens.base import SelectorScreen, entry, separator
 
 class ChainOptions(SelectorScreen):
     name = "chain_options"
+    default_icon = "zynthian_logo.png"   # Tk's selector_info default
 
     def fill(self):
         chain = self.chain_manager.get_active_chain()

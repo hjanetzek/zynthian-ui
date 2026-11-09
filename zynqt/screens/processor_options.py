@@ -9,6 +9,7 @@ from zynqt.screens.base import SelectorScreen, entry, separator
 
 class ProcessorOptions(SelectorScreen):
     name = "processor_options"
+    default_icon = "zynthian_logo.png"   # Tk's selector_info default
 
     def __init__(self, ui, parent=None):
         super().__init__(ui, parent)

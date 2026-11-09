@@ -9,7 +9,7 @@ ZYNTHIAN_UI=qt
 #ZYNTHIAN_OUTPUT_SCALE=1.5
 
 # Output mode WxH (wlr-randr --custom-mode), for outputs whose preferred mode is wrong; default:
-# none, in a QEMU VM the size of run-qemu.sh's -R. Empty: leave cage's mode.
+# none, in a QEMU VM the size of run_qemu.sh's -R. Empty: leave cage's mode.
 #ZYNTHIAN_OUTPUT_MODE=1280x800
 
 # Output rotation (wlr-randr --transform: normal, 90, 180, 270, flipped, ...) for panels without a

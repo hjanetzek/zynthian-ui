@@ -6,9 +6,13 @@ packages as the devices (kiosk session, PipeWire, the packaged engines and plugi
 from the user's desktop, can be reset at any time, and several can run side by side.
 
 The image is nura-builds' amd64 build (`zynthian-qemu-amd64.img.zst` in its release
-`zynthian-latest`, from Run workflow > architecture `x86_64` with images); the scripts are
-nura-builds' `tools/run-qemu.sh` and `tools/qemu-setup.sh`, and this repository's `nura/tools`
-with `-V`. Checked 2026-11-08 (headless VM, sync, session restart, screenshot).
+`zynthian-latest`, from Run workflow > architecture `x86_64` with images); the scripts are this
+repository's `nura/tools`: `run_qemu.sh` (start a VM), `qemu_setup.sh` (SSH key and sudo),
+`qemu_compare.sh` (upstream zynthian and the Qt port side by side), and the other tools with `-V`.
+Checked 2026-11-08 (headless VM, sync, session restart, screenshot); side by side 2026-11-09.
+
+**To compare upstream zynthian (Tk UI) with the Qt port**, see [Side by side](#side-by-side-upstream-zynthian-and-the-qt-port):
+one command starts both at the V5 kit's screen size.
 
 ## Rules
 
@@ -24,12 +28,12 @@ with `-V`. Checked 2026-11-08 (headless VM, sync, session restart, screenshot).
 ## Start a VM
 
 ```sh
-cd ~/bastel/github/nura-builds
+cd ~/bastel/github/zynthian-ui
 VM=$HOME/.cache/nura-builds-agent      # your directory
 mkdir -p "$VM"
 # first time: copy the user's downloaded image instead of downloading it again
 [ -f "$VM/zynthian-qemu-amd64.img.zst" ] || cp ~/.cache/nura-builds/zynthian-qemu-amd64.img.zst "$VM/"
-tools/run-qemu.sh -d "$VM" -D none -A silent -p 2232 -w 8092 < /dev/null > "$VM/run.log" 2>&1 &
+nura/tools/run_qemu.sh -d "$VM" -D none -A silent -p 2232 -w 8092 < /dev/null > "$VM/run.log" 2>&1 &
 ```
 
 (As a background command of your tool runner; it prints the ports, the serial log and how to stop it
@@ -40,7 +44,7 @@ to `run.log`.) The first boot of a fresh disk takes about a minute (it grows the
 - `-R WxH`: the screen, default 1280x800 (16:10 as the Duet; the kiosk uses scale 1 in a VM, so
   the layout is the Duet's). Other sizes for layout checks: `-R 1024x600`, `-R 800x480`. Headless
   QEMU makes it the guest's preferred mode; a GTK window reports its own first size (640x480)
-  instead, so `run-qemu.sh` also passes the size as SMBIOS SKU `nura-screen=WxH` and the kiosk
+  instead, so `run_qemu.sh` also passes the size as SMBIOS SKU `nura-screen=WxH` and the kiosk
   (postmarketos-ui-zynthian r21 or newer) sets it. Older disks in a window: `wlr-randr --output
   Virtual-1 --custom-mode 1280x800` in the guest (with the session's `WAYLAND_DISPLAY`).
 - `-D` takes QEMU display options after a comma, e.g. `-D gtk,zoom-to-fit=off`.
@@ -58,11 +62,11 @@ window (`-D gtk`) and virtio-sound through the desktop's PipeWire (`-A virtio`; 
 emulated Intel HDA card). Keep the ports, so agents can still reach it:
 
 ```sh
-cd ~/bastel/github/nura-builds
+cd ~/bastel/github/zynthian-ui
 ssh -p 2232 user@127.0.0.1 sudo poweroff        # or: kill $(cat ~/.cache/nura-builds-agent/qemu.pid)
-tools/run-qemu.sh -d ~/.cache/nura-builds-agent -p 2232 -w 8092
+nura/tools/run_qemu.sh -d ~/.cache/nura-builds-agent -p 2232 -w 8092
 # a VM started from a copied disk: the image path as last argument (see "A second VM")
-tools/run-qemu.sh -d ~/.cache/nura-builds-agent-tk -p 2233 -w 8093 ~/.cache/nura-builds-agent-tk/zynthian-qemu-amd64.img
+nura/tools/run_qemu.sh -d ~/.cache/nura-builds-agent-tk -p 2233 -w 8093 ~/.cache/nura-builds-agent-tk/zynthian-qemu-amd64.img
 ```
 
 Turn the volume down: snapshots start playing when they load. Ctrl+Alt+G releases the mouse;
@@ -71,7 +75,7 @@ closing the window stops the VM.
 ## One-time setup per disk
 
 ```sh
-tools/qemu-setup.sh -p 2232
+nura/tools/qemu_setup.sh -p 2232
 ```
 
 Installs your SSH key for the VM's user and passwordless sudo (with the image's password once:
@@ -111,21 +115,58 @@ nura/tools/switch_ui.sh -V tomita    # upstream zynthian-ui (Tk) instead of the 
   `~user/.local/share/zynthian/my-data`; logs with `journalctl -b` in the VM.
 - webconf: `http://localhost:8092` (your `-w` port), login user `user`, password `147147`.
 
-## A second VM from the same disk (e.g. Tk and Qt side by side)
+## A second VM from the same disk
+
+(For upstream zynthian and the Qt port side by side use `qemu_compare.sh`, see below; this is the
+manual way, e.g. for a copy of a VM you have changed.)
 
 Stop the first VM cleanly (`sudo poweroff` in it), copy its disk to a directory of its own and
-start the copy **with the image path as argument**: without it, `run-qemu.sh` finds no `.img.zst`
+start the copy **with the image path as argument**: without it, `run_qemu.sh` finds no `.img.zst`
 in that directory, downloads the latest image and unpacks it over the copy.
 
 ```sh
 mkdir -p ~/.cache/nura-builds-agent-tk
 cp --sparse=always ~/.cache/nura-builds-agent/zynthian-qemu-amd64.img ~/.cache/nura-builds-agent-tk/
-tools/run-qemu.sh -d ~/.cache/nura-builds-agent-tk -D none -A silent -p 2233 -w 8093 \
+nura/tools/run_qemu.sh -d ~/.cache/nura-builds-agent-tk -D none -A silent -p 2233 -w 8093 \
     ~/.cache/nura-builds-agent-tk/zynthian-qemu-amd64.img
 ssh -p 2233 user@127.0.0.1 'sudo sed -i "s/^ZYNTHIAN_UI=.*/ZYNTHIAN_UI=tk/" /etc/default/zynthian; sudo systemctl restart tinydm'
 ```
 
 The tools take the port from `NURA_VM_PORT` with `-V` (`NURA_VM_PORT=2233 nura/tools/screenshot.sh -V out.png`).
+
+## Side by side: upstream zynthian and the Qt port
+
+`nura/tools/qemu_compare.sh` runs two VMs from the same image at the V5 kit's screen size
+(800x480, its MIPI DSI panel; scale 1 in both): one with the Qt port (the image's `zynthian-ui`),
+one with upstream zynthian-ui, the Tk UI (`zynthian-ui-vangelis` from nura-builds: upstream's
+vangelis branch with the port patches; `-T tomita` for the development branch).
+
+```sh
+cd ~/bastel/github/zynthian-ui
+nura/tools/qemu_compare.sh start          # headless, silent: for agents (-g: windows and sound)
+nura/tools/qemu_compare.sh shot DIR       # DIR/qt.png, DIR/tk.png, DIR/side-by-side.png (Tk left)
+nura/tools/qemu_compare.sh ssh tk 'journalctl -b --no-pager | tail'
+nura/tools/qemu_compare.sh status
+nura/tools/qemu_compare.sh stop
+```
+
+- Directories `~/.cache/nura-builds-compare-qt` and `-tk` (`-d BASE`), SSH ports 2242 (Qt) and 2243
+  (Tk), webconf 8100 and 8101 (`-p PORT` moves both): its own VMs, not the user's or another
+  agent's. The other tools reach them with `-V` and `NURA_VM_PORT=2242` / `2243`.
+- A new disk (first start, `-r`) links the user's downloaded image (`-i` for another), and is set up
+  once: SSH key and sudo (`qemu_setup.sh`), `apk upgrade`, grim and font-dejavu, and
+  `ZYNTHIAN_OUTPUT_SCALE=1` in `/etc/default/zynthian` (the image's kiosk package before r21 uses the
+  Duet's scale 1.5 in a VM). Then `switch_ui.sh` installs each VM's zynthian-ui package.
+- The Tk VM needs `zynthian-ui-vangelis` (or `-tomita`) in nura-builds' **x86_64** release (its
+  `upstream` stage, published by Run workflow > architecture `x86_64`). Until then `-T port` runs
+  this repository's own Tk UI (`ZYNTHIAN_UI=tk`) in the Tk VM instead: not upstream's code.
+- Test your changes of the Qt port in the Qt VM: `NURA_VM_PORT=2242 nura/tools/sync_ui.sh -V -r`.
+- Both VMs together: about 6 GB of memory (`-m` per VM, default 3G) and half of this machine's
+  CPUs each.
+- Black Tk screen, the session restarting every few seconds (`journalctl -b | grep -c "Started
+  Tiny"` grows): the Tk UI dies at start; its log is `~/.local/state/tinydm.log` in the VM. Seen
+  with images before 2026-11-09: zynthian-ui didn't depend on font-dejavu yet (`OSError: cannot open
+  resource` from the mixer's `DejaVuSans.ttf`); the script installs it.
 
 ## Stop
 
@@ -149,7 +190,7 @@ kill $(cat "$VM/qemu.pid")
 - SSH times out "during banner exchange" after a reboot of the VM: the guest got 10.0.2.16, the
   port forward goes to 10.0.2.15. Before 2026-11-09 the firmware tried PXE on the virtio NIC before
   the disk, with the NIC's own MAC, and took .15 from QEMU's DHCP; NetworkManager (cloned "stable"
-  MAC) then got .16 and asks for it again at every boot. `run-qemu.sh` now boots the disk first
+  MAC) then got .16 and asks for it again at every boot. `run_qemu.sh` now boots the disk first
   (`bootindex=0`, no NIC ROM, OVMF's PXE off). A disk that has the .16 lease: start it fresh (`-r`),
   or delete `/var/lib/NetworkManager/internal-*-eth0.lease` in the guest. Not with `debugfs -w` on
   a VM that was killed: the ext4 journal replay at the next boot brings the file back.

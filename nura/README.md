@@ -210,5 +210,5 @@ From SSH, `niri msg` needs the session's socket:
 
 The zynthian UI is `ZYNTHIAN_UI=qt|tk` in `/etc/default/zynthian`. The same file sets the output
 for the cage kiosk: `ZYNTHIAN_OUTPUT_MODE` (WxH, for outputs whose preferred mode is wrong; in a
-QEMU VM the size of run-qemu.sh's `-R`), `ZYNTHIAN_OUTPUT_TRANSFORM` (rotation) and
+QEMU VM the size of run_qemu.sh's `-R`), `ZYNTHIAN_OUTPUT_TRANSFORM` (rotation) and
 `ZYNTHIAN_OUTPUT_SCALE` (Qt UI only); the niri session takes only the scale (see above).

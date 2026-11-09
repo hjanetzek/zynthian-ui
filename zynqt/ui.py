@@ -515,11 +515,25 @@ class ZynUI(QObject):
         if self._confirm_action:
             self.confirmNo()
             return
-        screen = self.list_screens.get(self.current_screen) or self.qml_screen_objects.get(self.current_screen)
+        screen = self._screen_obj()
         if screen and screen.back():
             return
+        # As zynthian_gui.close_screen: the previous screen, the mixer (root) without one
         if self.screen_history:
             self._set_current_screen(self.screen_history.pop())
+        elif self.current_screen not in ("mixer", "launcher"):
+            self._set_current_screen("mixer")
+
+    def _screen_obj(self, name=None):
+        """The object behind screen name (default: the current one): a selector screen or the
+        Python side of a QML screen"""
+        name = name or self.current_screen
+        return self.list_screens.get(name) or self.qml_screen_objects.get(name)
+
+    def _overlay_shown(self):
+        """A dialog over the screens takes the keys (Tk: they are screens of their own)"""
+        return bool(self._help_html or self._value_editor or self._keyboard_action
+                    or self._confirm_action or self._moving_chain or self._moving_processor is not None)
 
     def _navigate(self, what):
         """Arrows and SELECT: the keyboard, the confirm dialog, the selector screen shown, or the
@@ -966,9 +980,9 @@ class ZynUI(QObject):
         screen's zynpot(i, d) if it has one; chain control turns its controllers (the layout's
         ctrl_order), elsewhere the select encoder moves the selection"""
         i, d = int(params[0]), int(params[1])
-        screen = self.list_screens.get(self.current_screen) or self.qml_screen_objects.get(self.current_screen)
+        screen = self._screen_obj()
         func = getattr(screen, "zynpot", None)
-        if callable(func) and func(i, d):
+        if not self._overlay_shown() and callable(func) and func(i, d):
             return
         order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
         if screen is self.chain_control_screen:
@@ -1004,10 +1018,9 @@ class ZynUI(QObject):
     def cuia__zynswitch(self, params):
         """Switch i pressed for t (S/B/L): the standard four switches, else the custom switch
         actions of the wiring configuration (as zynthian_gui.custom_switch_ui_action)"""
-        i, t = int(params[0]), params[1]
+        i, t = int(params[0]), str(params[1]).upper()
         if i < 4:
-            {0: lambda: self.cuia_menu(), 1: lambda: self.cuia_back(),
-             3: lambda: self._navigate("select" if t == "S" else "select_bold")}.get(i, lambda: None)()
+            self.zynswitch(i, t)
             return
         try:
             config = zynthian_gui_config.custom_switch_ui_actions[i - 4]
@@ -1027,6 +1040,80 @@ class ZynUI(QObject):
             params = self.state_manager.parse_cuia_params(parts[1]) if len(parts) > 1 else []
             self._run_cuia(parts[0], list(params or []))
 
+    def zynswitch(self, i, t):
+        """One of the four standard switches (0-3) pushed (P), or released after a short (S),
+        bold (B) or long (L) press. As zynthian_gui.zynswitch_short/bold/long/push: the screen's
+        switch(i, t) first (True: handled), then the defaults:
+
+        | switch | short      | bold        | long           |
+        | 0      | -          | chain manager | help         |
+        | 1      | back       | root (mixer) | power          |
+        | 2      | MIDI learn | ZS3 (snapshot from ZS3) | snapshot |
+        | 3      | select     | bold select | all sounds off |
+        """
+        screen = self._screen_obj()
+        func = getattr(screen, "switch", None)
+        if not self._overlay_shown() and callable(func):
+            try:
+                if func(i, t):
+                    return True
+            except Exception as e:
+                logging.exception(f"switch {i},{t} of screen {self.current_screen} failed: {e}")
+                return True
+        if t == "P":
+            return False
+        if i == 0:
+            if t == "B":
+                self.show_screen("chain_manager")
+            elif t == "L":
+                self.cuia_help()
+        elif i == 1:
+            if t == "S":
+                self.back()
+            elif t == "B":
+                self._close_overlays()
+                self.show_screen_reset("mixer")
+            elif t == "L":
+                self.cuia_power()
+        elif i == 2:
+            if t == "S":
+                self.cuia_toggle_midi_learn()
+            elif t == "B":
+                if self.current_screen == "zs3":
+                    self.cuia_screen_snapshot()
+                else:
+                    self.cuia_screen_zs3()
+            elif t == "L":
+                self.cuia_screen_snapshot()
+        elif i == 3:
+            if t in ("S", "B"):
+                self.switch_select(t)
+            elif t == "L":
+                self.cuia_all_sounds_off()
+        return True
+
+    def switch_select(self, t="S"):
+        """The select switch (SEL key, switch 3): dialogs, then the screen's switch_select(t) if
+        it has one, else its navigate("select" / "select_bold")"""
+        screen = self._screen_obj()
+        func = getattr(screen, "switch_select", None)
+        if not self._overlay_shown() and callable(func):
+            if func(t):
+                return
+        self._navigate("select" if t == "S" else "select_bold")
+
+    def _close_overlays(self):
+        """Close the dialogs over the screens (BACK:B, switch 1 bold: to the root)"""
+        self.helpClose()
+        self.endMoveProcessor()
+        self.endMoveChain()
+        if self._value_editor:
+            self.valueEditorCancel()
+        if self._keyboard_action:
+            self.keyboardCancel()
+        if self._confirm_action:
+            self.confirmNo()
+
     def _is_current_screen_switch(self, config):
         """Short press on the key of the shown screen: its bold action (as zynthian_gui)"""
         short = (config.get("S") or "").lower()
@@ -1039,8 +1126,8 @@ class ZynUI(QObject):
         name = cuia.lower()
         # As zynthian_gui.callable_ui_action: the current screen first (transport keys in the
         # pattern editor, MIDI recorder, audio file widgets, ...); it returns True if it handled it
-        screen = self.list_screens.get(self.current_screen) or self.qml_screen_objects.get(self.current_screen)
-        screen_func = getattr(screen, "cuia_" + name, None) if screen is not None else None
+        screen = self._screen_obj()
+        screen_func = getattr(screen, "cuia_" + name, None) if screen is not None and not self._overlay_shown() else None
         if callable(screen_func):
             try:
                 if screen_func(params):
@@ -1086,8 +1173,10 @@ class ZynUI(QObject):
     # CUIA implementations (the subset the Qt UI has so far)
 
     def cuia_show_screen(self, params):
+        """As zynthian_gui: the screen with a new history ("root": the mixer)"""
         if params:
-            self.showScreen(str(params[0]))
+            name = str(params[0])
+            self.show_screen_reset("mixer" if name == "root" else name)
 
     def cuia_screen_admin(self, params=None):
         self.show_screen("admin")
@@ -1292,18 +1381,39 @@ class ZynUI(QObject):
     cuia_screen_control = cuia_chain_control
 
     def cuia_menu(self, params=None):
-        """The current screen's own menu if it has one (pattern editor), else the main menu"""
-        screen = self.qml_screen_objects.get(self.current_screen)
-        show_menu = getattr(screen, "show_menu", None)
+        """As zynthian_gui.cuia_menu: the current screen's own menu (show_menu: its options) if it
+        has one, else the main menu"""
+        if self._overlay_shown():
+            return
+        show_menu = getattr(self._screen_obj(), "show_menu", None)
         if callable(show_menu):
             show_menu()
-        elif self.current_screen == "main_menu":
-            self.back()
-        else:
+        elif self.current_screen != "main_menu":
             self.showScreen("main_menu")
 
     def cuia_back(self, params=None):
-        self.back()
+        """BACK; BACK:B goes to the root (the mixer), as zynthian_gui.cuia_back (screens can take
+        it first with cuia_back: the mixer opens the chain manager)"""
+        if params and str(params[0]).upper() == "B":
+            self._close_overlays()
+            self.show_screen_reset("mixer")
+        else:
+            self.back()
+
+    def cuia_v5_zynpot_switch(self, params=None):
+        """A V5 knob pushed (params: knob, S/B/L). The screen's cuia_v5_zynpot_switch comes
+        first (_run_cuia); the defaults as zynthian_gui: long: the X-Y controller if both axes
+        are set; knob 3 short/bold: switch 3"""
+        try:
+            i, t = int(params[0]), str(params[1]).upper()
+        except (TypeError, ValueError, IndexError):
+            logging.error(f"V5_ZYNPOT_SWITCH: wrong parameters {params}")
+            return
+        if t == "L":
+            if self.state_manager.zctrl_x and self.state_manager.zctrl_y:
+                self.show_screen("control_xy")
+        elif i == 3 and t in ("S", "B"):
+            self.zynswitch(3, t)
 
     def cuia_select(self, params=None):
         """Select entry params[0] of the shown list (as zynthian_gui: an index, no action)"""
@@ -1317,10 +1427,10 @@ class ZynUI(QObject):
     def cuia_select_action(self, params=None):
         """The SEL key: params[0] "S" (short, default) or "B" (bold)"""
         t = str(params[0]).upper() if params else "S"
-        self._navigate("select_bold" if t in ("B", "L") else "select")
+        self.switch_select("B" if t in ("B", "L") else "S")
 
     def cuia_bold_select_action(self, params=None):
-        self._navigate("select_bold")
+        self.switch_select("B")
 
     def cuia_arrow_up(self, params=None):
         self._navigate("up")

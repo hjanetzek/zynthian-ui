@@ -29,7 +29,8 @@ PinchHandler {
         if (!active)
             return
         grid.cancelFlick()
-        startRowHeight = view.rowHeight
+        // the row height the zoom asks for (the shown one may be clamped to the grid's limits)
+        startRowHeight = view.baseRowHeight + view.pe.zoomValue
         const c = centre()
         anchorStep = (grid.contentX + c.x) / view.stepWidth
         anchorRow = (grid.contentHeight - grid.contentY - c.y) / view.rowHeight

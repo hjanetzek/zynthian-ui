@@ -103,5 +103,13 @@ kill $(cat "$VM/qemu.pid")
   `zynmixer.remove_strip` → `removeStrip`): the VM has no sound card with `-A none`, and its PipeWire
   graph can stop (pw-top: every node at quantum 0, zynthian's nodes driven by `Midi-Bridge`). zynmixer
   waits for a JACK period that never comes (upstream log: `removeStrip()`). Restart the session
-  (`sudo systemctl restart tinydm`); for long runs consider a VM with audio (`-A` default, quiet with
-  the host's volume down). Seen 2026-11-08, cause of the stop not known yet.
+  (`sudo systemctl restart tinydm`); for long runs use `-A silent` (an Intel HDA card on QEMU's
+  `none` backend: the guest's audio clock runs, nothing reaches the host). Seen 2026-11-08, cause
+  of the stop not known yet.
+- SSH times out "during banner exchange" after a reboot of the VM: the guest got 10.0.2.16, the
+  port forward goes to 10.0.2.15. Before 2026-11-09 the firmware tried PXE on the virtio NIC before
+  the disk, with the NIC's own MAC, and took .15 from QEMU's DHCP; NetworkManager (cloned "stable"
+  MAC) then got .16 and asks for it again at every boot. `run-qemu.sh` now boots the disk first
+  (`bootindex=0`, no NIC ROM, OVMF's PXE off). A disk that has the .16 lease: start it fresh (`-r`),
+  or delete `/var/lib/NetworkManager/internal-*-eth0.lease` in the guest. Not with `debugfs -w` on
+  a VM that was killed: the ext4 journal replay at the next boot brings the file back.

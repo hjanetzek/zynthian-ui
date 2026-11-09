@@ -38,7 +38,12 @@ to `run.log`.) The first boot of a fresh disk takes about a minute (it grows the
 - `-r`: a fresh disk from the downloaded image (discards everything in the VM); `-u`: download a
   newer image (the user may have that one already: copy it from `~/.cache/nura-builds`).
 - `-R WxH`: the screen, default 1280x800 (16:10 as the Duet; the kiosk uses scale 1 in a VM, so
-  the layout is the Duet's). Other sizes for layout checks: `-R 1024x600`, `-R 800x480`.
+  the layout is the Duet's). Other sizes for layout checks: `-R 1024x600`, `-R 800x480`. Headless
+  QEMU makes it the guest's preferred mode; a GTK window reports its own first size (640x480)
+  instead, so `run-qemu.sh` also passes the size as SMBIOS SKU `nura-screen=WxH` and the kiosk
+  (postmarketos-ui-zynthian r21 or newer) sets it. Older disks in a window: `wlr-randr --output
+  Virtual-1 --custom-mode 1280x800` in the guest (with the session's `WAYLAND_DISPLAY`).
+- `-D` takes QEMU display options after a comma, e.g. `-D gtk,zoom-to-fit=off`.
 - OpenGL: headless only with QEMU's `egl-headless` display (`qemu-ui-egl-headless` on Arch; ask the
   user to install it). Without it (`opengl: off` in run.log) the guest renders with llvmpipe: slower,
   fine for functional tests.

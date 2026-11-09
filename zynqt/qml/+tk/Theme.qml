@@ -37,6 +37,12 @@ ThemeBase {
     bindGlobal: tkColor("ml", "#f0f000")
     statusLine: tkColor("ml", "#f0f000")
     marker: "#ffff00"
+    // Controller page widgets (zynthian_widget_filter / _envelope): the canvas in the background
+    // colour, the grid color_variant(hl, -60) drawn over the curve in Tk: here the curve's fill is
+    // translucent so the grid shows through (the curve stays blue)
+    widgetBackground: tkColor("bg", "#000000")
+    widgetGrid: "#008400"
+    widgetFill: Qt.rgba(0.30, 0.52, 0.85, 0.45)
     frameActive: "#ffff00"   // grid selection: a yellow outline
 
     // Shapes and type: square plates, Audiowide

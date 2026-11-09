@@ -56,7 +56,6 @@ Item {
     Binding { target: mixerMeters; property: "active"; value: root.visible }
     readonly property var stripLevels: mixerMeters.levels
     readonly property var mainLevels: mainMeters.levels
-    property int activeMidiChan: -1   // the selected chain's MIDI channel: its strips underlined
 
     visible: true
     Rectangle {
@@ -81,6 +80,7 @@ Item {
             height: strips.height
             stripModel: mixerStrips
             levels: root.stripLevels
+            meters: mixerMeters
         }
         function showActive() {
             for (let i = 0; i < count; i++) {
@@ -102,11 +102,12 @@ Item {
         }
     }
 
-    // Black gap left of the main strip
+    // Black gap left of the main strip, down to the bottom (Tk: the window background between
+    // the strips' canvas and the main strip's, also beside the legend row)
     Rectangle {
         anchors.right: mainView.left
         width: 4
-        height: root.faderY + root.faderHeight
+        height: parent.height
         color: "#000000"
     }
 
@@ -123,6 +124,7 @@ Item {
             height: mainView.height
             stripModel: mainStrip
             levels: root.mainLevels
+            meters: mainMeters
             isMain: true
         }
     }
@@ -143,11 +145,13 @@ Item {
         required property bool active
         required property bool hasMixer
         required property int meterIndex
-        required property int midiChan
-        onActiveChanged: if (active) root.activeMidiChan = midiChan
-        Component.onCompleted: if (active) root.activeMidiChan = midiChan
+        required property bool activeMidi
         property var stripModel
         property var levels: []
+        property var meters: null
+        // Tk refresh_status: the clip progress (0..100) and the ZMOP's MIDI activity
+        readonly property real clipProgress: meters && meters.progress ? (meters.progress[meterIndex] || 0) : 0
+        readonly property bool midiActive: meters && meters.midiActivity ? !!meters.midiActivity[meterIndex] : false
         property bool isMain: false
         readonly property bool isActive: active
         readonly property int sepWidth: 1
@@ -315,6 +319,18 @@ Item {
                 }
             }
         }
+        // Tk midi_indicator: MIDI activity, a blue block in the flags row over the meters' column
+        Rectangle {
+            visible: strip.midiActive
+            readonly property int tkFaderWidth: strip.width - 2 * strip.dpmWidth
+                - Math.floor(strip.dpmWidth * 0.7) - (strip.isMain ? Math.floor(0.2 * strip.width) : 0)
+            x: tkFaderWidth
+            y: 2 * root.buttonHeight
+            width: strip.wwidth - tkFaderWidth
+            height: root.flagsHeight
+            z: 2
+            color: Theme.tkColor("status_midi", "#19b1f7")
+        }
         // Fader
         Item {
             id: fader
@@ -433,11 +449,20 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.tkPx(root.fontPt)
             }
-            // MIDI chains on the selected chain's channel: a white line on top
+            // Tk legend_strip_midi_bg: the bottom 2 px, in the highlight colour on the chain
+            // that gets the MIDI input
             Rectangle {
-                visible: strip.midiChan >= 0 && strip.midiChan === root.activeMidiChan && !strip.isMain
-                width: strip.wwidth
-                height: 4
+                visible: strip.activeMidi
+                y: parent.height - 2
+                width: parent.width
+                height: 2
+                color: root.legendHl
+            }
+            // Tk clip_progress: the clip's (main: the phrase's) position, a bar on top
+            Rectangle {
+                visible: width > 0
+                width: Math.floor(strip.clipProgress * strip.width / 100)
+                height: Math.floor(root.legendHeight * 0.15)
                 color: Theme.text
             }
             // Tap: chain control; long press (Tk: > 400 ms): the chain manager at its options

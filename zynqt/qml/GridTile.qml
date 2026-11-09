@@ -37,7 +37,10 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             anchors.topMargin: 8
-            width: Math.min(parent.width, parent.height) * 0.5
+            // half the tile, but room for two title lines below it in low tiles
+            width: Math.max(Math.min(parent.width, parent.height) * 0.3,
+                            Math.min(Math.min(parent.width, parent.height) * 0.5,
+                                     parent.height - 16 - 2.4 * Math.round(18 * Theme.fontScale)))
             height: width
             fillMode: Image.PreserveAspectFit
             source: tile.tileIcon
@@ -59,6 +62,10 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             wrapMode: Text.WordWrap
+            // two-line titles in low tiles (4 rows at 480 px) shrink instead of running into
+            // the next row
+            fontSizeMode: Text.Fit
+            minimumPixelSize: 9
             text: tile.tileTitle
             color: tile.selected ? Theme.selectText : Theme.text
             size: 18

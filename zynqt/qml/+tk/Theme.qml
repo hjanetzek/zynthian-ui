@@ -65,6 +65,7 @@ ThemeBase {
     categoryWidth: 0.21
     categoryInfoWidth: 0.29
     gridSpacing: 1 / 20
+    gridPlaceholders: false
     // zynthian_gui_config.main_menu_columns: configured, else 3 on V5 / Z2 or below 800 px, else 4
     mainMenuColumns: _cfg && _cfg.mainMenuColumns > 0 ? _cfg.mainMenuColumns : (screenWidth < 800 || (_cfg && _cfg.v5) ? 3 : 4)
     addChainColumns: 3

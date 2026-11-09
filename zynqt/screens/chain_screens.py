@@ -167,6 +167,8 @@ class MidiChannel(SelectorScreen):
 
 class Bank(SelectorScreen):
     name = "bank"
+    selcap = "Bank"
+    zsel_hidden = False
     default_icon = "presets_bank.png"
 
     def fill(self):
@@ -267,6 +269,8 @@ class Bank(SelectorScreen):
 
 class Preset(SelectorScreen):
     name = "preset"
+    selcap = "Preset"
+    zsel_hidden = False
     default_icon = "preset.png"
 
     def fill(self):

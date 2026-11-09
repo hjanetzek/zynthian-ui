@@ -75,7 +75,7 @@ Rectangle {
         elide: Text.ElideRight
         text: (root.overlayHint ? "☰ " : "") + root.title
         color: Theme.text
-        size: 28
+        size: Theme.titleSize
         title: true
     }
 

@@ -26,14 +26,15 @@ def db_to_fraction(db):
 
 class MixerModel(QAbstractListModel):
     ChainIdRole, NameRole, MidiChanRole, LevelRole, BalanceRole, MuteRole, SoloRole, RecordRole, \
-        IsMixbusRole, MeterIndexRole, ActiveRole, ToggleRole, ToggleLabelRole = \
-        range(Qt.UserRole + 1, Qt.UserRole + 14)
+        IsMixbusRole, MeterIndexRole, ActiveRole, ToggleRole, ToggleLabelRole, DescriptionRole, \
+        LegendRole, HasMixerRole = range(Qt.UserRole + 1, Qt.UserRole + 17)
 
     _ROLE_NAMES = {ChainIdRole: b"chainId", NameRole: b"name", MidiChanRole: b"midiChan",
                    LevelRole: b"level", BalanceRole: b"balance", MuteRole: b"mute",
                    SoloRole: b"solo", RecordRole: b"record", IsMixbusRole: b"isMixbus",
                    MeterIndexRole: b"meterIndex", ActiveRole: b"active",
-                   ToggleRole: b"toggle", ToggleLabelRole: b"toggleLabel"}
+                   ToggleRole: b"toggle", ToggleLabelRole: b"toggleLabel",
+                   DescriptionRole: b"description", LegendRole: b"legend", HasMixerRole: b"hasMixer"}
     _SYMBOL_ROLES = {"level": LevelRole, "balance": BalanceRole, "mute": MuteRole,
                      "solo": SoloRole, "record": RecordRole}
 
@@ -109,6 +110,16 @@ class MixerModel(QAbstractListModel):
             if role == self.ToggleLabelRole:
                 return zctrl.name if zctrl else ""
             return bool(zctrl and zctrl.value)
+        if role == self.DescriptionRole:
+            # Two lines (engine, preset), as the Tk mixer's vertical strip label
+            try:
+                return chain.get_description(2)
+            except Exception:
+                return chain.get_name() or ""
+        if role == self.LegendRole:
+            return self._legend(chain)
+        if role == self.HasMixerRole:
+            return chain.zynmixer_proc is not None
         if role == self.ActiveRole:
             active = self.chain_manager.active_chain
             return bool(active and active.chain_id == chain.chain_id)
@@ -119,6 +130,32 @@ class MixerModel(QAbstractListModel):
                     return 0.0 if symbol in ("level", "balance") else False
                 return float(zctrl.value) if symbol in ("level", "balance") else bool(zctrl.value)
         return None
+
+    @staticmethod
+    def _legend(chain):
+        """The Tk mixer's legend text (zynthian_gui_mixer strip draw_control): forkawesome icons
+        for the chain's kind and its MIDI channel"""
+        speaker, mic, quaver, sliders = "\uf028", "\uf130", "\u266b", "\uf1de"
+        if chain.chain_id == 0:
+            return "Main"
+        try:
+            if chain.is_generator():
+                return speaker
+            if chain.is_midi():
+                txt = (mic + quaver) if chain.audio_thru else quaver + " "
+                if chain.midi_chan is not None and 0 <= chain.midi_chan < 16:
+                    return txt + str(chain.midi_chan + 1)
+                return txt + ("All" if chain.midi_chan == 0xffff else "Err")
+            if chain.is_audio():
+                if chain.zynmixer_proc and chain.zynmixer_proc.eng_code == "MI":
+                    return mic
+                try:
+                    return f"{sliders} {int(chain.title.split(' ')[-1])}"
+                except (ValueError, AttributeError, IndexError):
+                    return sliders
+        except Exception:
+            pass
+        return ""
 
     def strip_for(self, mixbus, chan):
         for row, chain_id in enumerate(self.chain_ids):

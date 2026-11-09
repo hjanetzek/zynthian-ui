@@ -28,6 +28,10 @@ Item {
     onMaxStepWidthChanged: Qt.callLater(reportZoomLimits)
     onBaseStepWidthChanged: Qt.callLater(reportZoomLimits)
     readonly property var cursor: pe.cursorCell
+    // Rows shown (Tk's view_rows, for the cursor row of the next pattern loaded)
+    readonly property int viewRows: Math.max(1, Math.floor(grid.height / rowHeight))
+    onViewRowsChanged: pe.setViewRows(viewRows)
+    Component.onCompleted: pe.setViewRows(viewRows)
 
     function rowY(row) { return (nRows - 1 - row) * rowHeight }
 
@@ -120,20 +124,13 @@ Item {
         contentWidth: root.steps * root.stepWidth
         contentHeight: root.nRows * root.rowHeight
         clip: true
-        interactive: !root.pe.selectMode   // select mode: drags select a block
+        interactive: !root.pe.selectMode && !pinch.active   // select mode: drags select a block
         boundsBehavior: Flickable.StopAtBounds
         // Pinch: the zoom (Tk's on_gesture)
-        PinchHandler {
-            target: null
-            property real last: 1
-            onActiveChanged: last = 1
-            onActiveScaleChanged: {
-                const d = Math.round(10 * (activeScale - last))
-                if (d !== 0) {
-                    root.pe.setZoom(root.pe.zoomValue + d)
-                    last = activeScale
-                }
-            }
+        PatternPinch {
+            id: pinch
+            grid: grid
+            view: root
         }
 
         Item {

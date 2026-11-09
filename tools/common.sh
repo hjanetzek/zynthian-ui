@@ -47,7 +47,9 @@ dev() { ssh $ssh_opts ${port:+-p "$port"} "$target" "$@"; }
 devcp() { scp -q $ssh_opts ${port:+-P "$port"} "$@"; }
 
 # Shell snippet (for dev) that sets $P to zynthian's PID or fails
-ZYN_PID='P=$(pgrep -f "^python3 ./zynthian_(qt_)?main.py" | head -n 1); [ -n "$P" ] || { echo "zynthian is not running" >&2; exit 1; }'
+# The newest match: with ZYNTHIAN_QT_QMLPREVIEW=1 the UI is a child of qmlpreview, started by a
+# waiting "python3 ./zynthian_qt_main.py" as "/usr/bin/python3 /usr/share/.../zynthian_qt_main.py"
+ZYN_PID='P=$(pgrep -n -f "^(/usr/bin/)?python3 [^ ]*zynthian_(qt_)?main.py"); [ -n "$P" ] || { echo "zynthian is not running" >&2; exit 1; }'
 
 # Environment of the kiosk session, for Wayland tools like grim: its runtime directory and the newest
 # Wayland socket there (cage: wayland-0, niri: wayland-1; a stale one may remain after a restart)

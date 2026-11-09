@@ -745,6 +745,15 @@ def _update_hw_midi_ports(force):
     return update
 
 
+def _port_name(port):
+    """Name of a port for log messages; a port that is gone (unregistered) has none: reading
+    .name raises, which left the device in its slot and failed every MIDI autoconnect"""
+    try:
+        return port.name
+    except Exception:
+        return "(gone)"
+
+
 def midi_autoconnect():
     """Connect all expected MIDI routes"""
 
@@ -828,7 +837,7 @@ def _midi_autoconnect():
     for i in range(0, max_num_devs):
         # Delete disconnected input devices from list and unload driver
         if i not in busy_idevs and devices_in[i] is not None:
-            logger.debug(f"Disconnected MIDI-in device {i}: {devices_in[i].name}")
+            logger.debug(f"Disconnected MIDI-in device {i}: {_port_name(devices_in[i])}")
             devices_in[i] = None
             # Disable external MIDI clock sync when device is disconnected
             if ext_clock_zmip == i:
@@ -862,7 +871,7 @@ def _midi_autoconnect():
     # Delete disconnected output devices from list
     for i in range(0, max_num_devs):
         if i not in busy_odevs and devices_out[i] is not None:
-            logger.debug(f"Disconnected MIDI-out device {i}: {devices_out[i].name}")
+            logger.debug(f"Disconnected MIDI-out device {i}: {_port_name(devices_out[i])}")
             devices_out[i] = None
             devices_out_name[i] = None
 

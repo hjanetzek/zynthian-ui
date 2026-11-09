@@ -1,0 +1,125 @@
+#!/bin/sh
+# Select the zynthian kit (hardware) of this device: zynthian-hw on Nura.
+#
+#   zynthian-kit           show the kit in use
+#   zynthian-kit list      the kits zynthian-sys has a configuration for
+#   zynthian-kit KIT       use KIT (e.g. V4, V5, Z2, MINI_V2), then reboot
+#   zynthian-kit -n KIT    dry run: the user's settings only, print the boot files instead of
+#                          writing them (no sudo)
+#
+# Run as the user zynthian runs as (the kiosk session's user); root's work goes through sudo.
+# It does what ZynthianOS' kit setup does, from zynthian-sys' config/zynthian_envars_<KIT>.sh:
+# - the kit's hardware settings (ZYNTHIAN_KIT_VERSION, ZYNTHIAN_WIRING_*, SOUNDCARD_*, DISPLAY_*,
+#   the UI settings that depend on the display) into the user's zynthian_envars.sh, keeping the
+#   other settings; zyncore.py then loads the layout's build of zyncoder-hw;
+# - the sound card and display overlays to /boot/zynthian-kit.txt (included by usercfg.txt),
+#   the display's kernel options to /etc/kernel-cmdline.d/90-zynthian-kit.conf;
+# - the user into the groups gpio, i2c, spi (the kit's interfaces) and audio.
+# The boot settings take effect after a reboot.
+set -eu
+
+sys_config=${ZYNTHIAN_SYS_CONFIG:-/usr/share/zynthian/zynthian-sys/config}
+config_dir=${ZYNTHIAN_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zynthian}
+envars=$config_dir/zynthian_envars.sh
+envars_template=/usr/share/zynthian/zynthian-ui/desktop/zynthian_envars_desktop.sh
+boot_kit=/boot/zynthian-kit.txt
+cmdline_kit=/etc/kernel-cmdline.d/90-zynthian-kit.conf
+
+# The kit's settings that describe the hardware (the rest of its file is ZynthianOS' system)
+hw_vars='^(ZYNTHIAN_KIT_VERSION|ZYNTHIAN_WIRING_[A-Z0-9_]+|SOUNDCARD_(NAME|CONFIG|MIXER)|DISPLAY_[A-Z_]+|ZYNTHIAN_UI_(FONT_SIZE|TOUCH_NAVIGATION|ENABLE_CURSOR|VISIBLE_MIXER_STRIPS))$'
+
+usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0}"; }
+
+kits() {
+	for f in "$sys_config"/zynthian_envars_*.sh; do
+		[ -f "$f" ] || continue
+		k=${f##*/zynthian_envars_}
+		echo "${k%.sh}"
+	done
+}
+
+current() {
+	[ -f "$envars" ] && sed -n 's/^export ZYNTHIAN_KIT_VERSION="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' "$envars" | tail -n 1
+}
+
+dry=0
+[ "${1:-}" != -n ] || { dry=1; shift; }
+case ${1:-} in
+	"") echo "kit: $(current || true)"; exit 0 ;;
+	list) kits; exit 0 ;;
+	-h | --help) usage ;;
+	-*) usage 1 ;;
+esac
+kit=$1
+kit_file=$sys_config/zynthian_envars_$kit.sh
+[ -f "$kit_file" ] || { echo "no configuration for kit '$kit' (zynthian-kit list)" >&2; exit 1; }
+[ "$(id -u)" != 0 ] || { echo "run it as the user zynthian runs as, not as root" >&2; exit 1; }
+[ -f "$envars" ] || [ -f "$envars_template" ] || { echo "no $envars and no template $envars_template" >&2; exit 1; }
+
+# 1. The user's zynthian_envars.sh: the kit's hardware lines replace the user's, the others stay
+mkdir -p "$config_dir"
+[ -f "$envars" ] || cp "$envars_template" "$envars"
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+grep -E '^export [A-Z0-9_]+=' "$kit_file" | while IFS= read -r line; do
+	var=${line#export }
+	var=${var%%=*}
+	if echo "$var" | grep -qE "$hw_vars"; then printf '%s\n' "$line"; fi
+done > "$tmp.kit"
+awk -v kitfile="$tmp.kit" '
+	BEGIN { while ((getline l < kitfile) > 0) { v = l; sub(/^export /, "", v); sub(/=.*/, "", v); kit[v] = l; order[++n] = v } }
+	/^export [A-Z0-9_]+=/ { v = $0; sub(/^export /, "", v); sub(/=.*/, "", v); if (v in kit) { if (!(v in done)) print kit[v]; done[v] = 1; next } }
+	{ print }
+	END { for (i = 1; i <= n; i++) if (!(order[i] in done)) print kit[order[i]] }
+' "$envars" > "$tmp"
+cp "$tmp" "$envars"
+rm -f "$tmp.kit"
+echo "kit $kit: hardware settings in $envars"
+
+# 2. Boot: the overlays and the kernel options (their \n are line breaks)
+soundcard=$(sh -c '. "$1" >/dev/null 2>&1; printf "%s" "${SOUNDCARD_CONFIG:-}"' sh "$kit_file")
+display=$(sh -c '. "$1" >/dev/null 2>&1; printf "%s" "${DISPLAY_CONFIG:-}"' sh "$kit_file")
+cmdline=$(sh -c '. "$1" >/dev/null 2>&1; printf "%s" "${DISPLAY_KERNEL_OPTIONS:-}"' sh "$kit_file")
+{
+	echo "# zynthian kit $kit (zynthian-kit, from zynthian-sys' zynthian_envars_$kit.sh)"
+	echo "# Sound card"
+	printf '%b\n' "$soundcard"
+	echo "# Display"
+	printf '%b\n' "$display"
+} > "$tmp"
+if [ $dry = 1 ]; then
+	echo "--- $boot_kit"; cat "$tmp"
+	echo "--- $cmdline_kit"; printf '%s\n' "${cmdline:-(none)}"
+	exit 0
+fi
+changed=0
+if ! cmp -s "$tmp" "$boot_kit"; then
+	sudo cp "$tmp" "$boot_kit"
+	changed=1
+fi
+if [ -n "$cmdline" ]; then
+	printf '%s\n' "$cmdline" > "$tmp"
+	if ! cmp -s "$tmp" "$cmdline_kit"; then
+		sudo mkdir -p "${cmdline_kit%/*}"
+		sudo cp "$tmp" "$cmdline_kit"
+		changed=1
+	fi
+elif [ -e "$cmdline_kit" ]; then
+	sudo rm -f "$cmdline_kit"
+	changed=1
+fi
+# boot-deploy (mkinitfs) writes cmdline.txt from /usr/lib and /etc/kernel-cmdline.d
+[ $changed = 0 ] || sudo mkinitfs >/dev/null
+
+# 3. The kit's interfaces for this user (udev rules of the device package)
+user=$(id -un)
+for g in gpio i2c spi audio; do
+	getent group "$g" >/dev/null || continue
+	id -nG "$user" | tr ' ' '\n' | grep -qx "$g" || { sudo addgroup "$user" "$g"; changed=1; }
+done
+
+if [ $changed = 1 ]; then
+	echo "boot settings changed: reboot (sudo reboot) for the kit's sound card, display and interfaces"
+else
+	echo "boot settings unchanged: restart zynthian (sudo systemctl restart tinydm)"
+fi

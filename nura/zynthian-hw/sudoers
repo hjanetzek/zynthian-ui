@@ -1,0 +1,5 @@
+# zynthian-hw: passwordless sudo for the device user (group wheel), for what zynthian and
+# zynthian-sys do as root on ZynthianOS (boot configuration, sound card mixer, reboot, ...)
+# while zynthian runs as the session user. A first step: a narrower helper later
+# (nura-builds docs/zynthian-rpi.md).
+%wheel ALL=(ALL:ALL) NOPASSWD: ALL

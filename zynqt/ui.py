@@ -2011,7 +2011,8 @@ class ZynUI(QObject):
         self.cuia_bank_preset(params)
 
     def cuia_preset_fav(self, params=None):
-        """The current processor's favourite presets (zynthian_gui.show_favorites)"""
+        """The current processor's favourite presets (zynthian_gui.show_favorites: its bank /
+        preset list, then the favourites, also when there are none yet)"""
         proc = self.current_processor
         if proc is None:
             chain = self.chain_manager.get_active_chain()
@@ -2019,14 +2020,14 @@ class ZynUI(QObject):
             if proc is None:
                 return
             self.set_current_processor(proc)
-        if not proc.get_preset_favs():
-            self.show_info(f"{proc.get_name()}: no favourite presets.")
-            return
-        proc.set_show_fav_presets(True)
-        if self.current_screen == "preset":
-            self.list_screens["preset"].fill()
-        else:
-            self.show_screen("preset")
+        self.cuia_bank_preset()
+        if self.current_screen in ("bank", "preset"):
+            proc = self.current_processor
+            proc.set_show_fav_presets(True)
+            if self.current_screen == "preset":
+                self.list_screens["preset"].fill()
+            else:
+                self.show_screen("preset")
 
     def cuia_mixer(self, params=None):
         """MIXER chain,param,value: set a mixer controller (zynthian_gui.cuia_mixer). chain: the

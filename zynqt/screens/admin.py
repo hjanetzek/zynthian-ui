@@ -149,7 +149,8 @@ class Admin(SelectorScreen):
                        icon="settings.png", info="Save the state and restart zynthian."))
         e.append(entry("Exit", lambda x: self.ui.confirm("Exit zynthian?", lambda: self.ui.exit(101)),
                        icon="poweroff.png", info="Save the state and exit zynthian."))
-        self.set_entries(e)
+        # The selection stays where it was (Tk's selector keeps its index)
+        self.set_entries(e, self._index if 0 < self._index < len(e) else None)
 
     def set_visible_launchers(self, value):
         zynthian_admin_settings.set_visible_launchers(value)

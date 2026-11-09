@@ -35,9 +35,9 @@
 #
 # zynthian-ui is built from this checkout, zyncoder, zynthian-jalv, drivenbymoss and dbm-nihost from
 # their checkouts
-# (pmbootstrap build --src); other packages from their APKBUILDs. With zynthian-ui, its new
-# dependency zynthian-jalv is built and installed too when no package of it exists for ARCH
-# yet. A subpackage (-dbg, zynthian-help, ...) is built
+# (pmbootstrap build --src); other packages from their APKBUILDs. With zynthian-ui, its
+# dependencies zynthian-jalv and aeolus are built and installed too when no package of them exists
+# for ARCH yet. A subpackage (-dbg, zynthian-help, ...) is built
 # with its main package. Installing uses "pmbootstrap sideload": it copies the newest version of
 # each package and runs "sudo apk add" on the device.
 set -eu
@@ -112,19 +112,21 @@ if [ "$build" = 1 ]; then
 		case " $mains " in *" $main "*) ;; *) mains="$mains $main" ;; esac
 	done
 	# Dependencies first: with --src, pmbootstrap doesn't build missing dependencies
-	# (zynthian-ui needs zyncoder, zynthian-jalv and zynthian-data, the kiosk needs zynthian-ui).
-	# zynthian-jalv comes along with zynthian-ui if no package of it is built for ARCH yet.
+	# (zynthian-ui needs zyncoder, zynthian-jalv, aeolus and zynthian-data, the kiosk needs
+	# zynthian-ui). zynthian-ui's dependencies from this work dir's recipes come along with it if
+	# no package of them is built for ARCH yet ("Additional packages need building" otherwise).
 	case " $mains " in
 		*" zynthian-ui "*)
-			case " $mains " in *" zynthian-jalv "*) ;; *)
-				workdir=$(cfgval work)
-				[ -n "$workdir" ] || workdir=$HOME/.local/var/pmbootstrap
-				ls "$workdir"/packages/edge/"$arch"/zynthian-jalv-*.apk >/dev/null 2>&1 ||
-					{ mains="$mains zynthian-jalv"; set -- "$@" zynthian-jalv; } ;;
-			esac ;;
+			workdir=$(cfgval work)
+			[ -n "$workdir" ] || workdir=$HOME/.local/var/pmbootstrap
+			for dep in zynthian-jalv aeolus; do
+				case " $mains " in *" $dep "*) continue ;; esac
+				ls "$workdir"/packages/edge/"$arch"/"$dep"-[0-9]*.apk >/dev/null 2>&1 ||
+					{ mains="$mains $dep"; set -- "$@" "$dep"; }
+			done ;;
 	esac
 	ordered=
-	for main in zyncoder zynthian-jalv zynthian-data zynthian-ui drivenbymoss dbm-nihost zynthian-webconf postmarketos-ui-zynthian; do
+	for main in zyncoder zynthian-jalv aeolus zynthian-data zynthian-ui drivenbymoss dbm-nihost zynthian-webconf postmarketos-ui-zynthian; do
 		case " $mains " in *" $main "*) ordered="$ordered $main" ;; esac
 	done
 	for main in $mains; do

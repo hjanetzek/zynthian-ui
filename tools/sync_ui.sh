@@ -2,16 +2,18 @@
 usage_text='Copy this checkout'"'"'s Python code into the zynthian-ui installed on the device (or the QEMU
 VM with -V), for testing changes without building packages.
 
-Usage: sync_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-r | -R] [-n]
+Usage: sync_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-r | -R] [-q] [-n]
 
   -r   restart the kiosk session afterwards (systemctl restart tinydm), so zynthian runs the new code
   -R   restart only zynthian (CUIA RESTART_UI over OSC: the launcher starts it again inside the
        running compositor, no new session; it re-reads ~/.config/zynthian/zynthian_envars.sh and
        zynthian_custom_config.sh, not /etc/default/zynthian). Falls back to -r without a running UI.
+  -q   QML only: copy zynqt/qml and nothing else, no restart (with ZYNTHIAN_QT_QMLPREVIEW=1 and
+       qmlpreview watching the copy, docs/qt-theming.md: the running UI reloads it)
   -n   dry run: list what would be copied
 
 Copies what desktop/install.sh installs as Python: zyngui, zyngine, zynconf, zynautoconnect, zynqt,
-the zynlibs modules, fonts, icons, img and the main scripts, into /usr/share/zynthian/zynthian-ui
+the zynlibs modules, fonts, icons, img, the main scripts and the launcher (desktop/zynthian_desktop.sh), into /usr/share/zynthian/zynthian-ui
 (over ssh, with sudo; old files of these directories are removed first, so deleted modules go
 too; files other packages install there, as the zyngine/ctrldev drivers of drivenbymoss, are kept).
 Native libraries (zynlibs/*/build, zyncoder) are not copied: changes to them need the
@@ -23,11 +25,13 @@ here=$(cd "$(dirname "$0")" && pwd)
 checkout=$(cd "$here/.." && pwd)
 restart=0
 dry=0
-tool_opts="rRn"
+tool_opts="rRqn"
+qml_only=0
 tool_opt() {
 	case $1 in
 		r) restart=1 ;;
 		R) restart=2 ;;
+		q) qml_only=1 ;;
 		n) dry=1 ;;
 	esac
 }
@@ -36,13 +40,20 @@ shift $((OPTIND - 1))
 setup_target
 
 dst=/usr/share/zynthian/zynthian-ui
+if [ $qml_only = 1 ]; then
+	# Replaced file by file (not the directory: qmlpreview watches the files)
+	(cd "$checkout" && tar -cf - zynqt/qml) | dev "set -e; t=\$(mktemp -d); tar -C \"\$t\" -xf -
+		sudo cp -R \"\$t\"/zynqt/qml/. $dst/zynqt/qml/; sudo chown -R root:root $dst/zynqt/qml; rm -rf \"\$t\""
+	echo "copied zynqt/qml to $target:$dst"
+	exit 0
+fi
 dirs="zyngui zyngine zynconf zynautoconnect zynqt fonts icons img"
 files=$(cd "$checkout" && {
 	for d in $dirs; do
 		[ -d "$d" ] && find "$d" -name __pycache__ -prune -o \( -type f -o -type l \) -print
 	done
 	find zynlibs -name '*.py' ! -name 'unit_tests.py' ! -name 'test.py' ! -name 'format_docs.py'
-	for f in zynthian_main.py zynthian_qt_main.py; do [ -f "$f" ] && echo "$f"; done
+	for f in zynthian_main.py zynthian_qt_main.py desktop/zynthian_desktop.sh; do [ -f "$f" ] && echo "$f"; done
 })
 if [ $dry = 1 ]; then
 	echo "$files"
@@ -66,6 +77,9 @@ echo "$files" | (cd "$checkout" && tar -cf - -T -) |
 		for d in $dirs; do [ -d \"\$t/\$d\" ] || continue; sudo rm -rf \"\$d\"; sudo cp -R \"\$t/\$d\" .; done
 		sudo cp -R \"\$t\"/zynlibs .
 		for f in zynthian_main.py zynthian_qt_main.py; do [ -f \"\$t/\$f\" ] && sudo cp \"\$t/\$f\" .; done
+		# The launcher (ZYNTHIAN_QT_QMLPREVIEW): the running one reads its file as it goes, so a new
+		# file moved over it (the old inode stays with the running shell), never overwritten
+		if [ -f \"\$t/desktop/zynthian_desktop.sh\" ]; then sudo cp \"\$t/desktop/zynthian_desktop.sh\" desktop/.zynthian_desktop.sh.new; sudo mv desktop/.zynthian_desktop.sh.new desktop/zynthian_desktop.sh; fi
 		sudo chown -R root:root $dst; rm -rf \"\$t\""
 echo "copied $(echo "$files" | wc -l) files to $target:$dst"
 

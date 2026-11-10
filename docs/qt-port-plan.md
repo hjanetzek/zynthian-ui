@@ -374,8 +374,13 @@ encoder pushes to the wrong switches (24–27), so push-rotate never registers.
 
 Open:
 
-1. Finish from the prototype: encoder acceleration (`setup_behaviour_zynpot`, per controller as Tk),
-   remove the duplicate `cuia_v5_zynpot_switch`, LEDs (wsleds) if a kit has them; then merge.
+1. ~~Finish from the prototype~~ (done on `qt-hw-input`, 2026-11-10): encoder acceleration
+   (`setup_behaviour_zynpot` per controller as Tk: `ZynUI.setup_zynpots()`, the screens'
+   `zynpot_steps()`), one `cuia_v5_zynpot_switch` (Tk's: `zynswitch(3, t)`), push-rotate fine
+   nudge on the controller screens only (ALT unchanged). Unit tests pass; in the Qt VM (DUMMIES)
+   no input threads start and keypad / ZYNPOT behave as before. `ZYNTHIAN_QT_HW_INPUT=log` logs
+   each button for the mapping check. LEDs: the V4-type kits have none (Tk drives `wsleds` only on
+   V5 / Z2); open for those.
 2. Check the mapping of all buttons on the V4 kit (and a V5 if available); the checklist is in
    qt-hardware-input.md, section 5. Which wiring profile and touch navigation setting the Pi 4 uses.
 3. Fine nudge with push-rotate only on controller screens (as Tk), or everywhere (Tk also does it

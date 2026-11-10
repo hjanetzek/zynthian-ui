@@ -111,7 +111,7 @@ keypad, no remap, 8 switches.
 - **Keypad**: `Keypad.qml` (V5 layout, always available: docked, or as an overlay from the top
   edge, whatever `ZYNTHIAN_UI_TOUCH_NAVIGATION` says), `KeypadLeds` (the v5touch colours).
 
-**Missing**:
+**Missing** (before `qt-hw-input`; 1–4 and 6 are done there, see section 3, Implementation):
 
 1. Nothing polls `get_zynswitch` and nothing registers `setup_zynpot_cb`: no hardware input.
 2. `wiring_midi_setup()` is never called at start or on active chain change (only by
@@ -184,17 +184,25 @@ started in `ZynUI.start()`, stopped first thing in `_do_exit()`.
 
 ### LEDs
 
-Not needed for the V4 kit. For V5 / Z2 a hardware backend behind `KeypadLeds` (which already
-computes Tk's colours per key) writing to the WS281x strip as `zynthian_wsleds_v5` does; no
-kit to test, so later.
+The V4-type kits have no LEDs (Tk starts `wsleds` only for the V5 and Z2 wiring layouts), so
+nothing to do for the Pi 4 kit. **Open** for V5 / Z2: a hardware backend behind `KeypadLeds`
+(which already computes Tk's colours per key) writing to the WS281x strip as
+`zynthian_wsleds_v5` / `_z2` do; no kit to test with.
 
-### Prototype
+### Implementation
 
-Branch `qt-hw-input` (9c0c5ea4, not merged): `zynqt/hw_input.py` (switch poller, encoder
-callback), its wiring into `ZynUI` (push-rotate, the `R` duration, the `S`/`B`/`L`-after-`P`
-fix, `wiring_midi_setup()`), fine nudge in chain control while push-rotating; unit tests
-`python3 -m unittest zynqt.tests.test_hw_input`. Off with the DUMMIES build. Not in it:
-`setup_behaviour_zynpot`, the keypad decision (section 4), LEDs. Untested on a kit.
+Branch `qt-hw-input` (prototype tested by the user on the Pi 4 kit 2026-11-10: works, encoder
+pushes correct): `zynqt/hw_input.py` (switch poller, encoder callback), its wiring into `ZynUI`
+(push-rotate, the `R` duration, the `S`/`B`/`L`-after-`P` fix, `wiring_midi_setup()` at start
+and on chain change), fine nudge in chain control while push-rotating (controller screens only,
+as Tk; ALT mode unchanged), encoder acceleration (`ZynUI.setup_zynpots()` after each screen
+switch and on chain control's page / mode changes: the screen's `zynpot_steps()`, list screens by
+their length; Tk's rules, see section 1), one `cuia_v5_zynpot_switch` (the Tk one:
+`zynswitch(3, t)`, so the screen's switch hooks come first). Unit tests
+`python3 -m unittest zynqt.tests.test_hw_input`. Off with the DUMMIES build (checked in the Qt
+VM). `ZYNTHIAN_QT_HW_INPUT=0` off, `=log` logs every switch event and encoder delta. Not in it:
+LEDs (V5/Z2), the X-Y screen's push-rotate and knobs, encoder behaviour for the chain manager
+and the overlays (left as they are, as Tk leaves screens without their own).
 
 ## 4. The keypad on a kit build
 
@@ -246,18 +254,92 @@ Without a kit:
   A fake `lib_zyncore` injected with `ZYNTHIAN_QT_HW_INPUT=fake` driven by OSC would test
   the wiring into ZynUI, but adds test-only code: only if the Pi isn't available.
 
-On the Pi 4 kit (needs the user or the device):
+### Checklist for the Pi 4 kit
 
-- Log at start: counts (8 switches, 4 pots), `zynpot2switch` `[0,1,2,3]`, hardware input on.
-- Each encoder in mixer, chain control (control and select mode), lists, launcher, chain
-  manager; push-rotate in chain control (fine, no action on release); acceleration once
-  `setup_behaviour_zynpot` is in.
-- Switches 0–3 short / bold / long (help, power, snapshot, all sounds off once each: no double
-  long); the four extra buttons (`v4_stage`: program changes 1–4 / 5–8); ALT.
-- MIDI switches (set one to `MIDI_CC` in webconf, watch with `aseqdump` / the MIDI log) after
-  start and after changing the active chain ("Active" channel follows).
-- CPU: `nura/tools/thread_cpu.sh` with the UI idle (control thread ~0.2 %).
-- Touch navigation on (webconf) → keypad and remap; off → no keypad.
+Start the UI with `ZYNTHIAN_QT_HW_INPUT=log` (in `~/.config/zynthian/zynthian_custom_config.sh`,
+or the session's environment): each push / release and encoder turn is logged as
+`Hardware input: switch i pushed / released after N ms` and `Hardware input: encoders [(i, d)]`,
+so every button can be matched to its index. Short < 300 ms, bold 300 ms – 2 s, long ≥ 2 s (held:
+fires at 2 s, once). Indices are zyncore's; the V4 positions are encoder/switch 0 top left,
+1 top right, 2 bottom left, 3 bottom right (Tk's V4 layout: knob *i* turns the controller drawn
+at its corner, `ctrl_order` 0, 2, 1, 3). Tick each box; note anything that differs from Tk.
+
+**A. Start** (both settings)
+
+- [ ] Log: `Hardware input: switches on (last index 7), encoders on (4)` (touch navigation on:
+  last index 31)
+- [ ] No `Traceback` in `~/.local/state/tinydm.log` after start, after a screen switch, at exit
+
+**B. Encoders** (turn slowly, then fast: fast must accelerate where marked *acc*)
+
+| Screen | Knob 0 | Knob 1 | Knob 2 | Knob 3 |
+|---|---|---|---|---|
+| Mixer | [ ] active chain level (*acc*) | [ ] its balance (*acc*) | [ ] main level (*acc*) | [ ] chain selection (one per detent) |
+| Launcher (`SCREEN_LAUNCHER`) | [ ] as mixer | [ ] as mixer | [ ] phrase up / down | [ ] chain |
+| Chain control, control mode | [ ] controller top left | [ ] top right | [ ] bottom left | [ ] bottom right |
+| Chain control, select mode (SEL short) | – | – | [ ] processor | [ ] page (one per detent up to 32 pages) |
+| Lists (main menu, bank, preset, snapshots, admin) | – | – | – | [ ] selection; long lists (> 32, e.g. presets) *acc* |
+| Chain manager | | | | [ ] selection |
+| Pattern editor | | [ ] zoom (*acc*) | [ ] row (*acc*) | [ ] step (*acc*) |
+
+- [ ] Chain control: a controller with ≤ 32 values (a switch, a list such as a waveform) moves one
+  value per detent even turned fast; a 0–127 or float controller accelerates
+- [ ] Push-rotate: hold a knob's push and turn it in chain control: the controller moves fine; on
+  release nothing else happens (no back / MIDI learn / select); held > 2 s while turning: no long
+  press action
+- [ ] Push-rotate elsewhere (mixer, lists): turning while held does what turning does, the release
+  then runs the switch's action (as Tk: fine and suppression only on the controller screens)
+
+**C. The encoder pushes (switches 0–3)**: the defaults (lists, menus, admin), then the
+screens that change them (Tk's)
+
+| Switch | Short | Bold | Long |
+|---|---|---|---|
+| 0 (top left) | [ ] nothing | [ ] chain manager | [ ] help, once |
+| 1 (top right) | [ ] back | [ ] mixer (root) | [ ] power dialog, once |
+| 2 (bottom left) | [ ] MIDI learn on / off | [ ] ZS3 (from ZS3: snapshots) | [ ] snapshots |
+| 3 (bottom right) | [ ] select | [ ] bold select (the entry's options) | [ ] all sounds off |
+
+- [ ] Mixer: 0 short the mixer toggle (`ZYNTHIAN_UI_MIXER_TOGGLE`, default record), 1 bold the
+  main menu, 2 short mute of the active chain, 3 short its chain control, 3 bold its options
+- [ ] Chain control: 0 short next chain, 1 bold main menu, 3 bold bank / preset; while MIDI
+  learning bold on a knob's push: that controller's options
+
+- [ ] In chain control, select (3 short) toggles control / select mode; in select mode 2 short
+  opens the processor's options, 2 bold moves it
+- [ ] In lists 3 short selects, 1 short goes back; in dialogs (confirm, options) 3 = yes / select,
+  1 = no / back
+
+**D. The four extra buttons (switches 4–7, custom switches 1–4)**, as configured in webconf's
+wiring page; the profiles' defaults:
+
+| Button (switch) | `v4_stage` short / bold / long | `v4_studio` short / bold / long |
+|---|---|---|
+| S1 (4) | [ ] PC 1 / [ ] PC 5 / [ ] all sounds off | [ ] audio file list / [ ] MIDI recorder / [ ] all sounds off |
+| S2 (5) | [ ] PC 2 / [ ] PC 6 / [ ] all sounds off | [ ] launcher / [ ] pattern editor / [ ] all sounds off |
+| S3 (6) | [ ] PC 3 / [ ] PC 7 / [ ] all sounds off | [ ] arrow up / [ ] arrow up / [ ] all sounds off |
+| S4 (7) | [ ] PC 4 / [ ] PC 8 / [ ] TTS (Qt: "not in the Qt UI yet") | [ ] arrow down / [ ] arrow down / [ ] TTS (as left) |
+
+- [ ] Short press on the button of the screen shown runs its bold action (`v4_studio` S2 on the
+  launcher → pattern editor)
+- [ ] ALT mode (from the keypad's ALT key): buttons with ALT actions run those (the profiles
+  have none: the normal ones)
+- [ ] One button set to a MIDI type (webconf: `MIDI_CC`, channel "Active"): the CC is sent (MIDI
+  log / `aseqdump`) after start, and on the new chain's channel after changing the active chain
+
+**E. Touch navigation** (webconf, UI options; restart the UI)
+
+- [ ] Off (the V4 default): 8 switches; the Qt keypad as before (decision: it stays), its keys
+  0–3 hit custom switches 1–4 (the extra buttons' actions), the others nothing
+- [ ] On: 32 switches; the keypad's keys do the V5 actions (as on the Duet); switches 0–3 as in C;
+  the extra buttons are switches 28–31 (custom 25–28): with `v4_touch_stage` / `_studio` S3/S4
+  run their actions, S1/S2 nothing (the upstream remap bug, see section 1 / issues); push-rotate
+  in chain control doesn't register (the same bug: `zynpot2switch` = 24–27)
+
+**F. Load**
+
+- [ ] `nura/tools/thread_cpu.sh` with the UI idle: the `zynswitch` thread ~0.2 % of a core, the
+  `zynpot` thread 0 when nothing turns
 
 ## 6. Risks and open questions
 
@@ -274,12 +356,11 @@ Risks:
 
 Questions for the user:
 
-1. Keypad on kits: option A (Tk parity, hidden unless touch navigation is set) or C (always,
-   own actions)? And fix the remap's overwrite of custom switches 25/26 in our tree?
+1. Keypad on kits: decided 2026-11-10: it stays as it is for now. Open: fix the remap's
+   overwrite of custom switches 25/26 in our tree?
 2. Is `ZYNTHIAN_UI_TOUCH_NAVIGATION` set on the Pi 4 (the TODO's count of 8 says no)? Which
    wiring profile does it use (`v4_stage`, `v4_studio`, custom)?
-3. Push-rotate fine nudge only on controller screens (Tk) or everywhere?
-4. Encoder acceleration: per controller as Tk (needs a hook in chain control), or a fixed
-   default?
+3. Push-rotate fine nudge: decided, only on the controller screens as Tk (done).
+4. Encoder acceleration: decided, per controller as Tk (done).
 5. OK to make the switch poller's 10 ms (Tk's) the default, and to look at a zyncore switch
    callback upstream later?

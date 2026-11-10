@@ -32,6 +32,7 @@ from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
 from zynqt.models.control_xy import ControlXY
 from zynqt.models.launcher import Launcher
 from zynqt.keypad_leds import KeypadLeds
+from zynqt.hw_input import HwInput
 from zynqt.screens.pattern_editor import PatternEditor
 from zynqt.screens.chain_manager import ChainManager
 from zynqt.screens.control import ChainControl
@@ -76,6 +77,8 @@ class ZynUI(QObject):
     # Internal: a CUIA from the CUIA thread or OSC, to be run in the GUI thread
     _cuiaRequested = Signal(str, list)
     _startFinished = Signal(bool)
+    # Internal: the kit's encoders were turned (HwInput's thread), take the deltas in the GUI thread
+    _zynpotPending = Signal()
     _backgroundDone = Signal(object, object)
 
     def __init__(self, parent=None):
@@ -157,6 +160,14 @@ class ZynUI(QObject):
         self._status_timer = QTimer(self, interval=200)
         self._status_timer.timeout.connect(self._poll_status)
         self._status_timer.start()
+        # The kit's encoders and switches (docs/qt-hardware-input.md): only with a kit's zyncore
+        # build, off with the generic one (DUMMIES: Duet, desktops)
+        self.zynpot_pr_state = [0] * max(zynthian_gui_config.num_zynpots, 0)
+        self.hw_input = HwInput(lib_zyncore, zynthian_gui_config.last_zynswitch_index,
+                                zynthian_gui_config.num_zynpots, self.cuia_queue.put_nowait,
+                                self._has_switch_ui_action, self._zynpotPending.emit,
+                                self.state_manager.set_event_flag)
+        self._zynpotPending.connect(self._take_zynpots)
 
     # --------------------------------------------------------------------------
     # Start and exit
@@ -166,6 +177,8 @@ class ZynUI(QObject):
         self._start_osc()
         self._cuia_thread = Thread(target=self._cuia_task, name="cuia", daemon=True)
         self._cuia_thread.start()
+        if self.hw_input.enabled:
+            self.hw_input.start()
         Thread(target=self._start_task, name="start", daemon=True).start()
 
     def _start_task(self):
@@ -193,6 +206,12 @@ class ZynUI(QObject):
     def _start_finished(self, snapshot_loaded):
         self._started = True
         self.startedChanged.emit()
+        # As zynthian_gui (create_screens, cb_set_active_chain): the custom switches' MIDI events,
+        # Zynaptik and Zyntof, for the active chain's channel. Kit builds only: the generic
+        # zyncore has no setup_zynswitch_midi
+        if self.hw_input.enabled:
+            self._wiring_midi_setup()
+            self.bridge.activeChainChanged.connect(self._wiring_midi_setup)
         # As zynthian_gui: without a snapshot, start by adding a chain
         if not snapshot_loaded:
             self.cuia_add_chain()
@@ -207,6 +226,8 @@ class ZynUI(QObject):
         QTimer.singleShot(0, self._do_exit)
 
     def _do_exit(self):
+        # First: no zyncore callbacks into Python while shutting down
+        self.hw_input.stop()
         # As the Tk admin's last_state_action, but on every exit (the kiosk session ends with
         # SIGTERM): the next start restores this state
         try:
@@ -934,7 +955,10 @@ class ZynUI(QObject):
             for i, ts in list(pressed.items()):
                 if ts < long_ts:
                     del pressed[i]
-                    self._cuiaRequested.emit("_zynswitch", [i, "L"])
+                    # Not while its encoder is turned (push-rotate)
+                    zpi = self._switch_zynpot(i)
+                    if zpi is None or self.zynpot_pr_state[zpi] <= 1:
+                        self._cuiaRequested.emit("_zynswitch", [i, "L"])
             try:
                 event = self.cuia_queue.get(True, repeat_interval)
             except Empty:
@@ -981,21 +1005,37 @@ class ZynUI(QObject):
                 continue
             if cuia.lower() == "zynswitch" and len(params) >= 2:
                 i, t = int(params[0]), str(params[1]).upper()
+                # The push switch of an encoder (kits): push-rotate (zynthian_gui.zynpot_pr_state)
+                zpi = self._switch_zynpot(i)
                 if t == "P":
-                    if self._push_action(i):
+                    if zpi is not None:
+                        self.zynpot_pr_state[zpi] = 1
+                        pressed[i] = monotonic()
+                    elif self._push_action(i):
                         # A push action (zynthian_gui.zynswitch_push): now, repeated while held
                         self._cuiaRequested.emit("_zynswitch", [i, "P"])
                         repeating[i] = repeat_delay
                     else:
                         pressed[i] = monotonic()
                     continue
+                turned = zpi is not None and self.zynpot_pr_state[zpi] > 1
+                if zpi is not None:
+                    self.zynpot_pr_state[zpi] = 0
                 if t == "R":
                     if repeating.pop(i, None) is not None:
                         continue
                     ts = pressed.pop(i, None)
                     if ts is None:
                         continue  # long press already handled
-                    t = self._switch_timing(monotonic() - ts)
+                    # The kit's switches: zyncore's (debounced) duration in µs
+                    seconds = int(params[2]) / 1000000 if len(params) > 2 else monotonic() - ts
+                    t = self._switch_timing(seconds)
+                else:
+                    # S / B / L given (OSC): ends a press started with P
+                    pressed.pop(i, None)
+                    repeating.pop(i, None)
+                if turned:
+                    continue  # its encoder was turned while pushed: no switch action
                 self._cuiaRequested.emit("_zynswitch", [i, t])
                 continue
             self._cuiaRequested.emit(str(cuia), params)
@@ -1014,6 +1054,46 @@ class ZynUI(QObject):
                 screen.move(d)
             else:
                 self._navigate("down" if d > 0 else "up")
+
+    def _switch_zynpot(self, i):
+        """The encoder whose push switch i is (zynthian_gui_config.zynpot2switch), or None"""
+        try:
+            zpi = zynthian_gui_config.zynpot2switch.index(i)
+        except (AttributeError, ValueError):
+            return None
+        return zpi if zpi < len(self.zynpot_pr_state) else None
+
+    def zynpot_push_rotate(self, i):
+        """Encoder i turned while pushed (kits): counted, so its release does nothing (as
+        zynthian_gui_controller.zynpot_cb); the controller screens nudge fine then"""
+        if 0 <= i < len(self.zynpot_pr_state) and self.zynpot_pr_state[i] > 0:
+            self.zynpot_pr_state[i] += 1
+            return True
+        return False
+
+    @Slot()
+    def _take_zynpots(self):
+        """The kit's encoders (HwInput): the deltas since the last call, to the current screen"""
+        for i, d in self.hw_input.take_pot_deltas():
+            try:
+                self.cuia__zynpot([i, d])
+            except Exception as e:
+                logging.exception(f"zynpot {i},{d} of screen {self.current_screen} failed: {e}")
+
+    @staticmethod
+    def _has_switch_ui_action(i):
+        """Custom switch i (from 4) has UI actions (the others are MIDI switches: zyncore's)"""
+        try:
+            return bool(zynthian_gui_config.custom_switch_ui_actions[i - 4])
+        except IndexError:
+            return False
+
+    def _wiring_midi_setup(self):
+        chain = self.chain_manager.get_active_chain()
+        try:
+            zynthian_wiring.wiring_midi_setup(chain.midi_chan if chain is not None else None)
+        except Exception as e:
+            logging.error(f"wiring MIDI set-up: {e}")
 
     def _push_action(self, i):
         """The custom switch's push action (wiring configuration UI_ACTION_PUSH), or None"""

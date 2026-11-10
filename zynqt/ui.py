@@ -32,7 +32,7 @@ from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
 from zynqt.models.control_xy import ControlXY
 from zynqt.models.launcher import Launcher
 from zynqt.keypad_leds import KeypadLeds
-from zynqt.hw_input import HwInput
+from zynqt.hw_input import HwInput, list_step
 from zynqt.screens.pattern_editor import PatternEditor
 from zynqt.screens.chain_manager import ChainManager
 from zynqt.screens.control import ChainControl
@@ -163,6 +163,7 @@ class ZynUI(QObject):
         # The kit's encoders and switches (docs/qt-hardware-input.md): only with a kit's zyncore
         # build, off with the generic one (DUMMIES: Duet, desktops)
         self.zynpot_pr_state = [0] * max(zynthian_gui_config.num_zynpots, 0)
+        self._zynpot_steps = {}   # encoder -> the behaviour set in zyncore
         self.hw_input = HwInput(lib_zyncore, zynthian_gui_config.last_zynswitch_index,
                                 zynthian_gui_config.num_zynpots, self.cuia_queue.put_nowait,
                                 self._has_switch_ui_action, self._zynpotPending.emit,
@@ -179,6 +180,8 @@ class ZynUI(QObject):
         self._cuia_thread.start()
         if self.hw_input.enabled:
             self.hw_input.start()
+        else:
+            logging.info("Hardware input: off (no switches or encoders in this zyncore build)")
         Thread(target=self._start_task, name="start", daemon=True).start()
 
     def _start_task(self):
@@ -438,6 +441,7 @@ class ZynUI(QObject):
         if name != self.current_screen:
             self.current_screen = name
             self.currentScreenChanged.emit()
+        self.setup_zynpots()
 
     def show_screen(self, name, history=True, params=None):
         if name not in QML_SCREENS and name not in self.list_screens:
@@ -1055,6 +1059,31 @@ class ZynUI(QObject):
             else:
                 self._navigate("down" if d > 0 else "up")
 
+    def setup_zynpots(self, screen=None):
+        """The kit's encoder behaviour (acceleration) for the screen shown, as the Tk screens set
+        it (zynthian_gui_controller.config, the mixer's and pattern editor's setup_zynpots): the
+        screen's zynpot_steps() {encoder: step}, list screens the select encoder by the list's
+        length; the others are left as they are (as Tk). screen: only if it is the one shown"""
+        if not self.hw_input.pots:
+            return
+        current = self._screen_obj()
+        if current is None or (screen is not None and screen is not current):
+            return
+        func = getattr(current, "zynpot_steps", None)
+        if callable(func):
+            steps = func()
+        elif self.current_screen in self.list_screens:
+            steps = {zynthian_gui_config.select_ctrl: list_step(len(current.model.entries))}
+        else:
+            steps = None
+        for i, step in (steps or {}).items():
+            if 0 <= i < zynthian_gui_config.num_zynpots and self._zynpot_steps.get(i) != step:
+                try:
+                    lib_zyncore.setup_behaviour_zynpot(i, step)
+                    self._zynpot_steps[i] = step
+                except Exception as e:
+                    logging.error(f"encoder {i} behaviour: {e}")
+
     def _switch_zynpot(self, i):
         """The encoder whose push switch i is (zynthian_gui_config.zynpot2switch), or None"""
         try:
@@ -1529,7 +1558,7 @@ class ZynUI(QObject):
             logging.error(f"V5_ZYNPOT_SWITCH: wrong parameters {params}")
             return
         if t == "L":
-            if self.state_manager.zctrl_x and self.state_manager.zctrl_y:
+            if self.control_xy.available():
                 self.show_screen("control_xy")
         elif i == 3 and t in ("S", "B"):
             self.zynswitch(3, t)
@@ -1870,20 +1899,6 @@ class ZynUI(QObject):
             order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
             if i in order:
                 self.chain_control_screen.controllers[order.index(i)].set_abs(val)
-
-    def cuia_v5_zynpot_switch(self, params=None):
-        """V5 encoder push (the screen's cuia_v5_zynpot_switch first): long press the X-Y touchpad
-        if both axes are set; the select encoder as SELECT"""
-        try:
-            i, t = int(params[0]), str(params[1]).upper()
-        except (TypeError, ValueError, IndexError):
-            logging.error(f"V5_ZYNPOT_SWITCH: wrong parameters {params}")
-            return
-        if t == "L":
-            if self.control_xy.available():
-                self.show_screen("control_xy")
-        elif i == 3 and t in ("S", "B"):
-            self._navigate("select" if t == "S" else "select_bold")
 
     def cuia_api(self, params=None):
         """API sm|cm,method,params...: call a state manager / chain manager method"""

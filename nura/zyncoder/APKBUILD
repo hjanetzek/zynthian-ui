@@ -2,15 +2,11 @@
 #
 # Built from a local checkout of zyncoder (nura branch):
 #   pmbootstrap build --src=/path/to/zyncoder zyncoder
-# zyncoder: the generic library (layout DUMMIES: no GPIO/I2C, for the Duet, desktops, VMs).
-# zyncoder-hw (aarch64): one build per zynthian kit's wiring layout against Alpine's wiringpi, in
-# /usr/lib/zynthian/hw/<LAYOUT>/: zyncoder compiles the layout, I2C addresses and pins in
-# (ZynthianOS rebuilds it on the device when the kit changes); zyncore.py loads the build of
-# ZYNTHIAN_WIRING_LAYOUT when there is one. The values are those of zynthian-sys'
-# config/zynthian_envars_<kit>.sh.
+# The generic library (layout DUMMIES: no GPIO/I2C, for the Duet, desktops, VMs); the zynthian
+# kits' builds are zyncoder-hw (its own recipe: aarch64 with wiringpi).
 pkgname=zyncoder
 pkgver=2610_git20261102
-pkgrel=1
+pkgrel=2
 pkgdesc="zynthian zyncore library: MIDI router and controller handling"
 url="https://github.com/zynthian/zyncoder"
 arch="aarch64 x86_64"
@@ -26,20 +22,6 @@ makedepends="
 	samurai
 	"
 subpackages="$pkgname-dbg"
-case "$CARCH" in
-aarch64)
-	makedepends="$makedepends wiringpi-dev"
-	subpackages="$subpackages $pkgname-hw:_hw"
-	;;
-esac
-
-# Kit builds: <directory>:<ZYNTHIAN_WIRING_* settings, comma-separated>
-_hw_layouts="
-	MCP23017_ZynScreen:ZYNTHIAN_WIRING_LAYOUT=MCP23017_ZynScreen,ZYNTHIAN_WIRING_MCP23017_I2C_ADDRESS=0x20,ZYNTHIAN_WIRING_MCP23017_INTA_PIN=2,ZYNTHIAN_WIRING_MCP23017_INTB_PIN=7
-	V5:ZYNTHIAN_WIRING_LAYOUT=V5
-	Z2_V3:ZYNTHIAN_WIRING_LAYOUT=Z2_V3
-	MINI_V2:ZYNTHIAN_WIRING_LAYOUT=MINI_V2
-	"
 builddir="$srcdir/$pkgname"
 
 build() {
@@ -49,17 +31,6 @@ build() {
 		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 		-DCMAKE_SKIP_RPATH=ON
 	cmake --build build --target zyncore
-	[ "$CARCH" = aarch64 ] || return 0
-	local l name settings
-	for l in $_hw_layouts; do
-		name=${l%%:*}
-		settings=$(echo "${l#*:}" | tr , ' ')
-		# shellcheck disable=SC2086 # $settings: several assignments
-		env $settings cmake -B build-hw-$name \
-			-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-			-DCMAKE_SKIP_RPATH=ON
-		cmake --build build-hw-$name --target zyncore
-	done
 }
 
 package() {
@@ -68,15 +39,4 @@ package() {
 	install -Dm644 __init__.py zyncore.py -t "$pkgdir"/usr/share/zynthian/zynthian-ui/zyncoder/
 	python3 -m compileall -q -d /usr/share/zynthian/zynthian-ui/zyncoder \
 		"$pkgdir"/usr/share/zynthian/zynthian-ui/zyncoder
-}
-
-_hw() {
-	pkgdesc="zynthian zyncore library for the zynthian kits (GPIO, I2C: encoders, switches, LEDs)"
-	depends="$pkgname=$pkgver-r$pkgrel"
-	local l name
-	for l in $_hw_layouts; do
-		name=${l%%:*}
-		install -Dm755 "$builddir"/build-hw-$name/libzyncore.so \
-			"$subpkgdir"/usr/lib/zynthian/hw/$name/libzyncore.so
-	done
 }

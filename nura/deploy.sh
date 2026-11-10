@@ -30,6 +30,7 @@
 #   deploy.sh -r zynthian-ui                 # build zynthian-ui from this checkout, install, restart
 #   deploy.sh zyncoder zynthian-ui           # both checkouts
 #   deploy.sh postmarketos-ui-zynthian       # the kiosk package
+#   deploy.sh zyncoder-hw zynthian-hw        # zynthian kit support (Raspberry Pi), from ../zyncoder
 #   deploy.sh drivenbymoss dbm-nihost        # DrivenByMoss's zynthian drivers and the Maschine host
 #   deploy.sh zynthian-webconf               # the web configuration (http://<device>.local:8080)
 #
@@ -126,7 +127,7 @@ if [ "$build" = 1 ]; then
 			done ;;
 	esac
 	ordered=
-	for main in zyncoder zynthian-jalv aeolus zynthian-data zynthian-ui drivenbymoss dbm-nihost zynthian-webconf postmarketos-ui-zynthian; do
+	for main in zyncoder zyncoder-hw zynthian-jalv aeolus zynthian-data zynthian-ui drivenbymoss dbm-nihost zynthian-webconf postmarketos-ui-zynthian; do
 		case " $mains " in *" $main "*) ordered="$ordered $main" ;; esac
 	done
 	for main in $mains; do
@@ -137,7 +138,8 @@ if [ "$build" = 1 ]; then
 			# shellcheck disable=SC2086 # empty $lax is intended
 			zynthian-ui) pmb build $lax --arch "$arch" --src="$checkout" zynthian-ui ;;
 			# shellcheck disable=SC2086
-			zyncoder) pmb build $lax --arch "$arch" --src="$zyncoder" zyncoder ;;
+			# zyncoder-hw: the zynthian kits' builds, from the same checkout
+			zyncoder | zyncoder-hw) pmb build $lax --arch "$arch" --src="$zyncoder" "$main" ;;
 			# DrivenByMoss: both packages from the drivenbymoss-rust checkout
 			# shellcheck disable=SC2086
 			drivenbymoss | dbm-nihost) pmb build $lax --arch "$arch" --src="$dbm" "$main" ;;

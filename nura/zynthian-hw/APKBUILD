@@ -6,7 +6,7 @@
 # what zynthian does as root on ZynthianOS (a first step). Plan: nura-builds docs/zynthian-rpi.md.
 pkgname=zynthian-hw
 pkgver=1
-pkgrel=0
+pkgrel=1
 pkgdesc="zynthian hardware support: kit selection, zyncoder for the kits"
 url="https://github.com/hjanetzek/zynthian-ui"
 arch="aarch64"
@@ -28,6 +28,6 @@ package() {
 	install -Dm440 "$srcdir"/sudoers "$pkgdir"/etc/sudoers.d/90-zynthian-hw
 }
 sha512sums="
-94d68c0c712f1295984565d938dfebd4a6983bc9f952496482f19a37decadbbcd4d33b73ab18f324410525752a01a26ca67942c5a46085066439412ac91e959d  zynthian-kit
+bc178457fbd4ba273f848673cbd4c393c7fa97d7d2a672545f127cad25ded38d6bca31dc83ffd7066e99f9dfd274e32ca1c0fb21abca3ca2c6cf412b684475b9  zynthian-kit
 f7e3144d4366d2f0805a69b61803e44d42176b34970af57961a7c1b031aa94584f8e0bafc3ba9fff76f13cc3633a20ba61a3030622ff861265b5e70f66662b5c  sudoers
 "

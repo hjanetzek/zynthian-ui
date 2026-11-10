@@ -1,7 +1,7 @@
 # Kiosk UI for postmarketOS/Nura: boots straight into zynthian (cage, XWayland, PipeWire).
 pkgname=postmarketos-ui-zynthian
 pkgver=1
-pkgrel=21
+pkgrel=22
 pkgdesc="zynthian synthesizer platform as a kiosk (Wayland, cage)"
 arch="noarch"
 url="https://github.com/zynthian/zynthian-ui"
@@ -94,7 +94,7 @@ _niri() {
 
 sha512sums="
 b6294f83ce1ae33c841eddd855f73bb70335b1bac342c50a6a518c5543e15cf01e48697275fd85ff85b9c39983b60ef24263b94d594d325c0301a2d4fc6b9ce6  zynthian.sh
-f26af2c0671dbded08e22c415b2aac80b29ed68a241695c65a400931b7c1ce469e7ac08b336e2f0e8645198c9e6afc636e18b8f6bc78f6dd8678448261427469  zynthian-session.sh
+cd0a1124f8984d8a554eb1fd46da5c2966292d8959e5cff1706c7cf7eba302c7c2127951affbef7c4a14a265fd483cc3391ae3109b1eea8ec45afb3ec7a85fb3  zynthian-session.sh
 7c98c7255182664b6ff78a1c3ea2abddebd63d36910f81d409fc601c57d6f1df27de64f832d6e115f157b0e93c4fdceae4d539174ef214fcbd9c69a99041cb1e  zynthian-niri
 69ab1db3623772c585b1b76b30ccd3d0beb43cac5a079be7c8f482cfe88b63d9b4fe50f0686b881d4ff29b2165634791f05447128d8ea2581781ec930f71c68a  zynthian-niri-ui
 a4d530ae0ad45a40b7d7d0a7aa92b27c30fbc388c5241edfec8d015f8915f5b4ece4bcd7cba3c152c13ba7f5273bdb1eb33acaa94c39cc56e142ad85beeb8e4c  zynthian-niri-workspaces

@@ -17,6 +17,11 @@ zynthian_device_defaults() {
 			zynthian_transform=90
 			zynthian_scale=1.8
 			;;
+		raspberrypi,*)
+			# zynthian kits: small panels (the V4's 480x320 SPI panel, the V5's 800x480 DSI
+			# panel) at their own resolution, as on ZynthianOS
+			zynthian_scale=1
+			;;
 	esac
 	# A virtual machine (nura-builds' qemu-amd64 image, nura/tools/run_qemu.sh): a window on a desktop
 	# screen, no device tree; scale 1 (the default window, 1280x800, then shows the Duet's layout)

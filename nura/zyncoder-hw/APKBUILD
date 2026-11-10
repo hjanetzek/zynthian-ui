@@ -1,0 +1,64 @@
+# zynthian's zyncore library built for the zynthian kits (GPIO, I2C: encoders, switches, LEDs, ADCs),
+# one build per kit's wiring layout, against Alpine's wiringpi, in /usr/lib/zynthian/hw/<LAYOUT>/:
+# zyncoder compiles the layout, I2C addresses and pins in (ZynthianOS rebuilds it on the device when
+# the kit changes). zyncore.py loads the build of ZYNTHIAN_WIRING_LAYOUT when there is one, else the
+# generic library of the zyncoder package. The values are those of zynthian-sys'
+# config/zynthian_envars_<kit>.sh (and the V4 kit's dumps).
+#
+# Built from the zyncoder checkout, as zyncoder:
+#   pmbootstrap build --src=/path/to/zyncoder zyncoder-hw
+# Its own recipe (not a subpackage of zyncoder): wiringpi exists only for ARM, and pmbootstrap reads
+# makedepends statically (a "case $CARCH" in zyncoder's recipe was not seen: the builds fell back to
+# zyncoder's wiringPi stand-in without GPIO/I2C).
+pkgname=zyncoder-hw
+pkgver=2610_git20261110
+pkgrel=0
+pkgdesc="zynthian zyncore library for the zynthian kits (GPIO, I2C: encoders, switches, LEDs)"
+url="https://github.com/zynthian/zyncoder"
+arch="aarch64"
+license="GPL-3.0-or-later"
+options="!check"
+depends="zyncoder"
+makedepends="
+	boost1.89-dev
+	cmake
+	jack-dev
+	liblo-dev
+	linux-headers
+	samurai
+	wiringpi-dev
+	"
+builddir="$srcdir/$pkgname"
+
+# Kit builds: <directory>:<ZYNTHIAN_WIRING_* settings, comma-separated>
+_layouts="
+	MCP23017_ZynScreen:ZYNTHIAN_WIRING_LAYOUT=MCP23017_ZynScreen,ZYNTHIAN_WIRING_MCP23017_I2C_ADDRESS=0x20,ZYNTHIAN_WIRING_MCP23017_INTA_PIN=2,ZYNTHIAN_WIRING_MCP23017_INTB_PIN=7
+	V5:ZYNTHIAN_WIRING_LAYOUT=V5
+	Z2_V3:ZYNTHIAN_WIRING_LAYOUT=Z2_V3
+	MINI_V2:ZYNTHIAN_WIRING_LAYOUT=MINI_V2
+	"
+
+build() {
+	local l name settings
+	for l in $_layouts; do
+		name=${l%%:*}
+		settings=$(echo "${l#*:}" | tr , ' ')
+		# No RPATH: the libraries' dependencies are system libraries
+		# shellcheck disable=SC2086 # $settings: several assignments
+		env $settings cmake -B build-$name \
+			-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+			-DCMAKE_SKIP_RPATH=ON
+		cmake --build build-$name --target zyncore
+	done
+}
+
+package() {
+	local l name
+	for l in $_layouts; do
+		name=${l%%:*}
+		# A build without wiringPi (CMake falls back to zyncoder's stand-in) has no GPIO/I2C
+		scanelf -n build-$name/libzyncore.so | grep -q libwiringPi ||
+			die "$name: libzyncore.so isn't linked with libwiringPi"
+		install -Dm755 build-$name/libzyncore.so "$pkgdir"/usr/lib/zynthian/hw/$name/libzyncore.so
+	done
+}

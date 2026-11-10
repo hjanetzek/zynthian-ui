@@ -21,7 +21,6 @@ set -eu
 sys_config=${ZYNTHIAN_SYS_CONFIG:-/usr/share/zynthian/zynthian-sys/config}
 config_dir=${ZYNTHIAN_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zynthian}
 envars=$config_dir/zynthian_envars.sh
-envars_template=/usr/share/zynthian/zynthian-ui/desktop/zynthian_envars_desktop.sh
 boot_kit=/boot/zynthian-kit.txt
 cmdline_kit=/etc/kernel-cmdline.d/90-zynthian-kit.conf
 
@@ -54,11 +53,15 @@ kit=$1
 kit_file=$sys_config/zynthian_envars_$kit.sh
 [ -f "$kit_file" ] || { echo "no configuration for kit '$kit' (zynthian-kit list)" >&2; exit 1; }
 [ "$(id -u)" != 0 ] || { echo "run it as the user zynthian runs as, not as root" >&2; exit 1; }
-[ -f "$envars" ] || [ -f "$envars_template" ] || { echo "no $envars and no template $envars_template" >&2; exit 1; }
 
 # 1. The user's zynthian_envars.sh: the kit's hardware lines replace the user's, the others stay
-mkdir -p "$config_dir"
-[ -f "$envars" ] || cp "$envars_template" "$envars"
+# Without a config yet: zynthian's own setup first (what the launcher does at the first start:
+# the directories, zynthian_envars.sh, the MIDI profiles, ...), not only the envars template
+if [ ! -f "$envars" ]; then
+	ZYNTHIAN_DIR=${ZYNTHIAN_DIR:-/usr/share/zynthian} ZYNTHIAN_LIB_DIR=${ZYNTHIAN_LIB_DIR:-/usr/lib/zynthian} \
+		bash -c '. "$ZYNTHIAN_DIR/zynthian-ui/desktop/zynthian_desktop_env.sh" && "$ZYNTHIAN_UI_DIR/desktop/setup_desktop.sh" dirs' >/dev/null
+	[ -f "$envars" ] || { echo "zynthian's setup didn't create $envars" >&2; exit 1; }
+fi
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 grep -E '^export [A-Z0-9_]+=' "$kit_file" | while IFS= read -r line; do
@@ -80,6 +83,13 @@ echo "kit $kit: hardware settings in $envars"
 soundcard=$(sh -c '. "$1" >/dev/null 2>&1; printf "%s" "${SOUNDCARD_CONFIG:-}"' sh "$kit_file")
 display=$(sh -c '. "$1" >/dev/null 2>&1; printf "%s" "${DISPLAY_CONFIG:-}"' sh "$kit_file")
 cmdline=$(sh -c '. "$1" >/dev/null 2>&1; printf "%s" "${DISPLAY_KERNEL_OPTIONS:-}"' sh "$kit_file")
+# The ZynScreen 3.5 (piscreen2r: fbtft, a framebuffer only) through DRM where the device has the
+# overlay (device-zynthian-rpi4: zynscreen-drm, the kernel's ili9486 driver, touch included):
+# Wayland compositors need DRM
+case $display in
+	*piscreen2r*)
+		[ ! -e /boot/overlays/zynscreen-drm.dtbo ] || display="dtoverlay=zynscreen-drm,rotation=0" ;;
+esac
 {
 	echo "# zynthian kit $kit (zynthian-kit, from zynthian-sys' zynthian_envars_$kit.sh)"
 	echo "# Sound card"

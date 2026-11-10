@@ -217,7 +217,7 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
    none), and the controller drivers that use the Tk screens (`zyngui.screens["pattern_editor" /
    "mixer" / "launcher"]` in APC40, Launchpad, ... drivers; `ZynUI.screens` is empty, so those
    parts do nothing). Needs a kit or a control device to test with; on the Duet only MIDI
-   controllers.
+   controllers. Analysis and plan for the encoders and switches: docs/qt-hardware-input.md (2026-11-10).
 3. **PipeWire integration** of the audio routing: the main output is done (Admin > Main Output,
    5b0beedc). Open: input/output numbering across several devices (by port name like the main
    output?), friendly port names (`jack.fill-aliases`), ALSA level controls only for `system:`,

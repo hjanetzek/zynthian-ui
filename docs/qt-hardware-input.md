@@ -188,6 +188,14 @@ Not needed for the V4 kit. For V5 / Z2 a hardware backend behind `KeypadLeds` (w
 computes Tk's colours per key) writing to the WS281x strip as `zynthian_wsleds_v5` does; no
 kit to test, so later.
 
+### Prototype
+
+Branch `qt-hw-input` (9c0c5ea4, not merged): `zynqt/hw_input.py` (switch poller, encoder
+callback), its wiring into `ZynUI` (push-rotate, the `R` duration, the `S`/`B`/`L`-after-`P`
+fix, `wiring_midi_setup()`), fine nudge in chain control while push-rotating; unit tests
+`python3 -m unittest zynqt.tests.test_hw_input`. Off with the DUMMIES build. Not in it:
+`setup_behaviour_zynpot`, the keypad decision (section 4), LEDs. Untested on a kit.
+
 ## 4. The keypad on a kit build
 
 The keypad sends custom switch *k* + 4 for key *k*, which matches the V5 numbering and the 24

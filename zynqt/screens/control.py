@@ -17,6 +17,7 @@ from zyngui import zynthian_widget_data as wd
 from zyngui import zynthian_sooperlooper_data as sld
 from zyngui.zynthian_midi_learn_data import (MIDI_LEARNING_CHAIN, MIDI_LEARNING_DISABLED, MIDI_LEARNING_GLOBAL,
                                              binding, note_range_learn)
+from zynqt.hw_input import STEP_FIXED, list_step, zctrl_step
 from zynqt.models.audio_file import AudioFileView
 from zynqt.models.organelle import OrganelleView
 from zynqt.models.widgets import EnvelopeView, FilterView, PluginView, EuclidSeqView, SooperLooperView
@@ -644,6 +645,7 @@ class ChainControl(QObject):
             c.set_zctrl(zctrls[i] if i < len(zctrls) else None)
         self._set_widget(proc if kind != "chain" else None, zctrls)
         self.pageChanged.emit()
+        self.ui.setup_zynpots(self)
 
     def _set_widget(self, proc, zctrls=()):
         """The page's widget, as zynthian_gui_control: from the page's controllers (envelope,
@@ -743,6 +745,16 @@ class ChainControl(QObject):
                 self.exit_midi_learn()
             self._mode = mode
             self.modeChanged.emit()
+            self.ui.setup_zynpots(self)
+
+    def zynpot_steps(self):
+        """The kit's encoder behaviour (ZynUI.setup_zynpots): in control mode by each knob's
+        controller (zynthian_gui_controller.config), in select mode the page list (the select
+        knob) and the processors (knob 2) one per detent"""
+        if self._mode == "select":
+            return {zynthian_gui_config.select_ctrl: list_step(len(self.pages.entries)), 2: STEP_FIXED}
+        order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
+        return {i: zctrl_step(self.controllers[n].zctrl) for n, i in enumerate(order) if n < len(self.controllers)}
 
     def _knob_controller(self, i):
         """The controller knob i turns (the layout's ctrl_order), or None"""

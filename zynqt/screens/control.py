@@ -239,8 +239,11 @@ class ControllerProxy(QObject):
 
     @Slot(int)
     def nudge(self, steps):
+        self.nudge_fine(steps, False)
+
+    def nudge_fine(self, steps, fine):
         if self.zctrl is not None and steps:
-            self.zctrl.nudge(steps)
+            self.zctrl.nudge(steps, fine=fine)
             self.zctrl.is_dirty = False
             self.changed.emit()
 
@@ -767,7 +770,8 @@ class ChainControl(QObject):
             return True
         c = self._knob_controller(i)
         if c is not None and c.zctrl is not None:
-            c.nudge(d)
+            # Fine while the knob is pushed (push-rotate, kits: zynthian_gui_controller.zynpot_cb)
+            c.nudge_fine(d, self.ui.zynpot_push_rotate(i))
             if self.midi_learning:
                 self.midi_learn(c.index, self.midi_learning)
         return True

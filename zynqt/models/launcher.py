@@ -150,6 +150,10 @@ class Launcher(QObject):
     def _mixer(self):
         return self.ui.qml_screen_objects["mixer"]
 
+    def zynpot_steps(self):
+        """As the mixer (Tk's launcher is the mixer screen)"""
+        return self._mixer().zynpot_steps()
+
     def zynpot(self, i, d):
         """Knob 2 the phrase (up / down), knob 3 the chain (moving: the phrase), 0 / 1 level and
         balance"""

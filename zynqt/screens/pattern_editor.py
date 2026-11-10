@@ -1592,6 +1592,10 @@ class PatternEditor(QObject):
         self.eventsChanged.emit()
         return True
 
+    def zynpot_steps(self):
+        """The kit's encoders all accelerate (zynthian_gui_pated_base.setup_zynpots)"""
+        return {i: 0 for i in range(4)}
+
     def zynpot(self, i, d):
         """Knob 1 zoom (or the duration while editing), 2 the row (block, parameter value), 3 the
         step (block, edit parameter, undo / redo)"""

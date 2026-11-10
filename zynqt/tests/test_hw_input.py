@@ -143,5 +143,30 @@ class TestEncoders(unittest.TestCase):
         self.assertEqual(hw.take_pot_deltas(), [])
 
 
+class FakeZctrl:
+    def __init__(self, ticks=None, is_integer=False, value_range=127, is_path=False):
+        self.ticks = ticks
+        self.is_integer = is_integer
+        self.value_range = value_range
+        self.is_path = is_path
+
+
+class TestSteps(unittest.TestCase):
+    """zynthian_gui_controller.config's rule"""
+
+    def test_lists(self):
+        self.assertEqual(hw_input.list_step(32), hw_input.STEP_FIXED)
+        self.assertEqual(hw_input.list_step(33), hw_input.STEP_ACCEL)
+        self.assertEqual(hw_input.zctrl_step(FakeZctrl(ticks=list(range(5)))), hw_input.STEP_FIXED)
+        self.assertEqual(hw_input.zctrl_step(FakeZctrl(ticks=list(range(100)))), hw_input.STEP_ACCEL)
+
+    def test_numbers(self):
+        self.assertEqual(hw_input.zctrl_step(FakeZctrl(is_integer=True, value_range=16)), hw_input.STEP_FIXED)
+        self.assertEqual(hw_input.zctrl_step(FakeZctrl(is_integer=True, value_range=127)), hw_input.STEP_ACCEL)
+        self.assertEqual(hw_input.zctrl_step(FakeZctrl(value_range=1)), hw_input.STEP_ACCEL)  # float
+        self.assertEqual(hw_input.zctrl_step(FakeZctrl(is_path=True)), hw_input.STEP_ACCEL)
+        self.assertEqual(hw_input.zctrl_step(None), hw_input.STEP_FIXED)
+
+
 if __name__ == "__main__":
     unittest.main()

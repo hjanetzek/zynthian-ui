@@ -4,6 +4,7 @@ zynpot_cb, cuia_v5_zynpot_switch, back_action): left / right select the previous
 QML (MixerScreen); this is its screen object for ZynUI."""
 
 from zyngui import zynthian_gui_config
+from zynqt.hw_input import STEP_ACCEL, STEP_FIXED
 
 
 class MixerNav:
@@ -119,6 +120,12 @@ class MixerNav:
             self.ui.switch_select(t)
             return True
         return False
+
+    def zynpot_steps(self):
+        """The kit's encoders (zynthian_gui_mixer.setup_zynpots): the levels accelerate, the
+        select knob (the layout's last) one chain per detent"""
+        order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
+        return {i: (STEP_FIXED if n == len(order) - 1 else STEP_ACCEL) for n, i in enumerate(order)}
 
     def zynpot(self, i, d):
         """Knobs (zynthian_gui_mixer.zynpot_cb): 0 the active chain's level, 1 its balance, 2

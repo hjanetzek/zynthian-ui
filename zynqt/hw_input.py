@@ -23,6 +23,29 @@ NO_LONG_US = 20 * 1000000  # zyncore's long press detection off (zynthian_gui: w
 
 ZYNPOT_CB = ctypes.CFUNCTYPE(None, ctypes.c_ubyte, ctypes.c_int)
 
+# Encoder behaviour (zyncore's setup_behaviour_zynpot): 1 one step per detent, 0 speed-based
+# acceleration
+STEP_FIXED = 1
+STEP_ACCEL = 0
+
+
+def list_step(count):
+    """A list of count entries (zynthian_gui_controller.config: up to 32 values one per detent)"""
+    return STEP_FIXED if count <= 32 else STEP_ACCEL
+
+
+def zctrl_step(zctrl):
+    """The encoder behaviour for a controller, as zynthian_gui_controller.config"""
+    if zctrl is None:
+        return STEP_FIXED
+    if isinstance(zctrl.ticks, list):
+        return list_step(len(zctrl.ticks))
+    if getattr(zctrl, "is_path", False):
+        return STEP_ACCEL
+    if zctrl.is_integer and zctrl.value_range <= 32:
+        return STEP_FIXED
+    return STEP_ACCEL
+
 
 def available(lib, last_switch_index, num_pots):
     """(switches, encoders) to read from this zyncore build"""
@@ -69,7 +92,8 @@ class HwInput:
             # Kept referenced: ctypes frees the trampoline with the object
             self._zynpot_cb = ZYNPOT_CB(self._on_zynpot)
             self.lib.setup_zynpot_cb(self._zynpot_cb)
-        logging.info(f"Hardware input: switches {'on' if self.switches else 'off'} (last index "
+        # A warning: the default log level shows it (kits only)
+        logging.warning(f"Hardware input: switches {'on' if self.switches else 'off'} (last index "
                      f"{self.last_switch_index}), encoders {'on' if self.pots else 'off'} ({self.num_pots})")
 
     def _start_thread(self, target, name):

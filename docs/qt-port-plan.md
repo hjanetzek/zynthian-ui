@@ -217,7 +217,8 @@ images were recreated on every switch). `ZYNTHIAN_QT_TIMING=1` logs the switch t
    none), and the controller drivers that use the Tk screens (`zyngui.screens["pattern_editor" /
    "mixer" / "launcher"]` in APC40, Launchpad, ... drivers; `ZynUI.screens` is empty, so those
    parts do nothing). Needs a kit or a control device to test with; on the Duet only MIDI
-   controllers. Analysis and plan for the encoders and switches: docs/qt-hardware-input.md (2026-11-10).
+   controllers. Encoders and switches: see "Zynthian kits: encoders and switches" below
+   (prototype tested on the Pi 4 kit, 2026-11-10).
 3. **PipeWire integration** of the audio routing: the main output is done (Admin > Main Output,
    5b0beedc). Open: input/output numbering across several devices (by port name like the main
    output?), friendly port names (`jack.fill-aliases`), ALSA level controls only for `system:`,
@@ -321,6 +322,66 @@ meters if needed) as C++ items on Qt Canvas Painter, as in Zrythm, registered as
 Python app imports.
 
 Status (2026-11-06): all of it except the hardware kits and small screens; no C++ items needed so far.
+
+## Zynthian kits: encoders and switches
+
+Status 2026-11-10. Analysis and design: [qt-hardware-input.md](qt-hardware-input.md). Prototype:
+branch `qt-hw-input` (9c0c5ea4), **tested by the user on the Pi 4 with the V4-type kit: it works**,
+the encoder pushes map correctly; the mapping of all buttons isn't checked yet. Decision: implement
+the input loop (from the prototype); the on-screen keypad stays as it is for now.
+
+How the Tk UI does it, and what the Qt UI lacked:
+
+- **Switches:** zyncore has no switch callback. Tk's control thread polls `get_zynswitch(i,
+  long_us)` every 10 ms and puts P / S / B / L on `cuia_queue`; the CUIA thread times the presses
+  (push actions, auto repeat, autolong, push-rotate).
+- **Encoders:** zyncore calls `zynpot_cb` from its interrupt thread; Tk only adds the deltas there
+  (under a lock), a `zynpot` thread hands them to the screen's `zynpot_cb`.
+- **MIDI / CV / Zyntof switches** are sent in C once `wiring_midi_setup()` has configured them; Tk
+  calls it at start and on every active chain change. The Qt UI never called it.
+- **Kit detection is safe:** the generic DUMMIES build (Duet, desktops) exports none of the input
+  functions (`get_zynswitch`, `setup_zynpot_cb`, `setup_zynswitch_midi`), reports
+  `last_zynswitch_index` = -1 and `num_zynpots` = 0. The Qt input loop starts only with a kit build;
+  the Duet and desktops stay unchanged.
+- **Switch count depends on touch navigation:** with `ZYNTHIAN_UI_TOUCH_NAVIGATION` set,
+  `zynthian_gui_config` remaps the switches at import (before `init_zyncore`): the v5 profile, pins
+  padded to 4 + 24 + 4, so a V4 build reports 32 switches (keypad 4–27, the kit's extra buttons
+  28–31). The V4 envars ship with touch navigation empty: 8 switches.
+- **Other gaps found in the Qt UI:** no push-rotate and fine nudge, no encoder acceleration
+  (`setup_behaviour_zynpot`), a spurious long press 2 s after an explicit S/B/L following a P
+  (`_cuia_task`), `cuia_v5_zynpot_switch` defined twice in `ZynUI`.
+
+The design (implemented in the prototype):
+
+- `zynqt/hw_input.py`, Qt-free, started only with a kit build (`ZYNTHIAN_QT_HW_INPUT=0` turns it
+  off).
+- Switches: a 10 ms poll thread (~0.2 % of a Pi 4 core) sending `zynswitch i,P` / `i,R,dtus` through
+  `cuia_queue`, so keypad, keys, OSC and hardware share one state machine; zyncore's own long
+  detection off, so a long press fires once.
+- Encoders: the zyncore callback only accumulates; a thread signals the GUI thread once, which takes
+  the summed deltas into `cuia__zynpot` (no Qt calls from the C thread).
+- Push-rotate as Tk (no action on release, no autolong, fine nudge in chain control), the R duration
+  from zyncore, the S/B/L-after-P fix, `wiring_midi_setup()` at start and on chain change.
+
+Keypad on kits: Tk shows its touch keypad only with touch navigation; the Qt UI keeps its keypad as
+it is for now (decision 2026-11-10). Option for later: the keypad with its own actions, independent
+of the kit's switch count.
+
+Possible upstream Tk bugs (in [upstream-candidates.md](upstream-candidates.md)): physical switches
+may fire the long press twice (zyncore's L plus the CUIA thread's autolong); the touch-navigation
+remap sets custom switches 25/26 to NONE (the kit's first two extra buttons go dead) and maps the
+encoder pushes to the wrong switches (24–27), so push-rotate never registers.
+
+Open:
+
+1. Finish from the prototype: encoder acceleration (`setup_behaviour_zynpot`, per controller as Tk),
+   remove the duplicate `cuia_v5_zynpot_switch`, LEDs (wsleds) if a kit has them; then merge.
+2. Check the mapping of all buttons on the V4 kit (and a V5 if available); the checklist is in
+   qt-hardware-input.md, section 5. Which wiring profile and touch navigation setting the Pi 4 uses.
+3. Fine nudge with push-rotate only on controller screens (as Tk), or everywhere (Tk also does it
+   in ALT mode, which would change the Duet)?
+4. Whether to fix the touch-navigation remap of switches 25/26 in our tree.
+5. Later: a switch callback in zyncoder upstream instead of the 10 ms poll.
 
 ## Raspberry Pi kits with SPI displays
 

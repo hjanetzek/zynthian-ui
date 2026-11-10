@@ -72,6 +72,9 @@ class HwInput:
         self.notify_pots = notify_pots
         self.activity = activity or (lambda: None)
         self.switches, self.pots = available(lib, last_switch_index, num_pots)
+        # ZYNTHIAN_QT_HW_INPUT=log: every switch event and encoder delta in the log (checking the
+        # buttons' mapping on a kit, docs/qt-hardware-input.md section 5)
+        self.log_events = os.environ.get("ZYNTHIAN_QT_HW_INPUT", "") == "log"
         self._exit = Event()
         self._threads = []
         self._pot_lock = Lock()
@@ -125,6 +128,8 @@ class HwInput:
             if dtus < 0:
                 continue
             self.activity()
+            if self.log_events:
+                logging.warning(f"Hardware input: switch {i} " + ("pushed" if dtus == 0 else f"released after {dtus // 1000} ms"))
             if dtus == 0:
                 self.put_event(("zynswitch", [i, "P"]))
             else:
@@ -170,6 +175,8 @@ class HwInput:
             deltas = [(i, d) for i, d in enumerate(self._pot_deltas) if d]
             self._pot_deltas = [0] * len(self._pot_deltas)
             self._pot_pending = False
+        if self.log_events and deltas:
+            logging.warning(f"Hardware input: encoders {deltas}")
         return deltas
 
     def feed_pot(self, i, d):

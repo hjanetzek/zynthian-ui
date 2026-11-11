@@ -181,6 +181,57 @@ tools/qemu_compare.sh stop
   with images before 2026-11-09: zynthian-ui didn't depend on font-dejavu yet (`OSError: cannot open
   resource` from the mixer's `DejaVuSans.ttf`); the script installs it.
 
+## Several zynthians: a LAN between the VMs
+
+QEMU's user-mode network (`-netdev user`, SSH and webconf forwarded) lets a VM reach the host
+(10.0.2.2) but not another VM. For master/slave tests ([multi-zynthian-protocol.md](multi-zynthian-protocol.md))
+`run_qemu.sh -L MAC` adds a second NIC on a VM-to-VM LAN, without root: QEMU's socket multicast
+netdev (`-netdev socket,mcast=230.0.0.1:12345,localaddr=127.0.0.1`); every VM started with `-L`
+on this machine is on it (another group: `NURA_QEMU_LAN=230.0.0.2:12346`). The MAC must be unique
+per VM.
+
+`qemu_compare.sh -l` does it for its two VMs and gives them static addresses on that NIC
+(NetworkManager connection `zynlan`, kept on the disk): **192.168.77.1** (Qt VM, SSH 2242) and
+**192.168.77.2** (the other VM, SSH 2243). Start (or restart) them with it:
+
+```sh
+tools/qemu_compare.sh stop                # VMs running without the LAN
+tools/qemu_compare.sh -g -l start         # windows; without -g headless
+tools/qemu_compare.sh ssh qt ping -c1 192.168.77.2
+```
+
+- `localaddr=127.0.0.1`: multicast on the loopback interface. Through the default interface the
+  host's own sockets didn't get the looped frames on this machine (a plain Python multicast test
+  showed the same), and the VMs' frames would go out to the real LAN.
+- The guest's NIC has a NetworkManager "stable" cloned MAC: `qemu_compare.sh` finds the NIC by its
+  permanent address (`ip -o link`, `permaddr`).
+- postmarketOS' firewall drops incoming UDP: the master/slave ports and mDNS need
+  `/etc/nftables.d/50_zynthian-multi.nft` (from `nura/zynthian-ui/`, installed by the zynthian-ui
+  package of the `multi-zynthian` branch; on older packages copy it there and run
+  `sudo nft -f /etc/nftables.nft`). Checked 2026-11-11: ping both ways, OSC request round trip
+  0.3 ms.
+- mDNS: both VMs are called `nura-zynthian` (the image's host name), so `.local` names don't tell
+  them apart; the master/slave set-up finds slaves by broadcast or by address
+  (`ZYNTHIAN_MULTI_SLAVES=192.168.77.2`), not by name.
+
+Master/slave set-up of the two VMs (the second runs this branch headless instead of upstream's Tk
+UI; back to that: `NURA_VM_PORT=2243 tools/switch_ui.sh -V tomita` and `ZYNTHIAN_UI=tk` in its
+`/etc/default/zynthian`):
+
+```sh
+NURA_VM_PORT=2243 tools/switch_ui.sh -V -n qt     # this repository's package (has the headless mode)
+NURA_VM_PORT=2243 tools/sync_ui.sh -V             # this branch's code
+tools/qemu_compare.sh ssh tk 'sudo sed -i "s/^ZYNTHIAN_UI=.*/ZYNTHIAN_UI=headless/" /etc/default/zynthian
+    echo "export ZYNTHIAN_MULTI_NAME=slave-vm" | sudo tee -a /etc/default/zynthian'
+tools/qemu_compare.sh ssh tk sudo reboot          # /etc/default/zynthian is read at session start
+NURA_VM_PORT=2242 tools/sync_ui.sh -V             # the master
+tools/qemu_compare.sh ssh qt 'echo "export ZYNTHIAN_MULTI_MODE=master" >> ~/.config/zynthian/zynthian_custom_config.sh'
+NURA_VM_PORT=2242 tools/sync_ui.sh -V -R          # restart the Qt UI (RESTART_UI)
+```
+
+Afterwards code changes go to the slave with `NURA_VM_PORT=2243 tools/sync_ui.sh -V -R` (the
+headless slave handles RESTART_UI on port 1370 too).
+
 ## Stop
 
 ```sh

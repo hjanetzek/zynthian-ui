@@ -25,6 +25,10 @@ Usage: qemu_compare.sh [options] [start | stop | status | shot [DIR] | ssh qt|tk
   -p PORT     SSH ports PORT (Qt) and PORT+1 (Tk), webconf 8080 + the same offset
               (default 2242: 2242/2243, webconf 8100/8101)
   -m MEM      memory per VM (default 3G)
+  -l          a LAN between the two VMs (run_qemu.sh -L: QEMU socket multicast, no root), static
+              addresses 192.168.77.1 (Qt VM) and 192.168.77.2 (Tk VM) on its NIC (NetworkManager
+              connection "zynlan"), for several zynthians (docs/multi-zynthian-protocol.md).
+              (VMs running without it: stop them first)
 
 The Qt VM runs the image'"'"'s zynthian-ui (the Qt port), the Tk VM zynthian-ui-tomita or -vangelis
 from nura-builds'"'"' x86_64 package repository (upstream zynthian-ui with the port patches). To
@@ -34,9 +38,9 @@ here=$(cd "$(dirname "$0")" && pwd)
 
 usage() { printf '%s\n' "$usage_text"; exit "${1:-0}"; }
 
-gui=0 tk=tomita res=800x480 reset=0 base=$HOME/.cache/nura-builds-compare port=2242 mem=3G
+gui=0 tk=tomita res=800x480 reset=0 base=$HOME/.cache/nura-builds-compare port=2242 mem=3G lan=0
 image=${XDG_CACHE_HOME:-$HOME/.cache}/nura-builds/zynthian-qemu-amd64.img.zst
-while getopts gT:R:ri:d:p:m:h opt; do
+while getopts gT:R:ri:d:p:m:lh opt; do
 	case $opt in
 		g) gui=1 ;;
 		T) tk=$OPTARG ;;
@@ -46,6 +50,7 @@ while getopts gT:R:ri:d:p:m:h opt; do
 		d) base=$OPTARG ;;
 		p) port=$OPTARG ;;
 		m) mem=$OPTARG ;;
+		l) lan=1 ;;
 		h) usage ;;
 		*) usage 1 ;;
 	esac
@@ -59,6 +64,10 @@ case $tk in vangelis | tomita | port) ;; *) usage 1 ;; esac
 vm_dir() { echo "$base-$1"; }
 vm_port() { if [ "$1" = qt ]; then echo "$port"; else echo $((port + 1)); fi; }
 vm_web() { echo $((8080 + $(vm_port "$1") - 2222)); }
+# The LAN (-l): MAC and address per VM
+vm_lan_n() { if [ "$1" = qt ]; then echo 1; else echo 2; fi; }
+vm_lan_mac() { echo "52:54:00:77:00:0$(vm_lan_n "$1")"; }
+vm_lan_ip() { echo "192.168.77.$(vm_lan_n "$1")"; }
 
 ssh_opts="-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=10"
 # shellcheck disable=SC2086 # $ssh_opts: several options
@@ -83,6 +92,7 @@ start_vm() {
 	fi
 	set -- -d "$dir" -R "$res" -m "$mem" -p "$(vm_port "$v")" -w "$(vm_web "$v")"
 	[ $reset = 0 ] || set -- "$@" -r
+	[ $lan = 0 ] || set -- "$@" -L "$(vm_lan_mac "$v")"
 	if [ $gui = 1 ]; then
 		set -- "$@" -D gtk
 	else
@@ -140,6 +150,22 @@ setup_vm() {
 		fi'
 }
 
+# The LAN's address (-l): a NetworkManager connection on the NIC with the VM's LAN MAC
+setup_lan() {
+	v=$1 mac=$(vm_lan_mac "$1") ip=$(vm_lan_ip "$1")
+	vm_ssh "$v" "set -e
+		# (NetworkManager clones a stable MAC: the QEMU one is the permanent address)
+		dev=\$(ip -o link | sed -n 's/^[0-9]*: \\([^:@]*\\).* permaddr $mac.*/\\1/p')
+		[ -n \"\$dev\" ] || { echo '$v: no NIC with $mac (VM started without -l?)' >&2; exit 1; }
+		if ! nmcli -t -f NAME connection show | grep -qx zynlan; then
+			sudo nmcli connection add type ethernet con-name zynlan ifname \"\$dev\" \\
+				ipv4.method manual ipv4.addresses '$ip/24' ipv6.method link-local \\
+				connection.autoconnect yes connection.autoconnect-priority 10 >/dev/null
+		fi
+		sudo nmcli connection up zynlan >/dev/null
+		echo \"$v: LAN \$dev $ip\""
+}
+
 # The UI package of each VM (switch_ui.sh; a restart of the kiosk session when it changes)
 setup_ui() {
 	v=$1
@@ -167,6 +193,10 @@ case $cmd in
 		start_vm tk
 		setup_vm qt
 		setup_vm tk
+		if [ $lan = 1 ]; then
+			setup_lan qt
+			setup_lan tk
+		fi
 		setup_ui qt
 		setup_ui tk
 		echo "ready: Qt port on SSH $(vm_port qt) (webconf http://localhost:$(vm_web qt)), upstream on SSH $(vm_port tk) (webconf http://localhost:$(vm_web tk))"

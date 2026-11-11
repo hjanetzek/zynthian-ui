@@ -3,6 +3,7 @@
 Status: 2026-11-06; M0, M1 and M2 done (M2 except ZynVoice), M3 nearly done; the Qt UI is the Duet's kiosk (`zynthian_qt_main.py`, `zynqt/`). What's left: "Next steps" below. Follows [ui-reimplementation-plan.md](ui-reimplementation-plan.md),
 which chose Qt Quick (QML) with the Python backend in-process (PySide6). This plan covers how to
 start: what to build first, how it runs on the Lenovo Duet, and what decides the open questions.
+How zynthian itself is built (processes, MIDI router, CUIAs, zyngine API, snapshots, threads): [architecture.md](architecture.md); several zynthians and Ableton Link: [multi-zynthian-and-link.md](multi-zynthian-and-link.md).
 
 ## Why now
 

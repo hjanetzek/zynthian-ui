@@ -32,6 +32,11 @@
 #   -p PORT     host port for the VM's SSH (default 2222, or the next free one: ssh -p PORT user@localhost)
 #   -w PORT     host port for the VM's webconf (default 8080, or the next free one: http://localhost:PORT)
 #   -d DIR      cache directory (default ~/.cache/nura-builds)
+#   -L MAC      a second NIC on a VM-to-VM LAN (no root needed): QEMU's socket multicast netdev,
+#               shared by every VM started with -L on this machine (and the same group). MAC must be
+#               unique per VM, e.g. 52:54:00:77:00:01. The group: NURA_QEMU_LAN (default
+#               230.0.0.1:12345). The guests get their addresses on it themselves (qemu_compare.sh -l
+#               sets static ones with NetworkManager)
 #
 # Needs qemu-system-x86_64 (with the virtio-vga-gl device: QEMU's GL/virglrenderer support),
 # OVMF (edk2-ovmf / ovmf), zstd, curl; /dev/kvm for full speed (without it QEMU emulates, slowly).
@@ -41,8 +46,8 @@ usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0
 
 url=https://github.com/hjanetzek/nura-builds/releases/download/zynthian-latest/zynthian-qemu-amd64.img.zst
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/nura-builds
-update=0 reset=0 size=8G mem=4G cpus= res=1280x800 display=gtk gl=on audio=virtio usb= ssh_port= web_port=
-while getopts urs:m:c:R:D:nA:U:p:w:d:h opt; do
+update=0 reset=0 size=8G mem=4G cpus= res=1280x800 display=gtk gl=on audio=virtio usb= ssh_port= web_port= lan_mac=
+while getopts urs:m:c:R:D:nA:U:p:w:d:L:h opt; do
 	case $opt in
 		u) update=1 ;;
 		r) reset=1 ;;
@@ -57,6 +62,7 @@ while getopts urs:m:c:R:D:nA:U:p:w:d:h opt; do
 		p) ssh_port=$OPTARG ;;
 		w) web_port=$OPTARG ;;
 		d) cache=$OPTARG ;;
+		L) lan_mac=$OPTARG ;;
 		h) usage ;;
 		*) usage 1 ;;
 	esac
@@ -184,6 +190,15 @@ set -- -nodefaults -machine q35 -smp "$cpus" -m "$mem" \
 	-fw_cfg name=opt/org.tianocore/IPv4PXESupport,string=n \
 	-fw_cfg name=opt/org.tianocore/IPv6PXESupport,string=n
 
+# The VM-to-VM LAN: UDP multicast on the host, every VM in the group sees the others' frames.
+# On the loopback interface (localaddr): multicast through the default interface didn't come back
+# to the host's own sockets here (and would put the VMs' frames on the real LAN). No ROM: the
+# firmware must not try PXE on it
+if [ -n "$lan_mac" ]; then
+	set -- "$@" -netdev "socket,id=lan,mcast=${NURA_QEMU_LAN:-230.0.0.1:12345},localaddr=127.0.0.1" \
+		-device "virtio-net-pci,netdev=lan,mac=$lan_mac,romfile="
+fi
+
 if [ -w /dev/kvm ]; then
 	set -- "$@" -enable-kvm -cpu host
 else
@@ -246,6 +261,7 @@ echo "screen:  ${xres}x${yres}"
 echo "ssh:     ssh -p $ssh_port <user>@localhost"
 echo "webconf: http://localhost:$web_port"
 echo "opengl:  $gl"
+[ -z "$lan_mac" ] || echo "lan:     $lan_mac on ${NURA_QEMU_LAN:-230.0.0.1:12345}"
 if [ -n "$serial_log" ]; then
 	echo "serial:  $serial_log; stop: kill \$(cat $cache/qemu.pid)"
 else

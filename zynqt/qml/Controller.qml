@@ -111,12 +111,12 @@ Panel {
         id: drag
         target: null
         enabled: root.active
-        xAxis.enabled: false
+        xAxis.enabled: Theme.uiSideways
         property real lastY: 0
         onActiveChanged: { lastY = 0; if (active) root.ctrl.touched() }
         onTranslationChanged: {
             // One step per 8 logical pixels
-            const steps = Math.trunc((lastY - translation.y) / 8)
+            const steps = Math.trunc((lastY - Theme.localDrag(parent, centroid).y) / 8)
             if (steps !== 0) {
                 root.ctrl.nudge(steps)
                 lastY -= steps * 8

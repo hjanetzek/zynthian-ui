@@ -195,11 +195,11 @@ Item {
             }
             DragHandler {
                 target: null
-                yAxis.enabled: false
+                yAxis.enabled: Theme.uiSideways
                 property real startBalance
                 onActiveChanged: if (active) startBalance = strip.balance
                 onTranslationChanged: strip.stripModel.setBalance(strip.index,
-                                          startBalance + 2 * translation.x / balanceBar.width)
+                                          startBalance + 2 * Theme.localDrag(parent, centroid).x / balanceBar.width)
             }
             TapHandler { onDoubleTapped: strip.stripModel.setBalance(strip.index, 0) }
         }
@@ -217,11 +217,11 @@ Item {
             Rectangle { width: parent.width * strip.level; height: parent.height; color: Theme.keyText }
             DragHandler {
                 target: null
-                yAxis.enabled: false
+                yAxis.enabled: Theme.uiSideways
                 property real startLevel
                 onActiveChanged: if (active) startLevel = strip.level
                 onTranslationChanged: strip.stripModel.setLevel(strip.index,
-                                          startLevel + translation.x / levelBar.width)
+                                          startLevel + Theme.localDrag(parent, centroid).x / levelBar.width)
             }
         }
 
@@ -262,11 +262,11 @@ Item {
             // Vertical drag scrolls all columns; taps go to the pads
             DragHandler {
                 target: null
-                xAxis.enabled: false
+                xAxis.enabled: Theme.uiSideways
                 property real startScroll
                 onActiveChanged: if (active) startScroll = root.launcherScroll
                 onTranslationChanged: root.launcherScroll = Math.max(0, Math.min(
-                    root.padAreaHeight - pads.height, startScroll - translation.y))
+                    root.padAreaHeight - pads.height, startScroll - Theme.localDrag(parent, centroid).y))
             }
             WheelHandler {
                 onWheel: (event) => root.launcherScroll = Math.max(0, Math.min(
@@ -320,11 +320,11 @@ Item {
 
             DragHandler {
                 target: null
-                xAxis.enabled: false
+                xAxis.enabled: Theme.uiSideways
                 property real startLevel
                 onActiveChanged: if (active) startLevel = strip.level
                 onTranslationChanged: strip.stripModel.setLevel(strip.index,
-                                          startLevel - translation.y / fader.height)
+                                          startLevel - Theme.localDrag(parent, centroid).y / fader.height)
             }
         }
 

@@ -178,4 +178,14 @@ QtObject {
     property color keyboardHighlight: "#205080"     // its highlighted key ...
     property color keyboardHighlightText: text      // ... and the label on it
     property real keyLineHeight: 1.0                // keypad labels on two lines
+
+    // UI rotated by 90/270 in QML (Main.qml, ZYNTHIAN_UI_ROTATION): DragHandlers without a target
+    // enable their "disabled" axis then (Qt measures them in window coordinates) and read the drag
+    // through localDrag, the drag mapped into their item
+    property bool uiSideways: false
+    function localDrag(item, centroid) {
+        const a = item.mapFromItem(null, centroid.scenePressPosition.x, centroid.scenePressPosition.y)
+        const b = item.mapFromItem(null, centroid.scenePosition.x, centroid.scenePosition.y)
+        return Qt.point(b.x - a.x, b.y - a.y)
+    }
 }

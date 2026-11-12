@@ -168,6 +168,12 @@ def main():
     ctx.setContextProperty("mixerMeters", meters)
     ctx.setContextProperty("mainMeters", main_meters)
     ctx.setContextProperty("startFullScreen", os.environ.get("ZYNTHIAN_FULLSCREEN") == "1")
+    # Rotation of the whole UI in QML (Main.qml), for displays nobody rotates (eglfs on KMS)
+    try:
+        ui_rotation = int(os.environ.get("ZYNTHIAN_UI_ROTATION", "0") or 0) % 360
+    except ValueError:
+        ui_rotation = 0
+    ctx.setContextProperty("zynUiRotation", ui_rotation if ui_rotation in (0, 90, 180, 270) else 0)
     # UI theme: the theme's name is a file selector, so zynqt/qml/+<theme>/X.qml replaces X.qml
     # (its Theme.qml, the components it draws differently); classic is zynqt/qml/ itself
     theme = os.environ.get("ZYNTHIAN_QT_THEME", "classic") or "classic"

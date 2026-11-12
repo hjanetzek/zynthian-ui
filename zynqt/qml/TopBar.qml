@@ -37,8 +37,8 @@ Rectangle {
         TapHandler { onTapped: root.titleTapped() }
         DragHandler {
             target: null
-            xAxis.enabled: false
-            onTranslationChanged: if (active && translation.y > 20) root.titleSwipedDown()
+            xAxis.enabled: Theme.uiSideways
+            onTranslationChanged: if (active && Theme.localDrag(parent, centroid).y > 20) root.titleSwipedDown()
         }
     }
 

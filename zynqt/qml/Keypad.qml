@@ -45,9 +45,10 @@ Item {
         id: bottomRow
 
         y: parent.height - root.keyHeight
-        // The whole window's width (right-handed: from the window's left edge)
+        // The whole UI's width (right-handed: from its left edge); Theme.screenWidth is Main.qml's
+        // rotated UI item, not the window, when ZYNTHIAN_UI_ROTATION turns it sideways
         x: root.rightHanded ? root.width - width : 0
-        width: Window.window ? Window.window.width : 960
+        width: Theme.screenWidth
         height: root.keyHeight
         Repeater {
             model: root.bottomLayout

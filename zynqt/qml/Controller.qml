@@ -4,7 +4,6 @@
 // as the default Controller.
 import QtQuick
 import QtQuick.Shapes
-import ".."
 
 Rectangle {
     id: root

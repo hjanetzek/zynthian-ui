@@ -78,6 +78,7 @@ from zynqt.keyboard import KeyBindingFilter, load_bindings
 from zynqt.ui import UserActivityFilter, ZynUI
 from zynqt.models.mixer import MixerModel, MixerMeters
 from zynqt.models.organelle import OledDisplay
+from zynqt import theme as zyntheme
 
 QML_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zynqt", "qml")
 
@@ -174,9 +175,9 @@ def main():
     except ValueError:
         ui_rotation = 0
     ctx.setContextProperty("zynUiRotation", ui_rotation if ui_rotation in (0, 90, 180, 270) else 0)
-    # UI theme: the theme's name is a file selector, so zynqt/qml/+<theme>/X.qml replaces X.qml
-    # (its Theme.qml, the components it draws differently); classic is zynqt/qml/ itself
-    theme = os.environ.get("ZYNTHIAN_QT_THEME", "classic") or "classic"
+    # UI theme: file selectors, so zynqt/qml/+<theme>/X.qml replaces X.qml (its Theme.qml, the
+    # components it draws differently); tk is zynqt/qml/ itself (zynqt/theme.py)
+    theme, theme_selectors = zyntheme.theme_selectors(os.environ.get("ZYNTHIAN_QT_THEME"), QML_DIR)
     # What the Tk UI sizes and colours itself by (zynthian_gui_config), for themes that follow it
     # (tk): the font size before scaling, the scale ("auto": screen height / 600), the colours
     cfg = zynthian_gui_config
@@ -190,8 +191,8 @@ def main():
         "colors": {k[6:]: getattr(cfg, k) for k in dir(cfg) if k.startswith("color_") and isinstance(getattr(cfg, k), str)},
     })
     ctx.setContextProperty("zynThemeName", theme)
-    if theme != "classic":
-        engine.setExtraFileSelectors([theme])
+    if theme_selectors:
+        engine.setExtraFileSelectors(theme_selectors)
     engine.load(QUrl.fromLocalFile(os.path.join(preview_qml_dir() or QML_DIR, "Main.qml")))
     if engine.rootObjects():
         key_filter = KeyBindingFilter(ui, engine.rootObjects()[0])

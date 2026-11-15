@@ -4,7 +4,6 @@
 // duration (a square at the start when interpolating), the cursor red at the step and value row.
 // Touch as the shared lane: drag paints values, long press removes a step's value.
 import QtQuick
-import ".."
 
 Item {
     id: lane

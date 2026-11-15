@@ -1,5 +1,4 @@
 import QtQuick
-import ".."
 
 // tk: the Tk mixer (zynthian_gui_mixer): fixed-width strips (W / (visible + 0.2)), from the top a
 // toggle button, a mute button (speaker icon), a flags row, the balance bar, the fader (a fill

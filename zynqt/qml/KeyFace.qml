@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Effects
-import ".."
 
 // tk: the Tk V5 keypad's labels (zynthian_gui_touchkeypad_v5): forkawesome icons for the
 // transport and arrows, the metronome image, text in 0.9F points (1.3F on one line); the colour
@@ -24,7 +23,7 @@ Item {
         anchors.centerIn: parent
         width: Math.min(parent.width, parent.height) * 0.6
         height: width
-        source: face.key === 5 ? Qt.resolvedUrl("../../../icons/metronome.png") : ""
+        source: face.key === 5 ? Qt.resolvedUrl("../../icons/metronome.png") : ""
         fillMode: Image.PreserveAspectFit
     }
     MultiEffect {

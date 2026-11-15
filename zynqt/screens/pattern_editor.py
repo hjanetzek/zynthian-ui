@@ -14,6 +14,7 @@ from zyngui.zynthian_pated_data import (CHORD_MODES, CHORDS, NOTE_NAMES, NOTE_PA
                                         STEPS_PER_BEAT, chord_intervals, default_note_evdata, load_keymap,
                                         note_events, note_label, note_muted, note_name, note_param_text,
                                         scale_names, set_note_param, stutter_muted)
+from zyngui.zynthian_midi_learn_data import automate_zctrl
 from zyngui.zynthian_pated_smf import PATTERNS_DIR, SMF_EXPORT_DIR, analyze_smf, export_smf, import_smf
 from zynlibs.zynseq import zynseq
 from zynqt.screens.file_picker import FilePicker
@@ -301,7 +302,7 @@ class PatternEditor(QObject):
 
     @Property(str, notify=ccChanged)
     def ccTitle(self):
-        zctrl = self.ui.chain_manager.get_zynstep_mapped_zctrl(self.channel, self.cc_num)
+        zctrl = automate_zctrl(self.ui.chain_manager, self.channel, self.cc_num)
         return f"CC {self.cc_num}" + (f" ({zctrl.name})" if zctrl else "")
 
     @Property(bool, notify=ccChanged)
@@ -371,7 +372,7 @@ class PatternEditor(QObject):
     @Slot()
     def pickCc(self):
         def label(n):
-            zctrl = self.ui.chain_manager.get_zynstep_mapped_zctrl(self.channel, n)
+            zctrl = automate_zctrl(self.ui.chain_manager, self.channel, n)
             return f"CC {n}" + (f" ({zctrl.name})" if zctrl else "")
 
         def apply(n):
@@ -410,7 +411,7 @@ class PatternEditor(QObject):
         cc = 0 if dval == 0 else self.cc_num
         while (dval >= 0 and cc < 127) or (dval < 0 and cc > 1):
             cc += 1 if dval >= 0 else -1
-            if self.cc_show_all or cm.get_zynstep_mapped_zctrl(self.channel, cc):
+            if self.cc_show_all or automate_zctrl(cm, self.channel, cc):
                 self.cc_num = cc
                 self._cc_select()
                 self.patternChanged.emit()
@@ -749,7 +750,7 @@ class PatternEditor(QObject):
         if self.cc_mode:
             # zynthian_gui_pated_cc.get_title
             title = f"{title}: CC{self.cc_num}"
-            zctrl = self.ui.chain_manager.get_zynstep_mapped_zctrl(self.channel, self.cc_num) if self._shown else None
+            zctrl = automate_zctrl(self.ui.chain_manager, self.channel, self.cc_num) if self._shown else None
             if zctrl:
                 return f"{title} ({zctrl.name})"
             names = {1: "ModWheel", 2: "Breath", 5: "Portamento", 7: "Volume", 8: "Balance", 10: "Pan",

@@ -1,21 +1,23 @@
 # Theming the Qt Quick UI
 
-Status: 2026-11-09, branch `qt-parity` (themes in their own directories, file selectors). How
-the look of the Qt Quick UI (`zynqt/qml/`) is defined, how to choose a theme, and how to change or
+Status: 2026-11-15, branch `qt-tk-base` (tk is the base, `zynqt/qml/` itself; classic is an
+override directory like the other themes). How the look of the Qt Quick UI (`zynqt/qml/`) is defined, how to choose a theme, and how to change or
 add one.
 
 ## Choosing a theme
 
-`ZYNTHIAN_QT_THEME` picks the theme when zynthian starts; `zynthian_qt_main.py` adds it to the QML
-engine as an extra file selector (and passes it as the context property `zynThemeName`, for
-display only):
+`ZYNTHIAN_QT_THEME` picks the theme when zynthian starts; `zynthian_qt_main.py` turns it into the
+QML engine's extra file selectors (`zynqt/theme.py`) and passes the name as the context property
+`zynThemeName` (for display only):
 
-| Theme | Look |
-|---|---|
-| `classic` (default) | zynthian's colours (as `zynthian_gui_config`): black, slate-blue plates, red selection, blue keys, Audiowide |
-| `galactica` | a battlestar CIC console: gun-metal plates with clipped corners and steel outlines, amber console text in Khand (upper case), an amber selection bar, red alerts |
-| `tk` | upstream zynthian's Tk UI: its colours (`ZYNTHIAN_UI_COLOR_*`), sizes from its font size F (`ZYNTHIAN_UI_FONT_SIZE` x `ZYNTHIAN_UI_SCALE`), Tk's mixer and launcher, top bar, list rows, info pane, grid tiles, chain control, pattern editor and keypad LEDs |
-| `enterprise` | a starship console: filled pill keys in orange, blue-gray, mauve and violet with dark labels, pill rows, mauve section headers, a curved frame (elbow) around the screens |
+| Theme | Selectors | Look |
+|---|---|---|
+| `tk` (default: unset, empty or `tk`) | none: `zynqt/qml/` itself | upstream zynthian's Tk UI: its colours (`ZYNTHIAN_UI_COLOR_*`), sizes from its font size F (`ZYNTHIAN_UI_FONT_SIZE` x `ZYNTHIAN_UI_SCALE`), Tk's mixer and launcher, top bar, list rows, info pane, grid tiles, chain control, pattern editor and keypad LEDs |
+| `classic` | `classic` | the Qt port's first look, zynthian's colours (as `zynthian_gui_config`): black, slate-blue plates, red selection, blue keys, Audiowide |
+| `galactica` | `galactica`, `classic` | builds on classic: a battlestar CIC console: gun-metal plates with clipped corners and steel outlines, amber console text in Khand (upper case), an amber selection bar, red alerts |
+| `enterprise` | `enterprise`, `classic` | builds on classic: a starship console: filled pill keys in orange, blue-gray, mauve and violet with dark labels, pill rows, mauve section headers, a curved frame (elbow) around the screens |
+
+A name without a directory `zynqt/qml/+<name>/` falls back to tk, with a warning in the log.
 
 On the Duet (or in the QEMU VM): `export ZYNTHIAN_QT_THEME=enterprise` in
 `~/.config/zynthian/zynthian_custom_config.sh`, which the launcher (`desktop/zynthian_desktop.sh`)
@@ -30,23 +32,29 @@ The theme is fixed for a run: switching means restarting the UI.
 
 ### Theme directories (file selectors)
 
-`zynqt/qml/` holds the shared screens and the default components, which are the classic theme. Each
-other theme has its own directory beside them, `zynqt/qml/+<theme>/`:
+`zynqt/qml/` holds the shared screens and the default components, which are the tk theme (the
+look of upstream zynthian's Tk UI). Each other theme has its own directory beside them,
+`zynqt/qml/+<theme>/`; classic is one of them, and galactica and enterprise build on it:
 
 ```
 zynqt/qml/
   ThemeBase.qml        all tokens, with classic's values (the list below)
-  Theme.qml            the Theme singleton: classic = ThemeBase {}
-  Panel.qml, Label.qml, KeyPlate.qml, TopBarRule.qml, Elbow.qml, ...   default components
-  MixerScreen.qml, ...                                                  shared screens
-  +galactica/Theme.qml    ThemeBase { only the tokens galactica changes }
-  +galactica/KeyPlate.qml, TopBarRule.qml                               its own components
-  +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
-  +tk/Theme.qml, MixerScreen.qml, TopBar.qml, InfoPane.qml, GridTile.qml, KeyFace.qml,
+  Theme.qml            the Theme singleton: tk = ThemeBase { tk's values }
+  Panel.qml, Label.qml, TopBarRule.qml, Elbow.qml, ...                 default components
+  MixerScreen.qml, TopBar.qml, InfoPane.qml, GridTile.qml, KeyFace.qml, KeyPlate.qml,
       ChainControlScreen.qml, Controller.qml, PatternEditorScreen.qml, PatternToolbar.qml,
       LauncherPad.qml, ChainManagerMetrics.qml, SelectorControls.qml, PatternCcLane.qml,
-      KeyPlate.qml, SelectorCategories.qml
+      SelectorCategories.qml                                             tk's versions
+  SelectorScreen.qml, MixerView.qml, ...                               shared screens
+  +classic/Theme.qml   classic = ThemeBase {}
+  +classic/MixerScreen.qml, TopBar.qml, ... (the 15 files above)       classic's versions
+  +galactica/Theme.qml    ThemeBase { only the tokens galactica changes from classic }
+  +galactica/KeyPlate.qml, TopBarRule.qml                               its own components
+  +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
 ```
+
+Until 2026-11-15 classic was the base and tk the directory `+tk/`; the files were swapped with
+`git mv` (`git log --follow` finds their history).
 
 Components split out so a theme can replace them: `KeyPlate`, `TopBarRule`, `Elbow`, `InfoPane`
 (the selector's info pane), `GridTile` (main menu / add chain tiles), `MixerScreen` (a wrapper
@@ -71,16 +79,20 @@ view). tk replaces `ChainControlScreen` (Tk's page list, a quarter-width control
 side chain only in select mode) and `PatternEditorScreen` (Tk's grid, piano roll and play ruler)
 whole with these.
 
-With the theme's name as a file selector (`QQmlApplicationEngine.setExtraFileSelectors`, in
-`zynthian_qt_main.py`), QML loads `+<theme>/X.qml` wherever `X.qml` is used, the `Theme` singleton
-of `qmldir` included. So:
+With the theme's selectors (`QQmlApplicationEngine.setExtraFileSelectors`, in
+`zynthian_qt_main.py`; `zynqt/theme.py` makes the list), QML loads `+<theme>/X.qml` wherever
+`X.qml` is used, the `Theme` singleton of `qmldir` included. With more than one selector the first
+one that has the file wins (checked with Qt 6.12): galactica's `[galactica, classic]` loads
+`+galactica/X.qml`, else `+classic/X.qml`, else `X.qml`. A theme names the theme it builds on in
+`BASES` of `zynqt/theme.py` (absent: tk, the base). So:
 
 - **Values** (colours, sizes, spacing, fonts) are tokens: `+<theme>/Theme.qml` sets them on
   `ThemeBase`. Shared QML reads `Theme.<token>` and never asks which theme is running: there is no
   `Theme.name`, `isGalactica` or the like.
 - **Structure** (a different shape, an extra decoration, another layout) is a component: split the
-  part that differs out of the screen into its own file with the classic version in `zynqt/qml/`,
-  and give the theme its version in `+<theme>/` with the same properties. Examples: `KeyPlate`
+  part that differs out of the screen into its own file with the tk version in `zynqt/qml/`,
+  and give the theme its version in `+<theme>/` with the same properties (classic's in
+  `+classic/`, which galactica and enterprise then also get). Examples: `KeyPlate`
   (the plate of a keypad key: classic squares, galactica outlined plates with cut corners,
   enterprise filled pills), `TopBarRule` (nothing; galactica's steel rule), `Elbow` (nothing;
   enterprise's frame).
@@ -92,8 +104,17 @@ of `qmldir` included. So:
 ### `ThemeBase.qml` and `Theme.qml`: the tokens
 
 `ThemeBase.qml` declares every token, with classic's value and a comment; `Theme.qml` (in `qmldir`:
-`singleton Theme Theme.qml`) is `ThemeBase {}` in classic and `ThemeBase { ... }` with the changed
-values in a theme. Components read `Theme.panel`.
+`singleton Theme Theme.qml`) is `ThemeBase { ... }` with tk's values in `zynqt/qml/`,
+`ThemeBase {}` in `+classic/`, and `ThemeBase { ... }` with the values a theme changes in its
+directory. Components read `Theme.panel`.
+
+Why the token defaults stay classic's although tk is the base: galactica and enterprise set only the
+tokens they change, on top of classic's values (sizes, fonts, keypad colours). With tk's values as
+ThemeBase's defaults they would inherit tk's sizes and colours wherever they don't set a token, and
+change. `ThemeBase` can't extend `+classic/Theme.qml` either (a file in `+galactica/` naming
+`Theme` gets its own `Theme.qml`). So tk's values are overrides in the base `Theme.qml`, like
+any theme's. A new theme on tk starts from `zynqt/qml/Theme.qml` (copy it), one on classic from
+ThemeBase.
 
 Tokens:
 
@@ -187,7 +208,9 @@ docked keypad, at the window's edge with the overlay keypad (which covers it whi
 
 ## Adding a theme
 
-1. Create `zynqt/qml/+mytheme/Theme.qml`:
+1. Decide what it builds on: tk (the base; nothing to do) or classic (add `"mytheme": "classic"`
+   to `BASES` in `zynqt/theme.py`: its selectors become `[mytheme, classic]`).
+2. Create `zynqt/qml/+mytheme/Theme.qml`:
    ```qml
    pragma Singleton
    import QtQuick
@@ -195,18 +218,20 @@ docked keypad, at the window's edge with the overlay keypad (which covers it whi
 
    ThemeBase {
        background: "#101010"
-       // ... the tokens that differ from classic
+       // ... the tokens that differ from classic (ThemeBase's values)
    }
    ```
-2. Components that look different in structure: copy the default one (`KeyPlate.qml`, ...) into
-   `+mytheme/`, add `import ".."`, change it; keep its properties. If the part you need isn't a
-   component of its own yet, split it out of the shared screen first (classic must stay
-   pixel-identical).
+   On tk, copy `zynqt/qml/Theme.qml` (tk's values) instead and change it: `Theme.qml` files don't
+   extend each other, every one is `ThemeBase { ... }`.
+3. Components that look different in structure: copy the one it builds on (`zynqt/qml/KeyPlate.qml`,
+   or `+classic/KeyPlate.qml` on classic) into `+mytheme/`, add `import ".."`, change it; keep its
+   properties. If the part you need isn't a component of its own yet, split it out of the shared
+   screen first (tk and classic must stay pixel-identical).
 3. Fonts: use a face installed on the Duet (`fc-list : family` there; zynthian's fonts are in
    `/usr/share/fonts/zynthian`: Audiowide, Khand, Fjalla One, Electrolize, Exo 2, Jura, Iceland, ...).
    Condensed faces need a `fontScale` above 1.
-4. Check every screen with the preview (below) in the new theme and in `classic`: classic's look
-   must not change.
+4. Check every screen with the preview (below) in the new theme, in `tk` and in `classic`: their
+   look must not change.
 5. Document it in the table at the top.
 
 ## Changing a component
@@ -214,8 +239,8 @@ docked keypad, at the window's edge with the overlay keypad (which covers it whi
 - Plates: `Panel`, with `button: true` for keys and buttons; no `Rectangle` with its own colour.
 - Text: `Label`; `body: true` where case matters.
 - Colours from tokens only. If a component needs a colour no token covers, add a token to
-  `ThemeBase.qml` (with the old value, which is classic's) and set it in the themes that differ,
-  instead of a literal.
+  `ThemeBase.qml` (with the old value, which is classic's) and set it in the themes that differ
+  (tk's in `zynqt/qml/Theme.qml`), instead of a literal.
 - Never test the theme's name: a value is a token, a structural difference a component in
   `+<theme>/`.
 - Selected entries: `select` behind, `selectText` on it (not `text`: in galactica and enterprise
@@ -227,9 +252,10 @@ docked keypad, at the window's edge with the overlay keypad (which covers it whi
 
 `nura/tools/qml_preview.py SCENE.qml OUT.png [-t THEME] [--mixer]` renders a QML scene (a file
 importing `"@QML@"`, i.e. `zynqt/qml/`, with mock data) at 800x480 offscreen, with the theme's file
-selector, the repository's fonts and Tk's default configuration (`ZYNTHIAN_UI_SCALE=auto`);
+selectors (as `zynthian_qt_main.py`, from `zynqt/theme.py`; default tk), the repository's fonts and Tk's default configuration (`ZYNTHIAN_UI_SCALE=auto`);
 `--mixer` adds mock mixer strips (the compare snapshot). `PREVIEW_QML_DIR` points it at another
-copy of `zynqt/qml` (e.g. `git archive HEAD zynqt/qml` for a before/after check of classic).
+copy of `zynqt/qml` (e.g. `git archive HEAD zynqt/qml` for a before/after check), or render "before" from a
+`git worktree` of the old commit (as for the tk/classic swap: all four themes, three sizes, AE 0).
 Scenes used so far are in zynthian-stuff `ui-parity/tools/scenes/` (list, grid, mixer). Compare
 against Tk screenshots from the compare VM (`docs/qemu-testing.md`) with `magick ... +append`.
 
@@ -299,7 +325,7 @@ Preview (tested in the QEMU VM, 2026-11-09):
     must be Qt 6's (package `qt6-qtdeclarative-dev`); a Qt 5 `qmlpreview` silently does nothing.
   - `zyninject.sh` and the other tools take the newest zynthian process (the child), not the
     waiting parent.
-- The log gets a "Could not open file ...+tk/X.qml" line per file selector probe; harmless.
+- The log gets a "Could not open file ...+<theme>/X.qml" line per file selector probe; harmless.
 - Never in production: the QML debug server can control the UI. Without the variable nothing
   changes.
 - The component preview has a live mode for the same: `/usr/lib/qt6/bin/qmlpreview

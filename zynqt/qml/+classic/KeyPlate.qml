@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 
 // The plate of a keypad key. Classic: square keys with a 1 px gap. In the overlay keypad
 // translucent, the blurred screen showing through. Themes replace it (+<theme>/KeyPlate.qml).

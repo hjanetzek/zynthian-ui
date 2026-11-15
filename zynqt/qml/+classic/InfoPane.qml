@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import ".."
 
 // The selector's info pane: the selected entry's icon above its description (engines: their
 // quality stars and complexity gears first)

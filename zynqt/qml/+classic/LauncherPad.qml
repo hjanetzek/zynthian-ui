@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 
 // A launcher pad (zynthian_gui_launcher_pad): sequence name, play state, repeat mode, length;
 // the main strip's pads are the phrases (with tempo, time signature, loops)

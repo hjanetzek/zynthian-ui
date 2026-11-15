@@ -1,6 +1,7 @@
 // Chain control: the chain's processors (left), the controller pages (middle), the four
 // controllers of the selected page (right)
 import QtQuick
+import ".."
 
 Item {
     id: root

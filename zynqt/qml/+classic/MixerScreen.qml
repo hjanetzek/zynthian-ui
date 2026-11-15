@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 
 // The mixer and launcher screen (MixerView); themes with another mixer layout replace this file
 MixerView {}

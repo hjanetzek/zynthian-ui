@@ -1,5 +1,4 @@
 import QtQuick
-import ".."
 
 // tk: the Tk top bar (zynthian_gui_base): the title on the left in 1.5F points (the mixer: the
 // snapshot and ZS3, with beat | bpb/4 and the tempo), the status area (27 % of the width) on the

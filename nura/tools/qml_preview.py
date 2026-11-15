@@ -21,6 +21,8 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, REPO)
+from zynqt.theme import theme_selectors  # noqa: E402
 QML_DIR = os.environ.get("PREVIEW_QML_DIR") or os.path.join(REPO, "zynqt", "qml")
 
 COLORS = {"bg": "#000000", "tx": "#ffffff", "tx_off": "#e0e0e0", "on": "#ff0000", "off": "#5a626d",
@@ -137,7 +139,7 @@ def main():
                     help="show the scene in a window and keep running, with QML debugging for Qt 6's "
                          "qmlpreview (hot reload of zynqt/qml): /usr/lib/qt6/bin/qmlpreview "
                          "./nura/tools/qml_preview.py SCENE.qml --live")
-    ap.add_argument("-t", "--theme", default="classic")
+    ap.add_argument("-t", "--theme", default="tk")
     ap.add_argument("-s", "--size", default="800x480")
     ap.add_argument("--mixer", action="store_true", help="mock mixer strips (the compare snapshot)")
     # qmlpreview adds -qmljsdebugger=... (Qt reads it from sys.argv)
@@ -175,8 +177,10 @@ Window {{
     tmp.close()
 
     engine = QQmlApplicationEngine()
-    if a.theme != "classic":
-        engine.setExtraFileSelectors([a.theme])
+    # As zynthian_qt_main.py: the theme's selectors (galactica: galactica, then classic, then the base)
+    a.theme, selectors = theme_selectors(a.theme, QML_DIR)
+    if selectors:
+        engine.setExtraFileSelectors(selectors)
     ctx = engine.rootContext()
     ctx.setContextProperty("zynThemeName", a.theme)
     ctx.setContextProperty("zynConfig", {

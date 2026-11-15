@@ -1,5 +1,4 @@
 import QtQuick
-import ".."
 
 // tk: the Tk V5 keypad's keys (zynthian_gui_touchkeypad_v5.draw_button): rectangles with a 1 px
 // outline in the background colour, placed edge to edge, so neighbours share their outline: one

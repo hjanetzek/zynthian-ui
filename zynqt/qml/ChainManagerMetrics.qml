@@ -3,7 +3,6 @@
 // scroll region as margins, columns as high as the longest chain, text in the display
 // font at 0.026·H points (wrapped, not shrunk), a white 2 px selection outline.
 import QtQuick
-import ".."
 
 QtObject {
     property real screenWidth: 800

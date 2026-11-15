@@ -1,5 +1,4 @@
 import QtQuick
-import ".."
 
 // Tk: the icon in a square as wide as the pane (zynthian_gui_selector's info canvas), the text
 // below it. Engines (quality >= 0): zynthian_gui_engine's info canvas instead: big quality stars

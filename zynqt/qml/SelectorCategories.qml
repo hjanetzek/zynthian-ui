@@ -1,5 +1,4 @@
 import QtQuick
-import ".."
 
 // tk: zynthian_gui_engine's listbox2: a Tk listbox (7 px border, list font and rows), the
 // selected category inverted (panel text colour as background)

@@ -1,10 +1,12 @@
 import QtQuick
 
 // The theme tokens with classic's values (zynthian's colours, as zynthian_gui_config). Theme.qml
-// in this directory is the classic theme (ThemeBase as it is); each other theme has its own
-// directory, +<name>/, with a Theme.qml that sets only the tokens it changes, and the components
-// it draws differently (QQmlFileSelector: zynthian_qt_main.py adds ZYNTHIAN_QT_THEME as an extra
-// selector, so +<name>/X.qml replaces X.qml). docs/qt-theming.md has the list.
+// in this directory is the default theme, tk (ThemeBase with tk's values); +classic/Theme.qml is
+// classic (ThemeBase as it is). Each other theme has its own directory, +<name>/, with a Theme.qml
+// that sets only the tokens it changes, and the components it draws differently
+// (QQmlFileSelector: zynthian_qt_main.py adds ZYNTHIAN_QT_THEME as an extra selector, so
+// +<name>/X.qml replaces X.qml; galactica and enterprise also get "classic", so they build on
+// +classic/). docs/qt-theming.md has the list.
 QtObject {
     // Icons (white line art) tinted in the text colour
     property bool tintIcons: false

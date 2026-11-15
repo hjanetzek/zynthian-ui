@@ -3,7 +3,6 @@
 // (the caption at the top left, the 1-based position among the selectable entries where the arc
 // would be, "/count" under it), H/6 high with tiny_ctrls, else 0.19 H (measured).
 import QtQuick
-import ".."
 
 Item {
     id: root

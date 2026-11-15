@@ -9,6 +9,10 @@ Item {
 
     property real value   // 0..1
     property real hold    // 0..1
+    // Colour thresholds as fractions from the top, as zynthian_gui_dpm with the default 72 dB range:
+    // red above -2 dB (DPM_OVER_DB), yellow above the -18 dB "0dB" reference (DPM_HIGH_DB)
+    property real overPos: 2 / 72
+    property real highPos: 18 / 72
     property color background: Theme.background
 
     width: 6
@@ -17,9 +21,10 @@ Item {
         anchors.fill: parent
         gradient: Gradient {
             GradientStop { position: 0.0; color: Theme.meterHigh }
-            GradientStop { position: 0.06; color: Theme.meterHigh }   // over -3 dB
-            GradientStop { position: 0.2; color: Theme.meterMid }     // high -10 dB
-            GradientStop { position: 0.3; color: Theme.meterLow }
+            GradientStop { position: root.overPos; color: Theme.meterHigh }
+            GradientStop { position: root.overPos + 0.01; color: Theme.meterMid }
+            GradientStop { position: root.highPos; color: Theme.meterMid }
+            GradientStop { position: root.highPos + 0.01; color: Theme.meterLow }
         }
     }
     Rectangle {
@@ -32,6 +37,6 @@ Item {
         width: parent.width
         height: 2
         y: parent.height * (1 - root.hold)
-        color: root.hold > 0.94 ? Theme.meterHigh : (root.hold > 0.8 ? Theme.meterMid : Theme.meterLow)
+        color: root.hold > 1 - root.overPos ? Theme.meterHigh : (root.hold > 1 - root.highPos ? Theme.meterMid : Theme.meterLow)
     }
 }

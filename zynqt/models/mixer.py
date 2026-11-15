@@ -16,12 +16,10 @@ from zyngui import zynthian_gui_config
 from PySide6.QtCore import (QAbstractListModel, QModelIndex, QObject, QTimer, Qt, Property, Signal,
                             Slot)
 
-# DPM range as in zynthian_gui_dpm: empty at -50 dB
-LOW_DB = -50.0
-
-
-def db_to_fraction(db):
-    return max(0.0, 1.0 - max(db, LOW_DB) / LOW_DB)
+def meter_fraction(pos):
+    """Meter height fraction of a zynmixer DPM value (getDpm/getDpmHold: inverted meter position,
+    0 = full scale, 1 = empty, linear in dB over the configured DPM range, as zynthian_gui_dpm)"""
+    return 1.0 - max(0.0, min(1.0, pos))
 
 
 class MixerModel(QAbstractListModel):
@@ -326,8 +324,8 @@ class MixerMeters(QObject):
                 levels += [0.0, 0.0, 0.0, 0.0]
                 continue
             dpm = proc.zynmixer.dpm[proc.mixer_chan]
-            levels += [db_to_fraction(dpm.a), db_to_fraction(dpm.b),
-                       db_to_fraction(dpm.a_hold), db_to_fraction(dpm.b_hold)]
+            levels += [meter_fraction(dpm.a), meter_fraction(dpm.b),
+                       meter_fraction(dpm.a_hold), meter_fraction(dpm.b_hold)]
         if levels != self._levels:
             self._levels = levels
             self.levelsChanged.emit()

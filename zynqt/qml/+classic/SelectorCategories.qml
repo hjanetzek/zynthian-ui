@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 
 // The engine screen's categories as a second list on the left of the selector, as the Tk engine
 // screen's listbox2: the selected one inverted. Themes replace it (+<theme>/SelectorCategories.qml).

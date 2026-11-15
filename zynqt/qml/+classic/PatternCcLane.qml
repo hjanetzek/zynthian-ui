@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 
 // CC view: the steps fit the width; a bar per step with a value (0..127, end value for
 // interpolated ramps); drag paints values, long press removes a step's value

@@ -1,6 +1,7 @@
 // The chain manager's geometry and node look (split out of ChainManagerScreen: a theme overrides
-// it, e.g. +tk/ChainManagerMetrics.qml). screenWidth / screenHeight: the screen's area.
+// it: the base ChainManagerMetrics.qml is tk's). screenWidth / screenHeight: the screen's area.
 import QtQuick
+import ".."
 
 QtObject {
     property real screenWidth: 800

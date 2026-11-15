@@ -1,5 +1,4 @@
 import QtQuick
-import ".."
 
 // Tk's grid node (zynthian_gui_selector_grid._draw_node): a grey block, the icon at its left
 // edge (block height - spacing / 2), the title centred at 2/3 of the width in 0.06 x the block

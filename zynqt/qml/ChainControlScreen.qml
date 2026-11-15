@@ -5,7 +5,6 @@
 // (the other widgets). The side chain's nodes other than processors open their screens (Tk shows
 // them as subscreens in place).
 import QtQuick
-import ".."
 
 Rectangle {
     id: root

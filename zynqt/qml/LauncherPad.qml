@@ -3,7 +3,6 @@
 // the middle, the length at the bottom left (phrases: the tempo at the bottom right); the
 // phrases' loop indicators in a column left of the pad
 import QtQuick
-import ".."
 
 Item {
     id: pad

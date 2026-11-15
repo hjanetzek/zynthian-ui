@@ -1,8 +1,8 @@
 pragma Singleton
 import QtQuick
-import ".."
 
-// tk: upstream zynthian's Tk UI. Colours from the ZYNTHIAN_UI_COLOR_* environment (defaults as
+// tk, the default theme (zynqt/qml itself; ThemeBase's tokens are classic's, see
+// +classic/Theme.qml): upstream zynthian's Tk UI. Colours from the ZYNTHIAN_UI_COLOR_* environment (defaults as
 // zynthian_gui_config), sizes from its font size F (ZYNTHIAN_UI_FONT_SIZE x ZYNTHIAN_UI_SCALE),
 // Audiowide. Values measured in the Tk UI: zynthian-stuff ui-parity/REPORT.md, section 5.
 ThemeBase {

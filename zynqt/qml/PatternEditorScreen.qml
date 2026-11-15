@@ -5,7 +5,6 @@
 // numbers, step ticks, the playhead in red). Cell sizes from 16 x 16 cells plus the zoom (knob
 // 1, pinch). Tap toggles a note, a bold press edits it (the knobs, title bar), drag scrolls.
 import QtQuick
-import ".."
 
 Rectangle {
     id: root

@@ -4,6 +4,7 @@
 // MIDI learning, touching it learns it.
 import QtQuick
 import QtQuick.Shapes
+import ".."
 
 Panel {
     id: root

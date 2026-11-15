@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import ".."
 
 // A tile of the main menu / add chain grid: icon above, title below, the selected one in the
 // selection colour; placeholder cells darkened and empty. Themes replace it (+<theme>/).

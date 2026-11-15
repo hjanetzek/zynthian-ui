@@ -1,7 +1,8 @@
 // The pattern editor's toolbar: play, record, undo, redo, CC / notes, the note-entry values,
 // block selection, menu, and the pattern's title (the edit mode's while one is on).
-// +tk/PatternToolbar.qml: none (Tk has the knobs, switches and the menu only)
+// The base PatternToolbar.qml (tk): none (Tk has the knobs, switches and the menu only)
 import QtQuick
+import ".."
 
 Row {
     id: root

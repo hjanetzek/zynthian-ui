@@ -1,6 +1,7 @@
 // Pattern editor (notes): toolbar, piano keys (left, scrolling with the grid), playhead, and the
 // grid: steps across, keymap rows up. Tap a cell adds/removes a note, long press edits it.
 import QtQuick
+import ".."
 
 Item {
     id: root
@@ -50,7 +51,7 @@ Item {
         function onPatternChanged() { Qt.callLater(root.showCursor) }
     }
 
-    // Toolbar (+tk: none, as Tk)
+    // Toolbar (tk, the base: none, as Tk)
     PatternToolbar {
         id: toolbar
         pe: root.pe

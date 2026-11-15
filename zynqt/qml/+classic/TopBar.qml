@@ -1,5 +1,6 @@
 // Top bar: screen title, status (xrun, CPU load, MIDI, recorder) and the main mixbus meters
 import QtQuick
+import ".."
 
 Rectangle {
     id: root

@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 
 // The label of a keypad key (classic: its text in the key colours; enterprise: dark text at the
 // bottom right of filled keys). Themes replace it (+<theme>/KeyFace.qml).

@@ -1,6 +1,6 @@
 # Developing a theme for the Qt UI: workflow
 
-Status 2026-11-09 (branch `qt-parity`). For people who design or change a theme of zynthian's Qt
+Status 2026-11-15 (branch `qt-tk-base`: tk is the base, classic an override). For people who design or change a theme of zynthian's Qt
 Quick UI. How themes are built (tokens, directories, components) is in
 [qt-theming.md](qt-theming.md); this guide is about the edit → look → compare loop: which setup to
 use for what, how to see changes instantly, how to compare with the Tk UI, and what to check before
@@ -20,14 +20,18 @@ in the VM or on the device, compare with Tk in the VM, finish on the device.
 
 ## Themes and switching
 
-- A theme is a directory `zynqt/qml/+<name>/` with its `Theme.qml` (only the tokens it changes; all
-  tokens and their defaults are in `zynqt/qml/ThemeBase.qml`) and the components it replaces. Files
-  in `+<name>/` need `import ".."` to see the shared components. Shared QML contains no theme
-  checks: a different look is a different file in the theme's directory.
-- Existing themes: `classic` (the default, `zynqt/qml/` itself), `tk` (replicates the upstream Tk UI),
-  `galactica` and `enterprise` (drafts).
-- The theme is chosen at start with `ZYNTHIAN_QT_THEME`. Put it into
-  `~/.config/zynthian/zynthian_custom_config.sh` (`export ZYNTHIAN_QT_THEME=tk`): the launcher re-reads
+- `zynqt/qml/` itself is the default theme, `tk` (replicates the upstream Tk UI): its `Theme.qml`
+  sets tk's values on `ThemeBase.qml` (which declares all tokens, with classic's values).
+- Every other theme is a directory `zynqt/qml/+<name>/` with its `Theme.qml` (the tokens it changes
+  on ThemeBase) and the components it replaces. Files in `+<name>/` need `import ".."` to see the
+  shared components. Shared QML contains no theme checks: a different look is a different file in
+  the theme's directory.
+- Existing themes: `tk` (default), `classic` (`+classic/`: the Qt port's first look, an override
+  since 2026-11-15), `galactica` and `enterprise` (drafts, built on classic: their selectors are
+  `[name, classic]`, so they get `+classic/`'s components where they have none; `BASES` in
+  `zynqt/theme.py`). An unknown name falls back to tk with a warning.
+- The theme is chosen at start with `ZYNTHIAN_QT_THEME` (unset or `tk`: the base). Put it into
+  `~/.config/zynthian/zynthian_custom_config.sh` (`export ZYNTHIAN_QT_THEME=classic`): the launcher re-reads
   that file on every UI start, so switching only needs `RESTART_UI` (`nura/tools/sync_ui.sh -R`, or
   the Admin menu's "Restart UI"), not a session restart. `/etc/default/zynthian` is read only when
   the session starts.
@@ -47,7 +51,7 @@ python3 nura/tools/qml_preview.py SCENE.qml --live -t tk --mixer
 - A scene is a QML file whose root is an `Item`; it imports the UI's QML with
   `import "@QML@"` (the tool substitutes the path) and holds its own mock data. Examples:
   `~/bastel/github/zynthian-stuff/ui-parity/tools/scenes/` (list, main menu grid, mixer, keypad).
-- Same Qt as Nura (PySide6 6.12), the repository's fonts, the theme as a file selector, and Tk's
+- Same Qt as Nura (PySide6 6.12), the repository's fonts, the theme's file selectors (default tk), and Tk's
   sizing values in `zynConfig` (font size 16, `ZYNTHIAN_UI_SCALE=auto`, the default colours) unless
   the environment overrides them.
 - Not rendered offscreen: shader effects (`MultiEffect`, used for icon tinting). Check those in the
@@ -84,7 +88,7 @@ nura/tools/qemu_compare.sh shot DIR          # DIR/tk.png, DIR/qt.png, DIR/side-
   differently): compare side by side. A tolerant diff points to where to look:
   `magick compare -fuzz 15% -metric AE` on both shots downscaled to a quarter, or an edge overlay of
   both (`-edge 1`, composited in two colours). Exact pixel diffs (`compare -metric AE`) are for
-  comparing the Qt UI with itself, e.g. classic before and after a refactor.
+  comparing the Qt UI with itself, e.g. tk or classic before and after a refactor.
 
 ## 4. Hot reload (VM or device)
 
@@ -133,8 +137,8 @@ nura/tools/sync_ui.sh -q        # copy only zynqt/qml, no restart: the UI reload
 2. Your theme on the main screens at the target size (800x480 for the V5 kit, the Duet's 1280x800
    logical): mixer, main menu, a list (admin), chain control, the keypad (docked and overlay),
    the pattern editor.
-3. Changes to shared components: classic before/after with an exact pixel diff, or a note on what
-   changed on purpose.
+3. Changes to shared components: tk and classic before/after with an exact pixel diff, or a note on
+   what changed on purpose.
 4. Commit by path (`git commit -- <files>`); other people and agents work in the same repository.
 
 ## Pitfalls

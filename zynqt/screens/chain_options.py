@@ -124,7 +124,7 @@ class ChainOptions(SelectorScreen):
     def clean_midi_learn(self):
         chain = self.chain_manager.get_active_chain()
         self.ui.confirm(f"Clean MIDI learn for all controls of all processors in chain {chain.get_name()}?",
-                        lambda: self.chain_manager.clean_midi_learn(chain.chain_id))
+                        lambda: self.chain_manager.clean_midi_binding(chain.chain_id))
 
     def rename(self):
         chain = self.chain_manager.get_active_chain()

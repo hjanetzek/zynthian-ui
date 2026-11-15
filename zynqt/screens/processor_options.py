@@ -168,4 +168,4 @@ class ProcessorOptions(SelectorScreen):
     def midi_clean(self):
         p = self.processor
         self.ui.confirm(f"Do you want to clean MIDI-learn for ALL controls in {p.name}?",
-                        lambda: self.chain_manager.clean_midi_learn(p))
+                        lambda: self.chain_manager.clean_midi_binding(p))

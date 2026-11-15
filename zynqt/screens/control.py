@@ -203,7 +203,7 @@ class ControllerProxy(QObject):
     def _binding(self):
         """(text, kind) shown for the MIDI binding (zynthian_gui_controller.set_midi_bind): kind
         "learn" / "learnGlobal" (learning it, or any while learning without one chosen), "xy"
-        (an X-Y touchpad axis), "abs", "chain", "zynstep" or "" (none)"""
+        (an X-Y touchpad axis), "abs" (global), "chain", "automate" or "" (none)"""
         z = self.zctrl
         if z is None or z.is_path:
             return "", ""
@@ -1042,10 +1042,15 @@ class ChainControl(QObject):
         zctrl = self.ui.state_manager.get_midi_learn_zctrl()
         if not self.midi_learning or zctrl is None or num >= 120:
             return
+        proc = zctrl.processor
+        if proc is not None:
+            self.chain_manager.clear_midi_binding(proc, zctrl.symbol)
         if self.midi_learning == MIDI_LEARNING_GLOBAL:
-            self.chain_manager.add_midi_learn(chan, num, zctrl, izmip)
-        else:
-            self.chain_manager.add_midi_learn(chan, num, zctrl)
+            self.chain_manager.add_midi_binding(zctrl, num, chan, izmip)
+            self.chain_manager.enable_automate_zctrl(zctrl)
+        elif proc is not None and proc.chain_id is not None:
+            self.chain_manager.add_midi_binding(zctrl, num, chan, izmip, proc.chain_id)
+            self.chain_manager.enable_automate_zctrl(zctrl)
         self.exit_midi_learn()
 
     def _midi_note_on(self, izmip, chan, note, vel):
@@ -1073,6 +1078,6 @@ class ChainControl(QObject):
             question += f" on MIDI channel {proc.midi_chan + 1}"
 
         def clean():
-            self.chain_manager.clean_midi_learn(proc)
+            self.chain_manager.clean_midi_binding(proc)
             self.refresh_bindings()
         self.ui.confirm(question + "?", clean)

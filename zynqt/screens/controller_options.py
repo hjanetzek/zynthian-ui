@@ -1,11 +1,15 @@
 """Options of a controller in the chain control screen (zynthian_gui_control.controller_options, a
 long press on a controller): chain controller, MIDI learn (chain or global), the learned binding's
-CC mode and value range, momentary/debounce for toggles, the step sequencer's CC, unlearn.
+CC mode and value range, momentary/debounce for toggles, the step sequencer's automation, the
+input devices of the learned binding, unlearn.
 
 """
 
-from zyngui.zynthian_midi_learn_data import (CC_MODES, MIDI_LEARNING_CHAIN, MIDI_LEARNING_GLOBAL, cc_mode_label,
-                                             set_cc_mode, unlearn_label, zynstep_cc)
+import logging
+
+import zynautoconnect
+from zyngui.zynthian_midi_learn_data import (CC_MODES, MIDI_LEARNING_CHAIN, MIDI_LEARNING_GLOBAL, automate_cc,
+                                             cc_mode_label, set_cc_mode, unlearn_label)
 
 
 def show_controller_options(cc, i, selected=0, select_text=None):
@@ -61,8 +65,11 @@ def show_controller_options(cc, i, selected=0, select_text=None):
             info = f" => {current.name}" if current else ""
             opts.append((f"{'☒' if current == zctrl else '☐'} {axis.upper()}-axis{info}", toggle_axis, None, None))
 
-    ml = cm.get_midi_learn_from_zctrl(zctrl, abs=True, chain=True, zynstep=False)
+    ml = cm.get_midi_binding_from_zctrl(zctrl, filter_automate=False)
     opts.append(("MIDI learn", None, None, None))
+    automate_index = len(opts)
+    opts.append((f"{'☒' if automate_cc(cm, zctrl) is not None else '☐'} Automate",
+                 lambda: _toggle_automate(cc, zctrl, again(automate_index)), None, None))
     if zctrl.is_toggle:
         def flip(attr, index):
             def run():
@@ -90,26 +97,70 @@ def show_controller_options(cc, i, selected=0, select_text=None):
         opts.append(("Chain learn...", lambda: cc.midi_learn(i, MIDI_LEARNING_CHAIN), None, None))
     opts.append(("Global learn...", lambda: cc.midi_learn(i, MIDI_LEARNING_GLOBAL), None, None))
 
-    step_cc = zynstep_cc(cm, zctrl)
-    step_index = len(opts)
+    if ml:
+        inputs_index = len(opts)
+        opts.append(("Learned MIDI Inputs", lambda: _learned_inputs(cc, zctrl, again(inputs_index)), None, None))
 
-    def pick_step_cc():
-        def choose(num):
-            cm.add_zynstep_midi_learn(num, zctrl)
-            again(step_index)()
-        ui.show_options("ZynStep CC", [(str(n), lambda n=n: choose(n), None, None) for n in range(1, 128)],
-                        step_cc - 1 if step_cc else 0)
-    opts.append((f"ZynStep CC [{'NONE' if step_cc is None else step_cc}]", pick_step_cc, None, None))
-
-    if ml and (label := unlearn_label(ml)):
+    if ml:
         def unlearn():
-            cm.clean_midi_learn(zctrl)
+            if zctrl.processor is not None:
+                cm.clear_midi_binding(zctrl.processor, zctrl.symbol)
             cc.refresh_bindings()
-        opts.append((label, unlearn, None, None))
+        opts.append((unlearn_label(cm, ml), unlearn, None, None))
     opts.append(("Unlearn all controls", cc.midi_unlearn_action, None, None))
     if select_text:
         selected = next((k for k, o in enumerate(opts) if select_text in o[0]), selected)
     ui.show_options(f"Control options: {zctrl.name}", opts, selected)
+
+
+def _toggle_automate(cc, zctrl, done):
+    """Toggle the step sequencer's automation of the controller, confirming the removal of the
+    automation from the patterns that have it (zynthian_gui_control.controller_options_cb)"""
+    cm = cc.chain_manager
+    chan = zctrl.processor.midi_chan if zctrl.processor else None
+    acc = automate_cc(cm, zctrl)
+    if acc is not None and chan is not None and chan < 16:
+        zynseq = cc.ui.state_manager.zynseq
+        patterns = zynseq.get_automated_patterns(acc, chan)
+        if patterns:
+            def disable():
+                cm.toggle_automate_zctrl(zctrl)
+                for pattern in patterns:
+                    zynseq.libseq.selectPattern(pattern)
+                    zynseq.libseq.clearControl(acc)
+                cc.refresh_bindings()
+                done()
+            cc.ui.confirm(f"Disable and remove automation from {len(patterns)} patterns?", disable)
+            return
+    cm.toggle_automate_zctrl(zctrl)
+    cc.refresh_bindings()
+    done()
+
+
+def _learned_inputs(cc, zctrl, done):
+    """The MIDI input devices of the controller's learned binding, each one toggled
+    (zynthian_gui_control "Learned MIDI Inputs")"""
+    cm = cc.chain_manager
+    result = cm.get_midi_binding_from_zctrl(zctrl, filter_automate=False)
+    if not result:
+        done()
+        return
+    bound_devices = []
+    for key, kind in result:
+        midi_cc, chan, zmip, chain_id = cm.unpack_midi_bind_key(key)
+        bound_devices.append(zmip)
+    opts = []
+    for izmip, port in enumerate(zynautoconnect.devices_in):
+        try:
+            if port and port.name not in ("zynseq:output", "CV/Gate"):
+                def toggle(izmip=izmip):
+                    cm.toggle_midi_binding(zctrl, midi_cc, chan, izmip, chain_id)
+                    cc.refresh_bindings()
+                    _learned_inputs(cc, zctrl, done)
+                opts.append((f"{'☒' if izmip in bound_devices else '☐'} {port.aliases[1]}", toggle, None, None))
+        except Exception as e:
+            logging.warning(e)
+    cc.ui.show_options(f"MIDI devices bound to CC {midi_cc}", opts, 0)
 
 
 def _edit_cc_range(cc, i, zctrl, done):

@@ -1393,7 +1393,7 @@ class ZynUI(QObject):
         zctrl = cc.controllers[int(params[0])].zctrl if params else self.state_manager.get_midi_learn_zctrl()
         if zctrl is not None:
             cc.exit_midi_learn()
-            self.chain_manager.clean_midi_learn(zctrl)
+            self.chain_manager.clean_midi_binding(zctrl)
             cc.refresh_bindings()
 
     def cuia_action_midi_unlearn(self, params=None):
@@ -1403,18 +1403,18 @@ class ZynUI(QObject):
     def cuia_midi_unlearn_mixer(self, params=None):
         for chain in self.chain_manager.chains.values():
             if chain.zynmixer_proc:
-                self.chain_manager.clean_midi_learn(chain.zynmixer_proc)
+                self.chain_manager.clean_midi_binding(chain.zynmixer_proc)
 
     def cuia_midi_unlearn_node(self, params=None):
         """params: processor id, controller symbol (zynthian_gui passes both as one list, which
-        remove_midi_learn(proc, symbol) doesn't take)"""
+        clear_midi_binding(proc, symbol) doesn't take)"""
         if params and len(params) > 1:
             proc = self.chain_manager.processors.get(int(params[0]))
             if proc is not None:
-                self.chain_manager.remove_midi_learn(proc, str(params[1]))
+                self.chain_manager.clear_midi_binding(proc, str(params[1]))
 
     def cuia_midi_unlearn_chain(self, params=None):
-        self.chain_manager.clean_midi_learn(params[0] if params else self.chain_manager.active_chain.chain_id)
+        self.chain_manager.clean_midi_binding(params[0] if params else self.chain_manager.active_chain.chain_id)
 
     def cuia_enable_midi_learn_pc(self, params=None):
         self.state_manager.enable_learn_pc(params[0] if params else "")

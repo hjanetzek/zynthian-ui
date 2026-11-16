@@ -23,6 +23,7 @@
 
 from zynconf import zynthian_paths
 import os
+import shutil
 import subprocess
 import re
 import json
@@ -213,6 +214,10 @@ class zynthian_engine(zynthian_basic_engine):
     def config_remote_display(self):
         if 'ZYNTHIAN_X11_SSH' in os.environ and 'SSH_CLIENT' in os.environ and 'DISPLAY' in os.environ:
             return True
+        # VNC disabled (webconf's "Enable VNC", off on the desktop), or no systemd (e.g. OpenRC on
+        # postmarketOS) and so no zynthian VNC service: no need to ask systemctl
+        elif os.environ.get("ZYNTHIAN_VNCSERVER_ENABLED", "0") == "0" or not shutil.which("systemctl"):
+            return False
         elif subprocess.run(["systemctl", "-q", "is-active", "vncserver1"]).returncode:
             return False
         else:

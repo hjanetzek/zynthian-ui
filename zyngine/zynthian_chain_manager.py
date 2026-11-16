@@ -1197,7 +1197,13 @@ class zynthian_chain_manager:
                 self.remove_processor(chain_id, chain.synth_slots[0][0])   # Cannot have multiple synth engines
             chain.insert_processor(processor, slot)
 
-        engine = self.start_engine(processor, eng_code, eng_config)
+        try:
+            engine = self.start_engine(processor, eng_code, eng_config)
+        except Exception as e:
+            # handled as a failed start: otherwise the processor stays without engine and the busy
+            # state ("Adding Processor"/"Adding Chain" overlay) is never ended
+            logging.exception(f"Starting engine '{eng_code}' failed: {e}")
+            engine = None
         if not engine:
             # Failed!! => Remove processor from chain and list. A processor left in the chain
             # without engine breaks the next rebuild_graph() (e.g. loading a snapshot).

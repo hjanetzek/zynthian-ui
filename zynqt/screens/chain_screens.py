@@ -3,6 +3,7 @@ _preset)"""
 
 import copy
 import logging
+import os
 
 import zynautoconnect
 
@@ -23,6 +24,52 @@ def list_data_entries(list_data, default_info=""):
             entries.append(separator(title))
         else:
             entries.append(entry(title, info=info, icon=icon, data=row))
+    return entries
+
+
+def has_bank_dirs(proc):
+    """The processor's engine finds its banks in directories (soundfonts, sample libraries, preset
+    files), so an empty bank list means nothing is installed there yet"""
+    return bool(proc is not None and getattr(proc.engine, "root_bank_dirs", None))
+
+
+def empty_list_hint(proc, what="bank"):
+    """Rows shown instead of an empty bank (what="bank") or preset list: what is missing and how to
+    add some (copy files to my-data, install a content package). Selecting one scans again."""
+    engine = proc.engine
+    dirs = getattr(engine, "root_bank_dirs", None) or []
+    user = next((d for label, d in dirs if label.startswith("User")), None)
+    fexts = [e for e in (getattr(engine, "preset_fexts", None) or []) if e]
+    if what == "bank" and user:
+        my_data = getattr(engine, "my_data_dir", "") or ""
+        if my_data and user.startswith(my_data.rstrip("/") + "/"):
+            where = os.path.basename(my_data.rstrip("/")) + user[len(my_data.rstrip("/")):]
+        else:
+            where = user
+        # Content packages (zynthian-packages) bring soundfonts
+        soundfonts = "/soundfonts/" in user
+        noun = "soundfonts" if soundfonts else "audio files" if "/files/" in user else "banks"
+        files = " / ".join("." + e for e in fexts) + " files" if fexts else "files"
+        title = f"No {noun} found"
+        info = f"Copy {files} to {where} (network share, USB or webconf)"
+        rows = [title, f"Copy {files} to", where]
+        if soundfonts:
+            info += " or install a soundfont package"
+            rows.append("or install a soundfont package.")
+        info += ".\nSelect to scan again."
+    elif what == "bank":
+        title = "No banks found"
+        info = f"{proc.get_name()} has no banks or presets.\nSelect to scan again."
+        rows = [title]
+    else:
+        title = "No presets found"
+        banks = [b for b in (proc.bank_list or []) if b and b[0]]
+        info = "This bank has no presets." if banks else f"{proc.get_name()} has no presets."
+        if callable(getattr(engine, "save_preset", None)):
+            info += "\nBold to show options: save a new preset."
+        rows = [title]
+    entries = [entry(rows[0], info=info, icon="presets_bank.png" if what == "bank" else "preset.png")]
+    entries += [entry(r, info=info) for r in rows[1:]]
     return entries
 
 
@@ -200,7 +247,12 @@ class Bank(SelectorScreen):
                 index = 0
             else:
                 proc.set_show_fav_presets(False)
-        self.set_entries(list_data_entries(proc.get_bank_list(), "Bold to show options."), index)
+        banks = proc.get_bank_list()
+        if not banks:
+            # Nothing installed: say so and how to add some (Tk doesn't show an empty list)
+            self.set_entries(empty_list_hint(proc, "bank"), 0)
+            return
+        self.set_entries(list_data_entries(banks, "Bold to show options."), index)
 
     def select_action(self, index, t):
         if t == "B":
@@ -210,6 +262,9 @@ class Bank(SelectorScreen):
             return
         proc = self.ui.current_processor
         row = self.entries[index]["data"]
+        if row is None:
+            self.fill()   # the empty list's hint: scan again
+            return
         if row and row[0] == "*FAVS*":
             proc.set_show_fav_presets(True)
         else:
@@ -242,6 +297,8 @@ class Bank(SelectorScreen):
             return
         engine = proc.engine
         bank = copy.deepcopy(self.entries[self._index]["data"])
+        if bank is None:
+            return   # the empty list's hint
         options = []
         user = False
         if bank and engine.is_preset_user(bank):
@@ -303,6 +360,9 @@ class Preset(SelectorScreen):
             preload = "Preload enabled." if proc.engine.allow_timer_preload(None) else "Preload on note."
         except Exception:
             preload = "Preload enabled."
+        if not proc.preset_list:
+            self.set_entries(empty_list_hint(proc, "preset"), 0)
+            return
         self.set_entries(list_data_entries(proc.preset_list, preload + "\nBold to show options."),
                          proc.get_preset_index())
 
@@ -310,7 +370,7 @@ class Preset(SelectorScreen):
         if t == "B":
             self.show_preset_options()
             return
-        if t != "S":
+        if t != "S" or self.entries[index]["data"] is None:
             return
         proc = self.ui.current_processor
         self.state_manager.start_busy("set preset")
@@ -332,6 +392,8 @@ class Preset(SelectorScreen):
         proc = self.ui.current_processor
         if proc is None or getattr(proc.engine, "nickname", None) != "AP":
             return False
+        if not 0 <= self._index < len(self.entries) or self.entries[self._index]["data"] is None:
+            return True   # the empty list's hint
         self.activate(self._index)
         if proc is not self.state_manager.audio_player:
             proc.controllers_dict["transport"].set_value(127)

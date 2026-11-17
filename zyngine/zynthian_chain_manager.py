@@ -171,6 +171,8 @@ class zynthian_chain_manager:
         self.active_chain = None  # Active chain object => This should NEVER be None!!!
         self.active_midi_chain = None # Chain currently receiving active MIDI input
         self._pinned_chains = 1 # Quantity of pinned chains (shown pinned to right edge of mixer in UI)
+        self._removing_all_chains = False # remove_all_chains running: per-chain work done once at the end
+        self._unused_automate_zctrls = [] # zctrls whose automation binding is checked at the end of remove_all_chains
 
         self.midi_cc_binding = {} # Lists of zctrls indexed by 32-bit [chain,zmip,chan,cc]
         self.cc_feedback = zynthian_cc_feedback(self) # Sends bound controllers' values back to devices
@@ -469,8 +471,9 @@ class zynthian_chain_manager:
 
             update_fxreturns = False
             if chain.zynmixer_proc:
-                chain.zynmixer_proc.zynmixer.set_mute(chain.zynmixer_proc.mixer_chan, True) # Mute chain whilst removing
-                sleep(self.state_manager.jack_period)
+                if not self._removing_all_chains:  # remove_all_chains muted all chains already
+                    chain.zynmixer_proc.zynmixer.set_mute(chain.zynmixer_proc.mixer_chan, True) # Mute chain whilst removing
+                    sleep(self.state_manager.jack_period)
                 if chain.zynmixer_proc.eng_code == "MR" and chain.chain_id:
                     update_fxreturns = True
 
@@ -485,10 +488,11 @@ class zynthian_chain_manager:
 
         self.rebuild_optimisation_cache()
 
-        zynautoconnect.request_audio_connect(fast_refresh)
-        zynautoconnect.request_midi_connect(fast_refresh)
-        if stop_engines:
-            self.stop_unused_engines()
+        if not self._removing_all_chains:
+            zynautoconnect.request_audio_connect(fast_refresh)
+            zynautoconnect.request_midi_connect(fast_refresh)
+            if stop_engines:
+                self.stop_unused_engines()
         if self.active_chain not in self.chains.values():
             if chain_pos + 1 >= len(self.chains):
                 chain_pos -= 1
@@ -502,9 +506,10 @@ class zynthian_chain_manager:
                     disable_sequences = False
                     break
             if disable_sequences:
-                self.state_manager.zynseq.enable_channel(midi_chan, False)
+                self.state_manager.zynseq.enable_channel(midi_chan, False, refresh_state=not self._removing_all_chains)
 
-        self.state_manager.purge_zs3()
+        if not self._removing_all_chains:
+            self.state_manager.purge_zs3()
 
         if update_fxreturns:
             i = 1
@@ -528,8 +533,35 @@ class zynthian_chain_manager:
         """
 
         success = True
-        for chain_id in list(self.chains.keys()):
-            success &= self.remove_chain(chain_id, stop_engines, fast_refresh=False)
+        # Work that remove_chain does for each chain is done once here: muting (one JACK period to
+        # let it take effect), routing, the sequencer state refresh, checking automation bindings,
+        # purging ZS3s, stopping engines
+        for chain in self.chains.values():
+            if chain.zynmixer_proc:
+                chain.zynmixer_proc.zynmixer.set_mute(chain.zynmixer_proc.mixer_chan, True)
+        sleep(self.state_manager.jack_period)
+        self._removing_all_chains = True
+        self._unused_automate_zctrls = []
+        try:
+            for chain_id in list(self.chains.keys()):
+                success &= self.remove_chain(chain_id, stop_engines, fast_refresh=False)
+        finally:
+            self._removing_all_chains = False
+            if 0 in self.chains and self.chains[0].zynmixer_proc:
+                self.chains[0].zynmixer_proc.zynmixer.set_mute(self.chains[0].zynmixer_proc.mixer_chan, False)
+            for chain in self.chains.values():
+                chain.rebuild_graph()
+            self.state_manager.zynseq.refresh_state()
+            automated = {}  # get_automated_patterns() results indexed by (cc, chan)
+            for zctrl in self._unused_automate_zctrls:
+                self.remove_unused_automate(zctrl, automated)
+            self._unused_automate_zctrls = []
+            self.cc_feedback.bindings_changed()  # once for all the bindings the chains had
+            self.state_manager.purge_zs3()
+            zynautoconnect.request_audio_connect(False)
+            zynautoconnect.request_midi_connect(False)
+            if stop_engines:
+                self.stop_unused_engines()
         self._pinned_chains = 1
         zynsigman.send_queued(zynsigman.S_CHAIN_MAN, zynsigman.SS_REMOVE_ALL_CHAINS)
         return success
@@ -1436,9 +1468,10 @@ class zynthian_chain_manager:
                 # Remove FX sends from existing chains
                 self.refresh_mixbus_sends()
 
-            # Update chain routing (may have effected lots of chains)
-            for chain in self.chains.values():
-                chain.rebuild_graph()
+            # Update chain routing (may have effected lots of chains); remove_all_chains does it once
+            if not self._removing_all_chains:
+                for chain in self.chains.values():
+                    chain.rebuild_graph()
             zynsigman.send_queued(zynsigman.S_CHAIN_MAN, zynsigman.SS_REMOVE_PROCESSOR)
 
         self.state_manager.end_busy("remove_processor")
@@ -1930,10 +1963,11 @@ class zynthian_chain_manager:
         else:
             self.add_midi_binding(zctrl, midi_cc, midi_chan, zmip, chain_id)
 
-    def remove_unused_automate(self, zctrl):
+    def remove_unused_automate(self, zctrl, automated=None):
         """ Remove automation binding from a zctrl if no patterns are automated by it
 
         zctrl : Controller object
+        automated : Dictionary of get_automated_patterns results indexed by (cc, chan), to fill and reuse (optional)
         """
 
         result = self.get_midi_binding_from_zctrl(zctrl, filter_chain=False, filter_global=False, max_results=1)
@@ -1942,7 +1976,12 @@ class zynthian_chain_manager:
         key = result[0][0]
         cc, chan, zmip, chain_id = self.unpack_midi_bind_key(key)
         try:
-            remove_automate = self.state_manager.zynseq.get_automated_patterns(cc, chan) == []
+            if automated is None:
+                remove_automate = self.state_manager.zynseq.get_automated_patterns(cc, chan) == []
+            else:
+                if (cc, chan) not in automated:
+                    automated[(cc, chan)] = self.state_manager.zynseq.get_automated_patterns(cc, chan)
+                remove_automate = automated[(cc, chan)] == []
         except:
             remove_automate = True
         if remove_automate:
@@ -1973,8 +2012,11 @@ class zynthian_chain_manager:
             if not zctrls:
                 self.midi_cc_binding.pop(key)
 
-        self.remove_unused_automate(zctrl)
-        self.cc_feedback.bindings_changed()
+        if self._removing_all_chains:
+            self._unused_automate_zctrls.append(zctrl)
+        else:
+            self.remove_unused_automate(zctrl)
+            self.cc_feedback.bindings_changed()
 
     def get_midi_binding_from_zctrl(self, zctrl, filter_chain=True, filter_global=True, filter_automate=True, max_results=None):
         """ Get list of MIDI learn binding for a zctrl

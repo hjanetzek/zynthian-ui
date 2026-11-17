@@ -9,6 +9,7 @@ Item {
     id: face
     property int key
     property string label
+    property real radius: 0      // the plate's corner radius with Theme.keyRadius (Keypad.qml)
 
     readonly property var glyphs: ({ 8: "", 9: "", 10: "", 13: "",
                                      16: "", 17: "", 18: "" })

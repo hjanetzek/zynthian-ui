@@ -13,13 +13,15 @@ Item {
     property real cut: Theme.cut
     property real radius: 0          // radius in themes without their own (classic)
     property bool button: false      // keys and buttons: pills in themes with pillButtons
+    property real cornerRadius: -1   // >= 0: this radius, over the theme's (the keypad's keys)
 
     readonly property bool cutCorners: cut > 0
     // Keep the outline inside the item
     readonly property real _i: borderWidth / 2
     readonly property real _c: Math.min(cut, width / 2, height / 2)
-    readonly property real _r: Theme.pillButtons && button ? Math.min(width, height) / 2
-                               : (Theme.panelRadius > 0 ? Math.min(Theme.panelRadius, width / 2, height / 2) : radius)
+    readonly property real _r: cornerRadius >= 0 ? Math.min(cornerRadius, width / 2, height / 2)
+                               : (Theme.pillButtons && button ? Math.min(width, height) / 2
+                                  : (Theme.panelRadius > 0 ? Math.min(Theme.panelRadius, width / 2, height / 2) : radius))
 
     Rectangle {
         visible: !root.cutCorners

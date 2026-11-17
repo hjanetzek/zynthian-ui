@@ -7,6 +7,7 @@ Rectangle {
     property color fill: Theme.keyBackground
     property bool pressed: false
     property bool translucent: false
+    property real minSide: Math.min(width, height)   // the keypad's smallest key side (Keypad.qml)
 
     color: translucent ? Qt.rgba(0, 0, 0, 0.25) : Theme.background
     Rectangle {

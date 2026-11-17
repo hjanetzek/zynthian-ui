@@ -24,6 +24,7 @@ Usage: qemu_compare.sh [options] [start | stop | status | shot [DIR] | ssh qt|tk
   -d BASE     directories BASE-qt and BASE-tk (default ~/.cache/nura-builds-compare)
   -p PORT     SSH ports PORT (Qt) and PORT+1 (Tk), webconf 8080 + the same offset
               (default 2242: 2242/2243, webconf 8100/8101)
+  -W PORT     webconf ports PORT (Qt) and PORT+1 (Tk), when the default ones are taken
   -m MEM      memory per VM (default 3G)
   -l          a LAN between the two VMs (run_qemu.sh -L: QEMU socket multicast, no root), static
               addresses 192.168.77.1 (Qt VM) and 192.168.77.2 (Tk VM) on its NIC (NetworkManager
@@ -38,9 +39,9 @@ here=$(cd "$(dirname "$0")" && pwd)
 
 usage() { printf '%s\n' "$usage_text"; exit "${1:-0}"; }
 
-gui=0 tk=tomita res=800x480 reset=0 base=$HOME/.cache/nura-builds-compare port=2242 mem=3G lan=0
+gui=0 tk=tomita res=800x480 reset=0 base=$HOME/.cache/nura-builds-compare port=2242 web= mem=3G lan=0
 image=${XDG_CACHE_HOME:-$HOME/.cache}/nura-builds/zynthian-qemu-amd64.img.zst
-while getopts gT:R:ri:d:p:m:lh opt; do
+while getopts gT:R:ri:d:p:W:m:lh opt; do
 	case $opt in
 		g) gui=1 ;;
 		T) tk=$OPTARG ;;
@@ -49,6 +50,7 @@ while getopts gT:R:ri:d:p:m:lh opt; do
 		i) image=$OPTARG ;;
 		d) base=$OPTARG ;;
 		p) port=$OPTARG ;;
+		W) web=$OPTARG ;;
 		m) mem=$OPTARG ;;
 		l) lan=1 ;;
 		h) usage ;;
@@ -63,7 +65,9 @@ case $tk in vangelis | tomita | port) ;; *) usage 1 ;; esac
 # The two VMs: name, directory, SSH and webconf ports
 vm_dir() { echo "$base-$1"; }
 vm_port() { if [ "$1" = qt ]; then echo "$port"; else echo $((port + 1)); fi; }
-vm_web() { echo $((8080 + $(vm_port "$1") - 2222)); }
+vm_web() {
+	if [ -n "$web" ]; then echo $((web + $(vm_port "$1") - port)); else echo $((8080 + $(vm_port "$1") - 2222)); fi
+}
 # The LAN (-l): MAC and address per VM
 vm_lan_n() { if [ "$1" = qt ]; then echo 1; else echo 2; fi; }
 vm_lan_mac() { echo "52:54:00:77:00:0$(vm_lan_n "$1")"; }

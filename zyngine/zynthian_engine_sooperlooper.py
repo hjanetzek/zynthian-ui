@@ -30,7 +30,7 @@ from time import sleep, monotonic
 from subprocess import Popen, DEVNULL
 
 from zynconf import ServerPort
-from zyngine.zynthian_engine import zynthian_engine
+from zyngine.zynthian_engine import zynthian_engine, end_process, PROC_STOP_TIMEOUT
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_controller import zynthian_controller
 
@@ -471,11 +471,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
         if self.proc:
             try:
                 logging.info("Stoping Engine " + self.name)
-                self.proc.terminate()
-                try:
-                    self.proc.wait(0.2)
-                except:
-                    self.proc.kill()
+                end_process(self.proc, self.name)
                 self.proc = None
             except Exception as err:
                 logging.error(f"Can't stop engine {self.name} => {err}")

@@ -30,14 +30,117 @@ import json
 import glob
 import copy
 import logging
+import signal
 import pexpect
 import fnmatch
 import pyliblo3 as liblo
-from time import sleep
+from threading import Thread
+from time import sleep, monotonic
 
 import zynconf
 import zynautoconnect
 import zyngine.zynthian_controller as zynthian_controller
+
+# --------------------------------------------------------------------------------
+# Ending engine processes
+# --------------------------------------------------------------------------------
+
+PROC_STOP_TIMEOUT = 5.0  # Seconds an engine's process gets to end before SIGKILL
+PROC_KILL_TIMEOUT = 2.0  # Seconds after SIGKILL before the reaping goes to a background thread
+
+
+def _proc_ended(proc):
+    """Whether the process (pexpect.spawn or subprocess.Popen) has ended; reaps it if so (non-blocking)"""
+    if isinstance(proc, subprocess.Popen):
+        return proc.poll() is not None
+    try:
+        return not proc.isalive()
+    except pexpect.ExceptionPexpect:
+        return True  # No child process any more (reaped elsewhere)
+
+
+def _proc_wait(proc, timeout):
+    """Wait up to timeout seconds for the process to end and reap it. A pexpect process's output
+    is read meanwhile: a child blocked writing to a full pty would never end."""
+    deadline = monotonic() + timeout
+    while not _proc_ended(proc):
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            return False
+        if isinstance(proc, subprocess.Popen):
+            try:
+                proc.wait(timeout=remaining)
+            except subprocess.TimeoutExpired:
+                return False
+        elif not proc.flag_eof:
+            try:
+                proc.read_nonblocking(4096, timeout=min(remaining, 0.02))
+            except (pexpect.TIMEOUT, pexpect.EOF):
+                pass
+            except Exception:
+                sleep(min(remaining, 0.01))
+        else:
+            sleep(min(remaining, 0.01))
+    return True
+
+
+def _proc_close(proc):
+    """Close a pexpect process's pty (the process has been reaped)"""
+    if not isinstance(proc, subprocess.Popen):
+        try:
+            proc.ptyproc.delayafterclose = 0
+            proc.close(force=False)
+        except Exception as e:
+            logging.debug(f"Can't close the pty of process {proc.pid} => {e}")
+
+
+def end_process(proc, name, grace=0.0, timeout=PROC_STOP_TIMEOUT):
+    """End an engine's process and reap it, in bounded time: no zombie is left and a stop never
+    waits forever.
+
+    proc : pexpect.spawn or subprocess.Popen
+    name : engine name, for the log
+    grace : seconds to wait for the process to end by itself first (it was asked to quit)
+    timeout : seconds to wait after asking it to end with signals (pexpect: SIGHUP, SIGCONT,
+        SIGINT as pexpect's terminate(), then SIGTERM; Popen: SIGTERM), before SIGKILL
+    Returns True if it ended without SIGKILL. A process that doesn't go away even after SIGKILL
+    (e.g. while the kernel writes its core dump) is reaped by a background thread.
+    """
+    if grace > 0 and _proc_wait(proc, grace):
+        _proc_close(proc)
+        return True
+    ended = False
+    try:
+        if isinstance(proc, subprocess.Popen):
+            if proc.poll() is None:
+                proc.terminate()
+        elif not proc.terminate(force=False) and not _proc_ended(proc):
+            proc.kill(signal.SIGTERM)
+        ended = _proc_wait(proc, timeout)
+    except Exception as e:
+        logging.warning(f"Can't end engine {name} (pid {proc.pid}) => {e}")
+    if not ended:
+        logging.warning(f"Engine {name} (pid {proc.pid}) didn't end in {grace + timeout:.1f} s. Killing it!")
+        try:
+            if isinstance(proc, subprocess.Popen):
+                proc.kill()
+            else:
+                proc.kill(signal.SIGKILL)
+        except Exception as e:
+            logging.warning(f"Can't kill engine {name} (pid {proc.pid}) => {e}")
+        if not _proc_wait(proc, PROC_KILL_TIMEOUT):
+            logging.warning(f"Engine {name} (pid {proc.pid}) still not gone after SIGKILL: reaping it in the background")
+
+            def reap():
+                while not _proc_ended(proc):
+                    sleep(0.2)
+                _proc_close(proc)
+                logging.info(f"Engine {name} (pid {proc.pid}) reaped")
+            Thread(target=reap, name=f"reap {name}", daemon=True).start()
+            return False
+    _proc_close(proc)
+    return ended
+
 
 # --------------------------------------------------------------------------------
 # Basic Engine Class: Spawn a process & manage IPC communication using pexpect
@@ -116,10 +219,10 @@ class zynthian_basic_engine:
             try:
                 logging.info("Stopping Engine " + self.name)
                 self.proc_exit = True
-                self.proc.terminate(True)
-                self.proc = None
+                end_process(self.proc, self.name)
             except Exception as err:
                 logging.error("Can't stop engine {} => {}".format(self.name, err))
+            self.proc = None
 
     def proc_get_output(self):
         if self.command_prompt:

@@ -35,7 +35,7 @@ import pyudev
 from urllib.parse import urlparse, unquote
 
 import zynautoconnect
-from zyngine.zynthian_engine import zynthian_engine
+from zyngine.zynthian_engine import zynthian_engine, end_process, PROC_STOP_TIMEOUT
 
 
 # ------------------------------------------------------------------------------
@@ -630,11 +630,7 @@ class zynthian_engine_inet_radio(zynthian_engine):
                 self.running = False
                 self.proc_poll_thread.join()
                 self.proc_cmd("shutdown")
-                self.proc.terminate()
-                try:
-                    self.proc.wait(timeout=5)
-                except:
-                    self.proc.kill()
+                end_process(self.proc, self.name)
                 self.proc = None
             except Exception as err:
                 logging.error(f"Can't stop engine {self.name} => {err}")

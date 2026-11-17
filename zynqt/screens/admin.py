@@ -3,6 +3,7 @@ with the Tk UI (zyngui.zynthian_admin_settings); values are picked from an optio
 param editor)."""
 
 import logging
+import os
 import shutil
 import subprocess
 
@@ -11,10 +12,12 @@ from zyncoder.zyncore import lib_zyncore
 from zyngui import zynthian_admin_settings, zynthian_gui_config as cfg
 import zynconf
 from zynconf import zynthian_paths
+from zynqt import theme as zyntheme
 from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry, separator
 
 TEST_AUDIO = f"{zynthian_paths.data_dir}/files/Audio/Oya.mp3"
 TEST_MIDI = f"{zynthian_paths.data_dir}/files/Midi/roland_take5.mid"
+QML_DIR = os.path.join(os.path.dirname(os.path.abspath(zyntheme.__file__)), "qml")
 
 
 def _check(flag):
@@ -144,6 +147,8 @@ class Admin(SelectorScreen):
                        info="Enable touch-screen V5 buttons."))
 
         e.append(separator("> SCREEN"))
+        e.append(entry(f"Theme ({self.running_theme()})", lambda x: self.theme_menu(), icon="settings.png",
+                       info="The look of the user interface. Changing it restarts the user interface."))
         e.append(entry("Calibrate Touchscreen", lambda x: self.ui.cuia_screen_calibrate(), icon="settings.png",
                        info="Show touchscreen calibration.\nTouch each crosshair until it changes color.\n"
                             "Screen closes after 15s of inactivity."))
@@ -174,6 +179,49 @@ class Admin(SelectorScreen):
                 self.ui.confirm("Restart UI to apply touch-navigation settings?", do)
         self.pick("Touch Navigation", [("None", ""), ("V5 keypad at left", "v5_keypad_left"),
                                        ("V5 keypad at right", "v5_keypad_right")], cfg.touch_navigation, apply)
+
+    # Theme (ZYNTHIAN_QT_THEME, zynqt/theme.py)
+
+    def running_theme(self):
+        return getattr(self.ui, "theme_name", None) or os.environ.get(zyntheme.VAR) or zyntheme.DEFAULT
+
+    def theme_menu(self):
+        """The themes there are (zynqt/qml/+<name>/), the user's choice marked, and Default (no
+        choice: the session's or kit's theme); a change is saved, then the UI restarts"""
+        chosen = zyntheme.user_theme()
+        session = zyntheme.session_theme() or zyntheme.DEFAULT
+        running = self.running_theme()
+        where = "the custom config" if zyntheme.custom_config_sets_theme() else "zynthian's config"
+
+        def label(text, value):
+            return _check(value == chosen) + text
+
+        def info(value):
+            if not value:
+                return (f"No theme of your own: the system's ({session}; /etc/default/zynthian, set by "
+                        "the kit), else tk.")
+            text = zyntheme.DESCRIPTIONS.get(value, f"The theme in zynqt/qml/+{value}/.")
+            return text + f"\n\nSaved in {where}." + ("\n(running now)" if value == running else "")
+
+        def apply(value):
+            if value == chosen:
+                return
+            name = value or f"default ({session})"
+
+            def do():
+                try:
+                    zyntheme.save_theme(value)
+                except Exception as err:
+                    logging.error(f"Can't save the theme => {err}")
+                    self.ui.show_info(f"Can't save the theme: {err}")
+                    return
+                self.ui.exit(102)
+            self.ui.confirm(f"Restart the user interface with theme {name}?", do)
+
+        choices = [("", f"Default ({session})")] + [(t, t) for t in zyntheme.available_themes(QML_DIR)]
+        selected = next((i for i, (v, _) in enumerate(choices) if v == chosen), 0)
+        self.ui.show_options("Theme", [(label(text, v), lambda v=v: apply(v), info(v), None)
+                                       for v, text in choices], selected)
 
     # Hotplug USB audio
 

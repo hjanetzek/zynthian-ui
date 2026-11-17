@@ -249,6 +249,8 @@ def main():
     ctx.setContextProperty("zynUiRotation", ui_rotation if ui_rotation in (0, 90, 180, 270) else 0)
     # UI theme: file selectors, so zynqt/qml/+<theme>/X.qml replaces X.qml (its Theme.qml, the
     # components it draws differently); tk is zynqt/qml/ itself (zynqt/theme.py)
+    # Admin > Theme > Default leaves a line in the config for this one start (zynqt/theme.py)
+    zyntheme.drop_once_lines()
     theme, theme_selectors = zyntheme.theme_selectors(os.environ.get("ZYNTHIAN_QT_THEME"), QML_DIR)
     # What the Tk UI sizes and colours itself by (zynthian_gui_config), for themes that follow it
     # (tk): the font size before scaling, the scale ("auto": screen height / 600), the colours
@@ -261,6 +263,7 @@ def main():
         "colors": {k[6:]: getattr(cfg, k) for k in dir(cfg) if k.startswith("color_") and isinstance(getattr(cfg, k), str)},
     })
     ctx.setContextProperty("zynThemeName", theme)
+    ui.theme_name = theme
     if theme_selectors:
         engine.setExtraFileSelectors(theme_selectors)
     engine.load(QUrl.fromLocalFile(os.path.join(preview_qml_dir() or QML_DIR, "Main.qml")))

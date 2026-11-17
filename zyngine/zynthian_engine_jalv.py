@@ -985,6 +985,7 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
     # Small LV2 world (jalv -B): jalv loads only the plugin's bundles instead of all of LV2_PATH,
     # which takes most of a jalv start on a Pi with ~500 bundles. jalv falls back to all bundles
     # if the plugin isn't among them.
+    # Both frontends: the console jalv and jalv.gtk3 (plugin GUIs; zynthian-jalv-gtk r4).
     jalv_bundles_support = {}  # Whether a jalv binary has -B, indexed by binary
 
     def jalv_has_bundles_option(self):
@@ -996,7 +997,8 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
         try:
             res = run([jalv_bin, "-h"], env=self.command_env, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT,
                       text=True, timeout=5)
-            supported = "\n  -B " in res.stdout
+            # console jalv: "  -B DIRS ...", jalv.gtk3 (GOption): "  -B, --bundles=DIRS ..."
+            supported = re.search(r"^\s+-B[ ,]", res.stdout, re.MULTILINE) is not None
         except Exception as e:
             logging.warning(f"Can't run '{jalv_bin} -h' => {e}")
             supported = False
@@ -1010,7 +1012,7 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
         if "-B" in self.command:
             i = self.command.index("-B")
             del self.command[i:i + 2]
-        if self.command[0] != "jalv" or not self.jalv_has_bundles_option():
+        if self.command[0] not in ("jalv", "jalv.gtk3") or not self.jalv_has_bundles_option():
             return
         try:
             bundles = zynthian_lv2.get_plugin_bundles(self.plugin_url)

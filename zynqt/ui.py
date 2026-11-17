@@ -28,7 +28,7 @@ from zynqt.power import battery_status
 from zynqt.keyboard import load_bindings
 from zynqt.chain_edit import ChainEdit
 from zynqt.screens.menus import AddChain, MainMenu
-from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset
+from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset, has_bank_dirs
 from zynqt.models.control_xy import ControlXY
 from zynqt.models.launcher import Launcher
 from zynqt.keypad_leds import KeypadLeds
@@ -924,11 +924,20 @@ class ZynUI(QObject):
                 processor.load_preset_list()
                 if len(processor.preset_list) > 1:
                     screen = "preset"
+                elif not processor.bank_list and has_bank_dirs(processor):
+                    # Nothing installed yet (no soundfonts, ...): the bank list says how to add
+                    # some; BACK leads to the processor (not out of the new chain)
+                    screen = "bank_hint"
         if processor and processor.eng_code == "CL":
             screen = "launcher"
         # As zynthian_gui_chain_control.set_chain(reset=True): control mode
         self.chain_control_screen.set_mode("control")
-        self.show_screen(screen)
+        if screen == "bank_hint":
+            self.show_screen("bank")
+            if self.screen_history[-1:] != ["chain_control"]:
+                self.screen_history.append("chain_control")
+        else:
+            self.show_screen(screen)
 
     def get_current_screen(self):
         return self.current_screen
@@ -1653,7 +1662,9 @@ class ZynUI(QObject):
     def cuia_bank_preset(self, params=None):
         """As zynthian_gui.cuia_bank_preset: from the bank list back; from the presets to the
         banks (back with a single bank); elsewhere the presets of the current processor if it
-        has a preset list, else its banks"""
+        has a preset list, else its banks. Neither: the bank list's hint for an engine that
+        reads its banks from directories (no soundfonts installed, ...), else (Tk) the empty
+        preset list and its options"""
         sm = self.state_manager
         if self.current_screen == "alsa_mixer":
             return
@@ -1677,8 +1688,11 @@ class ZynUI(QObject):
                 self.show_screen("preset")
             elif bank_list and bank_list[0][0] != "":
                 self.show_screen("bank")
+            elif not bank_list and has_bank_dirs(proc):
+                self.show_screen("bank")
             else:
                 self.show_screen("preset")
+                self.list_screens["preset"].show_preset_options()
 
     def _recorder_state_changed(self):
         if self.current_screen in ("main_menu", "midi_recorder"):

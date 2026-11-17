@@ -35,7 +35,7 @@ from xml.etree import ElementTree
 from subprocess import Popen, PIPE, check_output, run
 
 from zynconf import ServerPort
-from zyngine.zynthian_engine import zynthian_engine
+from zyngine.zynthian_engine import zynthian_engine, end_process, PROC_STOP_TIMEOUT
 from zyngine.zynthian_controller import zynthian_controller
 
 
@@ -598,8 +598,7 @@ class zynthian_engine_pianoteq(zynthian_engine):
         if not self.proc:
             return
         self.rpc('quit')
-        if self.proc.isalive():
-            self.proc.close(True)
+        end_process(self.proc, self.name, grace=2.0)
         self.proc = None
 
     # ---------------------------------------------------------------------------

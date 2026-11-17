@@ -36,7 +36,7 @@ from os.path import exists as file_exists
 import zynautoconnect
 from zynconf import ServerPort
 from zyncoder.zyncore import lib_zyncore
-from zyngine.zynthian_engine import zynthian_engine
+from zyngine.zynthian_engine import zynthian_engine, end_process, PROC_STOP_TIMEOUT
 from zyngine.zynthian_processor import zynthian_processor
 
 # ------------------------------------------------------------------------------
@@ -390,9 +390,7 @@ class zynthian_engine_aeolus(zynthian_engine):
             try:
                 logging.info("Stoping Engine " + self.name)
                 self.osc_server.send(self.osc_target, '/exit')
-                sleep(0.2)
-                if self.proc.isalive():
-                    self.proc.terminate(True)
+                end_process(self.proc, self.name, grace=1.0)
                 # try:
                 # self.proc.wait(0.2)
                 # except:

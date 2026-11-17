@@ -275,6 +275,7 @@ def init_lilv():
     lv2_generation += 1
     zyngui_widget_cache.clear()
     plugin_bundles_cache.clear()
+    plugin_ports_cache.clear()
 
 
 # ------------------------------------------------------------------------------
@@ -1274,7 +1275,22 @@ def get_node_value(node):
         return str(node)
 
 
+plugin_ports_cache = {}  # Port descriptions indexed by plugin URI, cleared when LV2 data is reloaded
+
+
 def get_plugin_ports(plugin_url):
+    """Describe the control ports and property parameters of a plugin.
+    Querying lilv is slow for plugins with many controls (Fabla's 517: >1 s on a Pi 4), and every
+    jalv instance asks, so the description is cached per plugin URI until the LV2 data is reloaded
+    (init_lilv). Callers get their own deep copy: they may modify it."""
+    try:
+        ports_info = plugin_ports_cache[plugin_url]
+    except KeyError:
+        ports_info = plugin_ports_cache[plugin_url] = _get_plugin_ports(plugin_url)
+    return copy.deepcopy(ports_info)
+
+
+def _get_plugin_ports(plugin_url):
     wplugins = world.get_all_plugins()
     plugin = wplugins[plugin_url]
 

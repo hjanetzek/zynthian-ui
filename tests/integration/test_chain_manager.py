@@ -150,3 +150,28 @@ def test_converging_paths_are_not_a_loop(cm, kind):
     route(cm, 2, 3, 4)
     route(cm, 3, 4)                                      # 2 -> 3 -> 4 and 2 -> 4: no cycle
     assert not getattr(cm, f"will_{kind}_howl")(1, 2)
+
+
+# --- stopping unused engines ---------------------------------------------------------------------------------
+class FakeEngine:
+    def __init__(self, name, processors=()):
+        self.name = name
+        self.processors = list(processors)
+        self.stopped = False
+
+    def get_name(self, processor=None):
+        return self.name
+
+    def stop(self):
+        self.stopped = True
+
+
+def test_unused_per_processor_engines_stop_before_a_load(cm, monkeypatch):
+    """jalv, sfizz and Pure Data run one process per processor ("JV/<n>", "SF/<n>", "PD/<n>") and are never
+    reused: the unused ones stop before set_state loads the new chains, not after it (stop_unused_engines)."""
+    engines = {key: FakeEngine(key) for key in ("JV/1", "SF/2", "PD/3", "BF", "ZY")}
+    engines["SF/4"] = FakeEngine("SF/4", processors=[object()])  # still in use
+    monkeypatch.setattr(cm, "zyngines", dict(engines))
+    cm.stop_unused_single_proc_engines()
+    assert sorted(key for key, engine in engines.items() if engine.stopped) == ["BF", "JV/1", "PD/3", "SF/2"]
+    assert sorted(cm.zyngines) == ["SF/4", "ZY"]  # shared engines wait for stop_unused_engines

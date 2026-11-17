@@ -161,24 +161,26 @@ Rectangle {
                     required property int index
                     required property string title
                     required property bool separator
+                    required property bool header   // a processor without pages: selectable
                     readonly property bool current: index === pages.currentIndex
+                    readonly property bool sectionLook: separator || (header && !current)
                     width: pages.width
                     height: Theme.listRowHeight
-                    color: separator ? Theme.separator : (current ? Theme.select : Theme.listBackground)
+                    color: sectionLook ? Theme.separator : (current ? Theme.select : Theme.listBackground)
                     Label {
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.leftMargin: Theme.listTextMargin
                         elide: Text.ElideRight
-                        text: row.separator ? "> " + row.title : row.title
-                        color: row.separator ? Theme.separatorText : Theme.text
+                        text: row.separator || row.header ? "> " + row.title : row.title
+                        color: row.sectionLook ? Theme.separatorText : Theme.text
                         size: Theme.listTextSize
                         title: true
                     }
                     TapHandler {
                         enabled: !row.separator
-                        onTapped: root.cc.setPage(row.index)
+                        onTapped: root.cc.pageTapped(row.index)
                     }
                 }
             }

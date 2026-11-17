@@ -117,11 +117,13 @@ Item {
             required property int index
             required property string title
             required property bool separator
+            required property bool header   // a processor without pages: selectable
             readonly property bool current: index === pages.currentIndex
+            readonly property bool sectionLook: separator || (header && !current)
             width: pages.width
             height: 44
-            color: separator ? Theme.separator : (current ? Theme.select : Theme.panel)
-            borderColor: separator ? "transparent" : Theme.frame
+            color: sectionLook ? Theme.separator : (current ? Theme.select : Theme.panel)
+            borderColor: sectionLook ? "transparent" : Theme.frame
             button: true
             Label {
                 anchors.verticalCenter: parent.verticalCenter
@@ -130,13 +132,13 @@ Item {
                 anchors.leftMargin: 10
                 elide: Text.ElideRight
                 text: row.title
-                color: row.separator ? Theme.separatorText : (row.current ? Theme.selectText : Theme.text)
+                color: row.sectionLook ? Theme.separatorText : (row.current ? Theme.selectText : Theme.text)
                 size: 22
                 title: true
             }
             TapHandler {
                 enabled: !row.separator
-                onTapped: root.cc.setPage(row.index)
+                onTapped: root.cc.pageTapped(row.index)
             }
         }
     }

@@ -10,11 +10,27 @@ Item {
     readonly property bool isGrid: screen !== null && screen.viewKind === "grid"
     readonly property var entries: screen ? screen.entryModel : null
 
+    // Theme options the screens' Python side needs (the content of the list depends on them)
+    readonly property bool flatPresetList: Theme.flatPresetList
+    function reportTheme() { if (screen && screen.setFlatPresetList) screen.setFlatPresetList(flatPresetList) }
+    onFlatPresetListChanged: reportTheme()
+    onScreenChanged: reportTheme()
+    Component.onCompleted: reportTheme()
+
+    // What the knobs do, beside the list (+<theme>/SelectorHints.qml; none by default)
+    SelectorHints {
+        id: hints
+        anchors.fill: parent
+        z: 1
+        texts: !root.isGrid && root.screen && root.screen.knobHints ? root.screen.knobHints : []
+    }
+
     // Categories (engine groups) as a second list on the left (+<theme>/SelectorCategories.qml)
     SelectorCategories {
         id: cats
 
         anchors.left: parent.left
+        anchors.leftMargin: hints.leftInset
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: visible ? Math.round(parent.width * Theme.categoryWidth) : 0
@@ -52,12 +68,34 @@ Item {
         spacing: Theme.listSpacing
         boundsBehavior: Flickable.StopAtBounds
         highlightMoveDuration: 0
-        onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+        // Screens with groups to browse (sectionIndex >= 0: the flat preset list): the section
+        // title of the selection in view with it where it fits
+        readonly property int sectionIndex: root.screen && root.screen.sectionIndex !== undefined
+                                            ? root.screen.sectionIndex : -1
+        onCurrentIndexChanged: {
+            if (sectionIndex >= 0 && sectionIndex === currentIndex - 1)
+                positionViewAtIndex(sectionIndex, ListView.Contain)
+            positionViewAtIndex(currentIndex, ListView.Contain)
+        }
         // also once the list has its size (a view created with a selection further down: at
         // start, after a theme switch)
         function showCurrent() {
-            if (currentIndex >= 0 && count > 0 && height > 0)
+            if (currentIndex >= 0 && count > 0 && height > 0) {
+                if (sectionIndex >= 0)
+                    positionViewAtIndex(sectionIndex, ListView.Beginning)
                 positionViewAtIndex(currentIndex, ListView.Contain)
+            }
+        }
+        // new entries (the list filled again): from its section title
+        onCountChanged: if (sectionIndex >= 0) Qt.callLater(showCurrent)
+        onVisibleChanged: if (visible && sectionIndex >= 0) Qt.callLater(showCurrent)
+        Connections {
+            target: root.screen
+            ignoreUnknownSignals: true
+            function onShowSection(index) {
+                list.positionViewAtIndex(index, ListView.Beginning)
+                list.positionViewAtIndex(list.currentIndex, ListView.Contain)
+            }
         }
         Component.onCompleted: Qt.callLater(showCurrent)
         onHeightChanged: Qt.callLater(showCurrent)
@@ -119,6 +157,7 @@ Item {
         id: info
 
         anchors.right: parent.right
+        anchors.rightMargin: hints.rightInset
         anchors.top: parent.top
         anchors.bottom: controls.top
         width: root.isGrid ? 0 : parent.width * (cats.visible ? Theme.categoryInfoWidth : Theme.infoWidth)
@@ -134,6 +173,7 @@ Item {
         id: controls
         screen: root.isGrid ? null : root.screen
         anchors.right: parent.right
+        anchors.rightMargin: hints.rightInset
         anchors.bottom: parent.bottom
         width: info.width
         height: implicitHeight

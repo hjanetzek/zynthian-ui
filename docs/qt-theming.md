@@ -116,7 +116,7 @@ zynqt/qml/
   +galactica/KeyPlate.qml, TopBarRule.qml                               its own components
   +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
   +v4/Theme.qml (tk's values for 480x320), ChainControlScreen.qml, Controller.qml, MixerScreen.qml,
-      PatternEditorScreen.qml, and its own V4Mixer.qml, KnobHints.qml
+      PatternEditorScreen.qml, SelectorHints.qml, and its own V4Mixer.qml, KnobHints.qml
 ```
 
 Until 2026-11-15 classic was the base and tk the directory `+tk/`; the files were swapped with
@@ -132,7 +132,10 @@ editor's toolbar; tk: none), `ChainManagerMetrics` (the chain manager's block si
 margins, node text and selection outline; tk: Tk's formulas from the screen size),
 `SelectorControls` (controller widgets under a selector's info pane: none by default; tk: Tk's
 selector counter on the screens with `zsel_hidden = False`: bank, preset, MIDI recorder),
-`SelectorCategories` (the engine screen's category list; tk: Tk's listbox2). `InfoPane` gets
+`SelectorCategories` (the engine screen's category list; tk: Tk's listbox2), `SelectorHints`
+(what the knobs do on a list screen, from the screen's `knobHints`, by knob index: none by
+default, with `leftInset` / `rightInset` 0; v4: `KnobHints` at the edges, the list and the info
+pane moved in by a hint column). `InfoPane` gets
 `quality` / `complexity` on the engine screen (-1 elsewhere): classic writes stars and gears
 above the description, tk draws Tk's big stars and gears in place of the icon.
 Selector screens can also show a status line under the list (`set_status_line()`, token
@@ -229,7 +232,29 @@ converts Tk's point sizes to pixels (96 dpi), `tkColor(name, fallback)` reads a 
 
 Theme-wide switches: `tkAutoScale` (false: `ZYNTHIAN_UI_SCALE=auto` counts as 1), `keypadEnabled`
 (false: no on-screen keypad, docked or overlay), `dialogScale` (sizes of Main.qml's dialogs and
-the keyboard).
+the keyboard), `flatPresetList` (true: the preset list shows all banks, each under a section
+title, with their presets, and the BACK knob (knob 1) moves from bank to bank; false, the
+default: Tk's bank list, then the bank's presets. On in v4, off in tk and classic).
+
+`flatPresetList` in detail (`zynqt/screens/chain_screens.py`, `Preset`): `SelectorScreen.qml`
+reports the token to its screen (`setFlatPresetList`); Python decides the content. The flat list
+applies to engines whose preset lists are cheap to read for every bank (`FLAT_PRESET_ENGINES`:
+sfizz, which scans its bank directories, and LV2 plugins, whose presets are in memory), with more
+than one bank, outside the favourites view and sub-folder browsing; other engines (FluidSynth,
+whose preset list loads the SoundFont into the synth, ZynAddSubFX, LinuxSampler, ...) keep Tk's
+two levels. Section titles are separators (not selectable, drawn as the other section titles);
+the current preset is selected (else the first preset of the current bank) with its section
+title in view (the screen's `sectionIndex`; a jump to a group puts its title at the top:
+`showSection`). Choosing a preset of another bank sets that bank first, as the bank list does.
+Knob 1 (`GROUP_KNOB`) turns to the next / previous group's first preset (back from inside a
+group: its first preset first), ARROW_LEFT / RIGHT do the same; knob 3 still moves entry by
+entry. Switch 1 short (BACK) leaves the list as BACK leaves any list: there is no bank level (Tk
+goes to the bank list); the BANK_PRESET CUIA still opens the bank list (bank options), and a bank
+chosen there shows the flat list at that bank. A new chain opens the flat list instead of the
+bank list. Cost: sfizz ~30 us per preset to scan (1200 presets in 40 banks: 45 ms in the QEMU
+VM); the presets of directory banks are cached while the directory's mtime stays the same (the
+current bank is always read again), so the list opens again in ~5 ms; LV2 (Dexed, 1600 presets
+in 51 banks) ~5 ms; the QML view creates only the visible rows.
 
 Values that used to be theme conditions in the components: `tintIcons`, `listSpacing`,
 `tileMargin`, `infoBackground`, `dialogFrame`, `xyFrame`, `keyboardBackground`,

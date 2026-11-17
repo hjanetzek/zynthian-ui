@@ -88,6 +88,16 @@ Files (`zynqt/qml/+v4/` unless noted):
   buttons, meters and the two-line vertical labels still fit. Launcher mode: 4 chains x 4 phrases
   + the main column, paged by 4 when the selection leaves the view (the last chain page ends
   with the last chain). Hints: level, balance (launcher: phrase), main, select (launcher: chain).
+- `SelectorHints.qml`: the knob hints on list screens that set `knobHints` (the flat preset
+  list: "group" on knob 1, "preset" on knob 3), the list and the info pane between them; other
+  lists have no hints and keep their layout.
+- `Theme.qml` `flatPresetList: true`: the preset list shows all banks (groups) as section titles
+  with their presets under them, for sfizz and LV2 plugins (docs/qt-theming.md has the details).
+  The BACK knob (knob 1, bottom left; unused in Tk's lists) turns from group to group, SELECT
+  (knob 3) moves entry by entry, so all groups are reachable from the list itself (on the Pi the
+  bank list was only reachable with a short push of BACK, which users didn't find).
+  A short push of BACK leaves the list (no bank level); the BANK_PRESET CUIA still opens the bank
+  list.
 - `PatternEditorScreen.qml`: tk's `PatternEditorView` between the hints; the texts from
   `pattern_editor.py` `knobHints(editMode, ccMode)` (zoom, note, step; per edit mode and in the CC
   view).
@@ -111,6 +121,9 @@ Decisions and deviations:
   what Tk shows; long entries elide.
 - Mixer: 8 + main (user's decision, replacing "about 5"); the knob hints cost 2 x 16 px.
 - Pads: always 4 x 4 (the admin's visible launchers don't apply in v4).
+- Presets: one flat list with the banks as section titles (sfizz, LV2), the BACK knob turns
+  through the banks; Tk V4 has two levels (banks, then presets; BACK push from the presets to
+  the banks). Other engines keep the two levels.
 - The tempo screen keeps the Qt tempo view (decided deviation of tk).
 - Dialogs (confirm, value editor, help, busy, info) and the on-screen keyboard: tk's, scaled by
   0.6.

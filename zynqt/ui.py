@@ -935,7 +935,9 @@ class ZynUI(QObject):
         self.set_current_processor(processor)
         screen = "chain_control"
         if processor and force_bank_preset and not processor.get_preset_name():
-            if len(processor.get_bank_list()) > 1:
+            if self.list_screens["preset"].is_flat(processor):
+                screen = "preset"   # the flat list: all banks with their presets
+            elif len(processor.get_bank_list()) > 1:
                 screen = "bank"
             else:
                 processor.set_bank(0)
@@ -1702,7 +1704,7 @@ class ZynUI(QObject):
                 self.back()
         else:
             bank_list = proc.get_bank_list()
-            if proc.preset_list and proc.preset_list[0][0] != "":
+            if proc.preset_list and proc.preset_list[0][0] != "" or self.list_screens["preset"].is_flat(proc):
                 self.show_screen("preset")
             elif bank_list and bank_list[0][0] != "":
                 self.show_screen("bank")

@@ -137,6 +137,9 @@ class SelectorScreen(QObject):
     indexChanged = Signal()
     categoriesChanged = Signal()
     statusLineChanged = Signal()
+    knobHintsChanged = Signal()
+    # A section title to show at the top of the list (a jump to a group: the flat preset list)
+    showSection = Signal(int)
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -149,6 +152,10 @@ class SelectorScreen(QObject):
         self._index = 0
         self._categories = []
         self._category_index = 0
+        self._knob_hints = []
+        # The theme's flatPresetList token (SelectorScreen.qml reports it): the preset list
+        # shows all banks with their presets under section titles
+        self.flat_preset_list = False
 
     # Building (when shown)
 
@@ -181,6 +188,17 @@ class SelectorScreen(QObject):
             if not entries[i]["separator"]:
                 return i
         return 0
+
+    # Theme options (reported by SelectorScreen.qml)
+
+    @Slot(bool)
+    def setFlatPresetList(self, on):
+        if on != self.flat_preset_list:
+            self.flat_preset_list = on
+            self.theme_options_changed()
+
+    def theme_options_changed(self):
+        """A theme option changed (override to refill)"""
 
     # Properties for QML
 
@@ -238,6 +256,34 @@ class SelectorScreen(QObject):
     @Property(int, notify=indexChanged)
     def selectorMax(self):
         return self._counter(len(self.model.entries) - 1) + 1 if self.model.entries else 0
+
+    @Property("QStringList", notify=knobHintsChanged)
+    def knobHints(self):
+        """What the knobs do here, by knob index (empty: nothing to show): themes that show
+        knob hints (v4) draw them beside the list"""
+        return self._knob_hints
+
+    def set_knob_hints(self, hints):
+        hints = list(hints or [])
+        if hints != self._knob_hints:
+            self._knob_hints = hints
+            self.knobHintsChanged.emit()
+
+    # The list keeps the section title of the selected entry in view where it can (lists whose
+    # sections are groups to browse: the flat preset list)
+    section_titles_in_view = False
+
+    @Property(int, notify=indexChanged)
+    def sectionIndex(self):
+        """The section title above the selected entry (-1: none, or the screen doesn't keep its
+        section titles in view)"""
+        if not self.section_titles_in_view:
+            return -1
+        entries = self.model.entries
+        for i in range(min(self._index, len(entries)) - 1, -1, -1):
+            if entries[i]["separator"]:
+                return i
+        return -1
 
     @Property(str, notify=statusLineChanged)
     def statusLine(self):

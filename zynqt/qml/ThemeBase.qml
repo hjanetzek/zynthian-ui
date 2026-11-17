@@ -170,6 +170,9 @@ QtObject {
     property int addChainColumns: 0
     property real gridSpacing: 0            // gaps between grid tiles (part of the width per column)
     property bool gridPlaceholders: true    // grids padded with empty placeholder cells
+    // The preset list shows all banks, each under a section title, with their presets (engines
+    // with cheap preset lists: sfizz, LV2); a knob moves from bank to bank (v4)
+    property bool flatPresetList: false
     property color gridBackground: background
 
     // Spacing and outlines that differ per theme (values only; structural differences are

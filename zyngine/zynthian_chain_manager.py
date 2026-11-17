@@ -24,6 +24,7 @@
 
 import shutil
 import logging
+from threading import Thread
 
 # Zynthian specific modules
 import zynautoconnect
@@ -1647,23 +1648,41 @@ class zynthian_chain_manager:
         processor.set_engine(zyngine)
         return zyngine
 
+    def stop_engines(self, eng_keys):
+        """Stop engines and remove them from the engine list. Several engines are stopped in
+        parallel: each stop waits for its process to end (jalv: 0.1-0.4 s, sfizz up to 1 s on a Pi).
+
+        eng_keys : List of engine keys
+        """
+        engines = [self.zyngines.pop(eng_key) for eng_key in eng_keys]
+        if not engines:
+            return
+        names = ", ".join(engine.get_name() for engine in engines)
+        logging.debug(f"Stopping Unused Engines {eng_keys} ...")
+        self.state_manager.set_busy_details(f"stopping engine{'s' if len(engines) > 1 else ''} {names}")
+        if len(engines) == 1:
+            engines[0].stop()
+            return
+
+        def stop(engine):
+            try:
+                engine.stop()
+            except Exception as e:
+                logging.error(f"Can't stop engine {engine.get_name()} => {e}")
+        threads = [Thread(target=stop, args=(engine,), name=f"stop {engine.get_name()}") for engine in engines]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
     def stop_unused_engines(self):
         """Stop engines that are not used by any processors"""
-        for eng_key in list(self.zyngines.keys()):
-            if not self.zyngines[eng_key].processors:
-                logging.debug(f"Stopping Unused Engine '{eng_key}' ...")
-                self.state_manager.set_busy_details(f"stopping engine {self.zyngines[eng_key].get_name()}")
-                self.zyngines[eng_key].stop()
-                del self.zyngines[eng_key]
+        self.stop_engines([eng_key for eng_key, engine in self.zyngines.items() if not engine.processors])
 
     def stop_unused_single_proc_engines(self):
         """Stop engines that need restart and are not used by any processors"""
-        for eng_key in list(self.zyngines.keys()):
-            if not self.zyngines[eng_key].processors and (eng_key[0:3] == "JV/" or eng_key in self.single_processor_engines):
-                logging.debug(f"Stopping Unused Jalv Engine '{eng_key}'...")
-                self.state_manager.set_busy_details(f"stopping engine {self.zyngines[eng_key].get_name()}")
-                self.zyngines[eng_key].stop()
-                del self.zyngines[eng_key]
+        self.stop_engines([eng_key for eng_key, engine in self.zyngines.items()
+                           if not engine.processors and (eng_key[0:3] == "JV/" or eng_key in self.single_processor_engines)])
 
     def filtered_engines_by_cat(self, etype, all=False):
         """Get dictionary of engine info filtered by type and indexed by catagory

@@ -104,6 +104,10 @@ QtObject {
     // Rounded themes: corner radius of plates (0: as each component draws it), buttons as pills
     property real panelRadius: 0
     property bool pillButtons: false
+    // The keypad keys' corner radius, as a part of the smallest key side of the whole keypad (side
+    // and bottom keys alike, so all keys get one radius whatever the screen's aspect ratio; 0.5:
+    // the smallest key is a pill). 0: as the theme's KeyPlate draws them.
+    property real keyRadius: 0
 
     // Keypad: filled keys (keyFills by key, BACK in keyBack, SEL and CTRL in keyYes) with dark
     // labels (keyFilledText) at the bottom right

@@ -24,6 +24,9 @@ Item {
     readonly property var bottomLayout: rightHanded ? [7, 11, 15, 19, 8, 9, 10, 16, 17, 18]
                                                     : [16, 17, 18, 8, 9, 10, 7, 11, 15, 19]
 
+    // The smallest side of any key (themes with Theme.keyRadius round all keys alike from it)
+    readonly property real keyMinSide: Math.min(side.width / 2, side.height / 5, Theme.screenWidth / 10, keyHeight)
+
     Grid {
         id: side
 
@@ -72,6 +75,7 @@ Item {
 
         KeyPlate {
             anchors.fill: parent
+            minSide: root.keyMinSide
             fill: k.fill
             pressed: tap.pressed
             translucent: root.translucent
@@ -80,6 +84,7 @@ Item {
         KeyFace {
             anchors.fill: parent
             key: k.key
+            radius: Theme.keyRadius * root.keyMinSide
             label: zyn.keypadLeds.altLabels[k.key] && root.altLabels[k.key] ? root.altLabels[k.key] : root.labels[k.key]
         }
 

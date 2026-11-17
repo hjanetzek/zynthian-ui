@@ -273,6 +273,101 @@ def init_lilv():
     world.ns.zyngui = lilv.Namespace(world, ZYNGUI_NS)
     lv2_generation += 1
     zyngui_widget_cache.clear()
+    plugin_bundles_cache.clear()
+
+
+# ------------------------------------------------------------------------------
+# Bundles of a plugin, for starting jalv with a small LV2 world (jalv -B)
+# ------------------------------------------------------------------------------
+
+plugin_bundles_cache = {}  # Bundle lists indexed by plugin URI, cleared when LV2 data is reloaded
+
+
+def _get_bundle_dir(path, lv2_dirs):
+    """The bundle directory of a file below one of the LV2_PATH directories, as lilv names it
+    (LV2_PATH directory + '/' + bundle name), or None"""
+    for d in lv2_dirs:
+        if path.startswith(d + "/"):
+            name = path[len(d) + 1:].split("/", 1)[0]
+            if name:
+                return d + "/" + name
+    return None
+
+
+def _node_path(node):
+    if node is None or not node.is_uri() or not str(node).startswith("file://"):
+        return None
+    return node.get_path()
+
+
+def get_plugin_bundles(plugin_url):
+    """Get the LV2 bundle directories jalv needs to run a plugin with the same data it gets
+    from the whole LV2_PATH: the plugin's bundle, the bundles of its data files (extension
+    bundles), of its presets and banks, of its UIs, the specification bundles (lv2core & co.,
+    small) and the user preset bundles in my-data (also those saved after the LV2 data was
+    loaded). The paths are lilv's own (not resolved), so preset URIs stay the same.
+
+    plugin_url : plugin URI
+    Returns a list of bundle directories, or None if the plugin isn't known
+    """
+    lv2_dirs = [os.path.expanduser(d) for d in os.environ.get('LV2_PATH', "/usr/lib/lv2:/usr/local/lib/lv2").split(":") if d]
+
+    def add_bundles(bundles, paths):
+        for path in paths:
+            bundle = _get_bundle_dir(path, lv2_dirs) if path else None
+            if bundle and bundle not in bundles:
+                bundles.append(bundle)
+        return bundles
+
+    try:
+        bundles = plugin_bundles_cache[plugin_url]
+    except KeyError:
+        try:
+            plugin = world.get_all_plugins()[world.new_uri(plugin_url)]
+        except Exception:
+            return None
+        paths = [_node_path(plugin.get_bundle_uri())]
+        paths += [_node_path(uri) for uri in plugin.get_data_uris()]
+        for res in list(plugin.get_related(world.ns.presets.Preset)) + list(plugin.get_related(world.ns.presets.Bank)):
+            paths.append(_node_path(res))
+            for see_also in world.find_nodes(res, world.ns.rdfs.seeAlso, None):
+                paths.append(_node_path(see_also))
+        for ui in get_plugin_uis(plugin):
+            paths.append(_node_path(ui.get_bundle_uri()))
+        bundles = add_bundles([], paths)
+        if not bundles:
+            return None
+        # Specifications (lilv_world_load_all loads their data for every jalv)
+        try:
+            specs = plugin_bundles_cache[None]
+        except KeyError:
+            paths = []
+            for spec in world.find_nodes(None, world.ns.rdf.type, world.ns.lv2.Specification):
+                paths += [_node_path(f) for f in world.find_nodes(spec, world.ns.rdfs.seeAlso, None)]
+            specs = plugin_bundles_cache[None] = add_bundles([], paths)
+        bundles = add_bundles(bundles, specs)
+        plugin_bundles_cache[plugin_url] = bundles
+
+    # User presets & banks (jalv saves them in my-data), read now: the LV2 data may be older
+    bundles = list(bundles)
+    user_dir = os.path.realpath(zynthian_paths.my_data_dir + "/presets/lv2")
+    user_dir = next((d for d in lv2_dirs if os.path.realpath(d) == user_dir), None)
+    uri_ref = f"<{plugin_url}>".encode()
+    try:
+        names = sorted(os.listdir(user_dir)) if user_dir else []
+    except OSError:
+        names = []
+    for name in names:
+        bundle = user_dir + "/" + name
+        if bundle in bundles:
+            continue
+        try:
+            with open(bundle + "/manifest.ttl", "rb") as f:
+                if uri_ref in f.read():
+                    bundles.append(bundle)
+        except OSError:
+            pass
+    return bundles
 
 
 # ------------------------------------------------------------------------------

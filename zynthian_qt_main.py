@@ -299,5 +299,31 @@ def main():
     return report_exit(ui.exit_code)
 
 
+def stop_after_error():
+    """main() raised: stop what it started (the engines are processes of their own, the JACK
+    clients would call into Python during the interpreter's shutdown), without saving the state"""
+    ui = getattr(zynthian_gui_config, "zyngui", None)
+    if isinstance(ui, ZynUI):
+        try:
+            ui.shutdown(save_state=False)
+        except Exception as e:
+            logging.exception(f"stopping after an error: {e}")
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        exit_code = main()
+    except SystemExit as e:
+        stop_after_error()
+        exit_code = report_exit(e.code if isinstance(e.code, int) else int(e.code is not None))
+    except BaseException:
+        logging.exception("zynthian (Qt) failed")
+        stop_after_error()
+        exit_code = report_exit(1)  # as an uncaught exception: the launcher keeps the last state as recovery.zss
+    # Leave without the interpreter's shutdown: the JACK clients of the native libraries
+    # (zynmixer, zynseq, ...) are still open, and PipeWire's data thread can call into Python
+    # while the interpreter is finalised (SIGSEGV). Everything to keep is saved by now.
+    logging.shutdown()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(exit_code)

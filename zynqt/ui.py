@@ -103,6 +103,7 @@ class ZynUI(QObject):
 
         self.exit_code = 0
         self.exit_flag = False
+        self._shut_down = False
         self._started = False
         self._busy = False
         self._busy_message = ""
@@ -229,14 +230,26 @@ class ZynUI(QObject):
         QTimer.singleShot(0, self._do_exit)
 
     def _do_exit(self):
+        self.shutdown(save_state=True)
+        QGuiApplication.quit()
+
+    def shutdown(self, save_state=True):
+        """Stop the backend: hardware input, OSC, the state manager (its engines and JACK
+        clients). From _do_exit, and from zynthian_qt_main.py when the UI fails (save_state
+        False: the state may be the cause). Only once."""
+        if self._shut_down:
+            return
+        self._shut_down = True
+        self.exit_flag = True
         # First: no zyncore callbacks into Python while shutting down
         self.hw_input.stop()
         # As the Tk admin's last_state_action, but on every exit (the kiosk session ends with
         # SIGTERM): the next start restores this state
-        try:
-            zynthian_admin_settings.last_state_action(self.state_manager)
-        except Exception as e:
-            logging.warning(f"last state: {e}")
+        if save_state:
+            try:
+                zynthian_admin_settings.last_state_action(self.state_manager)
+            except Exception as e:
+                logging.warning(f"last state: {e}")
         self.bridge.stop()
         if self._osc_server:
             self._osc_server.stop()
@@ -249,7 +262,6 @@ class ZynUI(QObject):
         self.cuia_queue.put_nowait("__EXIT__")
         if self._cuia_thread:
             self._cuia_thread.join(2)
-        QGuiApplication.quit()
 
     # --------------------------------------------------------------------------
     # Properties for QML

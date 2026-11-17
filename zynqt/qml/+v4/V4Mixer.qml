@@ -108,7 +108,8 @@ Item {
         }
         Connections {
             target: mixerStrips
-            function onDataChanged() { strips.showActive() }
+            // After the delegates took the new roles (their isActive)
+            function onDataChanged() { Qt.callLater(strips.showActive) }
         }
         // Swipe on the legend row scrolls the strips
         DragHandler {

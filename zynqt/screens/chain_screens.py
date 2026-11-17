@@ -340,26 +340,189 @@ class Bank(SelectorScreen):
         return False
 
 
+# The flat preset list (theme token flatPresetList, docs/qt-theming.md): engines whose preset lists
+# are cheap to read for every bank. sfizz scans the bank's directory (a few ms per bank); LV2
+# plugins (JV/...) have their presets in memory (zynthian_lv2's cache). Not FluidSynth: its
+# preset list loads the bank's SoundFont into the synth.
+FLAT_PRESET_ENGINES = ("SF", "JV/")
+# Knob turning from group to group (section title to section title) in the flat list: the BACK
+# knob (Tk's knob 1; V4: bottom left), unused in Tk's lists
+GROUP_KNOB = 1
+
+
+def flat_preset_engine(proc):
+    code = getattr(proc, "eng_code", "") or ""
+    return any(code == e or (e.endswith("/") and code.startswith(e)) for e in FLAT_PRESET_ENGINES)
+
+
 class Preset(SelectorScreen):
     name = "preset"
     selcap = "Preset"
     zsel_hidden = False
     default_icon = "preset.png"
+    section_titles_in_view = True   # only the flat list has section titles
 
-    def fill(self):
+    def __init__(self, ui, parent=None):
+        super().__init__(ui, parent)
+        self.flat = False   # the list shown is the flat one (all banks)
+        # The flat list's presets of directory banks (sfizz: ~30 us per preset to scan):
+        # {(engine class, bank path): (the directory's mtime, presets)}; the current bank is
+        # always read again
+        self._preset_cache = {}
+        self._from_options = False
+
+    def is_flat(self, proc=None):
+        """The flat list (all banks under section titles) applies to the processor: the theme
+        wants it, the engine reads its presets cheaply, there is more than one bank and no
+        favourites view or sub-folder browsing"""
+        proc = proc or self.ui.current_processor
+        return bool(self.flat_preset_list and proc is not None and flat_preset_engine(proc)
+                    and not proc.show_fav_presets and not proc.bank_subdir_info
+                    and not proc.preset_subdir_info and len(self._real_banks(proc.get_bank_list())) > 1)
+
+    @staticmethod
+    def _real_banks(banks):
+        return [b for b in banks or [] if b and b[0] is not None and b[0] != "*FAVS*"]
+
+    def theme_options_changed(self):
+        if self.ui.current_screen == self.name:
+            self.fill()
+
+    def _flat_entries(self, proc, info):
+        """All banks with presets: a section title per bank (not selectable), its presets under
+        it (data: (bank, preset)); the selection: the current preset (whichever bank is set),
+        else the first preset of the current bank. Returns (entries, index)"""
+        engine = proc.engine
+        cur_bank = proc.bank_info[0] if proc.bank_info else None
+        cur_preset = proc.preset_info[0] if proc.preset_info else None
+        entries, index, bank_first = [], None, None
+        for bank in self._real_banks(proc.bank_list):
+            try:
+                presets = self._bank_presets(proc, bank, bank[0] == cur_bank)
+            except Exception as e:
+                logging.error(f"presets of bank {bank[2]}: {e}")
+                continue
+            if not presets:
+                continue
+            entries.append(separator(str(bank[2]).replace("> ", "")))
+            this_bank = bank[0] == cur_bank
+            if this_bank:
+                bank_first = len(entries)
+            for preset in presets:
+                if engine.is_preset_fav(preset):
+                    preset = list(preset)
+                    preset[2] = "\u2764 " + preset[2]
+                if index is None and cur_preset is not None and preset[0] == cur_preset:
+                    index = len(entries)
+                entries.append(entry(preset[2], info=info, data=(bank, preset)))
+        if index is None:
+            index = bank_first if bank_first is not None else 1
+        return entries, index
+
+    def _bank_presets(self, proc, bank, fresh=False):
+        """The bank's presets (engine.get_preset_list); a directory bank's from the cache while
+        the directory's mtime is the same (an instrument added or removed changes it)"""
+        engine = proc.engine
+        path = bank[0]
+        try:
+            mtime = os.stat(path).st_mtime if isinstance(path, str) and path.startswith("/") else None
+        except OSError:
+            mtime = None
+        key = (type(engine).__name__, path)
+        if mtime is not None and not fresh:
+            cached = self._preset_cache.get(key)
+            if cached and cached[0] == mtime:
+                return cached[1]
+        presets = [p for p in engine.get_preset_list(bank, proc) or [] if p and p[0] and len(p) > 2 and p[2]]
+        if mtime is not None:
+            self._preset_cache[key] = (mtime, presets)
+        return presets
+
+    def _entry_bank(self, index):
+        """The bank of entry index: its own in the flat list, else the processor's"""
+        if self.flat and 0 <= index < len(self.entries) and self.entries[index]["data"]:
+            return self.entries[index]["data"][0]
+        return self.ui.current_processor.bank_info
+
+    def _entry_preset(self, index):
+        """The preset row of entry index (list_data row), or None"""
+        if not 0 <= index < len(self.entries) or not self.entries[index]["data"]:
+            return None
+        data = self.entries[index]["data"]
+        return data[1] if self.flat else data
+
+    def selection_changed(self):
+        # The flat list's title follows the selection: the processor and the selected preset's bank
+        if self.flat:
+            proc = self.ui.current_processor
+            bank = self._entry_bank(self._index)
+            if proc is not None and bank:
+                self.set_title(f"{proc.get_basepath()} > {str(bank[2]).replace('> ', '')}")
+
+    def _group_starts(self):
+        """Indexes of the first entry under each section title (flat list)"""
+        entries = self.entries
+        return [i + 1 for i, e in enumerate(entries[:-1]) if e["separator"] and not entries[i + 1]["separator"]]
+
+    def move_group(self, steps):
+        """To the first preset of the group steps groups on (the current one's first preset
+        first when moving back from inside a group)"""
+        starts = self._group_starts()
+        if not starts:
+            return
+        cur = max([n for n, i in enumerate(starts) if i <= self._index], default=0)
+        if steps < 0 and self._index > starts[cur]:
+            steps += 1   # back to this group's first preset first
+        target = starts[max(0, min(len(starts) - 1, cur + steps))]
+        self.set_index(target)
+        self.showSection.emit(target - 1)   # the group from its title at the top
+
+    def zynpot(self, i, d):
+        """The group knob moves from group to group in the flat list"""
+        if self.flat and i == GROUP_KNOB and d:
+            self.move_group(d)
+            return True
+        return False
+
+    def navigate(self, what):
+        # Left / right (keys): from group to group in the flat list
+        if self.flat and what in ("left", "right"):
+            self.move_group(-1 if what == "left" else 1)
+            return
+        super().navigate(what)
+
+    def fill(self, keep=False):
+        """keep: the flat list keeps the selected preset (filled again after a preset option)"""
         proc = self.ui.current_processor
+        # Back from the preset options: the selection stays
+        keep = keep or self._from_options
+        self._from_options = False
+        kept = self._entry_preset(self._index) if keep and self.flat else None
         if not proc:
+            self.flat = False
+            self.set_knob_hints([])
             self.set_entries([])
             return
-        proc.load_preset_list()
-        title = f"{proc.get_basepath()} > Favorites" if proc.show_fav_presets else proc.get_bankpath()
-        self.set_title(title)
         # zynthian_gui_preset.fill_list's default info (its "if self.allow_preset_preload:" tests the
         # method, always true: never "Preload disabled.")
         try:
             preload = "Preload enabled." if proc.engine.allow_timer_preload(None) else "Preload on note."
         except Exception:
             preload = "Preload enabled."
+        self.flat = self.is_flat(proc)
+        self.set_knob_hints(["", "group", "", "preset"] if self.flat else [])
+        if self.flat:
+            self.set_title(proc.get_basepath())
+            entries, index = self._flat_entries(proc, preload + "\nBold to show options.")
+            if kept:
+                index = next((i for i, e in enumerate(entries)
+                              if e["data"] and e["data"][1][0] == kept[0]), index)
+            self.set_entries(entries, index)
+            self.selection_changed()
+            return
+        proc.load_preset_list()
+        title = f"{proc.get_basepath()} > Favorites" if proc.show_fav_presets else proc.get_bankpath()
+        self.set_title(title)
         if not proc.preset_list:
             self.set_entries(empty_list_hint(proc, "preset"), 0)
             return
@@ -375,7 +538,10 @@ class Preset(SelectorScreen):
         proc = self.ui.current_processor
         self.state_manager.start_busy("set preset")
         try:
-            result = proc.set_preset(index)
+            if self.flat:
+                result = self._set_flat_preset(proc, *self.entries[index]["data"])
+            else:
+                result = proc.set_preset(index)
         finally:
             self.state_manager.end_busy("set preset")
         if result is None:
@@ -385,6 +551,23 @@ class Preset(SelectorScreen):
             # Back to what shows the processor: the audio player's own screen, else chain control
             self.ui.replace_screen("audio_player" if proc is self.state_manager.audio_player
                                    else "chain_control")
+
+    @staticmethod
+    def _set_flat_preset(proc, bank, preset):
+        """A preset of the flat list: its bank first if it isn't the current one (as the bank
+        list does), then the preset, as the preset list does"""
+        if not proc.bank_info or proc.bank_info[0] != bank[0]:
+            proc.get_bank_list()
+            if not proc.set_bank_by_id(bank[0]):
+                logging.error(f"Can't set bank {bank[2]}")
+                return False
+            proc.set_show_fav_presets(False)
+        proc.load_preset_list()
+        index = proc.find_preset_index_by_id(preset[0])
+        if index is None:
+            logging.error(f"Preset {preset[2]} not in bank {bank[2]}")
+            return False
+        return proc.set_preset(index)
 
     def cuia_toggle_play(self, params=None):
         """PLAY in an audio player's file list (zynthian_gui_preset): load the selected file, then
@@ -413,27 +596,28 @@ class Preset(SelectorScreen):
         engine = proc.engine
         preset = None
         title = "Preset Options"
-        if 0 <= self._index < len(self.entries) and self.entries[self._index]["data"]:
-            preset = copy.deepcopy(self.entries[self._index]["data"])
+        bank = self._entry_bank(self._index)
+        if self._entry_preset(self._index):
+            preset = list(copy.deepcopy(self._entry_preset(self._index)))
             if preset[2] and preset[2][0] == "\u2764":
                 preset[2] = preset[2][2:]
             title = f"Preset: {preset[2]}"
         options = []
         if preset:
             fav = engine.is_preset_fav(preset)
-            options.append(("\u2612 Favourite" if fav else "\u2610 Favourite", lambda: self._toggle_fav(preset),
+            options.append(("\u2612 Favourite" if fav else "\u2610 Favourite", lambda: self._toggle_fav(preset, bank),
                             "Remove from favorites list" if fav else "Add to favorites list",
                             "favorite_remove.png" if fav else "favorite_add.png"))
             if engine.is_preset_user(preset):
                 if hasattr(engine, "save_preset"):
-                    options.append(("Save", lambda: self._save_overwrite(preset[2]), "Save overwriting", "file_save.png"))
+                    options.append(("Save", lambda: self._save_overwrite(preset[2], bank), "Save overwriting", "file_save.png"))
                 if hasattr(engine, "rename_preset"):
                     options.append(("Rename", lambda: self.ui.show_keyboard(
-                        lambda name: self._rename_preset(preset, name), preset[2], "Rename preset"),
+                        lambda name: self._rename_preset(preset, name, bank), preset[2], "Rename preset"),
                         "Rename", "rename.png"))
                 if hasattr(engine, "delete_preset"):
                     options.append(("Delete", lambda: self.ui.confirm(
-                        f"Do you really want to delete '{preset[2]}'?", lambda: self._delete_preset(preset)),
+                        f"Do you really want to delete '{preset[2]}'?", lambda: self._delete_preset(preset, bank)),
                         "Delete", "file_delete.png"))
         global_options = []
         if hasattr(engine, "save_preset"):
@@ -452,6 +636,7 @@ class Preset(SelectorScreen):
                 options.append((label, lambda label=label, param=param: self._engine_option(label, param),
                                 info[0] if info else None, info[1] if info else None))
         if options:
+            self._from_options = True
             self.ui.show_options(title, options)
 
     def _engine_option(self, label, param):
@@ -459,20 +644,28 @@ class Preset(SelectorScreen):
         if callable(cb):
             cb(label, param[0] if isinstance(param, list) else param)
 
-    def _toggle_fav(self, preset):
+    def _toggle_fav(self, preset, bank=None):
         proc = self.ui.current_processor
-        proc.toggle_preset_fav(preset)
+        # The engine records the processor's bank with the favourite: the preset's own (flat list)
+        saved = proc.bank_info
+        if bank:
+            proc.bank_info = bank
+        try:
+            proc.toggle_preset_fav(preset)
+        finally:
+            proc.bank_info = saved
         proc.load_preset_list()
-        self.fill()
+        self.fill(keep=True)
         self.show_preset_options()
 
-    def _rename_preset(self, preset, new_name):
+    def _rename_preset(self, preset, new_name, bank=None):
         proc = self.ui.current_processor
+        self._preset_cache.clear()
         new_name = new_name.strip()
         if new_name and new_name != preset[2]:
             try:
-                proc.engine.rename_preset(proc.bank_info, preset, new_name)
-                if preset[0] == proc.preset_info[0]:
+                proc.engine.rename_preset(bank or proc.bank_info, preset, new_name)
+                if proc.preset_info and preset[0] == proc.preset_info[0]:
                     self.state_manager.start_busy("set preset")
                     try:
                         proc.set_preset_by_id(preset[0])
@@ -480,21 +673,23 @@ class Preset(SelectorScreen):
                         self.state_manager.end_busy("set preset")
             except Exception as e:
                 logging.error(f"Failed to rename preset => {e}")
-        self.fill()
+        self.fill(keep=True)
 
-    def _delete_preset(self, preset):
+    def _delete_preset(self, preset, bank=None):
         proc = self.ui.current_processor
+        self._preset_cache.clear()
         try:
-            count = proc.engine.delete_preset(proc.bank_info, preset)
+            count = proc.engine.delete_preset(bank or proc.bank_info, preset)
             proc.remove_preset_fav(preset)
-            self.fill()
-            if count == 0:
+            self.fill(keep=True)
+            if count == 0 and not self.flat:
                 self.ui.back()
         except Exception as e:
             logging.error(f"Failed to delete preset => {e}")
 
     def _scan(self):
         proc = self.ui.current_processor
+        self._preset_cache.clear()
         self.ui.chain_manager.reload_engine_preset_info(proc.eng_code)
         self.ui.cuia_bank_preset()
 
@@ -553,14 +748,15 @@ class Preset(SelectorScreen):
         else:
             self._do_save(name)
 
-    def _save_overwrite(self, name):
+    def _save_overwrite(self, name, bank=None):
         proc = self.ui.current_processor
         self._save_create_bank = None
-        self._save_bank_info = proc.bank_info
+        self._save_bank_info = bank or proc.bank_info
         self.ui.confirm(f"Do you want to overwrite preset '{name.strip()}'?", lambda: self._do_save(name.strip()))
 
     def _do_save(self, name):
         proc = self.ui.current_processor
+        self._preset_cache.clear()
         sm = self.state_manager
         sm.start_busy("Save Preset", f"Saving preset {name}")
         try:
@@ -587,7 +783,8 @@ class Preset(SelectorScreen):
         proc = self.ui.current_processor
         if proc is None:
             return False
-        if i == 1 and t == "S" and len(proc.get_bank_list()) > 1:
+        # The flat list has no bank level: BACK leaves it, as any list (the defaults)
+        if i == 1 and t == "S" and not self.flat and len(proc.get_bank_list()) > 1:
             self.ui.replace_screen("bank")
             return True
         if i == 2 and t == "S":

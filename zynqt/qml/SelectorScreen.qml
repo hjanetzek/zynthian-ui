@@ -53,6 +53,14 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         highlightMoveDuration: 0
         onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+        // also once the list has its size (a view created with a selection further down: at
+        // start, after a theme switch)
+        function showCurrent() {
+            if (currentIndex >= 0 && count > 0 && height > 0)
+                positionViewAtIndex(currentIndex, ListView.Contain)
+        }
+        Component.onCompleted: Qt.callLater(showCurrent)
+        onHeightChanged: Qt.callLater(showCurrent)
 
         delegate: Panel {
             id: row

@@ -115,6 +115,7 @@ def add_switch_timing(ui, window):
 
     ui.currentScreenChanged.connect(switched)
     window.frameSwapped.connect(swapped, Qt.DirectConnection)
+    return switched
 
 
 def mark_first_frame(window):
@@ -199,6 +200,108 @@ def preview_qml_dir():
     return os.path.join(link, "zynqt", "qml")
 
 
+class QmlFrontend:
+    """The QML side of the UI: an engine with the theme's file selectors (zynqt/theme.py), its
+    window and the window's event filters. All state is in Python (ZynUI, the models), so the
+    theme can change at run time (switch_theme): the engine and its window go, a new engine
+    loads Main.qml with the new selectors and shows the current screen from ZynUI's state.
+    Engines, JACK clients and the audio keep running."""
+
+    def __init__(self, ui, context):
+        self.ui = ui
+        self.context = context   # context properties that don't depend on the theme
+        self.engine = None
+        self.filters = []
+        self.timing = None
+
+    def load(self, theme_name):
+        """Load Main.qml in theme_name (None / "": the default); the root window, None on a QML
+        error"""
+        theme, selectors = zyntheme.theme_selectors(theme_name, QML_DIR)
+        # A child of the application: dropping the Python wrapper mustn't delete it (unload)
+        engine = QQmlApplicationEngine(QGuiApplication.instance())
+        ctx = engine.rootContext()
+        for name, value in self.context.items():
+            ctx.setContextProperty(name, value)
+        # What the Tk UI sizes and colours itself by (zynthian_gui_config), for themes that follow
+        # it (tk): the font size before scaling, the scale ("auto": screen height / 600), the colours
+        cfg = zynthian_gui_config
+        ctx.setContextProperty("zynConfig", {
+            **TK_SIZING,
+            "v5": bool(cfg.check_wiring_layout(("V5", "Z2"))),
+            # The touch keypad on the right (ZYNTHIAN_UI_TOUCH_NAVIGATION v5_keypad_right)
+            "keypadRight": cfg.touch_navigation == "v5_keypad_right",
+            "colors": {k[6:]: getattr(cfg, k) for k in dir(cfg)
+                       if k.startswith("color_") and isinstance(getattr(cfg, k), str)},
+        })
+        # UI theme: file selectors, so zynqt/qml/+<theme>/X.qml replaces X.qml (its Theme.qml, the
+        # components it draws differently); tk is zynqt/qml/ itself
+        ctx.setContextProperty("zynThemeName", theme)
+        if selectors:
+            engine.setExtraFileSelectors(selectors)
+        engine.load(QUrl.fromLocalFile(os.path.join(preview_qml_dir() or QML_DIR, "Main.qml")))
+        if not engine.rootObjects():
+            engine.deleteLater()
+            return None
+        root = engine.rootObjects()[0]
+        key_filter = KeyBindingFilter(self.ui, root)
+        root.installEventFilter(key_filter)
+        # Installed last, so it sees the keys first: user activity for power save
+        activity_filter = UserActivityFilter(self.ui, root)
+        root.installEventFilter(activity_filter)
+        self.filters = [key_filter, activity_filter]
+        if os.environ.get("ZYNTHIAN_QT_TIMING") == "1":
+            self.timing = add_switch_timing(self.ui, root)
+        self.engine = engine
+        self.ui.theme_name = theme
+        logging.info(f"QML UI loaded, theme {theme} (selectors {selectors})")
+        return root
+
+    def unload(self, then):
+        """Destroy the window and the engine, then call then() (before a new engine: eglfs and
+        linuxfb allow one window). By deleteLater, in the event loop, not here: destroying a
+        window waits for its render thread, which may be waiting for the GIL this thread holds
+        (Python slots on frameSwapped, painted items): it hung in QWindow.hide()."""
+        engine, self.engine = self.engine, None
+        if engine is None:
+            then()
+            return
+        if self.timing:
+            self.ui.currentScreenChanged.disconnect(self.timing)
+            self.timing = None
+        self.filters = []
+        engine.destroyed.connect(lambda *_: QTimer.singleShot(0, then))
+        for root in engine.rootObjects():
+            try:
+                root.frameSwapped.disconnect()   # the Python slots (mark_first_frame, timing)
+            except (RuntimeError, TypeError):
+                pass
+            root.deleteLater()
+        engine.deleteLater()
+
+    def switch_theme(self, theme_name, done=None):
+        """Replace the QML UI with one in theme_name, then call done(); on a QML error the UI
+        restarts (RESTART_UI: the setting is saved by then, a start loads it)"""
+        logging.info(f"Switching the Qt theme: {self.ui.theme_name} -> {theme_name or zyntheme.DEFAULT}")
+        app = QGuiApplication.instance()
+        # No window for a moment: that mustn't end the application
+        quit_on_close = app.quitOnLastWindowClosed()
+        app.setQuitOnLastWindowClosed(False)
+
+        def load():
+            try:
+                root = self.load(theme_name)
+            finally:
+                app.setQuitOnLastWindowClosed(quit_on_close)
+            if root is None:
+                logging.error(f"Can't load the QML UI in theme {theme_name}: restarting the UI")
+                self.ui.exit(102)
+            elif done:
+                done()
+
+        self.unload(load)
+
+
 def main():
     logging.info("STARTING ZYNTHIAN-UI (Qt) ...")
     # QML hot reload for development: under qmlpreview (run_under_qmlpreview), which passes
@@ -233,48 +336,25 @@ def main():
 
     # QML types implemented in Python
     qmlRegisterType(OledDisplay, "Zynthian", 1, 0, "OledDisplay")
-    engine = QQmlApplicationEngine()
-    ctx = engine.rootContext()
-    ctx.setContextProperty("zyn", ui)
-    ctx.setContextProperty("mixerStrips", mixer)
-    ctx.setContextProperty("mainStrip", main_bus)
-    ctx.setContextProperty("mixerMeters", meters)
-    ctx.setContextProperty("mainMeters", main_meters)
-    ctx.setContextProperty("startFullScreen", os.environ.get("ZYNTHIAN_FULLSCREEN") == "1")
     # Rotation of the whole UI in QML (Main.qml), for displays nobody rotates (eglfs on KMS)
     try:
         ui_rotation = int(os.environ.get("ZYNTHIAN_UI_ROTATION", "0") or 0) % 360
     except ValueError:
         ui_rotation = 0
-    ctx.setContextProperty("zynUiRotation", ui_rotation if ui_rotation in (0, 90, 180, 270) else 0)
-    # UI theme: file selectors, so zynqt/qml/+<theme>/X.qml replaces X.qml (its Theme.qml, the
-    # components it draws differently); tk is zynqt/qml/ itself (zynqt/theme.py)
+    frontend = QmlFrontend(ui, {
+        "zyn": ui,
+        "mixerStrips": mixer,
+        "mainStrip": main_bus,
+        "mixerMeters": meters,
+        "mainMeters": main_meters,
+        "startFullScreen": os.environ.get("ZYNTHIAN_FULLSCREEN") == "1",
+        "zynUiRotation": ui_rotation if ui_rotation in (0, 90, 180, 270) else 0,
+    })
+    ui.frontend = frontend
     # Admin > Theme > Default leaves a line in the config for this one start (zynqt/theme.py)
     zyntheme.drop_once_lines()
-    theme, theme_selectors = zyntheme.theme_selectors(os.environ.get("ZYNTHIAN_QT_THEME"), QML_DIR)
-    # What the Tk UI sizes and colours itself by (zynthian_gui_config), for themes that follow it
-    # (tk): the font size before scaling, the scale ("auto": screen height / 600), the colours
-    cfg = zynthian_gui_config
-    ctx.setContextProperty("zynConfig", {
-        **TK_SIZING,
-        "v5": bool(cfg.check_wiring_layout(("V5", "Z2"))),
-        # The touch keypad on the right (ZYNTHIAN_UI_TOUCH_NAVIGATION v5_keypad_right)
-        "keypadRight": cfg.touch_navigation == "v5_keypad_right",
-        "colors": {k[6:]: getattr(cfg, k) for k in dir(cfg) if k.startswith("color_") and isinstance(getattr(cfg, k), str)},
-    })
-    ctx.setContextProperty("zynThemeName", theme)
-    ui.theme_name = theme
-    if theme_selectors:
-        engine.setExtraFileSelectors(theme_selectors)
-    engine.load(QUrl.fromLocalFile(os.path.join(preview_qml_dir() or QML_DIR, "Main.qml")))
-    if engine.rootObjects():
-        mark_first_frame(engine.rootObjects()[0])
-        key_filter = KeyBindingFilter(ui, engine.rootObjects()[0])
-        engine.rootObjects()[0].installEventFilter(key_filter)
-        # Installed last, so it sees the keys first: user activity for power save
-        activity_filter = UserActivityFilter(ui, engine.rootObjects()[0])
-        engine.rootObjects()[0].installEventFilter(activity_filter)
-    if not engine.rootObjects():
+    root = frontend.load(os.environ.get("ZYNTHIAN_QT_THEME"))
+    if root is None:
         # A QML error (the messages above). Leave at once: returning ran the interpreter's
         # shutdown with the JACK clients (zynmixer, engines) still calling into Python from
         # PipeWire's data thread, which segfaulted (core dumps filled the disk in a restart
@@ -284,9 +364,7 @@ def main():
         sys.stdout.flush()
         sys.stderr.flush()
         os._exit(report_exit(2))
-
-    if os.environ.get("ZYNTHIAN_QT_TIMING") == "1":
-        add_switch_timing(ui, engine.rootObjects()[0])
+    mark_first_frame(root)
 
     # Python runs its signal handlers only between bytecodes; let it run now and then while Qt's
     # event loop is in C++

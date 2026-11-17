@@ -34,7 +34,9 @@ in the VM or on the device, compare with Tk in the VM, finish on the device.
   `~/.config/zynthian/zynthian_custom_config.sh` (`export ZYNTHIAN_QT_THEME=classic`): the launcher re-reads
   that file on every UI start, so switching only needs `RESTART_UI` (`nura/tools/sync_ui.sh -R`, or
   the Admin menu's "Restart UI"), not a session restart. `/etc/default/zynthian` is read only when
-  the session starts.
+  the session starts. Admin > Theme switches without a restart and saves the choice in zynthian's
+  config ([qt-theming.md](qt-theming.md), "Admin > Theme": where and the precedence); a QML change
+  still needs `RESTART_UI` or `sync_ui.sh -R` (the files are cached per process).
 
 ## 1. Offscreen preview (host)
 

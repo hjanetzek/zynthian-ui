@@ -148,7 +148,7 @@ class Admin(SelectorScreen):
 
         e.append(separator("> SCREEN"))
         e.append(entry(f"Theme ({self.running_theme()})", lambda x: self.theme_menu(), icon="settings.png",
-                       info="The look of the user interface. Changing it restarts the user interface."))
+                       info="The look of the user interface. Saved for the next start."))
         e.append(entry("Calibrate Touchscreen", lambda x: self.ui.cuia_screen_calibrate(), icon="settings.png",
                        info="Show touchscreen calibration.\nTouch each crosshair until it changes color.\n"
                             "Screen closes after 15s of inactivity."))
@@ -187,9 +187,11 @@ class Admin(SelectorScreen):
 
     def theme_menu(self):
         """The themes there are (zynqt/qml/+<name>/), the user's choice marked, and Default (no
-        choice: the session's or kit's theme); a change is saved, then the UI restarts"""
+        choice: the session's or kit's theme); a change is saved and applied at once (the QML is
+        loaded again, zynthian keeps running)"""
         chosen = zyntheme.user_theme()
-        session = zyntheme.session_theme() or zyntheme.DEFAULT
+        system = zyntheme.session_theme()
+        session = system or zyntheme.DEFAULT
         running = self.running_theme()
         where = "the custom config" if zyntheme.custom_config_sets_theme() else "zynthian's config"
 
@@ -198,8 +200,9 @@ class Admin(SelectorScreen):
 
         def info(value):
             if not value:
-                return (f"No theme of your own: the system's ({session}; /etc/default/zynthian, set by "
-                        "the kit), else tk.")
+                if system:
+                    return f"No theme of your own: the system's, {system} (/etc/default/zynthian, set by the kit)."
+                return f"No theme of your own: the default, {session}."
             text = zyntheme.DESCRIPTIONS.get(value, f"The theme in zynqt/qml/+{value}/.")
             return text + f"\n\nSaved in {where}." + ("\n(running now)" if value == running else "")
 
@@ -215,8 +218,9 @@ class Admin(SelectorScreen):
                     logging.error(f"Can't save the theme => {err}")
                     self.ui.show_info(f"Can't save the theme: {err}")
                     return
-                self.ui.exit(102)
-            self.ui.confirm(f"Restart the user interface with theme {name}?", do)
+                # then "Theme (<new>)"
+                self.ui.switch_theme(value or zyntheme.session_theme(), self.fill)
+            self.ui.confirm(f"Switch to theme {name}?", do)
 
         choices = [("", f"Default ({session})")] + [(t, t) for t in zyntheme.available_themes(QML_DIR)]
         selected = next((i for i, (v, _) in enumerate(choices) if v == chosen), 0)

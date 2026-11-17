@@ -141,6 +141,9 @@ class ZynUI(QObject):
         self._info_timer.timeout.connect(lambda: self._set_info(""))
         self._confirm_text = ""
         self._confirm_action = None
+        # The QML side (zynthian_qt_main.QmlFrontend) and its theme, set when it loads
+        self.frontend = None
+        self.theme_name = None
         self._keyboard_title = ""
         self._keyboard_text = ""
         self._keyboard_action = None
@@ -228,6 +231,17 @@ class ZynUI(QObject):
         self.exit_flag = True
         logging.info(f"STOPPING ZYNTHIAN-UI (Qt), exit code {code} ...")
         QTimer.singleShot(0, self._do_exit)
+
+    def switch_theme(self, name, done=None):
+        """Show the UI in theme name ("" / None: the default), then call done(), without
+        restarting zynthian: the
+        QML engine is replaced (QmlFrontend.switch_theme), after the current event (a QML handler
+        may have called this). Under qmlpreview (hot reload) the UI restarts instead: the preview
+        service is attached to the first engine."""
+        if self.frontend is None or os.environ.get("ZYNTHIAN_QT_EXIT_FILE"):
+            self.exit(102)
+            return
+        QTimer.singleShot(0, lambda: self.frontend.switch_theme(name, done))
 
     def _do_exit(self):
         self.shutdown(save_state=True)

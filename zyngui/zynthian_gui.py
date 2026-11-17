@@ -52,6 +52,7 @@ from zyngine.zynthian_state_manager import zynthian_state_manager
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_gui_keybinding
 from zyngui import zynthian_wiring
+from zyngui import zynthian_cuia_list
 from zyngui.multitouch import MultiTouch
 
 from zyngui.zynthian_gui_none import zynthian_gui_none
@@ -1265,7 +1266,7 @@ class zynthian_gui:
 
     @classmethod
     def get_cuia_list(cls):
-        return [method[5:].upper() for method in dir(cls) if method.startswith('cuia_') is True]
+        return zynthian_cuia_list.get_cuia_list()
 
     def callable_ui_action(self, cuia, params=None):
         logging.debug("CUIA '{}' => {}".format(cuia, params))

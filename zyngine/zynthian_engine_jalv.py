@@ -28,17 +28,18 @@ import re
 import sys
 import copy
 import shutil
+import signal
 import logging
 import traceback
 from time import sleep
 #from datetime import datetime
 from threading import Thread, Timer
-from subprocess import Popen, check_output, run, STDOUT, PIPE, DEVNULL
+from subprocess import Popen, check_output, run, STDOUT, PIPE, DEVNULL, TimeoutExpired
 
 import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 import zyngine.zynthian_lv2 as zynthian_lv2
-from zyngine.zynthian_engine import zynthian_engine, PROC_STOP_TIMEOUT, PROC_KILL_TIMEOUT
+from zyngine.zynthian_engine import zynthian_engine, PROC_KILL_TIMEOUT
 from zyngine.zynthian_controller import zynthian_controller
 from zyngine.ctrlinfo import *
 
@@ -186,29 +187,66 @@ class zynthian_engine_jalv_base(zynthian_engine):
             self.proc = None
         return exit_code
 
+    # Seconds a jalv gets to end after SIGTERM before SIGKILL. zynthian's jalv ends in a few
+    # ms (its quick exit; a Pi: ~0.1 s) and gives up by itself after 2 s if the plugin is stuck
+    # (status 3), so this is only for older jalvs and hangs.
+    JALV_STOP_TIMEOUT = 3.0
+    JALV_EXIT_TIMED_OUT = 3  # jalv's exit status when its exit timed out (plugin stuck)
+
+    @classmethod
+    def jalv_status_text(cls, rc):
+        if rc is None:
+            return "still running"
+        if rc < 0:
+            try:
+                return f"signal {signal.Signals(-rc).name}"
+            except ValueError:
+                return f"signal {-rc}"
+        if rc == cls.JALV_EXIT_TIMED_OUT:
+            return f"exit status {rc} (its exit timed out: plugin stuck)"
+        return f"exit status {rc}"
+
+    def log_jalv_end(self, proc, how):
+        """Log how a jalv ended if it wasn't a clean exit: the plugin, the JACK name and the exit
+        status or signal (which plugin crashed or hung isn't in jalv's own output)"""
+        rc = proc.returncode
+        if rc == 0 or getattr(proc, "zyn_end_logged", False):
+            return
+        proc.zyn_end_logged = True
+        logging.warning(f"jalv {self.jackname} (plugin {self.plugin_url}, pid {proc.pid}) {how}:"
+                        f" {self.jalv_status_text(rc)}")
+
     def stop(self):
         if self.proc:
+            proc = self.proc
             try:
                 logging.info("Stopping Engine " + self.name)
-                try:
-                    self.proc.stdin.writelines(["\n"])
-                except Exception as e:
-                    logging.error(f"Exception while ending jalv => {e}")
                 self.proc_exit = True
-                self.proc.terminate()
+                already_ended = proc.poll() is not None
+                if not already_ended:
+                    try:
+                        proc.stdin.writelines(["\n"])
+                    except OSError:
+                        # Broken pipe: it has just ended
+                        pass
+                    proc.terminate()
                 # communicate() closes stdin (jalv's exit waits for its command thread's read on
                 # it) and reaps the process
                 try:
-                    self.proc.communicate(timeout=PROC_STOP_TIMEOUT)
-                except Exception as e:
-                    logging.warning(f"Jalv engine '{self.name}' can't be terminated. Killing it! => {e}")
-                    self.proc.kill()
+                    proc.communicate(timeout=self.JALV_STOP_TIMEOUT)
+                except TimeoutExpired:
+                    logging.warning(f"jalv {self.jackname} (plugin {self.plugin_url}, pid {proc.pid}) didn't end"
+                                    f" in {self.JALV_STOP_TIMEOUT:.0f} s. Killing it!")
+                    proc.kill()
                     try:
-                        self.proc.communicate(timeout=PROC_KILL_TIMEOUT)
-                    except Exception:
+                        proc.communicate(timeout=PROC_KILL_TIMEOUT)
+                    except TimeoutExpired:
                         # Still not gone (e.g. its core dump is being written): reap it in the background
-                        logging.warning(f"Jalv engine '{self.name}' still not gone after SIGKILL: reaping it in the background")
-                        Thread(target=self.proc.wait, name=f"reap {self.jackname}", daemon=True).start()
+                        logging.warning(f"jalv {self.jackname} still not gone after SIGKILL: reaping it in the background")
+                        Thread(target=proc.wait, name=f"reap {self.jackname}", daemon=True).start()
+                        proc = None
+                if proc is not None and proc.returncode != -signal.SIGKILL:
+                    self.log_jalv_end(proc, "had already ended when stopped" if already_ended else "ended when stopped with")
             except Exception as e:
                 logging.error(f"Can't stop engine {self.name} => {e}")
             self.proc = None
@@ -221,6 +259,8 @@ class zynthian_engine_jalv_base(zynthian_engine):
         except BrokenPipeError:
             logging.error(f"Broken pipe when executing jalv command '{cmd}'. Restarting engine ...")
             self.proc_exit = True
+            if self.proc.poll() is not None:
+                self.log_jalv_end(self.proc, "had ended before the command, with")
             self.proc.kill()
             self.proc = None
             self.start()
@@ -256,12 +296,18 @@ class zynthian_engine_jalv_base(zynthian_engine):
 
     def proc_poll_thread_task(self):
         #self.minimize_autogenerated_gui()
-        while self.proc and not self.proc_exit:
-            line = self.proc.stdout.readline()
+        proc = self.proc
+        while proc and not self.proc_exit:
+            line = proc.stdout.readline()
             if not line:
-                # End of output: jalv has ended. Stop reading instead of spinning on the closed pipe.
+                # End of its output: jalv has ended (crashed) without being stopped. Before, this
+                # loop kept reading the closed pipe and used a CPU until the engine was stopped.
                 if not self.proc_exit:
-                    logging.error(f"Jalv engine '{self.name}' has ended unexpectedly")
+                    try:
+                        proc.wait(timeout=PROC_KILL_TIMEOUT)
+                    except TimeoutExpired:
+                        pass
+                    self.log_jalv_end(proc, "ended unexpectedly with")
                 break
             line = line.strip()
             if line:

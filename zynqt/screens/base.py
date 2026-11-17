@@ -30,9 +30,11 @@ def icon_url(icon):
     return QUrl.fromLocalFile(path).toString() if os.path.isfile(path) else ""
 
 
-def entry(title, action=None, info="", icon="", separator=False, enabled=True, data=None):
+def entry(title, action=None, info="", icon="", separator=False, enabled=True, data=None, header=False):
+    """header: a selectable row drawn as a section title (chain control: a processor without
+    controller pages)"""
     return {"title": title, "action": action, "info": info, "icon": icon, "separator": separator,
-            "enabled": enabled, "data": data}
+            "enabled": enabled, "data": data, "header": header}
 
 
 def separator(title):
@@ -53,9 +55,9 @@ def fill_grid(entries, cells=16, pad=True):
 
 
 class EntryModel(QAbstractListModel):
-    TitleRole, InfoRole, IconRole, SeparatorRole, EnabledRole = range(Qt.UserRole + 1, Qt.UserRole + 6)
+    TitleRole, InfoRole, IconRole, SeparatorRole, EnabledRole, HeaderRole = range(Qt.UserRole + 1, Qt.UserRole + 7)
     _ROLES = {TitleRole: b"title", InfoRole: b"info", IconRole: b"icon",
-              SeparatorRole: b"separator", EnabledRole: b"entryEnabled"}
+              SeparatorRole: b"separator", EnabledRole: b"entryEnabled", HeaderRole: b"header"}
 
     countChanged = Signal()
 
@@ -65,7 +67,7 @@ class EntryModel(QAbstractListModel):
 
     @staticmethod
     def _shown_fields(e):
-        return (e["title"], e["info"], e["icon"], e["separator"], e["enabled"])
+        return (e["title"], e["info"], e["icon"], e["separator"], e["enabled"], e.get("header", False))
 
     def set_entries(self, entries):
         entries = list(entries)
@@ -113,6 +115,8 @@ class EntryModel(QAbstractListModel):
             return e["separator"]
         if role == self.EnabledRole:
             return e["enabled"]
+        if role == self.HeaderRole:
+            return e.get("header", False)
         return None
 
 

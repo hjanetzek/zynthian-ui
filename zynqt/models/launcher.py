@@ -155,9 +155,9 @@ class Launcher(QObject):
         return self._mixer().zynpot_steps()
 
     def zynpot(self, i, d):
-        """Knob 2 the phrase (up / down), knob 3 the chain (moving: the phrase), 0 / 1 level and
-        balance"""
-        if i == 2:
+        """The layout's ctrl_order[2] the phrase (up / down: knob 2, on V4 kits knob 1), knob 3 the
+        chain (moving: the phrase), the others as the mixer: 0 / 1 level and balance, 2 main"""
+        if i == zynthian_gui_config.layout["ctrl_order"][2]:
             self.navigate("down" if d > 0 else "up")
             return True
         if i == 3 and self.moving_phrase:

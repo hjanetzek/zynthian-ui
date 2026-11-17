@@ -31,6 +31,7 @@ import yaml
 from pathlib import Path
 
 from zynconf import zynthian_paths
+from zyngine.zynthian_engine import end_process, PROC_STOP_TIMEOUT
 from zyngine.zynthian_engine_sfz import zynthian_engine_sfz
 
 # ------------------------------------------------------------------------------
@@ -90,11 +91,23 @@ class zynthian_engine_sfizz(zynthian_engine_sfz):
     # ---------------------------------------------------------------------------
 
     def stop(self):
+        if not self.proc:
+            return
+        logging.info("Stopping Engine " + self.name)
+        self.proc_exit = True
         try:
             self.proc.sendline("quit")
-            self.proc.expect("Closing...")
-        except:
-            super().stop()
+            self.proc.expect("Closing...", timeout=PROC_STOP_TIMEOUT)
+            asked = True
+        except Exception:
+            asked = False
+        # sfizz_jack ends by itself after "Closing..." (up to ~1 s on a Pi): wait for it and reap
+        # it (it was left a zombie), signals only if it doesn't
+        try:
+            end_process(self.proc, self.name, grace=PROC_STOP_TIMEOUT if asked else 0)
+        except Exception as e:
+            logging.error(f"Can't stop engine {self.name} => {e}")
+        self.proc = None
 
     # ---------------------------------------------------------------------------
     # Bank Management

@@ -38,7 +38,7 @@ from subprocess import Popen, check_output, run, STDOUT, PIPE, DEVNULL
 import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 import zyngine.zynthian_lv2 as zynthian_lv2
-from zyngine.zynthian_engine import zynthian_engine
+from zyngine.zynthian_engine import zynthian_engine, PROC_STOP_TIMEOUT, PROC_KILL_TIMEOUT
 from zyngine.zynthian_controller import zynthian_controller
 from zyngine.ctrlinfo import *
 
@@ -196,14 +196,22 @@ class zynthian_engine_jalv_base(zynthian_engine):
                     logging.error(f"Exception while ending jalv => {e}")
                 self.proc_exit = True
                 self.proc.terminate()
+                # communicate() closes stdin (jalv's exit waits for its command thread's read on
+                # it) and reaps the process
                 try:
-                    self.proc.communicate(timeout=5)
+                    self.proc.communicate(timeout=PROC_STOP_TIMEOUT)
                 except Exception as e:
                     logging.warning(f"Jalv engine '{self.name}' can't be terminated. Killing it! => {e}")
                     self.proc.kill()
-                self.proc = None
+                    try:
+                        self.proc.communicate(timeout=PROC_KILL_TIMEOUT)
+                    except Exception:
+                        # Still not gone (e.g. its core dump is being written): reap it in the background
+                        logging.warning(f"Jalv engine '{self.name}' still not gone after SIGKILL: reaping it in the background")
+                        Thread(target=self.proc.wait, name=f"reap {self.jackname}", daemon=True).start()
             except Exception as e:
                 logging.error(f"Can't stop engine {self.name} => {e}")
+            self.proc = None
 
     def proc_cmd(self, cmd):
         #a = datetime.now()

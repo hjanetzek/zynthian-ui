@@ -33,7 +33,7 @@ import zynconf
 import zynautoconnect
 from zynconf import zynthian_paths
 from zyncoder.zyncore import lib_zyncore
-from zyngine.zynthian_engine import zynthian_engine
+from zyngine.zynthian_engine import zynthian_engine, end_process, PROC_STOP_TIMEOUT
 from zyngine.zynthian_controller import zynthian_controller
 
 # ------------------------------------------------------------------------------
@@ -118,13 +118,16 @@ class zynthian_engine_fluidsynth(zynthian_engine):
     # ---------------------------------------------------------------------------
 
     def stop(self):
+        if not self.proc:
+            return
         try:
             self.proc.sendline("quit")
-            self.proc.expect("\ncheers!")
+            self.proc.expect("\ncheers!", timeout=PROC_STOP_TIMEOUT)
             # We have asked nicely but sometimes fluidsynth needs more encouragement...
-            self.proc.terminate(True)
+            self.proc_exit = True
+            end_process(self.proc, self.name, grace=0.5)
             self.proc = None
-        except:
+        except Exception:
             super().stop()
 
     # ---------------------------------------------------------------------------

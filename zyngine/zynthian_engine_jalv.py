@@ -248,7 +248,7 @@ class zynthian_engine_jalv_base(zynthian_engine):
             if line == self.command_prompt:
                 break
             elif line:
-                res += line
+                res += line + "\n"
         return res
 
     def proc_poll_line(self):
@@ -1024,8 +1024,14 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
         if not self.proc:
             self.set_command_bundles()
         output = super().start()
-        if output and "Plugin not in -B bundles" in output:
-            logging.warning(f"jalv didn't find '{self.plugin_name}' in its bundles => it loaded all of LV2_PATH")
+        if output:
+            for line in output.split("\n"):
+                # jalv's own warnings and errors at start (on stderr, read with stdout)
+                if "Plugin not in -B bundles" in line:
+                    logging.warning(f"jalv {self.jackname}: plugin {self.plugin_url} not in its -B bundles"
+                                    " => it loaded all of LV2_PATH (slower start)")
+                elif line.startswith(("error:", "warning:")):
+                    logging.warning(f"jalv {self.jackname}: {line}")
         return output
 
     # Plugin GUI on demand (jalv.gtk3 -H, zynthian-jalv-gtk): in sessions that set

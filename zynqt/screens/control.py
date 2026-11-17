@@ -753,13 +753,12 @@ class ChainControl(QObject):
         knob) and the processors (knob 2) one per detent"""
         if self._mode == "select":
             return {zynthian_gui_config.select_ctrl: list_step(len(self.pages.entries)), 2: STEP_FIXED}
-        order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
-        return {i: zctrl_step(self.controllers[n].zctrl) for n, i in enumerate(order) if n < len(self.controllers)}
+        return {i: zctrl_step(c.zctrl) for i, c in enumerate(self.controllers[:4])}
 
     def _knob_controller(self, i):
-        """The controller knob i turns (the layout's ctrl_order), or None"""
-        order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
-        return self.controllers[order.index(i)] if i in order else None
+        """The controller knob i turns, or None: slot i, as zynthian_gui_control (which draws it
+        at the layout's ctrl_pos[i]; ctrl_order is not used there)"""
+        return self.controllers[i] if 0 <= i < len(self.controllers) else None
 
     def _processor_step(self, step):
         """The chain's previous / next processor (Tk: the chain sidebar's cursor)"""

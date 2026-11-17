@@ -45,6 +45,7 @@ PY_PACKAGES=(
 	rdflib
 	soundfile
 	websocket-client
+	websocket-server
 	alsa-midi
 	Levenshtein
 	ffmpeg-python

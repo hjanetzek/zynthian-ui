@@ -15,6 +15,7 @@
 # ******************************************************************************
 
 import logging
+import glob
 import os
 import signal
 import sys
@@ -116,6 +117,69 @@ def add_switch_timing(ui, window):
     window.frameSwapped.connect(swapped, Qt.DirectConnection)
 
 
+def mark_first_frame(window):
+    """Write a marker file when the first frame is on screen (QQuickWindow.frameSwapped): a boot
+    splash can stay until zynthian is visible (Nura's zynthian kits end Plymouth on it,
+    device-zynthian-rpi4). ZYNTHIAN_FIRST_FRAME_FILE, default $XDG_RUNTIME_DIR/zynthian-first-frame
+    (or /tmp). Then, once Plymouth is gone, the whole window is drawn once more: on a framebuffer
+    (Qt linuxfb) only changed areas are drawn, and the splash drew on until it was ended, so its last
+    frame stayed where zynthian hadn't changed anything yet."""
+    path = os.environ.get("ZYNTHIAN_FIRST_FRAME_FILE") or os.path.join(
+        os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "zynthian-first-frame")
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+    done = []
+
+    def splash_running():
+        """plymouthd running (by its process name: its pid file isn't always there at boot)"""
+        for comm in glob.glob("/proc/[0-9]*/comm"):
+            try:
+                if open(comm).read().strip() == "plymouthd":
+                    return True
+            except OSError:
+                pass
+        return False
+
+    # Polled in the GUI thread (frameSwapped comes in the render thread and only sets a flag):
+    # after the first frame, once the splash is gone, the whole window once more
+    timer = QTimer(window)
+    timer.setInterval(200)
+    polls = []
+
+    def repaint_after_splash():
+        polls.append(1)
+        if len(polls) > 900:   # 3 minutes
+            timer.stop()
+            return
+        if not done or splash_running():
+            return
+        timer.stop()
+        # The whole window dirty: the content's opacity changed and back (every item repainted;
+        # the window colour alone isn't enough, the content covers the background)
+        item = window.contentItem()
+        opacity = item.opacity()
+        item.setOpacity(opacity * 0.99)
+        QTimer.singleShot(100, lambda: item.setOpacity(opacity))
+        logging.info("boot splash gone: the whole window drawn again")
+
+    timer.timeout.connect(repaint_after_splash)
+    if splash_running():
+        timer.start()
+
+    def swapped():
+        if done:
+            return
+        done.append(True)
+        try:
+            open(path, "w").close()
+        except OSError as e:
+            logging.warning(f"first frame marker {path}: {e}")
+
+    window.frameSwapped.connect(swapped, Qt.DirectConnection)
+
+
 def preview_qml_dir():
     """Under qmlpreview: the QML directory through a symlink outside /usr. The QML preview service
     never asks qmlpreview for files under Qt's own prefix (QLibraryInfo::PrefixPath, /usr with the
@@ -201,6 +265,7 @@ def main():
         engine.setExtraFileSelectors(theme_selectors)
     engine.load(QUrl.fromLocalFile(os.path.join(preview_qml_dir() or QML_DIR, "Main.qml")))
     if engine.rootObjects():
+        mark_first_frame(engine.rootObjects()[0])
         key_filter = KeyBindingFilter(ui, engine.rootObjects()[0])
         engine.rootObjects()[0].installEventFilter(key_filter)
         # Installed last, so it sees the keys first: user activity for power save

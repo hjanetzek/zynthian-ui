@@ -38,6 +38,7 @@ class MixerModel(QAbstractListModel):
                      "solo": SoloRole, "record": RecordRole}
 
     countChanged = Signal()
+    activeRowChanged = Signal()
 
     def __init__(self, chain_manager, bridge, main_only=False, parent=None):
         super().__init__(parent)
@@ -76,6 +77,7 @@ class MixerModel(QAbstractListModel):
                 self.chain_ids = chain_ids
                 self.endResetModel()
             self.countChanged.emit()
+        self.activeRowChanged.emit()
         # Names, mixer processors, values and meter indexes may have changed
         if self.chain_ids:
             self.dataChanged.emit(self.index(0), self.index(len(self.chain_ids) - 1))
@@ -124,6 +126,16 @@ class MixerModel(QAbstractListModel):
     @Property(int, notify=countChanged)
     def count(self):
         return len(self.chain_ids)
+
+    @Property(int, notify=activeRowChanged)
+    def activeRow(self):
+        """The active chain's row, -1 if it has none (the main chain in the strips' model): for
+        views that scroll to it"""
+        active = self.chain_manager.active_chain
+        try:
+            return self.chain_ids.index(active.chain_id) if active else -1
+        except ValueError:
+            return -1
 
     def roleNames(self):
         return self._ROLE_NAMES
@@ -226,6 +238,8 @@ class MixerModel(QAbstractListModel):
 
     @Slot()
     def _active_chain(self):
+        if not self._loading():
+            self.activeRowChanged.emit()
         if self.chain_ids and not self._loading():
             self.dataChanged.emit(self.index(0), self.index(len(self.chain_ids) - 1),
                                   [self.ActiveRole, self.ActiveMidiRole])

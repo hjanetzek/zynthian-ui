@@ -1585,8 +1585,35 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
                 del parts[i]
                 zynthian_engine_jalv.ttl_write_parts(man_fpath, parts)
                 os.remove(preset_path)
+                zynthian_engine_jalv.lv2_remove_empty_user_bundle(bundle_path)
                 return True
         return False
+
+    @staticmethod
+    def lv2_remove_empty_user_bundle(bundle_path):
+        """Remove a user preset bundle (in my-data/presets/lv2) that has no presets or banks left:
+        only prefixes in its manifest and no other .ttl file. Its other files go too (files jalv
+        saved with the presets' state, e.g. sample links). Returns True if removed."""
+        try:
+            user_dir = os.path.realpath(zynthian_paths.my_data_dir + "/presets/lv2")
+            if (os.path.islink(bundle_path) or not bundle_path.endswith(".lv2")
+                    or os.path.dirname(os.path.realpath(bundle_path)) != user_dir):
+                return False
+            names = os.listdir(bundle_path)
+            if any(name.endswith(".ttl") and name != "manifest.ttl" for name in names):
+                return False
+            if "manifest.ttl" in names:
+                with open(bundle_path + "/manifest.ttl") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith(("@prefix", "#")):
+                            return False
+            shutil.rmtree(bundle_path)
+            logging.info(f"Removed the empty user preset bundle '{bundle_path}'")
+            return True
+        except Exception as e:
+            logging.error(f"Can't remove the empty user preset bundle '{bundle_path}' => {e}")
+            return False
 
     @staticmethod
     #   Remove a preset bank
@@ -1639,6 +1666,7 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
                     with open("{}/{}".format(path, file), "w") as ttl:
                         ttl.writelines(lines)
 
+        zynthian_engine_jalv.lv2_remove_empty_user_bundle(path)
         return True
 
     @staticmethod

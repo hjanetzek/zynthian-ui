@@ -362,5 +362,5 @@ Measured on the Duet for the meters and lists (`docs/performance-measurement.md`
   `OrganelleView` follow the Tk widgets' colours; only their backgrounds are tokens so far.
 - The mixer's meters use `meterLow`/`Mid`/`High` only; a segmented (LED) meter style would be a token
   and a variant of `Meter.qml`.
-- The kiosk package doesn't know the theme yet: `ZYNTHIAN_QT_THEME` in `/etc/default/zynthian` is set
-  by hand (export it there).
+- The kiosk sessions export `ZYNTHIAN_QT_THEME` from `/etc/default/zynthian`; on the zynthian kits
+  zynthian-kit sets it (v4 for 480x320 panels), elsewhere it is set by hand.

@@ -13,6 +13,9 @@ ThemeBase {
     tkAutoScale: false
     // No on-screen keypad: the kit has four knobs with switches (ZYNTHIAN_UI_TOUCH_NAVIGATION "")
     keypadEnabled: false
+    // The dialogs over the screens (Main.qml: confirm, value editor, help, busy, info; the keyboard) are sized for
+    // 800 px and more
+    dialogScale: 0.6
     readonly property int f: tkFontSize
 
     // Colours

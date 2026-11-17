@@ -1,5 +1,6 @@
 // On-screen keyboard for names (zynthian_gui_keyboard): ZynUI.show_keyboard() shows it, OK
-// calls keyboardAccept(text). A physical keyboard types into the field too.
+// calls keyboardAccept(text). A physical keyboard types into the field too. Sizes times
+// Theme.dialogScale.
 import QtQuick
 
 Rectangle {
@@ -22,29 +23,29 @@ Rectangle {
 
     Column {
         anchors.fill: parent
-        anchors.margins: 8
-        spacing: 6
+        anchors.margins: Math.round(8 * Theme.dialogScale)
+        spacing: Math.round(6 * Theme.dialogScale)
 
         Label {
             text: zyn.keyboardTitle
             color: Theme.textOff
-            size: 18
+            size: Math.round(18 * Theme.dialogScale)
             title: true
         }
 
         Panel {
             width: parent.width
-            height: 48
+            height: Math.round(48 * Theme.dialogScale)
             color: Theme.panel
             borderColor: Theme.dialogFrame
             TextInput {
                 id: field
                 anchors.fill: parent
-                anchors.margins: 8
+                anchors.margins: Math.round(8 * Theme.dialogScale)
                 verticalAlignment: TextInput.AlignVCenter
                 color: Theme.text
                 selectionColor: Theme.keyText
-                font.pixelSize: 26
+                font.pixelSize: Math.round(26 * Theme.dialogScale)
                 font.family: Theme.fontFamily
                 onAccepted: zyn.keyboardAccept(text)
                 Keys.onEscapePressed: zyn.keyboardCancel()
@@ -56,7 +57,7 @@ Rectangle {
             Row {
                 id: keyRow
                 required property string modelData
-                spacing: 4
+                spacing: Math.round(4 * Theme.dialogScale)
                 Repeater {
                     model: keyRow.modelData.split("")
                     Key {
@@ -69,16 +70,16 @@ Rectangle {
         }
 
         Row {
-            spacing: 4
-            Key { label: "⇧"; width: 100; highlighted: root.shift; onTapped: root.shift = !root.shift }
-            Key { label: "space"; width: 300; onTapped: field.insert(field.cursorPosition, " ") }
+            spacing: Math.round(4 * Theme.dialogScale)
+            Key { label: "⇧"; width: Math.round(100 * Theme.dialogScale); highlighted: root.shift; onTapped: root.shift = !root.shift }
+            Key { label: "space"; width: Math.round(300 * Theme.dialogScale); onTapped: field.insert(field.cursorPosition, " ") }
             Key {
-                label: "⌫"; width: 100
+                label: "⌫"; width: Math.round(100 * Theme.dialogScale)
                 onTapped: if (field.selectedText.length > 0) field.remove(field.selectionStart, field.selectionEnd)
                           else if (field.cursorPosition > 0) field.remove(field.cursorPosition - 1, field.cursorPosition)
             }
-            Key { label: "Cancel"; width: 120; onTapped: zyn.keyboardCancel() }
-            Key { label: "OK"; width: 120; highlighted: true; onTapped: zyn.keyboardAccept(field.text) }
+            Key { label: "Cancel"; width: Math.round(120 * Theme.dialogScale); onTapped: zyn.keyboardCancel() }
+            Key { label: "OK"; width: Math.round(120 * Theme.dialogScale); highlighted: true; onTapped: zyn.keyboardAccept(field.text) }
         }
     }
 
@@ -87,8 +88,8 @@ Rectangle {
         property string label
         property bool highlighted: false
         signal tapped
-        width: 70
-        height: 52
+        width: Math.round(70 * Theme.dialogScale)
+        height: Math.round(52 * Theme.dialogScale)
         radius: 3
         button: true
         color: tap.pressed ? Theme.keyText : (highlighted ? Theme.keyboardHighlight
@@ -97,7 +98,7 @@ Rectangle {
             anchors.centerIn: parent
             text: key.label
             color: key.highlighted && !tap.pressed ? Theme.keyboardHighlightText : Theme.text
-            size: 22
+            size: Math.round(22 * Theme.dialogScale)
             body: true   // letter keys show their case
             title: true
         }

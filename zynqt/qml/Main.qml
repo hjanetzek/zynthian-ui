@@ -184,9 +184,9 @@ Window {
         Panel {
             anchors.horizontalCenter: screens.horizontalCenter
             anchors.bottom: screens.bottom
-            anchors.bottomMargin: 16
-            width: Math.min(screens.width - 40, infoText.implicitWidth + 40)
-            height: infoText.implicitHeight + 20
+            anchors.bottomMargin: Math.round(16 * Theme.dialogScale)
+            width: Math.min(screens.width - 40, infoText.implicitWidth + Math.round(40 * Theme.dialogScale))
+            height: infoText.implicitHeight + Math.round(20 * Theme.dialogScale)
             radius: 6
             visible: zyn.info !== ""
             color: Theme.overlay
@@ -202,7 +202,7 @@ Window {
                 text: zyn.info
                 color: Theme.text
                 body: true
-                size: 20
+                size: Math.round(20 * Theme.dialogScale)
             }
         }
 
@@ -215,7 +215,7 @@ Window {
 
             Column {
                 anchors.centerIn: parent
-                spacing: 30
+                spacing: Math.round(30 * Theme.dialogScale)
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: screens.width - 80
@@ -224,12 +224,12 @@ Window {
                     text: zyn.confirmText
                     color: Theme.text
                     body: true
-                    size: 28
+                    size: Math.round(28 * Theme.dialogScale)
                     title: true
                 }
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 40
+                    spacing: Math.round(40 * Theme.dialogScale)
                     DialogButton { text: "NO"; color: Theme.dialogNo; onTapped: zyn.confirmNo() }
                     DialogButton { text: "YES"; color: Theme.dialogYes; onTapped: zyn.confirmYes() }
                 }
@@ -252,8 +252,8 @@ Window {
             Flickable {
                 id: helpFlick
                 anchors.fill: parent
-                anchors.margins: 16
-                anchors.rightMargin: 80
+                anchors.margins: Math.round(16 * Theme.dialogScale)
+                anchors.rightMargin: Math.round(80 * Theme.dialogScale)
                 contentHeight: helpText.implicitHeight
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
@@ -267,7 +267,7 @@ Window {
                     color: Theme.text
                     linkColor: Theme.link
                     body: true
-                    size: 20
+                    size: Math.round(20 * Theme.dialogScale)
                     onLinkActivated: (link) => zyn.helpLink(link)
                     onTextChanged: helpFlick.contentY = 0
                 }
@@ -282,9 +282,9 @@ Window {
             DialogButton {
                 anchors.top: parent.top
                 anchors.right: parent.right
-                anchors.margins: 8
-                width: 64
-                height: 64
+                anchors.margins: Math.round(8 * Theme.dialogScale)
+                width: Math.round(64 * Theme.dialogScale)
+                height: Math.round(64 * Theme.dialogScale)
                 text: "✕"
                 color: Theme.keyBackground
                 textColor: Theme.text
@@ -301,12 +301,12 @@ Window {
 
             Column {
                 anchors.centerIn: parent
-                spacing: 24
+                spacing: Math.round(24 * Theme.dialogScale)
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: zyn.valueEditorTitle
                     color: Theme.textOff
-                    size: 24
+                    size: Math.round(24 * Theme.dialogScale)
                     title: true
                 }
                 Label {
@@ -314,20 +314,20 @@ Window {
                     text: zyn.valueEditorText
                     color: Theme.text
                     body: true
-                    size: 56
+                    size: Math.round(56 * Theme.dialogScale)
                     title: true
                 }
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 16
-                    DialogButton { text: "−10"; width: 110; color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(-10) }
-                    DialogButton { text: "−1"; width: 110; color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(-1) }
-                    DialogButton { text: "+1"; width: 110; color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(1) }
-                    DialogButton { text: "+10"; width: 110; color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(10) }
+                    spacing: Math.round(16 * Theme.dialogScale)
+                    DialogButton { text: "−10"; width: Math.round(110 * Theme.dialogScale); color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(-10) }
+                    DialogButton { text: "−1"; width: Math.round(110 * Theme.dialogScale); color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(-1) }
+                    DialogButton { text: "+1"; width: Math.round(110 * Theme.dialogScale); color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(1) }
+                    DialogButton { text: "+10"; width: Math.round(110 * Theme.dialogScale); color: Theme.keyBackground; textColor: Theme.text; onTapped: zyn.valueEditorStep(10) }
                 }
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 40
+                    spacing: Math.round(40 * Theme.dialogScale)
                     DialogButton { text: "Cancel"; color: Theme.dialogNo; onTapped: zyn.valueEditorCancel() }
                     DialogButton { text: "OK"; color: Theme.dialogYes; onTapped: zyn.valueEditorAccept() }
                 }
@@ -342,7 +342,7 @@ Window {
             Column {
                 anchors.centerIn: parent
                 width: parent.width - 80
-                spacing: 16
+                spacing: Math.round(16 * Theme.dialogScale)
                 Label {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
@@ -350,15 +350,15 @@ Window {
                     text: zyn.busyMessage || "Busy..."
                     color: Theme.text
                     body: true
-                    size: 28
+                    size: Math.round(28 * Theme.dialogScale)
                     title: true
                 }
                 // Tasks with counted steps (snapshot loading): a progress bar and the current step
                 Rectangle {
                     visible: zyn.busyProgress >= 0
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: Math.min(parent.width, 600)
-                    height: 14
+                    width: Math.min(parent.width, Math.round(600 * Theme.dialogScale))
+                    height: Math.round(14 * Theme.dialogScale)
                     radius: 7
                     color: Theme.panel
                     Rectangle {
@@ -377,7 +377,7 @@ Window {
                     text: zyn.busyDetails
                     color: Theme.textOff
                     body: true
-                    size: 16
+                    size: Math.round(16 * Theme.dialogScale)
                 }
             }
             MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }   // swallow taps while busy
@@ -411,8 +411,8 @@ Window {
         property alias text: label.text
         property color textColor: Theme.dialogText   // on dialogNo / dialogYes
         signal tapped
-        width: 160
-        height: 70
+        width: Math.round(160 * Theme.dialogScale)
+        height: Math.round(70 * Theme.dialogScale)
         radius: 4
         button: true
         borderColor: Theme.dialogFrame
@@ -421,7 +421,7 @@ Window {
             id: label
             anchors.centerIn: parent
             color: button.textColor
-            size: 26
+            size: Math.round(26 * Theme.dialogScale)
             title: true
         }
         TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: button.tapped() }

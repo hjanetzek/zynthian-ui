@@ -183,6 +183,7 @@ QtObject {
     property color keyboardHighlight: "#205080"     // its highlighted key ...
     property color keyboardHighlightText: text      // ... and the label on it
     property real keyLineHeight: 1.0                // keypad labels on two lines
+    property real dialogScale: 1.0                  // sizes of the dialogs over the screens (confirm, value editor, help, busy, info)
 
     // UI rotated by 90/270 in QML (Main.qml, ZYNTHIAN_UI_ROTATION): DragHandlers without a target
     // enable their "disabled" axis then (Qt measures them in window coordinates) and read the drag

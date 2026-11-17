@@ -5,6 +5,7 @@ import random
 
 import zynautoconnect
 from zynqt.screens.base import SelectorScreen, entry, separator
+from zynqt.screens.chain_screens import has_bank_dirs
 
 
 class ProcessorOptions(SelectorScreen):
@@ -30,7 +31,7 @@ class ProcessorOptions(SelectorScreen):
             return
         self.set_title(f"{p.get_basepath()} > Processor Options")   # zynthian_gui_processor_options
         e = [separator("> Manage this processor")]
-        if len(p.get_bank_list()) > 1 or p.preset_list:
+        if len(p.get_bank_list()) > 1 or p.preset_list or has_bank_dirs(p):
             e.append(entry("Presets", lambda x: self.ui.cuia_bank_preset(), icon="preset.png",
                            info="Select a bank and preset for this processor."))
         if p.type == "Audio Effect" and p.eng_code not in ("MI", "MR"):

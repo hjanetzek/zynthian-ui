@@ -43,7 +43,8 @@ Window {
     Binding { target: Theme; property: "screenHeight"; value: ui.height }
     Binding { target: Theme; property: "keypadShown"; value: root.keypadDocked }
 
-    readonly property bool keypadDocked: zyn.keypadDocked
+    // Themes without an on-screen keypad (keypadEnabled false, v4: the kit's knobs and switches)
+    readonly property bool keypadDocked: zyn.keypadDocked && Theme.keypadEnabled
     property bool keypadOverlay: false
     // The keypad on the right (ZYNTHIAN_UI_TOUCH_NAVIGATION v5_keypad_right)
     readonly property bool keypadRight: typeof zynConfig !== "undefined" && zynConfig.keypadRight === true
@@ -57,7 +58,7 @@ Window {
         onTriggered: root.keypadOverlay = false
     }
     function showKeypadOverlay(show) {
-        keypadOverlay = show
+        keypadOverlay = show && Theme.keypadEnabled
         if (show)
             keypadHide.restart()
     }
@@ -123,7 +124,7 @@ Window {
             overlayHint: !root.keypadDocked
             onTitleTapped: if (!root.keypadDocked) root.showKeypadOverlay(!root.keypadOverlay)
             onTitleSwipedDown: if (!root.keypadDocked) root.showKeypadOverlay(true)
-            onStatusTapped: zyn.toggleKeypadDocked()
+            onStatusTapped: if (Theme.keypadEnabled) zyn.toggleKeypadDocked()
             anchors.right: parent.right
             anchors.rightMargin: root.screensRight
             anchors.top: parent.top

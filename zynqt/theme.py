@@ -10,7 +10,8 @@ import logging
 import os
 
 DEFAULT = "tk"
-# The theme each theme builds on (absent: the base, tk)
+# The theme each theme builds on (absent: the base, tk; v4, the V4 kits' 480x320 layout, is on tk:
+# its selectors are just ["v4"])
 BASES = {"galactica": "classic", "enterprise": "classic"}
 
 

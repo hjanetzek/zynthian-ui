@@ -132,11 +132,14 @@ QtObject {
     property real screenWidth: 800
     property real screenHeight: 480
     property bool keypadShown: false        // the keypad docked beside / below the screens
+    property bool keypadEnabled: true       // false: no on-screen keypad (docked or overlay)
     readonly property var _cfg: typeof zynConfig !== "undefined" ? zynConfig : null
+    // false: ZYNTHIAN_UI_SCALE=auto counts as 1 (v4: the font size is made for its small panel)
+    property bool tkAutoScale: true
     readonly property real _uiScale: {
         const s = _cfg ? _cfg.uiScale : ""
         if (s === "auto")
-            return screenHeight / 600
+            return tkAutoScale ? screenHeight / 600 : 1.0
         const f = parseFloat(s)
         return f > 0 ? f : 1.0
     }

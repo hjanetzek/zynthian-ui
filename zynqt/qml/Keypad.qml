@@ -25,7 +25,8 @@ Item {
                                                     : [16, 17, 18, 8, 9, 10, 7, 11, 15, 19]
 
     // The smallest side of any key (themes with Theme.keyRadius round all keys alike from it)
-    readonly property real keyMinSide: Math.min(side.width / 2, side.height / 5, Theme.screenWidth / 10, keyHeight)
+    readonly property real keyMinSide: Math.min(side.width / 2, side.height / 5, bottomRow.alignedWidth,
+                                                bottomRow.restWidth, keyHeight)
 
     Grid {
         id: side
@@ -53,12 +54,21 @@ Item {
         x: root.rightHanded ? root.width - width : 0
         width: Theme.screenWidth
         height: root.keyHeight
+        // The two keys at the side columns' end (left-handed ◀ ▼, right-handed ▼ ▶) are as wide as
+        // the columns above them, the other eight share the rest; unless that would make those
+        // narrower than 3/4 of an even tenth (small screens, wide columns): then the eight get
+        // that and the two share what is left
+        readonly property real restWidth: Math.max((width - side.width) / 8, 0.075 * width)
+        readonly property real alignedWidth: (width - 8 * restWidth) / 2
+        readonly property int alignedFrom: root.rightHanded ? 8 : 0
         Repeater {
             model: root.bottomLayout
             Key {
                 required property int modelData
+                required property int index
                 key: modelData
-                width: bottomRow.width / 10
+                width: index >= bottomRow.alignedFrom && index < bottomRow.alignedFrom + 2
+                       ? bottomRow.alignedWidth : bottomRow.restWidth
                 height: bottomRow.height
             }
         }

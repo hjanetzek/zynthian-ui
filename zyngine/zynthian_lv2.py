@@ -221,7 +221,7 @@ ZYNGUI_WIDGET_UI = ZYNGUI_NS + "widget"
 ZYNGUI_WIDGET_API_VERSION = 1
 # Built-in widgets live inside zynthian-ui (bundles in lv2/, shared widgets in zyngui/).
 # Widgets from anywhere else (user widgets) take precedence.
-ZYNGUI_BUILTIN_WIDGETS_DIR = os.path.realpath(os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui"))
+ZYNGUI_BUILTIN_WIDGETS_DIR = os.path.realpath(zynthian_paths.ui_dir)
 
 # ------------------------------------------------------------------------------
 # Lilv LV2 library initialization

@@ -1046,8 +1046,8 @@ class ZynUI(QObject):
 
     def cuia__zynpot(self, params):
         """Encoder i turned by d (key bindings; the Qt UI has no encoder input yet): the current
-        screen's zynpot(i, d) if it has one; chain control turns its controllers (the layout's
-        ctrl_order), elsewhere the select encoder moves the selection"""
+        screen's zynpot(i, d) if it has one; chain control turns its controllers (knob i slot i,
+        as Tk), elsewhere the select encoder moves the selection"""
         i, d = int(params[0]), int(params[1])
         screen = self._screen_obj()
         func = getattr(screen, "zynpot", None)
@@ -1887,7 +1887,7 @@ class ZynUI(QObject):
 
     def cuia_zynpot_abs(self, params=None):
         """ZYNPOT_ABS i,value (value 0..1): the screen's zynpot_abs(i, value) if it has one, else in
-        chain control encoder i's controller (the layout's ctrl_order) to that part of its range"""
+        chain control encoder i's controller (slot i, as Tk) to that part of its range"""
         if not params or len(params) < 2:
             return
         i, val = int(params[0]), max(0.0, min(1.0, float(params[1])))
@@ -1896,9 +1896,8 @@ class ZynUI(QObject):
         if callable(func):
             func(i, val)
         elif screen is self.chain_control_screen:
-            order = list(zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3)))
-            if i in order:
-                self.chain_control_screen.controllers[order.index(i)].set_abs(val)
+            if 0 <= i < len(self.chain_control_screen.controllers):
+                self.chain_control_screen.controllers[i].set_abs(val)
 
     def cuia_api(self, params=None):
         """API sm|cm,method,params...: call a state manager / chain manager method"""

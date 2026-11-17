@@ -1,6 +1,7 @@
 # Qt theme `v4`: zynthian V4 kit, 3.5" 480x320
 
-Status 2026-11-17: design, not implemented yet. A theme for the V4-type kits (the Pi 4 kit in
+Status 2026-11-17: implemented on branch `qt-theme-v4` (all screens reachable at 480x320 in the
+QEMU VM, side by side with Tk's V4 layout; not yet checked on the Pi 4 kit). A theme for the V4-type kits (the Pi 4 kit in
 `docs/qt-hardware-input.md`, 3.5" ZynScreen, 480x320), built on the base theme `tk` (the Qt UI's
 base since 2026-11-16: `zynqt/qml/`). Keep the tk look and workflow; adapt the layout to the small
 screen and the V4's controls. Don't copy the old Tk V4 layout one to one where it doesn't work.
@@ -64,6 +65,65 @@ From the wiki (Zynthian UI User Guide V1/V4) and Tk's layout `V4` (`zynthian_gui
 - **Pattern editor:** the grid as big as possible, the knob functions at the edges; no toolbar (tk).
 - **Top bar, keypad:** no on-screen keypad in this theme.
 
+## Implementation
+
+Files (`zynqt/qml/+v4/` unless noted):
+
+- `Theme.qml`: tk's tokens (a copy of `zynqt/qml/Theme.qml`: keep the two in step), plus
+  `tkAutoScale: false` (F is `ZYNTHIAN_UI_FONT_SIZE` unscaled, as Tk on a V4 kit: 14 there;
+  Nura's session sets `ZYNTHIAN_UI_SCALE=auto`, which would give F = 7 at 320 px; a number as the
+  scale still applies), `keypadEnabled: false` (no docked or overlay keypad; the title and status
+  taps don't bring it up), `infoWidth: 0.23` (Tk's V4 `ctrl_width`), `dialogScale: 0.6`.
+- `KnobHints.qml`: what the knobs do, in a column at each edge (upper half: the top knob, lower
+  half: the bottom one; text along the edge, 0.7 F). A tap on a hint pushes that knob's switch
+  with Tk's timing (short < 0.3 s, bold to 2 s, long): touch access to the switch functions
+  without a keypad. Only v4's own files use it (no base version).
+- `ChainControlScreen.qml`, `Controller.qml`: Tk's V4 layout: slot i at `ctrl_pos[i]` (0 top
+  left, 1 bottom left, 2 top right, 3 bottom right), 23 % of the width, half the height each, a
+  1 px gap; page list and widgets in the middle column; the side chain left of everything in
+  select mode. Controllers drawn as Tk's vertical arc (`on_size_arc`, vertical case).
+- `MixerScreen.qml` (hints + `V4Mixer.qml`), `V4Mixer.qml`: tk's mixer (a copy of
+  `zynqt/qml/MixerScreen.qml`: keep in step) with 8 strips + main by default (Tk counts the main
+  strip in "visible strips": 9; the admin's setting still applies), strips 48 px wide at 480 px:
+  buttons, meters and the two-line vertical labels still fit. Launcher mode: 4 chains x 4 phrases
+  + the main column, paged by 4 when the selection leaves the view (the last chain page ends
+  with the last chain). Hints: level, balance (launcher: phrase), main, select (launcher: chain).
+- `PatternEditorScreen.qml`: tk's `PatternEditorView` between the hints; the texts from
+  `pattern_editor.py` `knobHints(editMode, ccMode)` (zoom, note, step; per edit mode and in the CC
+  view).
+- Shared, unchanged for tk and classic (scenes AE 0): `ThemeBase` tokens `tkAutoScale`,
+  `keypadEnabled`, `dialogScale` (Main.qml's dialogs and the keyboard); `InfoPane`: Tk's half-size
+  icon at the top left when the side is narrow (`get_icon`); `PatternEditorScreen.qml` split into
+  the screen (a frame) and `PatternEditorView.qml` (tk's editor).
+
+Fixes found on the way (Python, all layouts; identical with the Z2 layout):
+
+- Chain control: knob i turns slot i (Tk's `zynthian_gui_control`); it went through `ctrl_order`,
+  so on V4 knobs 1 and 2 were swapped.
+- Launcher: the phrase knob is `ctrl_order[2]` as Tk (knob 1 on V4), not always knob 2.
+- `zynConfig` (font size, scale, main menu columns) is read before the state manager's
+  `load_config()` rewrites the environment from `zynthian_envars.sh`: the custom config's values
+  reach the themes.
+
+Decisions and deviations:
+
+- Lists keep Tk V4's info pane (23 % of the width, half-size icon, Tk's font rule): it fits and is
+  what Tk shows; long entries elide.
+- Mixer: 8 + main (user's decision, replacing "about 5"); the knob hints cost 2 x 16 px.
+- Pads: always 4 x 4 (the admin's visible launchers don't apply in v4).
+- The tempo screen keeps the Qt tempo view (decided deviation of tk).
+- Dialogs (confirm, value editor, help, busy, info) and the on-screen keyboard: tk's, scaled by
+  0.6.
+
+Open:
+
+- The selector counter under the info pane (bank / MIDI file) elides its label ("MIDI ...") where
+  Tk shrinks the font.
+- Admin > Docked Touch Keypad still toggles the (disabled) keypad setting.
+- Hints show what turning does; what a push does is only known from the hardware labels.
+- Check on the Pi 4 kit: legibility of 0.7 F hints and 48 px strips, resistive touch on the hints
+  and the 42 x 31 px keyboard keys, linuxfb (no shader effects are used in `+v4/`).
+
 ## Selecting it
 
 `ZYNTHIAN_QT_THEME=v4` (directory `zynqt/qml/+v4/` on top of the base; selectors per
@@ -71,6 +131,13 @@ From the wiki (Zynthian UI User Guide V1/V4) and Tk's layout `V4` (`zynthian_gui
 
 ## Testing
 
-QEMU at 480x320: `nura/tools/qemu_compare.sh -R 480x320` (both VMs). The Tk VM with Tk's own V4
-layout as the reference (`ZYNTHIAN_UI_GRAPHIC_LAYOUT=V4`, or V4 wiring); encoders and switches
-through the CUIAs `ZYNPOT` / `ZYNSWITCH` (the VMs have no kit hardware). Final check on the Pi 4 kit.
+QEMU at 480x320: `nura/tools/qemu_compare.sh -g -R 480x320 start` (both VMs; `-W PORT` when the
+webconf ports 8100/8101 are taken). The Tk VM with Tk's own V4 layout as the reference: in
+`~/.config/zynthian/zynthian_custom_config.sh` `ZYNTHIAN_UI_GRAPHIC_LAYOUT=V4`,
+`ZYNTHIAN_UI_TOUCH_NAVIGATION=""`, `ZYNTHIAN_WIRING_LAYOUT=MCP23017_ZynScreen` (the VMs' DUMMIES
+wiring counts as TOUCH_ONLY, which forces Tk's touch keypad; the Python side only, no kit
+hardware), and a real kit's sizes: `ZYNTHIAN_UI_FONT_SIZE=14`, `ZYNTHIAN_UI_SCALE=1`. The Qt VM:
+the same plus `ZYNTHIAN_QT_THEME=v4` (the scale stays auto: v4 ignores it). Encoders and switches
+through the CUIAs `ZYNPOT` / `ZYNSWITCH`, touch with zynthian-stuff's `vin.py` (`VIN_SIZE=480x320`).
+Preview: `nura/tools/qml_preview.py SCENE -t v4 -s 480x320` with `ZYNTHIAN_UI_FONT_SIZE=14`
+(scenes in zynthian-stuff `ui-parity/tools/scenes/v4/`). Final check on the Pi 4 kit.

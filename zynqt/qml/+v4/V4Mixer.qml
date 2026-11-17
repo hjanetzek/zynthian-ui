@@ -13,7 +13,12 @@ Item {
     readonly property bool launcherMode: zyn.currentScreen === "launcher"
 
     readonly property var launcher: zyn.launcherModel
-    property real launcherScroll: 0
+    // The view: the first chain strip and (launcher) the first phrase shown. Derived from the
+    // selection whenever it, the number of chains / phrases or the size changes (syncView), and
+    // always clamped to [0, count - shown]: never past the start or the end.
+    property int chainOffset: 0
+    property int phraseOffset: 0
+    readonly property real launcherScroll: phraseOffset * padHeight
 
     // Geometry as zynthian_gui_mixer.update_layout
     // Strips in the width, the main strip (1.2 strips wide) included, as Tk's
@@ -37,19 +42,41 @@ Item {
     // The pads' font size (Tk points) from the pad size: the 4 x 4 pads are about twice tk's,
     // their icons, title and length scale with them (tk: the mixer's fontPt)
     readonly property int padFontPt: Math.floor(0.4 * padHeight)
-    // The phrases in pages of 4: the page of the selected one
-    function showPhrase(phrase) {
-        const top = Math.floor(phrase / visiblePads) * visiblePads * padHeight
-        const view = visiblePads * padHeight
-        if (phrase * padHeight < launcherScroll || (phrase + 1) * padHeight > launcherScroll + view)
-            launcherScroll = Math.max(0, top)
+    // An offset that shows item sel of n with page items shown: unchanged while sel is in view;
+    // else the page of 4 (launcher) or the nearest offset (mixer) that shows it; clamped
+    function follow(offset, sel, n, page, paged) {
+        if (sel >= 0 && sel < n && (sel < offset || sel >= offset + page))
+            offset = paged ? Math.floor(sel / page) * page : (sel < offset ? sel : sel - page + 1)
+        return Math.max(0, Math.min(offset, n - page))
     }
-    // Another strip width: from the start, then to the active strip
-    onLauncherModeChanged: Qt.callLater(() => { root.showPhrase(root.launcher.phrase); strips.contentX = 0; strips.showActive() })
+    function clampOffsets() {
+        chainOffset = Math.max(0, Math.min(chainOffset, strips.count - pageChains))
+        if (launcher)
+            phraseOffset = Math.max(0, Math.min(phraseOffset, launcher.phrases - visiblePads))
+    }
+    function syncView() {
+        const row = typeof mixerStrips.activeRow === "number" ? mixerStrips.activeRow : -1
+        chainOffset = follow(chainOffset, row, strips.count, pageChains, launcherMode)
+        if (launcher)
+            phraseOffset = follow(phraseOffset, launcher.phrase, launcher.phrases, visiblePads, true)
+        strips.applyOffset()
+    }
+    // Another strip width: from the start, then to the selection
+    onLauncherModeChanged: { chainOffset = 0; phraseOffset = 0; syncView() }
+    onPageChainsChanged: syncView()
+    onStripWidthChanged: syncView()
     Connections {
         target: root.launcher
-        function onPhraseChanged() { root.showPhrase(root.launcher.phrase) }
+        function onPhraseChanged() { root.syncView() }
+        function onPadsChanged() { root.syncView() }
     }
+    Connections {
+        target: mixerStrips
+        function onActiveRowChanged() { root.syncView() }
+        function onCountChanged() { root.syncView() }
+    }
+    onChainOffsetChanged: strips.applyOffset()
+    Component.onCompleted: syncView()
     // Fonts in Tk points: min(legend / 2, W / 4); labels 0.9, icons 1.2 of it
     readonly property int fontPt: Math.min(Math.floor(0.5 * legendHeight), Math.floor(0.25 * width))
 
@@ -79,7 +106,9 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         interactive: false   // Tk: swipe on the legend scrolls (below)
         highlightMoveDuration: 0
-        cacheBuffer: 100000   // all strips: showActive finds the active one
+        // No current item: the view only moves with root.chainOffset
+        currentIndex: -1
+        highlightFollowsCurrentItem: false
         model: mixerStrips
         delegate: TkStrip {
             width: root.stripWidth
@@ -88,36 +117,27 @@ Item {
             levels: root.stripLevels
             meters: mixerMeters
         }
-        // The active strip into view; the launcher by pages of 4 chains (the last page ends with
-        // the last chain). The main chain active: the view stays, within the strips.
-        function showActive() {
-            const maxX = Math.max(0, count - root.pageChains) * root.stripWidth
-            for (let i = 0; i < count; i++) {
-                const it = itemAtIndex(i)
-                if (it && it.isActive) {
-                    if (!root.launcherMode) {
-                        positionViewAtIndex(i, ListView.Contain)
-                    } else if (i * root.stripWidth < contentX || (i + 1) * root.stripWidth > contentX + width + 1) {
-                        const page = Math.floor(i / root.pageChains) * root.pageChains
-                        contentX = Math.min(page * root.stripWidth, maxX)
-                    }
-                    return
-                }
-            }
-            contentX = Math.min(contentX, maxX)
+        // The view at root.chainOffset: from originX, which moves when rows are inserted or
+        // removed (contentX alone went past the start or the end after snapshot loads)
+        function applyOffset() {
+            const x = originX + root.chainOffset * root.stripWidth
+            if (Math.abs(contentX - x) > 0.5)
+                contentX = x
         }
-        Connections {
-            target: mixerStrips
-            // After the delegates took the new roles (their isActive)
-            function onDataChanged() { Qt.callLater(strips.showActive) }
-        }
+        onOriginXChanged: applyOffset()
+        onCountChanged: Qt.callLater(root.syncView)
+        onWidthChanged: applyOffset()
         // Swipe on the legend row scrolls the strips
         DragHandler {
             target: null
             yAxis.enabled: false
-            property real startX: 0
-            onActiveChanged: startX = strips.contentX
-            onTranslationChanged: strips.contentX = Math.max(0, Math.min(strips.contentWidth - strips.width, startX - translation.x))
+            property int start: 0
+            onActiveChanged: if (active) start = root.chainOffset
+            onTranslationChanged: if (active) {
+                root.chainOffset = start - Math.round(translation.x / root.stripWidth)
+                root.clampOffsets()
+                strips.applyOffset()
+            }
         }
     }
 
@@ -277,14 +297,15 @@ Item {
             DragHandler {
                 target: null
                 xAxis.enabled: false
-                property real startScroll: 0
-                onActiveChanged: if (active) startScroll = root.launcherScroll
-                onTranslationChanged: root.launcherScroll = Math.max(0, Math.min(
-                    root.padAreaHeight - parent.height, startScroll - translation.y))
+                property int start: 0
+                onActiveChanged: if (active) start = root.phraseOffset
+                onTranslationChanged: if (active) {
+                    root.phraseOffset = start - Math.round(translation.y / root.padHeight)
+                    root.clampOffsets()
+                }
             }
             WheelHandler {
-                onWheel: (event) => root.launcherScroll = Math.max(0, Math.min(
-                    root.padAreaHeight - parent.height, root.launcherScroll - event.angleDelta.y / 2))
+                onWheel: (event) => { root.phraseOffset -= event.angleDelta.y > 0 ? 1 : -1; root.clampOffsets() }
             }
         }
         // Launcher mode: the peak meters over the buttons' right side (set_launcher_mode: dpm_bg,

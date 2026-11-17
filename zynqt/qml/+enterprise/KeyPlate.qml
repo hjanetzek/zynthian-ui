@@ -2,8 +2,8 @@ import QtQuick
 import ".."
 
 // Enterprise: filled keys in the key's colour, all with one corner radius: Theme.keyRadius of the
-// keypad's smallest key side (minSide, without the margins), so the smallest keys are pills and
-// the others rounded plates with the same corners, side and bottom keys alike
+// keypad's smallest key side (minSide, without the margins; 0.25), so all keys are rounded plates
+// with the same corners, side and bottom keys alike
 Panel {
     property color fill: Theme.keyBackground
     property bool pressed: false

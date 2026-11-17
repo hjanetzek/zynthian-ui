@@ -1700,9 +1700,14 @@ class zynthian_chain_manager:
         self.stop_engines([eng_key for eng_key, engine in self.zyngines.items() if not engine.processors])
 
     def stop_unused_single_proc_engines(self):
-        """Stop engines that need restart and are not used by any processors"""
+        """Stop engines that need restart and are not used by any processors.
+        Engines with one process per processor (jalv, sfizz, Pure Data: keys "JV/<n>", "SF/<n>",
+        "PD/<n>", see start_engine) are never reused, so the old ones are stopped here, in parallel,
+        before set_state loads the new chains: otherwise the old sfizz and Pure Data processes (and
+        their samples) stayed until stop_unused_engines after the load."""
         self.stop_engines([eng_key for eng_key, engine in self.zyngines.items()
-                           if not engine.processors and (eng_key[0:3] == "JV/" or eng_key in self.single_processor_engines)])
+                           if not engine.processors and (eng_key.startswith(("JV/", "SF/", "PD/"))
+                                                         or eng_key in self.single_processor_engines)])
 
     def filtered_engines_by_cat(self, etype, all=False):
         """Get dictionary of engine info filtered by type and indexed by catagory

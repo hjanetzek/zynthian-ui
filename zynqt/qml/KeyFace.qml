@@ -9,6 +9,7 @@ Item {
     id: face
     property int key
     property string label
+    property string subLabel     // F1-F4 with a function label: their name, small in the corner
     property real radius: 0      // the plate's corner radius with Theme.keyRadius (Keypad.qml)
 
     readonly property var glyphs: ({ 8: "", 9: "", 10: "", 13: "",
@@ -35,14 +36,31 @@ Item {
         colorizationColor: face.ledColor
     }
     Text {
+        id: main
         visible: face.key !== 5
         anchors.centerIn: parent
+        // Shrunk to fit the key (function labels, large fonts), clear of the secondary label
+        width: parent.width - 4
+        height: parent.height - 2 * (face.subLabel ? sub.y + sub.height : 2)
+        fontSizeMode: Text.Fit
+        minimumPixelSize: 6
         horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
         text: face.glyph || face.label
         color: face.ledColor
         font.family: face.glyph ? "forkawesome" : Theme.fontFamily
         font.pixelSize: Theme.tkPx(face.glyph ? Math.floor(1.5 * face.fontPt)
-                                              : (face.label.indexOf("\n") >= 0 ? Math.floor(0.9 * face.fontPt) : Math.floor(1.3 * face.fontPt)))
+                                              : (face.subLabel || face.label.indexOf("\n") >= 0 ? Math.floor(0.9 * face.fontPt) : Math.floor(1.3 * face.fontPt)))
         lineHeight: 0.95
+    }
+    Text {
+        id: sub
+        visible: face.subLabel !== ""
+        x: 4; y: 2
+        text: face.subLabel
+        color: face.ledColor
+        opacity: 0.8
+        font.family: Theme.fontFamily
+        font.pixelSize: Math.min(Theme.tkPx(Math.floor(0.6 * face.fontPt)), main.fontInfo.pixelSize)
     }
 }

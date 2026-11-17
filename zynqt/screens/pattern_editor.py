@@ -1727,6 +1727,13 @@ class PatternEditor(QObject):
                 return True
         return False
 
+    def fkey_labels(self):
+        """The keypad's F-key labels for the keys switch() takes (KeypadLeds.functionLabels): with
+        ALT F1 / F2 the clipboard slots, F3 the block selection, F4 the CC / notes view"""
+        if not self.ui.alt_mode:
+            return {}
+        return {11: "CLIP 1", 15: "CLIP 2", 19: "BLOCK", 23: "NOTES" if self.cc_mode else "CC"}
+
     def cuia_v5_zynpot_switch(self, params):
         """Knob pushes: 0 the CC / note editor, 1 short reset the zoom, bold the length; 2 short
         the block selection (in it: cut), bold all notes"""

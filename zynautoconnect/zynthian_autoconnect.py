@@ -31,8 +31,8 @@ import pexpect
 import logging
 import alsaaudio
 import traceback
-from time import sleep
-from threading import Thread, Lock
+from time import sleep, monotonic
+from threading import Thread, Lock, Event
 
 # Zynthian specific modules
 import zynconf
@@ -133,6 +133,7 @@ jclient = None					# JACK client
 thread = None					# Thread to check for changed MIDI ports
 lock = None						# Manage concurrence
 exit_flag = False				# True to exit thread
+wake_event = Event()			# Set to wake the thread before its next port check (stop)
 paused_flag = False				# True id autoconnect task is paused
 state_manager = None			# State Manager object
 chain_manager = None			# Chain Manager object
@@ -1744,17 +1745,15 @@ def auto_connect_thread():
     """Thread to run autoconnect, checking if physical (hardware) interfaces have changed, e.g. USB plug"""
 
     deferred_timeout = 2  # Period to run deferred connect (in seconds)
-    # Delay between loop cycles (in seconds) - allows faster exit from thread
-    deferred_inc = 0.1
-    deferred_count = 5  # Run at startup
+    next_check = monotonic()  # Run at startup
     do_audio = False
     do_midi = False
 
     while not exit_flag:
         if not paused_flag:
             try:
-                if deferred_count > deferred_timeout:
-                    deferred_count = 0
+                if monotonic() >= next_check:
+                    next_check = monotonic() + deferred_timeout
                     # Check if hardware MIDI ports changed, e.g. USB inserted/removed
                     if update_hw_midi_ports():
                         do_midi = True
@@ -1782,8 +1781,9 @@ def auto_connect_thread():
                 #logger.error(err)
                 logging.exception(traceback.format_exc())
 
-        sleep(deferred_inc)
-        deferred_count += deferred_inc
+        # Sleep until the next port check instead of polling (stop() wakes the thread)
+        wake_event.wait(max(0.0, next_check - monotonic()) if not paused_flag else deferred_timeout)
+        wake_event.clear()
 
 
 def acquire_lock():
@@ -1886,6 +1886,7 @@ def stop():
 
     global exit_flag, jclient, thread, lock, hw_audio_dst_ports
     exit_flag = True
+    wake_event.set()
     if thread:
         thread.join()
         thread = None

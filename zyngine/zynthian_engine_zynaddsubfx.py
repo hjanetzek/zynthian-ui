@@ -25,6 +25,7 @@ import os
 import shutil
 import logging
 from time import sleep
+from threading import Event
 from string import Template
 from os.path import isfile, join
 from subprocess import check_output
@@ -135,6 +136,7 @@ class zynthian_engine_zynaddsubfx(zynthian_engine):
         self.name = "ZynAddSubFX"
         self.nickname = "ZY"
         self.jackname = "zynaddsubfx"
+        self.volume_reply = Event()  # Set when zynaddsubfx answers /volume (see wait_busy)
 
         self.osc_target_port = ServerPort["zynaddsubfx_osc"]
 
@@ -337,19 +339,17 @@ class zynthian_engine_zynaddsubfx(zynthian_engine):
             # logging.debug("Rx OSC => {} {}".format(path, args))
             if path == '/volume':
                 self.state_manager.end_busy("zynaddsubfx")
+                self.volume_reply.set()
         except Exception as e:
             logging.warning(e)
 
     def wait_busy(self):
+        # zynaddsubfx answers /volume once it has done the commands sent before (loading a
+        # preset): wait for the answer (~30 ms) instead of polling every 100 ms, 10 s at most
+        self.volume_reply.clear()
         self.osc_server.send(self.osc_target, "/volume")
-        i = 0
-        while self.state_manager.is_busy("zynaddsubfx"):
-            sleep(0.1)
-            if i > 100:
-                self.state_manager.end_busy("zynaddsubfx")
-                break
-            else:
-                i = i + 1
+        if not self.volume_reply.wait(10) or self.state_manager.is_busy("zynaddsubfx"):
+            self.state_manager.end_busy("zynaddsubfx")
 
     # ---------------------------------------------------------------------------
     # API methods

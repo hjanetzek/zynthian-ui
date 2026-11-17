@@ -34,6 +34,9 @@ Item {
     readonly property int launcherY: faderY + balanceHeight
     readonly property int padHeight: Math.floor((legendY - launcherY) / visiblePads)
     readonly property real padAreaHeight: padHeight * launcher.phrases
+    // The pads' font size (Tk points) from the pad size: the 4 x 4 pads are about twice tk's,
+    // their icons, title and length scale with them (tk: the mixer's fontPt)
+    readonly property int padFontPt: Math.floor(0.4 * padHeight)
     // The phrases in pages of 4: the page of the selected one
     function showPhrase(phrase) {
         const top = Math.floor(phrase / visiblePads) * visiblePads * padHeight
@@ -264,7 +267,7 @@ Item {
                         phrase: index
                         isMain: strip.isMain
                         selected: strip.active && index === root.launcher.phrase
-                        fontPt: root.fontPt
+                        fontPt: root.padFontPt
                         width: strip.width
                         height: root.padHeight
                     }

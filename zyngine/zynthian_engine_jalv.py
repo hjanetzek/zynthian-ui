@@ -33,7 +33,7 @@ import traceback
 from time import sleep
 #from datetime import datetime
 from threading import Thread, Timer
-from subprocess import Popen, check_output, STDOUT, PIPE
+from subprocess import Popen, check_output, run, STDOUT, PIPE, DEVNULL
 
 import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
@@ -989,6 +989,52 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
     # ---------------------------------------------------------------------------
     # Subprocess Management & IPC
     # ---------------------------------------------------------------------------
+
+    # Small LV2 world (jalv -B): jalv loads only the plugin's bundles instead of all of LV2_PATH,
+    # which takes most of a jalv start on a Pi with ~500 bundles. jalv falls back to all bundles
+    # if the plugin isn't among them.
+    jalv_bundles_support = {}  # Whether a jalv binary has -B, indexed by binary
+
+    def jalv_has_bundles_option(self):
+        jalv_bin = self.command[0]
+        try:
+            return self.jalv_bundles_support[jalv_bin]
+        except KeyError:
+            pass
+        try:
+            res = run([jalv_bin, "-h"], env=self.command_env, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT,
+                      text=True, timeout=5)
+            supported = "\n  -B " in res.stdout
+        except Exception as e:
+            logging.warning(f"Can't run '{jalv_bin} -h' => {e}")
+            supported = False
+        logging.info(f"'{jalv_bin}' {'loads plugin bundles only (-B)' if supported else 'has no -B option'}")
+        self.jalv_bundles_support[jalv_bin] = supported
+        return supported
+
+    def set_command_bundles(self):
+        """Pass the plugin's LV2 bundles to jalv (-B), computed at each start: user presets may
+        have been saved since the last one"""
+        if "-B" in self.command:
+            i = self.command.index("-B")
+            del self.command[i:i + 2]
+        if self.command[0] != "jalv" or not self.jalv_has_bundles_option():
+            return
+        try:
+            bundles = zynthian_lv2.get_plugin_bundles(self.plugin_url)
+        except Exception as e:
+            logging.error(f"Can't get the LV2 bundles of '{self.plugin_name}' => {e}")
+            bundles = None
+        if bundles and not any(":" in b for b in bundles):
+            self.command[1:1] = ["-B", ":".join(bundles)]
+
+    def start(self):
+        if not self.proc:
+            self.set_command_bundles()
+        output = super().start()
+        if output and "Plugin not in -B bundles" in output:
+            logging.warning(f"jalv didn't find '{self.plugin_name}' in its bundles => it loaded all of LV2_PATH")
+        return output
 
     # Plugin GUI on demand (jalv.gtk3 -H, zynthian-jalv-gtk): in sessions that set
     # ZYNTHIAN_NATIVE_GUI and have an X11 display (zynthian's niri session), for plugins with an X11

@@ -66,7 +66,7 @@ ThemeBase {
     listTextSize: tkPx(f)
     listTextMargin: 1
     listPadding: Math.round(f / 2)
-    infoWidth: 0.25
+    infoWidth: 0.23           // Tk's V4 ctrl_width
     // zynthian_gui_engine's layout: categories 0.21, list 0.5, info 0.29 of the width
     categoryWidth: 0.21
     categoryInfoWidth: 0.29

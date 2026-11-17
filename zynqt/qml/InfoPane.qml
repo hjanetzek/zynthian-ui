@@ -82,10 +82,14 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: width
+        height: img.width
         Image {
-            anchors.centerIn: parent
-            width: parent.width
+            id: img
+            // zynthian_gui_selector_info.get_icon: half the side width (at the top left) when the
+            // text would otherwise get a font below 0.7 F (side width / 16 points)
+            readonly property bool half: Math.floor(pane.width / 16) < 0.7 * Theme.tkFontSize
+            x: half ? 0 : (parent.width - width) / 2
+            width: half ? Math.floor(parent.width / 2) : parent.width
             height: width
             fillMode: Image.PreserveAspectFit
             asynchronous: true

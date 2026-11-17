@@ -1,7 +1,7 @@
 # Theming the Qt Quick UI
 
-Status: 2026-11-15, branch `qt-tk-base` (tk is the base, `zynqt/qml/` itself; classic is an
-override directory like the other themes). How the look of the Qt Quick UI (`zynqt/qml/`) is defined, how to choose a theme, and how to change or
+Status: 2026-11-17, branch `qt-theme-switcher` (Admin > Theme, switched at run time; tk is the
+base, `zynqt/qml/` itself, since 2026-11-15; classic is an override directory like the other themes). How the look of the Qt Quick UI (`zynqt/qml/`) is defined, how to choose a theme, and how to change or
 add one.
 
 ## Choosing a theme
@@ -20,14 +20,76 @@ QML engine's extra file selectors (`zynqt/theme.py`) and passes the name as the 
 
 A name without a directory `zynqt/qml/+<name>/` falls back to tk, with a warning in the log.
 
-On the Duet (or in the QEMU VM): `export ZYNTHIAN_QT_THEME=enterprise` in
-`~/.config/zynthian/zynthian_custom_config.sh`, which the launcher (`desktop/zynthian_desktop.sh`)
-reads at each start, then restart zynthian only: the CUIA `RESTART_UI` (the launcher starts it
-again on exit code 102, without restarting the session). `/etc/default/zynthian` is read only at
-session start (`sudo systemctl restart tinydm`); keep the theme in one of the two. On the desktop: set the
-variable before `desktop/zynthian_desktop.sh` (with `ZYNTHIAN_UI=qt`) or `desktop/preview_qt.sh`.
+### Admin > Theme
 
-The theme is fixed for a run: switching means restarting the UI.
+Admin > SCREEN > **Theme (<running theme>)** opens the list of themes: Default, then every
+directory `zynqt/qml/+<name>/` with a `Theme.qml` beside the base tk (`available_themes()` in
+`zynqt/theme.py`, so a new theme shows up by itself; its info text is in `DESCRIPTIONS` there).
+The user's choice is checked. Choosing another one asks "Switch to theme X?", saves it and
+switches **at run time**: zynthian keeps running (engines, chains, audio, the sequencer, the
+current screen and selection); only the QML is loaded again (below). The Admin entry and this
+list work in every theme, v4 at 480x320 included.
+
+Where the choice is stored (`save_theme()` in `zynqt/theme.py`):
+
+- `export ZYNTHIAN_QT_THEME="<name>"` in `~/.config/zynthian/zynthian_envars.sh`
+  (`zynconf.save_config`, as the other Admin settings and webconf), or in
+  `zynthian_custom_config.sh` if that file exports the variable itself: it is sourced last, a
+  value in `zynthian_envars.sh` would have no effect then.
+- **Default** removes the user's value from both files, so the system's theme applies again: the
+  one in `/etc/default/zynthian` (the kit's: `zynthian-kit` writes `v4` there on V4 kits), else
+  tk. The launcher keeps a variable it once exported (it sources the config files in its own
+  shell), so removing the line alone would keep the old theme at the next start: Default also
+  writes one line, marked `# zynthian: Admin > Theme > Default, for one start`, into
+  `zynthian_envars.sh`, `export ZYNTHIAN_QT_THEME="<the system's>"` or
+  `unset ZYNTHIAN_QT_THEME`; the UI removes that line when it starts (`drop_once_lines()`), and
+  the launcher's variable then holds the system's value.
+
+Precedence at each UI start (the launcher `desktop/zynthian_desktop.sh` sources these in order,
+the last one wins):
+
+1. the session's environment: the kiosk sessions export `ZYNTHIAN_QT_THEME` from
+   `/etc/default/zynthian` when the session starts (`zynthian-session.sh`); on the desktop, what
+   the launcher was started with;
+2. `~/.config/zynthian/zynthian_envars.sh` (Admin > Theme, webconf);
+3. the MIDI profile;
+4. `~/.config/zynthian/zynthian_custom_config.sh` (by hand; Admin > Theme updates the line there
+   if it exists).
+
+By hand: `export ZYNTHIAN_QT_THEME=enterprise` in `zynthian_custom_config.sh`, then restart
+zynthian only: the CUIA `RESTART_UI` (Admin > Restart UI; the launcher starts it again on exit
+code 102, without restarting the session). `/etc/default/zynthian` is read only at session start
+(`sudo systemctl restart tinydm`). On the desktop: set the variable before
+`desktop/zynthian_desktop.sh` (with `ZYNTHIAN_UI=qt`) or `desktop/preview_qt.sh`.
+
+### Runtime switch
+
+The theme only matters when the QML loads (file selectors); all state is in Python (`ZynUI`,
+the models). `QmlFrontend` in `zynthian_qt_main.py` holds the QML side: the engine (a
+`QQmlApplicationEngine` with the theme's selectors and the context properties), its window and
+the window's event filters (key bindings, user activity). `ZynUI.switch_theme(name, done)` (after
+the current event: a QML handler may be the caller) makes it:
+
+1. delete the window and the engine with `deleteLater()` and wait for the engine's `destroyed`:
+   the old window is gone before the new one exists (eglfs and linuxfb allow one window; a short
+   black frame). Not deleted synchronously from Python: destroying a window waits for its render
+   thread, which may wait for the GIL the caller holds (Python slots on `frameSwapped`, painted
+   items); `QWindow.hide()` from Python hung that way. The engine is a child of the application
+   so that dropping its Python wrapper never deletes it synchronously either;
+2. create a new engine with the new selectors (a new engine, not `clearComponentCache()`: the
+   `Theme` singleton has to be created again), load `Main.qml`, install the filters again. QML
+   shows the current screen and selection from `ZynUI`'s state;
+3. on a QML error (no root object) fall back to `RESTART_UI`: the choice is saved by then, so the
+   next start loads it (or the user picks another theme).
+
+Under qmlpreview (`ZYNTHIAN_QT_QMLPREVIEW=1`, hot reload) the switch is a `RESTART_UI`: the preview
+service is attached to the first engine.
+
+Tested in the QEMU VM (cage, v4 at 480x320, 2026-11-17): 30+ switches through all themes with
+chains and the MIDI test file playing; same process, tempo, active chain and mixer levels kept,
+the PipeWire nodes kept running, key bindings and touch work in the new window, no QML warnings.
+Each switch leaves about 0.35 MB of resident memory behind (Qt's caches, the allocator), which
+doesn't matter for a setting changed now and then. Not tested on eglfs or linuxfb.
 
 ## How it is built
 
@@ -363,4 +425,4 @@ Measured on the Duet for the meters and lists (`docs/performance-measurement.md`
 - The mixer's meters use `meterLow`/`Mid`/`High` only; a segmented (LED) meter style would be a token
   and a variant of `Meter.qml`.
 - The kiosk sessions export `ZYNTHIAN_QT_THEME` from `/etc/default/zynthian`; on the zynthian kits
-  zynthian-kit sets it (v4 for 480x320 panels), elsewhere it is set by hand.
+  zynthian-kit sets it (v4 for 480x320 panels); the user's choice is Admin > Theme (above).

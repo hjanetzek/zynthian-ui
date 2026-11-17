@@ -45,26 +45,78 @@ class MixerModel(QAbstractListModel):
         self.main_only = main_only
         self.chain_ids = []
         bridge.chainsChanged.connect(self.reload)
-        bridge.snapshotLoaded.connect(self.reload)
+        bridge.snapshotLoaded.connect(self.update_rows)
         bridge.mixerValueChanged.connect(self._mixer_value)
         bridge.activeChainChanged.connect(self._active_chain)
         self.reload()
 
     # Rows
 
+    def _loading(self):
+        """A snapshot is loading: chains and mixer values change many times (each removed and
+        added processor, each restored value), and the strips are updated once at the end
+        (snapshotLoaded)"""
+        try:
+            return self.chain_manager.state_manager.is_busy("load snapshot")
+        except AttributeError:
+            return False
+
     @Slot()
     def reload(self):
+        if not self._loading():
+            self.update_rows()
+
+    @Slot()
+    def update_rows(self):
         chain_ids = [chain_id for chain_id, chain in self.chain_manager.chains.items()
                      if (chain_id == 0) == self.main_only]
-        if chain_ids == self.chain_ids:
-            # Same strips: names or mixer processors may have changed
-            if self.chain_ids:
-                self.dataChanged.emit(self.index(0), self.index(len(self.chain_ids) - 1))
-            return
-        self.beginResetModel()
-        self.chain_ids = chain_ids
-        self.endResetModel()
-        self.countChanged.emit()
+        if chain_ids != self.chain_ids:
+            if not self._move_rows(chain_ids):
+                self.beginResetModel()
+                self.chain_ids = chain_ids
+                self.endResetModel()
+            self.countChanged.emit()
+        # Names, mixer processors, values and meter indexes may have changed
+        if self.chain_ids:
+            self.dataChanged.emit(self.index(0), self.index(len(self.chain_ids) - 1))
+
+    def _move_rows(self, chain_ids):
+        """Remove and insert rows instead of resetting the model, so that the views keep the
+        delegates of the strips that stay (a reset rebuilds all of them). Only if those strips
+        keep their order; returns False otherwise."""
+        new, old = set(chain_ids), set(self.chain_ids)
+        if [c for c in self.chain_ids if c in new] != [c for c in chain_ids if c in old]:
+            return False
+        self.chain_ids = list(self.chain_ids)
+        # Remove runs of rows, from the end
+        end = len(self.chain_ids)
+        while end > 0:
+            if self.chain_ids[end - 1] in new:
+                end -= 1
+                continue
+            start = end - 1
+            while start > 0 and self.chain_ids[start - 1] not in new:
+                start -= 1
+            self.beginRemoveRows(QModelIndex(), start, end - 1)
+            del self.chain_ids[start:end]
+            self.endRemoveRows()
+            end = start
+        # Insert runs of rows
+        row = 0
+        while row < len(chain_ids):
+            if row < len(self.chain_ids) and self.chain_ids[row] == chain_ids[row]:
+                row += 1
+                continue
+            end = row
+            while end < len(chain_ids) and chain_ids[end] not in old:
+                end += 1
+            if end == row:
+                return False  # not reached: the kept strips are in order
+            self.beginInsertRows(QModelIndex(), row, end - 1)
+            self.chain_ids[row:row] = chain_ids[row:end]
+            self.endInsertRows()
+            row = end
+        return True
 
     def rowCount(self, parent=QModelIndex()):
         return 0 if parent.isValid() else len(self.chain_ids)
@@ -174,12 +226,14 @@ class MixerModel(QAbstractListModel):
 
     @Slot()
     def _active_chain(self):
-        if self.chain_ids:
+        if self.chain_ids and not self._loading():
             self.dataChanged.emit(self.index(0), self.index(len(self.chain_ids) - 1),
                                   [self.ActiveRole, self.ActiveMidiRole])
 
     @Slot(bool, int, str, float)
     def _mixer_value(self, mixbus, chan, symbol, value):
+        if self._loading():
+            return
         roles = [self._SYMBOL_ROLES[symbol]] if symbol in self._SYMBOL_ROLES else []
         if symbol == zynthian_gui_config.mixer_toggle:
             roles.append(self.ToggleRole)

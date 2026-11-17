@@ -720,6 +720,31 @@ class PatternEditor(QObject):
     def editMode(self):
         return self.edit_mode
 
+    @Slot(int, bool, result="QVariantList")
+    def knobHints(self, edit_mode, cc_mode):
+        """What each knob (by index) does in this edit mode, as zynpot / _cc_zynpot: short texts
+        for themes that show them next to the knobs (v4); bind with editMode and ccMode"""
+        if cc_mode:
+            slots = ["CC" if edit_mode == EDIT_MODE_NONE else "", "zoom",
+                     "value" if edit_mode == EDIT_MODE_NONE else "",
+                     "undo/redo" if edit_mode == EDIT_MODE_HISTORY else "step" if edit_mode == EDIT_MODE_NONE else ""]
+        elif edit_mode == EDIT_MODE_BLOCK:
+            slots = ["", "zoom", "rows", "steps"]
+        elif edit_mode == EDIT_MODE_SINGLE:
+            slots = ["", "duration", "value", "parameter"]
+        elif edit_mode == EDIT_MODE_MULTI:
+            slots = ["", "duration", "value", "parameter"]
+        elif edit_mode == EDIT_MODE_HISTORY:
+            slots = ["", "zoom", "", "undo/redo"]
+        else:
+            slots = ["", "zoom", "note", "step"]
+        hints = ["", "", "", ""]
+        for n, text in enumerate(slots):
+            k = self._ctrl(n)
+            if 0 <= k < 4:
+                hints[k] = text
+        return hints
+
     @Property(str, notify=modeChanged)
     def modeTitle(self):
         """The title of the edit mode (Tk shows it inverted in the top bar), "" without one"""

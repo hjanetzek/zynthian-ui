@@ -412,8 +412,16 @@ class ChainControl(QObject):
                 entries.append(entry(f"Controllers {j // 4 + 1}", data=("chain", None, zctrls[j:j + 4])))
         for proc in processors:
             screens = proc.get_ctrl_screens()
-            # The processor's header also without pages (Tk: the audio player without a file)
-            entries.append(separator(proc.engine.name.split("/")[-1]))
+            name = proc.engine.name.split("/")[-1]
+            if not screens:
+                # No pages (no soundfont / preset loaded yet, the audio player without a file, a
+                # plugin without controllers): the header stays selectable, so the processor can
+                # be chosen and its banks / presets opened from here (Tk: the side chain node)
+                if proc == curproc:
+                    page = len(entries)
+                entries.append(entry(name, header=True, data=("empty", proc, 0)))
+                continue
+            entries.append(separator(name))
             for j, title in enumerate(screens):
                 if proc == curproc and j == proc.get_current_screen_index():
                     page = len(entries)
@@ -621,6 +629,21 @@ class ChainControl(QObject):
     def c3(self):
         return self.controllers[3]
 
+    def _on_empty_page(self):
+        """The selected row is a processor without pages"""
+        entries = self.pages.entries
+        return 0 <= self._page < len(entries) and bool(entries[self._page]["data"]) \
+            and entries[self._page]["data"][0] == "empty"
+
+    @Slot(int)
+    def pageTapped(self, index):
+        """A tap on the page list: select the page; a tap on the selected row of a processor
+        without pages opens its banks / presets"""
+        if index == self._page and self._on_empty_page():
+            self.ui.cuia_bank_preset()
+        else:
+            self.setPage(index)
+
     @Slot(int)
     def setPage(self, index):
         entries = self.pages.entries
@@ -630,6 +653,12 @@ class ChainControl(QObject):
         kind, proc, arg = entries[index]["data"]
         if kind == "chain":
             zctrls = arg
+        elif kind == "empty":
+            # A processor without pages: selected, no controllers
+            if proc != self.ui.current_processor and not self.special_processor:
+                self.ui.set_current_processor(proc)
+                self.processorsChanged.emit()
+            zctrls = []
         else:
             if proc != self.ui.current_processor and not self.special_processor:
                 self.ui.set_current_processor(proc)
@@ -720,8 +749,8 @@ class ChainControl(QObject):
         if 0 <= i < len(self._processors):
             proc = self._processors[i]
             for row, e in enumerate(self.pages.entries):
-                if not e["separator"] and e["data"][0] == "proc" and e["data"][1] == proc:
-                    self.setPage(row + proc.get_current_screen_index())
+                if not e["separator"] and e["data"][0] in ("proc", "empty") and e["data"][1] == proc:
+                    self.setPage(row + (proc.get_current_screen_index() if e["data"][0] == "proc" else 0))
                     return
 
     def select_mixer_processor(self, page=1):
@@ -831,6 +860,10 @@ class ChainControl(QObject):
     def switch_select(self, t="S"):
         """SELECT: short toggles control / select mode, bold the processor's options"""
         if t == "S":
+            if self._mode == "select" and self._on_empty_page():
+                # Nothing to control: its banks / presets instead
+                self.ui.cuia_bank_preset()
+                return True
             self.set_mode("select" if self._mode == "control" else "control")
             return True
         if t == "B":

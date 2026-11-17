@@ -16,6 +16,7 @@ QML engine's extra file selectors (`zynqt/theme.py`) and passes the name as the 
 | `classic` | `classic` | the Qt port's first look, zynthian's colours (as `zynthian_gui_config`): black, slate-blue plates, red selection, blue keys, Audiowide |
 | `galactica` | `galactica`, `classic` | builds on classic: a battlestar CIC console: gun-metal plates with clipped corners and steel outlines, amber console text in Khand (upper case), an amber selection bar, red alerts |
 | `enterprise` | `enterprise`, `classic` | builds on classic: a starship console: filled pill keys in orange, blue-gray, mauve and violet with dark labels, pill rows, mauve section headers, a curved frame (elbow) around the screens |
+| `v4` | `v4` | builds on tk: the V4 kits' 3.5" 480x320 screen with two knobs on each side: Tk's V4 layout (chain control's controllers next to their knobs), the mixer with 8 strips + main, the launcher with 4 x 4 pads + main, knob hints at the edges, no on-screen keypad, F unscaled ([qt-theme-v4.md](qt-theme-v4.md)) |
 
 A name without a directory `zynqt/qml/+<name>/` falls back to tk, with a warning in the log.
 
@@ -42,7 +43,8 @@ zynqt/qml/
   Theme.qml            the Theme singleton: tk = ThemeBase { tk's values }
   Panel.qml, Label.qml, TopBarRule.qml, Elbow.qml, ...                 default components
   MixerScreen.qml, TopBar.qml, InfoPane.qml, GridTile.qml, KeyFace.qml, KeyPlate.qml,
-      ChainControlScreen.qml, Controller.qml, PatternEditorScreen.qml, PatternToolbar.qml,
+      ChainControlScreen.qml, Controller.qml, PatternEditorScreen.qml (a frame around
+      PatternEditorView.qml), PatternToolbar.qml,
       LauncherPad.qml, ChainManagerMetrics.qml, SelectorControls.qml, PatternCcLane.qml,
       SelectorCategories.qml                                             tk's versions
   SelectorScreen.qml, MixerView.qml, ...                               shared screens
@@ -51,6 +53,8 @@ zynqt/qml/
   +galactica/Theme.qml    ThemeBase { only the tokens galactica changes from classic }
   +galactica/KeyPlate.qml, TopBarRule.qml                               its own components
   +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
+  +v4/Theme.qml (tk's values for 480x320), ChainControlScreen.qml, Controller.qml, MixerScreen.qml,
+      PatternEditorScreen.qml, and its own V4Mixer.qml, KnobHints.qml
 ```
 
 Until 2026-11-15 classic was the base and tk the directory `+tk/`; the files were swapped with
@@ -160,6 +164,10 @@ Tk's configuration: `zynthian_qt_main.py` passes `zynConfig` (`fontSize`, `uiSca
 `ZYNTHIAN_UI_COLOR_*` environment). `ThemeBase` computes `tkFontSize` (F) from it and the window
 (`screenWidth`, `screenHeight`, set by `Main.qml`) as `zynthian_gui_config` does, `tkPx(points)`
 converts Tk's point sizes to pixels (96 dpi), `tkColor(name, fallback)` reads a colour.
+
+Theme-wide switches: `tkAutoScale` (false: `ZYNTHIAN_UI_SCALE=auto` counts as 1), `keypadEnabled`
+(false: no on-screen keypad, docked or overlay), `dialogScale` (sizes of Main.qml's dialogs and
+the keyboard).
 
 Values that used to be theme conditions in the components: `tintIcons`, `listSpacing`,
 `tileMargin`, `infoBackground`, `dialogFrame`, `xyFrame`, `keyboardBackground`,

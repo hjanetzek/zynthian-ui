@@ -477,6 +477,10 @@ class ZynUI(QObject):
         if history and name != self.current_screen:
             self.screen_history.append(self.current_screen)
             del self.screen_history[:-20]
+        # As zynthian_gui.prune_screen_history: a screen shown again ends the history where it
+        # was (BACK from it doesn't come back to itself: chain control after a preset was chosen)
+        if name in self.screen_history:
+            del self.screen_history[self.screen_history.index(name):]
         self._set_current_screen(name, params)
 
     def replace_screen(self, name):

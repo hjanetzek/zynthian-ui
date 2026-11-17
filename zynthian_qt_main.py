@@ -71,6 +71,14 @@ from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
 
 # zynthian's settings; Tk is only set up there for zynthian_main.py
 from zyngui import zynthian_gui_config
+# Tk's sizing settings as the launcher gave them (zynthian_custom_config.sh included), read now as
+# Tk does at its start: the state manager's load_config() later sets the environment again from
+# zynthian_envars.sh alone
+TK_SIZING = {
+    "fontSize": zynthian_gui_config.get_env_int("ZYNTHIAN_UI_FONT_SIZE", 16),
+    "uiScale": os.environ.get("ZYNTHIAN_UI_SCALE", "").strip(),
+    "mainMenuColumns": zynthian_gui_config.get_env_int("ZYNTHIAN_UI_MAIN_MENU_COLUMNS", 0),
+}
 # Before the engine modules are imported: zynthian_chain_manager queries zyncore at import
 zynthian_gui_config.init_zyncore()
 
@@ -182,9 +190,7 @@ def main():
     # (tk): the font size before scaling, the scale ("auto": screen height / 600), the colours
     cfg = zynthian_gui_config
     ctx.setContextProperty("zynConfig", {
-        "fontSize": zynthian_gui_config.get_env_int("ZYNTHIAN_UI_FONT_SIZE", 16),
-        "uiScale": os.environ.get("ZYNTHIAN_UI_SCALE", "").strip(),
-        "mainMenuColumns": zynthian_gui_config.get_env_int("ZYNTHIAN_UI_MAIN_MENU_COLUMNS", 0),
+        **TK_SIZING,
         "v5": bool(cfg.check_wiring_layout(("V5", "Z2"))),
         # The touch keypad on the right (ZYNTHIAN_UI_TOUCH_NAVIGATION v5_keypad_right)
         "keypadRight": cfg.touch_navigation == "v5_keypad_right",

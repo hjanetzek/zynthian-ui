@@ -77,6 +77,7 @@ ThemeBase {
     radius: 0
     panelRadius: 14
     pillButtons: true
+    keyRadius: 0.5
     keyFilled: true
     keyFills: ["#fe972c", "#bbc6cb", "#8e6790", "#7e5edb", "#ffb366",
                                          "#d9e0e3", "#b08bb2", "#a48ae6", "#e5af46", "#fe972c",

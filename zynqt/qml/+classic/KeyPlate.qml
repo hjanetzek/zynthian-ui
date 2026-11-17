@@ -7,6 +7,7 @@ Panel {
     property color fill: Theme.keyBackground   // the key's colour in themes with filled keys
     property bool pressed: false
     property bool translucent: false
+    property real minSide: Math.min(width, height)   // the keypad's smallest key side (Keypad.qml)
 
     color: {
         const c = pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground

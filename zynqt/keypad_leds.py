@@ -2,7 +2,12 @@
 each key by the workflow shown (zynthian_gui.get_current_workflow), ALT, the transport state, and
 the screen's own LEDs (the screen's update_wsleds(leds), as in Tk: the pattern editor, the MIDI
 recorder in ALT mode, the mixer / launcher in ALT mode). Keys show the LED colour as their label
-colour; F1-F4 show F5-F8 while their LED is in the ALT colour (set_button_color's "alt" mode)."""
+colour; F1-F4 show F5-F8 while their LED is in the ALT colour (set_button_color's "alt" mode).
+
+It also names what F1-F4 do now (functionLabels): the screen's own action for the key (a screen's
+fkey_labels(), e.g. the pattern editor's ALT clipboard, block and CC keys), else the custom
+switch's UI action of the wiring configuration (ZYNTHIAN_WIRING_CUSTOM_SWITCH_08/12/16/20, V5:
+PROGRAM_CHANGE 1-4, with ALT 5-8), as a short label such as "PROG 1"."""
 
 import os
 
@@ -43,6 +48,75 @@ def current_workflow(history, current):
     return None
 
 
+# The F keys: keypad key -> zynswitch (key + 4; the custom switch index is the key)
+FN_KEYS = (7, 11, 15, 19)
+
+# Short labels of CUIAs (the others: their words, abbreviated by CUIA_WORDS)
+CUIA_LABELS = {
+    "PROGRAM_CHANGE": "PROG", "ZS3_LOAD": "ZS3", "ZS3_NEXT": "ZS3 +", "ZS3_PREV": "ZS3 -",
+    "ZS3_SAVE": "SAVE ZS3", "ALL_SOUNDS_OFF": "PANIC", "ALL_NOTES_OFF": "NOTES OFF",
+    "TOGGLE_ALT_MODE": "ALT", "TAP_TEMPO": "TAP", "TEMPO_UP": "BPM +", "TEMPO_DOWN": "BPM -",
+    "SET_TEMPO": "BPM", "TEMPO": "TEMPO", "SCREEN_CHAIN_MANAGER": "CHAINS", "SCREEN_CONTROL": "CTRL",
+    "CHAIN_CONTROL": "CTRL", "SCREEN_MIXER": "MIXER", "SCREEN_AUDIO_MIXER": "MIXER",
+    "SCREEN_ALSA_MIXER": "ALSA", "SCREEN_ZYNPAD": "PADS", "SCREEN_LAUNCHER": "PADS",
+    "SCREEN_PATTERN_EDITOR": "STEP", "SCREEN_SNAPSHOT": "SNAP", "SCREEN_ZS3": "ZS3",
+    "SCREEN_MIDI_RECORDER": "MIDI REC", "SCREEN_AUDIO_PLAYER": "PLAYER", "SCREEN_ADMIN": "ADMIN",
+    "BANK_PRESET": "PRESET", "PRESET_FAV": "FAVS", "MAIN_MENU": "MENU", "MENU": "MENU",
+    "TOGGLE_MIDI_LEARN": "LEARN", "ENABLE_MIDI_LEARN": "LEARN", "TTS_TOGGLE_ENABLE": "TTS",
+    "ARROW_UP": "UP", "ARROW_DOWN": "DOWN", "ARROW_LEFT": "LEFT", "ARROW_RIGHT": "RIGHT",
+    "V5_ZYNPOT_SWITCH": "KNOB", "ZYNSWITCH": "SW", "ZYN_CC": "CC", "NOP": "",
+    "SHOW_SCREEN": "-",   # just its parameter (the screen)
+}
+CUIA_DROP = ("SCREEN", "TOGGLE")
+CUIA_WORDS = {"AUDIO": "AUD", "RECORD": "REC", "RECORDER": "REC", "SNAPSHOT": "SNAP",
+              "CONTROL": "CTRL", "OPTIONS": "OPT", "PATTERN": "PAT", "PLAYER": "PLAY",
+              "CHAIN": "CHN", "MANAGER": "MGR", "SEQUENCE": "SEQ", "SELECT": "SEL"}
+LINE_LEN = 8     # longer labels go on two lines (as "OPT\nADMIN"), at most two of these
+
+
+def cuia_label(cuia):
+    """A short label of a CUIA with its parameters ("PROGRAM_CHANGE 1": "PROG 1"), "" for none;
+    over LINE_LEN characters on two lines"""
+    if not cuia:
+        return ""
+    parts = str(cuia).strip().split(" ", 1)
+    name = parts[0].upper()
+    params = parts[1].replace(",", " ").upper().split() if len(parts) > 1 else []
+    if name in CUIA_LABELS:
+        words = CUIA_LABELS[name].split()
+        if not words:
+            return ""
+        if words == ["-"]:
+            words = []
+    else:
+        words = [CUIA_WORDS.get(w, w) for w in name.split("_") if w and w not in CUIA_DROP] or [name]
+    words = [w[:LINE_LEN] for w in words + params[:2]]
+    if not words:
+        return ""
+    # One line, or two balanced ones
+    label = " ".join(words)
+    if len(label) <= LINE_LEN or len(words) == 1:
+        return label
+    best = None
+    for i in range(1, len(words)):
+        a, b = " ".join(words[:i]), " ".join(words[i:])
+        if best is None or max(len(a), len(b)) < max(len(best[0]), len(best[1])):
+            best = (a, b)
+    return best[0][:LINE_LEN].strip() + "\n" + best[1][:LINE_LEN].strip()
+
+
+def switch_cuia(config, alt):
+    """The CUIA a custom switch's press does (wiring configuration, as zynqt.ui.cuia__zynswitch):
+    its push action, else its short one, else its bold one; ALT's own if set"""
+    if not config:
+        return ""
+    for t in ("P", "S", "B"):
+        cuia = (alt and config.get("A" + t)) or config.get(t)
+        if cuia:
+            return cuia
+    return ""
+
+
 def _env(name, default):
     return os.environ.get(f"ZYNTHIAN_TOUCH_KEYPAD_COLOR_{name}", default)
 
@@ -72,6 +146,7 @@ class KeypadLeds(QObject):
         self._blink_count = 0
         self._colors = [self.wscolor_default] * 20
         self._alt = [False] * 20
+        self._fn = [""] * 20
         self._timer = QTimer(self, interval=100)
         self._timer.timeout.connect(self._update)
         self._timer.start()
@@ -142,10 +217,41 @@ class KeypadLeds(QObject):
         for i, c in enumerate(w):
             colors[LED2BUTTON[i]] = c
             alts[LED2BUTTON[i]] = c == self.wscolor_alt
-        if colors != self._colors or alts != self._alt:
+        fn = self._function_labels(screen, cur, alt)
+        if colors != self._colors or alts != self._alt or fn != self._fn:
             self._colors = colors
             self._alt = alts
+            self._fn = fn
             self.changed.emit()
+
+    def _function_labels(self, screen, cur, alt):
+        """What F1-F4 do now (by key index): the screen's own actions (fkey_labels() {switch:
+        label}, as its switch() takes the keys first, not under a dialog), else the wiring
+        configuration's custom switch action. MIDI custom switches: nothing (the touch keys only
+        send switch CUIAs)"""
+        labels = [""] * 20
+        own = {}
+        func = getattr(screen, "fkey_labels", None)
+        overlay = getattr(self.ui, "_overlay_shown", None)
+        if callable(func) and not (callable(overlay) and overlay()):
+            try:
+                own = func() or {}
+            except Exception:
+                own = {}
+        actions = zynthian_gui_config.custom_switch_ui_actions
+        for key in FN_KEYS:
+            if key + 4 in own:
+                labels[key] = own[key + 4] or ""
+                continue
+            config = actions[key] if key < len(actions) else None
+            cuia = switch_cuia(config, alt)
+            # Short press on the shown screen's key: its bold action (zynthian_gui)
+            short = (config or {}).get("S") or ""
+            if cuia == short and short and cur and (short.lower().endswith(cur)
+                                                     or (short.lower() == "menu" and cur == "main_menu")):
+                cuia = config.get("B") or cuia
+            labels[key] = cuia_label(cuia)
+        return labels
 
     def _midi_recorder_leds(self):
         """zynthian_gui_midi_recorder.update_wsleds: the transport keys for the MIDI recorder"""
@@ -159,6 +265,12 @@ class KeypadLeds(QObject):
     def colors(self):
         """The LED colour of each key (by key index)"""
         return self._colors
+
+    @Property("QVariantList", notify=changed)
+    def functionLabels(self):
+        """What each F key (7, 11, 15, 19) does now, as a short label ("PROG 1"; with ALT the F5-F8
+        functions), "" for none; the other keys ""."""
+        return self._fn
 
     @Property("QVariantList", notify=changed)
     def altLabels(self):

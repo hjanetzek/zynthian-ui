@@ -88,12 +88,42 @@ class MockMeters(QObject):
     active = Property(bool, _ga, _sa, notify=activeChanged)
 
 
+class MockKeypadLeds(QObject):
+    """zyn.keypadLeds (zynqt.keypad_leds.KeypadLeds): no LED colours (the keys' text colour), the
+    function labels of F1-F4 from --fn-labels"""
+    changed = Signal()
+
+    def __init__(self, fn_labels=""):
+        super().__init__()
+        self._fn = [""] * 20
+        for key, label in zip((7, 11, 15, 19), fn_labels.split(",") if fn_labels else []):
+            self._fn[key] = label
+
+    @Property("QVariantList", notify=changed)
+    def colors(self):
+        return []
+
+    @Property("QVariantList", notify=changed)
+    def altLabels(self):
+        return [False] * 20
+
+    @Property("QVariantList", notify=changed)
+    def functionLabels(self):
+        return self._fn
+
+
 class MockZyn(QObject):
     changed = Signal()
 
-    def __init__(self, screen="mixer"):
+    def __init__(self, screen="mixer", fn_labels=""):
         super().__init__()
         self._screen = screen
+        self._leds = MockKeypadLeds(fn_labels)
+        self._leds.setParent(self)
+
+    @Property(QObject, constant=True)
+    def keypadLeds(self):
+        return self._leds
 
     @Property(str, notify=changed)
     def currentScreen(self):
@@ -142,6 +172,8 @@ def main():
     ap.add_argument("-t", "--theme", default="tk")
     ap.add_argument("-s", "--size", default="800x480")
     ap.add_argument("--mixer", action="store_true", help="mock mixer strips (the compare snapshot)")
+    ap.add_argument("--fn-labels", default="",
+                    help="the keypad's F1-F4 function labels, comma separated (zyn.keypadLeds.functionLabels)")
     # qmlpreview adds -qmljsdebugger=... (Qt reads it from sys.argv)
     a, _ = ap.parse_known_args()
     w, h = (int(x) for x in a.size.split("x"))
@@ -194,12 +226,17 @@ Window {{
         for i, r in enumerate(rows):
             r["meterIndex"] = i
         mocks = [MockStrips(rows), MockStrips([strip(0, "Main\nSC4", "Main", 0.8)]),
-                 MockMeters([0.0] * 12), MockMeters([0.0] * 4), MockZyn()]
+                 MockMeters([0.0] * 12), MockMeters([0.0] * 4), MockZyn(fn_labels=a.fn_labels)]
         app._mocks = mocks
         for m in mocks:
             m.setParent(app)
         for name, m in zip(("mixerStrips", "mainStrip", "mixerMeters", "mainMeters", "zyn"), mocks):
             ctx.setContextProperty(name, m)
+    else:
+        # The keypad and other components read zyn (keypadLeds, pushSwitch)
+        app._mocks = [MockZyn(fn_labels=a.fn_labels)]
+        app._mocks[0].setParent(app)
+        ctx.setContextProperty("zyn", app._mocks[0])
     engine.warnings.connect(lambda ws: [print("QML:", x.toString(), file=sys.stderr) for x in ws])
     engine.load(QUrl.fromLocalFile(tmp.name))
     roots = engine.rootObjects()

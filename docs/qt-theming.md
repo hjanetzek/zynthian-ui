@@ -127,7 +127,7 @@ Components split out so a theme can replace them: `KeyPlate`, `TopBarRule`, `Elb
 around the shared `MixerView`; tk draws Tk's strips, also in launcher mode: the pads in place of
 the faders), `LauncherPad` (a launcher pad), `TopBar` (tk replaces it whole, with the same
 properties and signals), `KeyFace` (a keypad key's label; tk colours it with the LED of
-`zyn.keypadLeds`), `Controller` (a controller slot; tk: Tk's arc), `PatternToolbar` (the pattern
+`zyn.keypadLeds`; properties `key`, `label`, `subLabel`, `radius`), `Controller` (a controller slot; tk: Tk's arc), `PatternToolbar` (the pattern
 editor's toolbar; tk: none), `ChainManagerMetrics` (the chain manager's block sizes, spacings,
 margins, node text and selection outline; tk: Tk's formulas from the screen size),
 `SelectorControls` (controller widgets under a selector's info pane: none by default; tk: Tk's
@@ -295,6 +295,21 @@ docked keypad, at the window's edge with the overlay keypad (which covers it whi
 
 - Touch keypad: docked (beside and below the screens) or an overlay over the blurred screens
   (`KeypadBlur.qml`); the overlay keys are the docked ones with an alpha (0.55, filled keys 0.7).
+- Keypad labels are shrunk to fit their key (`Text.Fit`), for narrow keys and large font sizes.
+- F-key labels: F1-F4 show what they do now as their `label` and their name ("F1", with the ALT
+  LED "F5") as a small `subLabel` (tk: top left in the LED colour; classic and galactica: top left;
+  enterprise: top right, clear of the corner). The text comes from Python,
+  `zyn.keypadLeds.functionLabels` (`zynqt/keypad_leds.py`, a list by key index, "" for none),
+  updated with the LEDs (100 ms) when the wiring, ALT or the screen changes: the screen's own
+  action for the key first (a screen's `fkey_labels()` {zynswitch: label}, as its `switch()` takes
+  the key; the pattern editor with ALT: "CLIP 1", "CLIP 2", "BLOCK", "CC" / "NOTES"; not under a
+  dialog), else the custom switch's UI action of the wiring configuration
+  (`ZYNTHIAN_WIRING_CUSTOM_SWITCH_08/12/16/20`: push, else short, else bold action; with ALT the
+  ALT ones; a short press on the shown screen's own key: its bold action), shortened by
+  `cuia_label()`: "PROGRAM_CHANGE 1" "PROG 1" (the V5 profile: PROG 1-4, with ALT PROG 5-8),
+  "ZS3_LOAD 3" "ZS3 3", "TOGGLE_AUDIO_RECORD" "AUD REC", longer ones on two lines of at most 8
+  characters. MIDI custom switches get no label: the touch keys only send switch CUIAs. Themes only
+  place and style the two texts.
 - Top bar: Tk-like fixed status slots; texts are `Label`s, the icons stay ForkAwesome glyphs in
   status colours; `StatusSlot` measures its sample text in the `Label` font.
 - Selector: the category pane (engine groups) on `listBackground`, the selected group inverted

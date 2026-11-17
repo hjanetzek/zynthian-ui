@@ -1,5 +1,6 @@
 // V5 touch keypad, layout "v5_keypad_left" of zynthian_gui_touchkeypad_v5: two columns of five
-// keys on the left, ten keys along the bottom. Keys send switch events (zynswitch <key+4>,P/R)
+// keys on the left, ten keys along the bottom. F1-F4 show their current function (Python's
+// zyn.keypadLeds.functionLabels) with "F1"-"F4" small beside it. Keys send switch events (zynswitch <key+4>,P/R)
 // like the Tk keypad and hardware kits, so the wiring configuration maps them to CUIAs.
 import QtQuick
 
@@ -91,11 +92,17 @@ Item {
             translucent: root.translucent
         }
 
+        // F1-F4: what they do now (zyn.keypadLeds.functionLabels: "PROG 1", ...), their name
+        // ("F1", with ALT "F5") as the small secondary label
+        readonly property string keyName: zyn.keypadLeds.altLabels[k.key] && root.altLabels[k.key] ? root.altLabels[k.key] : root.labels[k.key]
+        readonly property string fnLabel: (zyn.keypadLeds.functionLabels || [])[k.key] || ""
+
         KeyFace {
             anchors.fill: parent
             key: k.key
             radius: Theme.keyRadius * root.keyMinSide
-            label: zyn.keypadLeds.altLabels[k.key] && root.altLabels[k.key] ? root.altLabels[k.key] : root.labels[k.key]
+            label: k.fnLabel || k.keyName
+            subLabel: k.fnLabel ? k.keyName : ""
         }
 
         TapHandler {

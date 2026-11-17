@@ -46,7 +46,8 @@ From the wiki (Zynthian UI User Guide V1/V4) and Tk's layout `V4` (`zynthian_gui
 
 ## Screens
 
-- **Mixer:** tk strips, fewer visible (480 px: about 5 + main), scrolling with the selection. Knob
+- **Mixer:** tk strips, **8 strips + the main strip** visible at 480 px (narrow), scrolling with the
+  selection. Knob
   hints at the edges: level (top left), balance (bottom left), main level (top right), select
   (bottom right).
 - **Pads (launcher):** a **4x4 grid plus the main (master) column**: 4 chains x 4 phrases visible,

@@ -11,6 +11,9 @@ repository's `tools`: `run_qemu.sh` (start a VM), `qemu_setup.sh` (SSH key and s
 `qemu_compare.sh` (upstream zynthian and the Qt port side by side), and the other tools with `-V`.
 Checked 2026-11-08 (headless VM, sync, session restart, screenshot); side by side 2026-11-09.
 
+**The test suite** (`run_tests.sh`) runs in a VM of its own, `tools/test_vm.sh` (SSH 2262):
+see [test-vm.md](test-vm.md).
+
 **To compare upstream zynthian (Tk UI) with the Qt port**, see [Side by side](#side-by-side-upstream-zynthian-and-the-qt-port):
 one command starts both at the V5 kit's screen size.
 

@@ -182,7 +182,10 @@ Item {
             anchors.top: parent.top
             anchors.margins: 2
             horizontalAlignment: Text.AlignHCenter
-            elide: Text.ElideRight
+            // Rich text doesn't elide: shrunk to the strip's width, clipped to it
+            clip: true
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: 8
             // Tk's legend: the chain's kind (forkawesome) and MIDI channel; arrows while moved
             textFormat: Text.RichText
             text: {
@@ -217,21 +220,28 @@ Item {
             color: Theme.midiActivity
         }
 
-        Label {
+        // Engine and preset (Tk's strip label, two lines): exactly two rows, each elided to the strip
+        Column {
             id: nameText
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: title.bottom
             anchors.margins: 2
-            horizontalAlignment: Text.AlignHCenter
-            elide: Text.ElideRight
-            // Engine and preset (Tk's vertical strip label)
-            text: strip.description
-            maximumLineCount: 2
-            wrapMode: Text.NoWrap
-            lineHeight: 0.95
-            color: Theme.textOff
-            size: 11
+            readonly property var lines: strip.description.split("\n")
+            Repeater {
+                model: 2
+                Label {
+                    required property int index
+                    width: nameText.width
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    wrapMode: Text.NoWrap
+                    text: nameText.lines[index] || ""
+                    color: Theme.textOff
+                    size: 11
+                }
+            }
         }
         // The chain that gets the MIDI input (Tk: the legend's bottom line in the highlight colour)
         Rectangle {

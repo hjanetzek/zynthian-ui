@@ -1344,6 +1344,10 @@ class ZynUI(QObject):
     def _osc_cb(self, path, args, types, src):
         """OSC thread: /cuia/<name> args -> cuia_queue, as zynthian_gui.osc_cb_all"""
         parts = path.upper().split("/", 2)
+        if len(parts) == 3 and parts[1] == "STATUS":
+            # A query (/STATUS/BUSY), answered also while busy
+            self.state_manager.osc_status_reply(self._osc_server, src, parts[2])
+            return
         if len(parts) < 3 or parts[1] != "CUIA":
             logging.debug(f"OSC '{path}' not handled by the Qt UI (yet)")
             return

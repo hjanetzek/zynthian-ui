@@ -1,9 +1,11 @@
-// tk: chain control as zynthian_gui_chain_control + zynthian_gui_control. The page list (a Tk
-// selector list) and the four controllers in a column of a quarter of the screen width at the
-// right; the side chain (zynthian_side_chain, a fifth of the width) only in select mode. The
-// page's widget below the list (audio file, envelope, filter: half of it) or instead of it
-// (the other widgets). The side chain's nodes other than processors open their screens (Tk shows
-// them as subscreens in place).
+// Chain control as zynthian_gui_chain_control + zynthian_gui_control, for every theme (shared:
+// layout, content and touch; themes give its parts their look: ChainNode, ControlPageRow,
+// Controller, and the tokens sideChainBackground, controllerColumn, controllerGap). The page list
+// (a Tk selector list) and the four controllers in a column of controllerColumn (tk: a quarter)
+// of the screen width at the right; the side chain (zynthian_side_chain, a fifth of the width)
+// only in select mode. The page's widget below the list (audio file, envelope, filter: half of
+// it) or instead of it (the other widgets). The side chain's nodes other than processors open
+// their screens (Tk shows them as subscreens in place).
 import QtQuick
 
 Rectangle {
@@ -22,7 +24,7 @@ Rectangle {
         width: root.chainShown ? Math.floor(0.2 * root.width) : 0
         height: root.height
         visible: root.chainShown
-        color: Theme.panel
+        color: Theme.sideChainBackground
 
         readonly property int blockWidth: 2 * Math.floor(0.45 * width)
         readonly property int blockHeight: Math.floor(0.12 * height)
@@ -50,50 +52,14 @@ Rectangle {
                 width: nodes.width
                 height: side.blockHeight + side.vSpacing
 
-                Rectangle {
-                    id: block
-                    x: Math.floor((side.width - side.blockWidth) / 2)
-                    width: side.blockWidth
-                    height: side.blockHeight
-                    color: {
-                        switch (node.modelData.kind) {
-                        case "midi": return Theme.nodeMidi
-                        case "synth": return Theme.nodeSynth
-                        case "audio": return Theme.nodeAudio
-                        case "special": return Theme.nodeSpecial
-                        }
-                        return Theme.nodeOther
-                    }
-                    border.width: node.selected ? 2 : 0
-                    border.color: zyn.movingProcessor ? "#ffff00" : "#ffffff"
-                    Text {
-                        anchors.centerIn: parent
-                        width: Math.floor(0.9 * side.blockWidth)
-                        height: Math.floor(0.9 * side.blockHeight)
-                        text: node.modelData.title
-                        color: node.modelData.bypassed ? Theme.textBypassed : "#ffffff"
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.tkPx(Math.floor(0.026 * side.height))
-                        minimumPixelSize: Theme.tkPx(6)
-                        fontSizeMode: Text.VerticalFit
-                        wrapMode: Text.WordWrap
-                        elide: Text.ElideRight
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-                // Lines to the next node (4 px, #AAAAAA)
-                Repeater {
-                    model: node.modelData.link === "parallel" ? [1 / 8, 7 / 8]
-                         : node.modelData.link !== "" ? [1 / 2] : []
-                    Rectangle {
-                        required property real modelData
-                        x: block.x + Math.floor(block.width * modelData) - 2
-                        y: block.height
-                        width: 4
-                        height: node.modelData.link === "half" ? Math.floor(side.vSpacing / 2) : side.vSpacing
-                        color: Theme.connector
-                    }
+                ChainNode {
+                    node: parent.modelData
+                    selected: parent.selected
+                    sideWidth: side.width
+                    sideHeight: side.height
+                    blockWidth: side.blockWidth
+                    blockHeight: side.blockHeight
+                    vSpacing: side.vSpacing
                 }
                 TapHandler {
                     longPressThreshold: 0.3
@@ -115,7 +81,7 @@ Rectangle {
         Column {
             id: controllers
             anchors.right: parent.right
-            width: root.cc.sidebarShown ? Math.floor(0.25 * root.width) : 0
+            width: root.cc.sidebarShown ? Math.floor(Theme.controllerColumn * root.width) : 0
             visible: root.cc.sidebarShown
             height: parent.height
             spacing: 0
@@ -127,7 +93,7 @@ Rectangle {
                     height: Math.floor(controllers.height / 4)
                     Controller {
                         width: parent.width
-                        height: parent.height - 1
+                        height: parent.height - Theme.controllerGap
                         ctrl: parent.modelData
                         dimmed: root.cc.selectMode
                     }
@@ -156,27 +122,24 @@ Rectangle {
                 onCurrentIndexChanged: Qt.callLater(() => positionViewAtIndex(currentIndex, ListView.Contain))
                 onCountChanged: { positionViewAtBeginning(); Qt.callLater(() => positionViewAtIndex(currentIndex, ListView.Contain)) }
 
-                delegate: Rectangle {
+                spacing: Theme.listSpacing
+
+                delegate: Item {
                     id: row
                     required property int index
                     required property string title
                     required property bool separator
                     required property bool header   // a processor without pages: selectable
-                    readonly property bool current: index === pages.currentIndex
-                    readonly property bool sectionLook: separator || (header && !current)
                     width: pages.width
-                    height: Theme.listRowHeight
-                    color: sectionLook ? Theme.separator : (current ? Theme.select : Theme.listBackground)
-                    Label {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: Theme.listTextMargin
-                        elide: Text.ElideRight
+                    height: rowLook.height
+                    ControlPageRow {
+                        id: rowLook
+                        width: parent.width
+                        current: row.index === pages.currentIndex
+                        separator: row.separator
+                        header: row.header
+                        // Tk's section rows: "> Mixer"
                         text: row.separator || row.header ? "> " + row.title : row.title
-                        color: row.sectionLook ? Theme.separatorText : Theme.text
-                        size: Theme.listTextSize
-                        title: true
                     }
                     TapHandler {
                         enabled: !row.separator

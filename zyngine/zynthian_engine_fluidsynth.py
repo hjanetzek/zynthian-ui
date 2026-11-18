@@ -121,10 +121,11 @@ class zynthian_engine_fluidsynth(zynthian_engine):
         if not self.proc:
             return
         try:
-            self.proc.sendline("quit")
-            self.proc.expect("\ncheers!", timeout=PROC_STOP_TIMEOUT)
-            # We have asked nicely but sometimes fluidsynth needs more encouragement...
             self.proc_exit = True
+            with self.proc_io():
+                self.proc.sendline("quit")
+                self.proc.expect("\ncheers!", timeout=PROC_STOP_TIMEOUT)
+            # We have asked nicely but sometimes fluidsynth needs more encouragement...
             end_process(self.proc, self.name, grace=0.5)
             self.proc = None
         except Exception:

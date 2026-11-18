@@ -375,9 +375,11 @@ class zynthian_engine_aeolus(zynthian_engine):
         self.command_prompt = "\nReady"
         self.ready = False
         # self.proc = Popen(self.command, stdout=DEVNULL, stderr=DEVNULL, env=self.command_env)
+        self.proc_exit = False
         self.proc = pexpect.spawn(self.command, timeout=self.proc_timeout, env=self.command_env, cwd=self.command_cwd)
         self.proc.delaybeforesend = 0
         self.wait_for_ready()
+        self.proc_start_drain()
         self.set_tuning()
         self.set_midi_chan()
 
@@ -389,6 +391,7 @@ class zynthian_engine_aeolus(zynthian_engine):
         if self.proc:
             try:
                 logging.info("Stoping Engine " + self.name)
+                self.proc_exit = True  # its output ending isn't unexpected now
                 self.osc_server.send(self.osc_target, '/exit')
                 end_process(self.proc, self.name, grace=1.0)
                 # try:
@@ -433,10 +436,12 @@ class zynthian_engine_aeolus(zynthian_engine):
         self.current_tuning_freq = self.state_manager.fine_tuning_freq
         self.current_temperament = self.temperament
         self.ready = False
-        self.osc_server.send(self.osc_target, "/retune",
-                             ("f", self.current_tuning_freq),
-                             ("i", self.current_temperament))
-        self.wait_for_ready()
+        # Aeolus answers on its output: the output reader mustn't take the "Ready"
+        with self.proc_io():
+            self.osc_server.send(self.osc_target, "/retune",
+                                 ("f", self.current_tuning_freq),
+                                 ("i", self.current_temperament))
+            self.wait_for_ready()
         self.osc_server.send(self.osc_target, "/save")
         return True
 

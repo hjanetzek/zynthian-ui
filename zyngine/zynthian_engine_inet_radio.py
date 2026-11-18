@@ -30,7 +30,7 @@ from os import listdir
 from os.path import basename, exists
 from time import sleep, monotonic
 from threading import Thread, Timer
-from subprocess import Popen, STDOUT, PIPE
+from subprocess import Popen, PIPE, DEVNULL
 import pyudev
 from urllib.parse import urlparse, unquote
 
@@ -609,8 +609,10 @@ class zynthian_engine_inet_radio(zynthian_engine):
                 # care about the process's cwd, but it is more consistent to set
                 # cwd when PWD has been set.
                 self.command_env['DISPLAY'] = ":-1"  # Disable display of GUI to enable CLI
+                # Nothing reads VLC's output (it is driven through its telnet interface): a full
+                # pipe would block it
                 self.proc = Popen(self.command, env=self.command_env, cwd=self.command_cwd, shell=False,
-                                  text=True, bufsize=1, stdout=PIPE, stderr=STDOUT, stdin=PIPE)
+                                  text=True, bufsize=1, stdout=DEVNULL, stderr=DEVNULL, stdin=PIPE)
                 sleep(1)
                 self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.client.settimeout(1)

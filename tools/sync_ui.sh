@@ -13,7 +13,7 @@ Usage: sync_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-r | -R] [-q] 
   -n   dry run: list what would be copied
 
 Copies what desktop/install.sh installs as Python: zyngui, zyngine, zynconf, zynautoconnect, zynqt,
-the zynlibs modules, fonts, icons, img, the main scripts and the launcher (desktop/zynthian_desktop.sh), into /usr/share/zynthian/zynthian-ui
+the zynlibs modules, fonts, icons, img, lv2 (widget bundles), the main scripts, the launcher and its environment (desktop/zynthian_desktop.sh, _env.sh), into /usr/share/zynthian/zynthian-ui
 (over ssh, with sudo; old files of these directories are removed first, so deleted modules go
 too; files other packages install there, as the zyngine/ctrldev drivers of drivenbymoss, are kept).
 Native libraries (zynlibs/*/build, zyncoder) are not copied: changes to them need the
@@ -47,13 +47,13 @@ if [ $qml_only = 1 ]; then
 	echo "copied zynqt/qml to $target:$dst"
 	exit 0
 fi
-dirs="zyngui zyngine zynconf zynautoconnect zynqt fonts icons img"
+dirs="zyngui zyngine zynconf zynautoconnect zynqt fonts icons img lv2"
 files=$(cd "$checkout" && {
 	for d in $dirs; do
 		[ -d "$d" ] && find "$d" -name __pycache__ -prune -o \( -type f -o -type l \) -print
 	done
 	find zynlibs -name '*.py' ! -name 'unit_tests.py' ! -name 'test.py' ! -name 'format_docs.py'
-	for f in zynthian_main.py zynthian_qt_main.py desktop/zynthian_desktop.sh; do [ -f "$f" ] && echo "$f"; done
+	for f in zynthian_main.py zynthian_qt_main.py desktop/zynthian_desktop.sh desktop/zynthian_desktop_env.sh; do [ -f "$f" ] && echo "$f"; done
 })
 if [ $dry = 1 ]; then
 	echo "$files"
@@ -80,6 +80,7 @@ echo "$files" | (cd "$checkout" && tar -cf - -T -) |
 		# The launcher (ZYNTHIAN_QT_QMLPREVIEW): the running one reads its file as it goes, so a new
 		# file moved over it (the old inode stays with the running shell), never overwritten
 		if [ -f \"\$t/desktop/zynthian_desktop.sh\" ]; then sudo cp \"\$t/desktop/zynthian_desktop.sh\" desktop/.zynthian_desktop.sh.new; sudo mv desktop/.zynthian_desktop.sh.new desktop/zynthian_desktop.sh; fi
+		if [ -f \"\$t/desktop/zynthian_desktop_env.sh\" ]; then sudo cp \"\$t/desktop/zynthian_desktop_env.sh\" desktop/; fi
 		sudo chown -R root:root $dst; rm -rf \"\$t\""
 echo "copied $(echo "$files" | wc -l) files to $target:$dst"
 

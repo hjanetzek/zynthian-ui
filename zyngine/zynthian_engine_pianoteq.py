@@ -29,7 +29,6 @@ import re
 import shutil
 import struct
 import logging
-import requests
 from time import sleep
 from xml.etree import ElementTree
 from subprocess import Popen, PIPE, check_output, run
@@ -175,6 +174,19 @@ pt_ctrl_map = {
     "effect_3_param_7": ["Eff[3].Param[7]", "FX3 Param7", "FX3-2", 849, None, None],
     "effect_3_param_8": ["Eff[3].Param[8]", "FX3 Param8", "FX3-2", 849, None, None]
 }
+
+
+# requests is imported when the engine is created, not with zyngine (it takes ~0.7 s to import on a
+# slow device, and most starts never use this engine), and not lazily in rpc(): it also runs on
+# other threads (CUIA, MIDI), where a first import would stall them
+requests = None
+
+
+def _import_requests():
+    global requests
+    if requests is None:
+        import requests as _requests
+        requests = _requests
 
 
 # ------------------------------------------------------------------------------
@@ -554,6 +566,7 @@ class zynthian_engine_pianoteq(zynthian_engine):
 
     def __init__(self, zyngui=None, update_presets_cache=False):
         super().__init__(zyngui)
+        _import_requests()
         self.info = get_pianoteq_binary_info()
         self.name = 'Pianoteq'
         self.nickname = "PT"

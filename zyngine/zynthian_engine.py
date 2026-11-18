@@ -94,7 +94,7 @@ def _proc_close(proc):
             logging.debug(f"Can't close the pty of process {proc.pid} => {e}")
 
 
-def end_process(proc, name, grace=0.0, timeout=PROC_STOP_TIMEOUT):
+def end_process(proc, name, grace=0.0, timeout=PROC_STOP_TIMEOUT, signals=True):
     """End an engine's process and reap it, in bounded time: no zombie is left and a stop never
     waits forever.
 
@@ -103,24 +103,30 @@ def end_process(proc, name, grace=0.0, timeout=PROC_STOP_TIMEOUT):
     grace : seconds to wait for the process to end by itself first (it was asked to quit)
     timeout : seconds to wait after asking it to end with signals (pexpect: SIGHUP, SIGCONT,
         SIGINT as pexpect's terminate(), then SIGTERM; Popen: SIGTERM), before SIGKILL
+    signals : False for a process that signals don't end, or that may be killed: SIGKILL right
+        after the grace (logged as debug, not as a warning)
     Returns True if it ended without SIGKILL. A process that doesn't go away even after SIGKILL
     (e.g. while the kernel writes its core dump) is reaped by a background thread.
     """
     if grace > 0 and _proc_wait(proc, grace):
         _proc_close(proc)
         return True
-    ended = False
-    try:
-        if isinstance(proc, subprocess.Popen):
-            if proc.poll() is None:
-                proc.terminate()
-        elif not proc.terminate(force=False) and not _proc_ended(proc):
-            proc.kill(signal.SIGTERM)
-        ended = _proc_wait(proc, timeout)
-    except Exception as e:
-        logging.warning(f"Can't end engine {name} (pid {proc.pid}) => {e}")
+    ended = _proc_ended(proc)
+    if signals and not ended:
+        try:
+            if isinstance(proc, subprocess.Popen):
+                if proc.poll() is None:
+                    proc.terminate()
+            elif not proc.terminate(force=False) and not _proc_ended(proc):
+                proc.kill(signal.SIGTERM)
+            ended = _proc_wait(proc, timeout)
+        except Exception as e:
+            logging.warning(f"Can't end engine {name} (pid {proc.pid}) => {e}")
     if not ended:
-        logging.warning(f"Engine {name} (pid {proc.pid}) didn't end in {grace + timeout:.1f} s. Killing it!")
+        if signals:
+            logging.warning(f"Engine {name} (pid {proc.pid}) didn't end in {grace + timeout:.1f} s. Killing it!")
+        else:
+            logging.debug(f"Engine {name} (pid {proc.pid}) still running after {grace:.2f} s: killing it")
         try:
             if isinstance(proc, subprocess.Popen):
                 proc.kill()

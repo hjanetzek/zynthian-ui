@@ -610,6 +610,7 @@ class zynthian_engine_pianoteq(zynthian_engine):
     def stop(self):
         if not self.proc:
             return
+        self.proc_exit = True  # its output ending isn't unexpected now
         self.rpc('quit')
         end_process(self.proc, self.name, grace=2.0)
         self.proc = None

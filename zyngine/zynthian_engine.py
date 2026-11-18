@@ -40,6 +40,7 @@ from time import sleep, monotonic
 import zynconf
 import zynautoconnect
 import zyngine.zynthian_controller as zynthian_controller
+from zyngine.zynthian_pty_drain import pty_drain, pty_owner, stop_pty_drain
 
 # --------------------------------------------------------------------------------
 # Ending engine processes
@@ -108,6 +109,9 @@ def end_process(proc, name, grace=0.0, timeout=PROC_STOP_TIMEOUT, signals=True):
     Returns True if it ended without SIGKILL. A process that doesn't go away even after SIGKILL
     (e.g. while the kernel writes its core dump) is reaped by a background thread.
     """
+    # Its output reader ends first: from here on the pty is read while waiting (_proc_wait) and
+    # closed at the end
+    stop_pty_drain(proc)
     if grace > 0 and _proc_wait(proc, grace):
         _proc_close(proc)
         return True
@@ -215,6 +219,7 @@ class zynthian_basic_engine:
                                           env=self.command_env, cwd=self.command_cwd)
                 self.proc.delaybeforesend = 0
                 output = self.proc_get_output()
+                self.proc_start_drain()
 
                 if self.proc_start_sleep:
                     sleep(self.proc_start_sleep)
@@ -224,6 +229,8 @@ class zynthian_basic_engine:
             except Exception as err:
                 logging.error(
                     "Can't start engine {} => {}".format(self.name, err))
+                # Started but no prompt (timeout): its output must still be read
+                self.proc_start_drain()
 
     def stop(self):
         if self.proc:
@@ -234,6 +241,17 @@ class zynthian_basic_engine:
             except Exception as err:
                 logging.error("Can't stop engine {} => {}".format(self.name, err))
             self.proc = None
+
+    def proc_start_drain(self):
+        """Read the process's output from now on whenever no command waits for its response: a
+        process blocked writing to its full pty can block the JACK server (see zynthian_pty_drain)"""
+        if self.proc and not getattr(self.proc, "zyn_drain", None):
+            pty_drain(self.proc, self.name, ending=lambda: self.proc_exit)
+
+    def proc_io(self):
+        """Context for sending a command and reading its response from the pty: the output
+        reader doesn't take the response meanwhile"""
+        return pty_owner(self.proc)
 
     def proc_get_output(self):
         if self.command_prompt:
@@ -247,8 +265,9 @@ class zynthian_basic_engine:
         if self.proc:
             try:
                 # logging.debug("proc command: "+cmd)
-                self.proc.sendline(cmd)
-                out = self.proc_get_output()
+                with self.proc_io():
+                    self.proc.sendline(cmd)
+                    out = self.proc_get_output()
                 # logging.debug("proc output:\n{}".format(out))
             except Exception as err:
                 out = ""

@@ -147,6 +147,66 @@ Tk's total ends when the X server has drawn the screen; Qt's when the frame is p
 include building the screen; Tk's doesn't include the compositor's frame, which adds up to one
 refresh interval (16.7 ms at 60 Hz).
 
+## Start-up, Qt UI
+
+With `ZYNTHIAN_QT_TIMING=1` zynthian also logs its start, in seconds from the process start
+(`/proc/self/stat`):
+
+```
+QML TIMING QML load starts at process +1.37 s      <- imports, state manager, models done
+QML TIMING engine.load 58 ms (done at process +1.43 s)
+QML TIMING first frame at process +1.48 s          <- QQuickWindow.frameSwapped
+```
+
+`engine.load` compiles the QML (or maps it from the disk cache) and creates the items the first
+frame needs; the rest of the UI (Deferred.qml: the other screens, widget views, keypad, launcher
+pads) is created after the first frame, in the event loop's idle time.
+
+To compare starts, restart the UI (`RESTART_UI`, e.g. `tools/sync_ui.sh -R` or the OSC
+message it sends) a few times and take the median:
+
+- **warm**: the usual start, the QML from the disk cache. Qt keeps it in
+  `$XDG_CACHE_HOME/zynthian/zynthian/qmlcache` (`~/.cache/...` without `XDG_CACHE_HOME`; the
+  application and organisation name are "zynthian"), one `.qmlc` per QML file, named by the SHA-1
+  of its path. Qt 6.12 validates them by the source's content checksum, not its time stamp: a
+  `sync_ui.sh` or a package upgrade only recompiles the files whose content changed.
+- **no cache**: `export QML_DISABLE_DISK_CACHE=1` in `zynthian_envars.sh` (and `unset
+  QML_DISABLE_DISK_CACHE` to go back: the launcher keeps what it exported, see the hot reload
+  section of qt-theme-development.md). Each start compiles everything, nothing is written.
+- **cold**: the cache directory removed (and the page cache dropped: `sync; echo 3 | sudo tee
+  /proc/sys/vm/drop_caches`): the first start after an install; it compiles and writes the cache.
+- Whether the cache is used: `export QT_LOGGING_RULES="qt.qml.diskcache.debug=true"` logs each
+  file that is missing from or rejected by the cache ("No pre-compiled unit found" is the lookup
+  of compiled-in units and appears always; "Error loading ... from disk cache" means a miss). The
+  directory must exist and be writable by zynthian's user (`HOME` set; services without a login
+  session).
+- A slow device in the VM: `taskset -a -p 1 <launcher pid>` before `RESTART_UI` pins the next
+  zynthian to one CPU (the launcher's children inherit it). On the fast host this changed
+  nothing (the load is single-threaded); the ARM boards are what count.
+- Where the time goes inside `engine.load`: the QML profiler. Install `qt6-qtdeclarative-dev`
+  (`/usr/lib/qt6/bin/qmlprofiler`), start zynthian with QML debugging and the profiler service
+  (`QQmlDebuggingEnabler.enableDebugging(True)` before the `QGuiApplication`, and
+  `-qmljsdebugger=port:3768,block,services:CanvasFrameRate,EngineControl,DebugMessages` in
+  `sys.argv`; `CanvasFrameRate` is the profiler's service name), then
+  `qmlprofiler --interactive --attach 127.0.0.1 -p 3768 -o trace.qtd`, and after the start type
+  `r` (stop recording), `o` (write the file), `q`, `y`. The trace is XML: ranges per event type
+  (Compiling, Creating, Binding, Javascript) and file. Debugging slows QML down; use it for
+  shares, not for absolute times.
+- Don't compile Main.qml with a `QQmlComponent` before `engine.load()` to time the two apart:
+  `QQmlApplicationEngine` creates its file selector in `load()`, so that component ignores the
+  theme's selectors (the UI came up in tk).
+
+Measured in the QEMU VM (x86_64 host, 480x320, `001-Parity Test`, median of 3-4 starts), before
+and after the deferred loading (zynthian-stuff `results/2026-11-18-s3neo-zynthian-startup.md`,
+"QML load"):
+
+| theme, start | engine.load | load start to first frame |
+|---|---|---|
+| tk warm | 152 -> 59 ms | 255 -> 115 ms |
+| tk no cache | 213 -> 107 ms | 320 -> 170 ms |
+| tk cold | 289 -> 194 ms | 400 -> 255 ms |
+| v4 warm | 165 -> 68 ms | 275 -> 130 ms |
+
 ## On the desktop
 
 `desktop/preview_qt.sh` runs the Qt UI with zynthian's real backend in a headless labwc at the

@@ -156,7 +156,7 @@ class FilterView(QObject):
 
 
 class PluginView(QObject):
-    """Plugin widgets (zynthian_widget_spectr30, tunaone, GxGraphicEQ, nam, aidax,
+    """Plugin widgets (zynthian_widget_spectr30, tunaone, gxgraphiceq, nam, aidax,
     chord_analyzer): what they show from the engine's monitors and controllers, as a dict for
     QML, by kind:
 
@@ -197,7 +197,7 @@ class PluginView(QObject):
             case "spectr30":
                 data.update(kind="bars", labels=wd.SPECTRUM_LABELS,
                             bars=[[0.0, bar, tick] for bar, tick in wd.spectrum_levels(proc, monitors)])
-            case "GxGraphicEQ":
+            case "gxgraphiceq":
                 bands = wd.gx_eq_bands(proc)
                 if bands:
                     data.update(kind="bars", labels=bands[1], zero=wd.GX_ZERO, editable=True,
@@ -257,7 +257,7 @@ class PluginView(QObject):
     @Slot(int, float)
     def dragBand(self, band, height_fraction):
         """Graphic EQ: set band's gain from a touch (0 bottom .. 1 top)"""
-        if self.name == "GxGraphicEQ" and self.processor:
+        if self.name == "gxgraphiceq" and self.processor:
             wd.gx_eq_drag(self.processor, band, max(0.0, min(1.0, height_fraction)))
             self.refresh()
 

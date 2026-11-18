@@ -195,3 +195,19 @@ def test_logging_is_rate_limited(tmp_path, caplog):
     # a few one-second windows of LOG_LINES_PER_S lines and a summary each
     assert 0 < len(logged) < 10 * (pty_drain.LOG_LINES_PER_S + 1)
     assert any("more lines not logged" in r.getMessage() for r in logged)
+
+
+def test_alsa_in_out_processes_are_drained_and_closed(tmp_path):
+    # zynautoconnect's alsa_in/alsa_out: pexpect processes (text mode) nobody else reads
+    from zynautoconnect import zynthian_autoconnect as zac
+    done = tmp_path / "done"
+    script = tmp_path / "alsa_in.py"
+    script.write_text(flood_script(done))
+    proc = pexpect.spawn(f"{PY} -u {script}", encoding="utf-8", timeout=0.1)
+    zac._drain_output(proc, "alsa_in test")
+    drain = proc.zyn_drain
+    assert wait_for(done.exists), "alsa_in blocked writing to its pty"
+    zac._end_alsa_proc(proc)
+    assert not drain.is_alive()
+    assert proc.closed
+    assert not proc.isalive()

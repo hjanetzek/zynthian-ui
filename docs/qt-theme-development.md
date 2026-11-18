@@ -171,5 +171,9 @@ what tk's gestures do. Check a new override against tk: same handlers, same `zyn
   `python -m compileall -q zynqt zyngui zyngine zynthian_qt_main.py`.
 - Translucent fills (`Qt.rgba(..., a)`) on a shape show what is under it: tk's controller widgets
   use that to let the grid show through the curve, as Tk draws its grid over the curve.
+- Hidden parts (screens, widget views, the keypad, the launcher pads) are created in a `Deferred`
+  (when shown, or after the first frame): an item inside one may not exist yet, so don't reach it
+  by id from outside, and a new hidden part goes into a `Deferred` too ([qt-theming.md](qt-theming.md),
+  "Performance").
 - Fixed pixel sizes in a component make it unthemable: use or add tokens in `ThemeBase.qml`
   (sizes derive from Tk's font size F there, as `zynthian_gui_config` does).

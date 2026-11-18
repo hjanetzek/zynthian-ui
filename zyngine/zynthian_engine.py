@@ -117,8 +117,13 @@ def end_process(proc, name, grace=0.0, timeout=PROC_STOP_TIMEOUT, signals=True):
             if isinstance(proc, subprocess.Popen):
                 if proc.poll() is None:
                     proc.terminate()
-            elif not proc.terminate(force=False) and not _proc_ended(proc):
-                proc.kill(signal.SIGTERM)
+            else:
+                # pexpect's terminate() sends SIGHUP, SIGCONT, SIGINT and checks after each, waiting
+                # delayafterterminate (0.1 s) first: 0.3 s for a process that ignores SIGHUP (Pure
+                # Data) even when SIGINT ends it at once
+                proc.delayafterterminate = 0.02
+                if not proc.terminate(force=False) and not _proc_ended(proc):
+                    proc.kill(signal.SIGTERM)
             ended = _proc_wait(proc, timeout)
         except Exception as e:
             logging.warning(f"Can't end engine {name} (pid {proc.pid}) => {e}")

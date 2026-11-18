@@ -22,7 +22,7 @@ class MidiRecorder(SelectorScreen):
 
     def fill(self):
         sm = self.state_manager
-        self.set_title("MIDI Recorder")
+        self.set_title("MIDI Player")   # as zynthian_gui_midi_recorder (upstream 14c9ddad)
         if sm.status_midi_recorder:
             rec = entry("■ Stop MIDI Recording", lambda e: sm.stop_midi_record(),
                         info="Stop MIDI recording.", icon="midi_recorder.png")

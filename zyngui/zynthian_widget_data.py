@@ -274,7 +274,7 @@ def filter_drag(cutoff, resonance, click_cutoff, click_res, dx_rel, dy_rel):
 
 # Plugin widgets (engine.custom_gui_fpath: zynthian_widget_<name>.py)
 
-PLUGIN_WIDGETS = ("spectr30", "tunaone", "GxGraphicEQ", "nam", "aidax", "chord_analyzer", "tempo", "inet_radio",
+PLUGIN_WIDGETS = ("spectr30", "tunaone", "gxgraphiceq", "nam", "aidax", "chord_analyzer", "tempo", "inet_radio",
                   "euclidseq", "organelle", "sooperlooper")
 
 
@@ -320,7 +320,7 @@ def spectrum_levels(processor, monitors):
     return levels
 
 
-# Guitarix graphic EQs (zynthian_widget_GxGraphicEQ): gains -30..+22 dB over the height
+# Guitarix graphic EQs (zynthian_widget_gxgraphiceq): gains -30..+22 dB over the height
 
 GX_EQ_BANDS = {
     "http://guitarix.sourceforge.net/plugins/gx_graphiceq_#_graphiceq_": (

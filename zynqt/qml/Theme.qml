@@ -44,6 +44,11 @@ ThemeBase {
     widgetGrid: "#008400"
     widgetFill: Qt.rgba(0.30, 0.52, 0.85, 0.45)
     frameActive: "#ffff00"   // grid selection: a yellow outline
+    // Chain control: Tk's controller column (a quarter of the width, 1 px between the
+    // controllers), the side chain on color_panel_bg
+    controllerColumn: 0.25
+    controllerGap: 1
+    sideChainBackground: panel
 
     // Shapes and type: square plates, Audiowide
     radius: 0

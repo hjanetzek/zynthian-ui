@@ -1,7 +1,6 @@
-// One controller slot (ControllerProxy): name, value, a value arc, its MIDI binding. Drag up/down
-// to change it like an encoder (zctrl.nudge, so integer, logarithmic and enumerated values step
-// as with the knobs), tap to switch a toggle, long press for its options (MIDI learn, ...). While
-// MIDI learning, touching it learns it.
+// One controller slot (ControllerProxy): name, value, a value arc, its MIDI binding. The content
+// is tk's (the name with spaces, Tk's value text, no arc on path controllers, read-only and select
+// mode dimmed), the touch shared (ControllerTouch): only the look is classic's.
 import QtQuick
 import QtQuick.Shapes
 import ".."
@@ -10,7 +9,9 @@ Panel {
     id: root
 
     property var ctrl: null
+    property bool dimmed: false     // Tk's enable(False): select mode
     readonly property bool active: ctrl !== null && ctrl.active
+    readonly property bool greyed: dimmed || (active && ctrl.readonly)
 
     color: Theme.panel
     cut: Theme.cutLarge
@@ -49,7 +50,8 @@ Panel {
         anchors.top: parent.top
         anchors.margins: 6
         elide: Text.ElideRight
-        text: root.active ? root.ctrl.name : ""
+        text: root.active ? root.ctrl.name.replace(/_/g, " ") : ""
+        opacity: root.greyed ? 0.5 : 1
         color: Theme.text
         size: 18
         title: true
@@ -62,7 +64,8 @@ Panel {
         anchors.margins: 6
         width: Math.min(parent.height - nameText.height - 16, parent.width * 0.5)
         height: width
-        visible: root.active
+        visible: root.active && !root.ctrl.isPath
+        opacity: root.greyed ? 0.5 : 1
 
         readonly property real f: root.active ? root.ctrl.fraction : 0
 
@@ -96,46 +99,19 @@ Panel {
 
     Label {
         anchors.left: parent.left
-        anchors.right: dial.left
+        anchors.right: dial.visible ? dial.left : parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 6
         horizontalAlignment: Text.AlignLeft
         elide: Text.ElideRight
-        text: root.active ? root.ctrl.valueText : ""
+        text: root.active ? root.ctrl.tkValueText : ""
+        opacity: root.greyed ? 0.5 : 1
         color: Theme.text
         body: true   // values keep their units' case (dB, Hz)
         size: 26
         title: true
     }
 
-    DragHandler {
-        id: drag
-        target: null
-        enabled: root.active
-        xAxis.enabled: Theme.uiSideways
-        property real lastY: 0
-        onActiveChanged: { lastY = 0; if (active) root.ctrl.touched() }
-        onTranslationChanged: {
-            // One step per 8 logical pixels
-            const steps = Math.trunc((lastY - Theme.localDrag(parent, centroid).y) / 8)
-            if (steps !== 0) {
-                root.ctrl.nudge(steps)
-                lastY -= steps * 8
-            }
-        }
-    }
-    TapHandler {
-        enabled: root.active
-        onTapped: {
-            if (root.ctrl.bindKind.indexOf("learn") === 0 || zyn.chainControl.learnText !== "")
-                root.ctrl.touched()
-            else if (root.ctrl.isToggle)
-                root.ctrl.toggle()
-        }
-        onLongPressed: root.ctrl.options()
-    }
-    WheelHandler {
-        enabled: root.active
-        onWheel: event => root.ctrl.nudge(event.angleDelta.y > 0 ? 1 : -1)
-    }
+    // Touch as every theme's controller (shared)
+    ControllerTouch { ctrl: root.ctrl }
 }

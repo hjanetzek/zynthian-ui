@@ -1,4 +1,5 @@
-// tk: zynthian_gui_selector's zselector under the info pane, on the screens where Tk shows it
+// zynthian_gui_selector's zselector under the info pane (all themes; tk's look, the plate the
+// theme's), on the screens where Tk shows it
 // (zsel_hidden=False: bank, preset, MIDI recorder): a zynthian_gui_controller with selcounter
 // (the caption at the top left, the 1-based position among the selectable entries where the arc
 // would be, "/count" under it), H/6 high with tiny_ctrls, else 0.19 H (measured).
@@ -13,11 +14,12 @@ Item {
     visible: shown
     implicitHeight: shown ? (screen.selectorTiny ? Math.floor(screenHeight / 6) : Math.floor(0.19 * screenHeight)) : 0
 
-    Rectangle {
+    Panel {
         id: slot
         anchors.fill: parent
         anchors.topMargin: 2
         color: Theme.panel
+        cut: Theme.cutLarge
 
         // on_size_arc with selcounter: the value above the middle
         readonly property int radius_: {

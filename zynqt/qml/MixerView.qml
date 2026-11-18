@@ -1,5 +1,14 @@
-// Mixer: one strip per chain (mixerStrips), the main mixbus on the right (mainStrip). Faders by
-// drag (several at once with multitouch), mute and the toggle control (admin) by tap. Meters run while it is shown.
+// Mixer (classic's look; galactica, enterprise): one strip per chain (mixerStrips), the main
+// mixbus on the right (mainStrip). Content and touch as tk's mixer (MixerScreen.qml, Tk's
+// zynthian_gui_mixer); keep the two in step:
+// - a strip's header shows Tk's legend (the chain's kind and MIDI channel; arrows while the chain
+//   is moved), its description (engine and preset), the clip progress, the MIDI activity and the
+//   chain that gets the MIDI input; MIDI chains (no mixer) have no fader, balance or buttons;
+// - header: tap chain control, long press (400 ms) the chain manager at the chain's options,
+//   wheel the arrows; fader: a tap or drag selects the chain (several at once with multitouch),
+//   wheel nudges the level; balance: wheel; mute and the toggle control (admin) by tap;
+// - the strips scroll to the active chain.
+// Classic extras: balance drag and double tap, the move buttons. Meters run while it is shown.
 import QtQuick
 
 Item {
@@ -52,9 +61,21 @@ Item {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         model: mixerStrips
+        // Keep the active chain in view (as tk's mixer)
+        function showActive() {
+            for (let i = 0; i < count; i++) {
+                const it = itemAtIndex(i)
+                if (it && it.active) { positionViewAtIndex(i, ListView.Contain); return }
+            }
+        }
+        Connections {
+            target: mixerStrips
+            function onDataChanged() { strips.showActive() }
+        }
 
         delegate: Strip {
             lv: root.stripLevels
+            meters: mixerMeters
             stripModel: mixerStrips
             width: root.stripWidth
             height: strips.height
@@ -73,6 +94,7 @@ Item {
 
         delegate: Strip {
             lv: root.mainLevels
+            meters: mainMeters
             stripModel: mainStrip
             isMain: true
             width: root.stripWidth
@@ -129,9 +151,23 @@ Item {
         required property string toggleLabel
         required property int meterIndex
         required property bool active
+        required property string description
+        required property string legend
+        required property bool hasMixer
+        required property bool activeMidi
         property var lv: []   // levels of all strips (MixerMeters.levels)
+        property var meters: null
         property var stripModel
         property bool isMain: false
+        // Tk refresh_status: the clip progress (0..100) and the ZMOP's MIDI activity
+        readonly property real clipProgress: meters && meters.progress ? (meters.progress[meterIndex] || 0) : 0
+        readonly property bool midiActive: meters && meters.midiActivity ? !!meters.midiActivity[meterIndex] : false
+        function nudge(symbol, steps) {
+            if (symbol === "level")
+                stripModel.setLevel(index, Math.max(0, Math.min(1, level + steps * 0.01)))
+            else
+                stripModel.setBalance(index, Math.max(-1, Math.min(1, balance + steps * 0.02)))
+        }
 
         color: Theme.panel
         cut: Theme.cutLarge
@@ -147,10 +183,38 @@ Item {
             anchors.margins: 2
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
-            text: strip.isMain ? "Main" : (strip.midiChan >= 0 ? strip.midiChan + 1 : "")
+            // Tk's legend: the chain's kind (forkawesome) and MIDI channel; arrows while moved
+            textFormat: Text.RichText
+            text: {
+                if (zyn.movingChain && strip.active && strip.chainId !== 0)
+                    return "⇦⇨"
+                let out = ""
+                for (const ch of strip.legend) {
+                    const c = ch.codePointAt(0)
+                    out += c >= 0xf000 ? "<span style=\"font-family:'forkawesome'\">" + ch + "</span>" : ch
+                }
+                return out
+            }
             color: Theme.text
             size: 16
             title: true
+        }
+        // Clip progress (Tk: the clip's, the main strip's the phrase's, position): a bar on top
+        Rectangle {
+            visible: width > 0
+            x: 2; y: 1
+            width: Math.floor(strip.clipProgress * (strip.width - 4) / 100)
+            height: 3
+            color: Theme.text
+        }
+        // MIDI activity (Tk's midi_indicator)
+        Rectangle {
+            visible: strip.midiActive
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 4
+            width: 6; height: 6; radius: 3
+            color: Theme.midiActivity
         }
 
         Label {
@@ -161,26 +225,46 @@ Item {
             anchors.margins: 2
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
-            text: strip.name
+            // Engine and preset (Tk's vertical strip label)
+            text: strip.description
+            maximumLineCount: 2
+            wrapMode: Text.NoWrap
+            lineHeight: 0.95
             color: Theme.textOff
-            size: 12
+            size: 11
+        }
+        // The chain that gets the MIDI input (Tk: the legend's bottom line in the highlight colour)
+        Rectangle {
+            visible: strip.activeMidi
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: nameText.bottom
+            anchors.margins: 2
+            height: 2
+            color: Theme.select
         }
 
-        // Strip header (number and name): tap opens the chain's controllers, long press its options
+        // Strip header (legend and description): tap chain control, long press (Tk: > 400 ms) the
+        // chain manager at the chain's options, wheel the arrows (as tk's legend)
         Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.bottom: nameText.bottom
             TapHandler {
+                longPressThreshold: 0.4
                 onTapped: zyn.openChain(strip.chainId)
-                onLongPressed: zyn.openChainOptions(strip.chainId)
+                onLongPressed: zyn.openChainManagerOptions(strip.chainId)
+            }
+            WheelHandler {
+                onWheel: (ev) => zyn.cuia(ev.angleDelta.y > 0 ? "arrow_right" : "arrow_left", [])
             }
         }
 
         // Balance: a bar from the centre
         Item {
             id: balanceBar
+            visible: strip.hasMixer
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: nameText.bottom
@@ -202,12 +286,13 @@ Item {
                                           startBalance + 2 * Theme.localDrag(parent, centroid).x / balanceBar.width)
             }
             TapHandler { onDoubleTapped: strip.stripModel.setBalance(strip.index, 0) }
+            WheelHandler { onWheel: (ev) => strip.nudge("balance", ev.angleDelta.y > 0 ? 1 : -1) }
         }
 
         // Launcher mode: the level as a horizontal bar (drag sideways)
         Item {
             id: levelBar
-            visible: root.launcherMode
+            visible: root.launcherMode && strip.hasMixer
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: balanceBar.bottom
@@ -286,6 +371,7 @@ Item {
             anchors.right: parent.right
 
             Rectangle {
+                visible: strip.hasMixer
                 anchors.bottom: parent.bottom
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width - 8
@@ -294,6 +380,7 @@ Item {
             }
 
             Row {
+                visible: strip.hasMixer
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
@@ -311,6 +398,7 @@ Item {
             }
 
             Rectangle {   // fader handle
+                visible: strip.hasMixer
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width - 4
                 height: 6
@@ -322,15 +410,19 @@ Item {
                 target: null
                 xAxis.enabled: Theme.uiSideways
                 property real startLevel
-                onActiveChanged: if (active) startLevel = strip.level
-                onTranslationChanged: strip.stripModel.setLevel(strip.index,
-                                          startLevel - Theme.localDrag(parent, centroid).y / fader.height)
+                // A press on the fader selects the chain, then drags its level (as tk)
+                onActiveChanged: if (active) { zyn.selectChain(strip.chainId); startLevel = strip.level }
+                onTranslationChanged: if (active && strip.hasMixer) strip.stripModel.setLevel(strip.index,
+                                          Math.max(0, Math.min(1, startLevel - Theme.localDrag(parent, centroid).y / fader.height)))
             }
+            TapHandler { onTapped: zyn.selectChain(strip.chainId) }
+            WheelHandler { onWheel: (ev) => strip.nudge("level", ev.angleDelta.y > 0 ? 1 : -1) }
         }
 
         Column {
             id: buttons
 
+            visible: strip.hasMixer
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 4
             anchors.horizontalCenter: parent.horizontalCenter

@@ -30,6 +30,8 @@ Rectangle {
         function onPadsChanged() { pad.changed() }
     }
 
+    // Chains without a sequencer: no pads (as tk)
+    visible: info.hasSequence !== false || isMain
     color: info.color || Theme.panelHighlight
     border.color: selected ? Theme.marker : Theme.panel
     border.width: selected ? 2 : 1
@@ -68,6 +70,7 @@ Rectangle {
     }
     Text {
         anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 3
+        visible: pad.isMain   // the phrases' tempo (as tk)
         text: pad.info.tempo_text || ""; color: pad.info.text_color || Theme.text; font.pixelSize: 11
     }
     Text {

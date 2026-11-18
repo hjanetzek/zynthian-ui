@@ -102,32 +102,6 @@ Rectangle {
         }
     }
 
-    DragHandler {
-        target: null
-        enabled: root.active
-        xAxis.enabled: false
-        property real lastY: 0
-        onActiveChanged: { lastY = 0; if (active) root.ctrl.touched() }
-        onTranslationChanged: {
-            const steps = Math.trunc((lastY - translation.y) / 8)
-            if (steps !== 0) {
-                root.ctrl.nudge(steps)
-                lastY -= steps * 8
-            }
-        }
-    }
-    TapHandler {
-        enabled: root.active
-        onTapped: {
-            if (root.ctrl.bindKind.indexOf("learn") === 0 || zyn.chainControl.learnText !== "")
-                root.ctrl.touched()
-            else if (root.ctrl.isToggle)
-                root.ctrl.toggle()
-        }
-        onLongPressed: root.ctrl.options()
-    }
-    WheelHandler {
-        enabled: root.active
-        onWheel: event => root.ctrl.nudge(event.angleDelta.y > 0 ? 1 : -1)
-    }
+    // Touch as every theme's controller (shared)
+    ControllerTouch { ctrl: root.ctrl }
 }

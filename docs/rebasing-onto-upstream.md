@@ -7,7 +7,7 @@ notes of each rebase go into their own file (`docs/rebase-onto-tomita-<date>.md`
 ## Procedure
 
 1. `git fetch origin`; note the old base (`git merge-base main origin/tomita`) and the new one
-   (`origin/tomita`). Work on a new branch in its own worktree, never on `main` directly; keep the
+   (`origin/tomita`). Check that every earlier rebase attempt's resolutions are in `main`. Work on a new branch in its own worktree, never on `main` directly; keep the
    pre-rebase state as a backup branch.
 2. `git rebase origin/tomita` (the repository has `rerere.enabled=true` and
    `merge.conflictStyle=zdiff3`). Record every conflict and its resolution in the dated notes.
@@ -25,9 +25,11 @@ the Tk code that such a commit moves, the rebase usually applies cleanly: our co
 from the Tk file, upstream's change goes with it, and the module keeps the old version. Nothing
 conflicts, the upstream change is just gone, in both UIs.
 
-This happened in the rebase of 2026-11-15/17 (`docs/rebase-onto-tomita-2026-11-15.md`, "Upstream
-changes lost in moved code"): upstream's envelope curves (efb40f48) and the routing to all-channel
-MIDI chains (be13d828) were lost that way.
+This happened in the rebase of about 2026-11-07 that main came from (recorded in
+`docs/rebase-onto-tomita-2026-11-15.md`, "Upstream changes lost in moved code"): upstream's envelope
+curves (efb40f48) and the routing to all-channel MIDI chains (be13d828) were lost that way. An
+earlier attempt had ported both, but main was rebased separately. So also: when there are several
+rebase attempts, carry the resolutions over (or build main from the documented one).
 
 The check, after every rebase:
 

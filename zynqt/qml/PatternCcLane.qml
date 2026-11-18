@@ -1,4 +1,4 @@
-// tk: the CC view as zynthian_gui_pated_cc draws it: 128 values (plus 8 rows below) over the
+// The CC view as zynthian_gui_pated_cc draws it (all themes; grid lines in the theme's grid tokens): 128 values (plus 8 rows below) over the
 // height, a grey line every 8 values with its number in the piano roll column (left of the lane),
 // the step lines of the grid, each event a white line from its value to its end value over its
 // duration (a square at the start when interpolating), the cursor red at the step and value row.
@@ -23,7 +23,7 @@ Item {
             required property int index
             readonly property int v: index * 8
             y: lane.rowY(v)
-            Rectangle { width: lane.width; height: 1; color: "#505050" }
+            Rectangle { width: lane.width; height: 1; color: Theme.gridRowLine }
             Text {
                 x: -6 - width
                 y: -0.5 * lane.rh - height / 2
@@ -45,7 +45,7 @@ Item {
             x: index * lane.sw
             width: 1
             height: lane.height
-            color: bar ? "#ffffff" : (beat ? "#a0a0a0" : "#505050")
+            color: bar ? Theme.gridBar : (beat ? Theme.gridBeat : Theme.gridStep)
         }
     }
     // Events

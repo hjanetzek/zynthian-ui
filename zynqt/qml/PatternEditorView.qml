@@ -1,9 +1,13 @@
-// tk: the pattern editor as zynthian_gui_pated_notes draws it. No toolbar; the piano roll on the
-// left (9 % of the width), the grid on black (row lines: the tonic's brighter; step lines: bars
-// white, beats grey, steps dark), notes grey by velocity (selected blue, the moving copy green),
-// the cursor and block in red; below: the velocity bar (yellow) and the play ruler (beat
-// numbers, step ticks, the playhead in red). Cell sizes from 16 x 16 cells plus the zoom (knob
-// 1, pinch). Tap toggles a note, a bold press edits it (the knobs, title bar), drag scrolls.
+// The pattern editor's grid as zynthian_gui_pated_notes draws it, for every theme (shared: layout,
+// content and touch; the colours are tokens, tk's as Tk's): the piano roll on the left (9 % of
+// the width), the grid (row bands gridRow / gridRowDark, tk none; row lines gridRowLine, the
+// tonic's gridRowLineTonic; step lines gridBar / gridBeat / gridStep), notes (noteHue >= 0: that
+// hue, lighter with velocity, framed noteFrame, selected selectionFrame; tk -1: grey by velocity,
+// selected blue, the moving copy green, as Tk), the cursor and the block in the selection colour
+// (the block filled selectionFill); below: the velocity bar (yellow) and the play ruler (beat
+// numbers, step ticks, the playhead). Cell sizes from 16 x 16 cells plus the zoom (knob 1,
+// pinch). Tap toggles a note, a bold press edits it (the knobs, title bar), drag scrolls. The
+// toolbar (themes that have one) is the screen's (PatternEditorScreen).
 import QtQuick
 
 Rectangle {
@@ -112,8 +116,6 @@ Rectangle {
 
     color: Theme.background
 
-    PatternToolbar { id: toolbar; pe: root.pe }
-
     // Piano roll
     Item {
         id: keys
@@ -189,6 +191,17 @@ Rectangle {
             height: grid.contentHeight
             readonly property real rowsTop: height - root.nRows * root.rowHeight
 
+            // Row bands, black keys darker (themes with gridRow; tk none)
+            Repeater {
+                model: Theme.gridRow.a > 0 || Theme.gridRowDark.a > 0 ? root.nRows : 0
+                Rectangle {
+                    required property int index
+                    y: content.rowsTop + root.rowY(index)
+                    width: content.width
+                    height: root.rowHeight
+                    color: root.rows[index].black ? Theme.gridRowDark : Theme.gridRow
+                }
+            }
             // Row lines (GRID_LINE_STRONG on the tonic, else GRID_LINE_WEAK)
             Repeater {
                 model: root.nRows
@@ -197,7 +210,7 @@ Rectangle {
                     y: content.rowsTop + root.rowY(index) + root.rowHeight
                     width: content.width
                     height: 1
-                    color: root.pe && root.rows[index].note % 12 === root.pe.tonic ? "#a0a0a0" : "#505050"
+                    color: root.pe && root.rows[index].note % 12 === root.pe.tonic ? Theme.gridRowLineTonic : Theme.gridRowLine
                 }
             }
             // Step lines: bars white, beats grey, steps dark
@@ -209,9 +222,9 @@ Rectangle {
                     readonly property bool beat: index % spb === 0
                     readonly property bool bar: beat && (index / spb) % Math.max(1, root.pe.beatsPerBar) === 0
                     x: index * root.stepWidth
-                    width: 1
+                    width: bar ? Theme.gridBarWidth : 1
                     height: content.height
-                    color: bar ? "#ffffff" : (beat ? "#a0a0a0" : "#505050")
+                    color: bar ? Theme.gridBar : (beat ? Theme.gridBeat : Theme.gridStep)
                 }
             }
             Item {
@@ -229,10 +242,12 @@ Rectangle {
                         y: root.rowY(modelData.row) + 1
                         width: Math.max(1, Math.floor(root.stepWidth * modelData.duration) - 1)
                         height: root.rowHeight - 1
-                        radius: 0
-                        border.width: 0
+                        readonly property bool tkNotes: Theme.noteHue < 0
+                        radius: tkNotes ? 0 : 2
+                        border.width: tkNotes ? 0 : (modelData.selected ? 2 : 1)
                         readonly property int v: Math.min(255, modelData.velocity + 70)
-                        fill: modelData.selected ? Qt.rgba(v / 510, v / 510, v / 255, 1) : root.grey(modelData.velocity)
+                        fill: !tkNotes ? Qt.hsla(Theme.noteHue, 0.8, 0.25 + 0.45 * modelData.velocity / 127, 1)
+                              : modelData.selected ? Qt.rgba(v / 510, v / 510, v / 255, 1) : root.grey(modelData.velocity)
                     }
                 }
                 Repeater {
@@ -245,10 +260,12 @@ Rectangle {
                         y: root.rowY(modelData.row) + 1
                         width: Math.max(1, Math.floor(root.stepWidth * modelData.duration) - 1)
                         height: root.rowHeight - 1
-                        radius: 0
-                        border.width: 0
+                        readonly property bool tkNotes: Theme.noteHue < 0
+                        radius: tkNotes ? 0 : 2
+                        border.width: tkNotes ? 0 : 1
+                        opacity: (modelData.muted ? 0.35 : 1) * (tkNotes ? 1 : 0.6)
                         readonly property int v: Math.min(255, modelData.velocity + 70)
-                        fill: Qt.rgba(v / 510, v / 255, v / 510, 1)
+                        fill: tkNotes ? Qt.rgba(v / 510, v / 255, v / 510, 1) : Theme.selectionFill
                     }
                 }
                 // Selected block (red frame)
@@ -259,8 +276,8 @@ Rectangle {
                     y: root.rowY(b[3] || 0)
                     width: ((b[2] || 0) - (b[0] || 0) + 1) * root.stepWidth
                     height: ((b[3] || 0) - (b[1] || 0) + 1) * root.rowHeight
-                    color: "transparent"
-                    border.color: Theme.select
+                    color: Theme.selectionFill
+                    border.color: Theme.selectionFrame
                     border.width: root.selectThickness
                 }
                 // Cursor: the note's extent (or one cell), red; hidden in the block mode

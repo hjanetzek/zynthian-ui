@@ -44,6 +44,20 @@ ThemeBase {
     widgetGrid: "#008400"
     widgetFill: Qt.rgba(0.30, 0.52, 0.85, 0.45)
     frameActive: "#ffff00"   // grid selection: a yellow outline
+    // Pattern editor (zynthian_gui_pated_notes): no row bands, row lines GRID_LINE_WEAK, the tonic's
+    // GRID_LINE_STRONG; step lines: bars white, beats grey, steps dark; notes grey by velocity
+    // (noteHue -1), the block a red frame
+    gridRow: "transparent"
+    gridRowDark: "transparent"
+    gridRowLine: "#505050"
+    gridRowLineTonic: "#a0a0a0"
+    gridBar: "#ffffff"
+    gridBeat: "#a0a0a0"
+    gridStep: "#505050"
+    gridBarWidth: 1
+    noteHue: -1
+    selectionFill: "transparent"
+    selectionFrame: select
     // Chain control: Tk's controller column (a quarter of the width, 1 px between the
     // controllers), the side chain on color_panel_bg
     controllerColumn: 0.25

@@ -7,8 +7,9 @@
 # the Tk UI (tkinter, PIL, zyncore, ...) to get it. zynthian_gui.get_cuia_list() returns it.
 #
 # Maintained by hand: a new cuia_<name> method in zynthian_gui needs its name here (in the
-# order of dir(), i.e. sorted by the lower case method name). tests/architecture/test_cuia_list.py
-# checks the list against zynthian_gui's cuia_* methods (and the Qt UI's, where it exists).
+# order of dir(), i.e. sorted by the lower case method name), and its "Category:" in CUIA_CATEGORIES.
+# tests/architecture/test_cuia_list.py checks both against zynthian_gui's cuia_* methods and their
+# docstrings (and the names against the Qt UI's, where it exists).
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -148,7 +149,140 @@ CUIA_LIST = (
     "ZYNSWITCH",
 )
 
+# The category of each documented CUIA (the "Category:" line of its docstring in zynthian_gui;
+# an alias has the category of its target). Undocumented CUIAs (NOP, COPY, PASTE, ...) have none.
+CUIA_CATEGORIES = {
+    "ACTION_MIDI_UNLEARN": "midi",
+    "ADD_CHAIN": "screens",
+    "ALL_NOTES_OFF": "midi",
+    "ALL_SOUNDS_OFF": "midi",
+    "API": "system",
+    "ARROW_DOWN": "navigation",
+    "ARROW_LEFT": "navigation",
+    "ARROW_NEXT": "navigation",
+    "ARROW_PREV": "navigation",
+    "ARROW_RIGHT": "navigation",
+    "ARROW_UP": "navigation",
+    "AUDIO_FILE_LIST": "screens",
+    "BACK": "navigation",
+    "BANK_PRESET": "screens",
+    "BOLD_SELECT_ACTION": "navigation",
+    "CHAIN_CONTROL": "screens",
+    "CHAIN_OPTIONS": "screens",
+    "CLEAN_ALL": "system",
+    "DISABLE_MIDI_LEARN": "midi",
+    "DISABLE_MIDI_LEARN_CC": "midi",
+    "DISABLE_MIDI_LEARN_PC": "midi",
+    "ENABLE_MIDI_LEARN": "midi",
+    "ENABLE_MIDI_LEARN_PC": "midi",
+    "EXIT_UI": "system",
+    "HELP": "screens",
+    "HIDE_CURSOR": "display",
+    "HIDE_SIDEBAR": "display",
+    "HIDE_TOPBAR": "display",
+    "LAST_STATE_ACTION": "system",
+    "LAYER_OPTIONS": "screens",
+    "MAIN_MENU": "screens",
+    "MENU": "navigation",
+    "MIDI_LEARN_CONTROL": "midi",
+    "MIDI_LEARN_CONTROL_OPTIONS": "midi",
+    "MIDI_UNLEARN_CHAIN": "midi",
+    "MIDI_UNLEARN_CONTROL": "midi",
+    "MIDI_UNLEARN_MIXER": "midi",
+    "MIXER": "mixer",
+    "POWER": "system",
+    "POWER_SAVE": "system",
+    "PRESET": "screens",
+    "PRESET_FAV": "screens",
+    "PROGRAM_CHANGE": "midi",
+    "REBOOT": "system",
+    "REFRESH_SCREEN": "display",
+    "RELOAD_KEY_BINDING": "system",
+    "RELOAD_MIDI_CONFIG": "system",
+    "RELOAD_WIRING_LAYOUT": "system",
+    "RESTART_UI": "system",
+    "SCREEN_ADMIN": "screens",
+    "SCREEN_ALSA_MIXER": "screens",
+    "SCREEN_AUDIO_MIXER": "screens",
+    "SCREEN_AUDIO_PLAYER": "screens",
+    "SCREEN_CALIBRATE": "display",
+    "SCREEN_CHAIN_MANAGER": "screens",
+    "SCREEN_CLEAN": "display",
+    "SCREEN_CONTROL": "screens",
+    "SCREEN_LAUNCHER": "screens",
+    "SCREEN_MIDI_RECORDER": "screens",
+    "SCREEN_MIXER": "screens",
+    "SCREEN_PATTERN_EDITOR": "screens",
+    "SCREEN_SNAPSHOT": "screens",
+    "SCREEN_ZS3": "screens",
+    "SCREEN_ZYNPAD": "screens",
+    "SELECT": "navigation",
+    "SELECT_ACTION": "navigation",
+    "SET_TEMPO": "tempo",
+    "SHOW_CURSOR": "display",
+    "SHOW_NAVIGATION_GRID": "display",
+    "SHOW_SCREEN": "screens",
+    "SHOW_SIDEBAR": "display",
+    "SHOW_TOPBAR": "display",
+    "START_AUDIO_PLAY": "transport",
+    "START_AUDIO_RECORD": "transport",
+    "START_MIDI_PLAY": "transport",
+    "START_MIDI_RECORD": "transport",
+    "STOP": "transport",
+    "STOP_AUDIO_PLAY": "transport",
+    "STOP_AUDIO_RECORD": "transport",
+    "STOP_MIDI_PLAY": "transport",
+    "STOP_MIDI_RECORD": "transport",
+    "TAP_TEMPO": "tempo",
+    "TEMPO": "screens",
+    "TEMPO_DOWN": "tempo",
+    "TEMPO_UP": "tempo",
+    "TOGGLE_AUDIO_PLAY": "transport",
+    "TOGGLE_AUDIO_RECORD": "transport",
+    "TOGGLE_MIDI_LEARN": "midi",
+    "TOGGLE_MIDI_PLAY": "transport",
+    "TOGGLE_MIDI_RECORD": "transport",
+    "TOGGLE_PLAY": "transport",
+    "TOGGLE_RECORD": "transport",
+    "TOGGLE_SCREEN": "screens",
+    "TOGGLE_SEQ": "transport",
+    "TOGGLE_SIDEBAR": "display",
+    "TTS_ANNOUNCE": "tts",
+    "TTS_PAUSE": "tts",
+    "TTS_REGISTER": "tts",
+    "TTS_RESUME": "tts",
+    "TTS_STOP": "tts",
+    "TTS_TOGGLE_ENABLE": "tts",
+    "TTS_TOGGLE_PAUSE": "tts",
+    "TTS_TOGGLE_PLAYBACK": "tts",
+    "V5_ZYNPOT_SWITCH": "navigation",
+    "WORKFLOW_CAPTURE_START": "system",
+    "WORKFLOW_CAPTURE_STOP": "system",
+    "WORKFLOW_CAPTURE_TEXT": "system",
+    "Z2_ZYNPOT_TOUCH": "navigation",
+    "ZS3_LOAD": "zs3",
+    "ZS3_NEXT": "zs3",
+    "ZS3_PREV": "zs3",
+    "ZS3_SAVE": "zs3",
+    "ZYN_CC": "midi",
+    "ZYNAPTIK_CVIN_SET_NOTE0": "hardware",
+    "ZYNAPTIK_CVIN_SET_VOLTS_OCTAVE": "hardware",
+    "ZYNAPTIK_CVOUT_SET_NOTE0": "hardware",
+    "ZYNAPTIK_CVOUT_SET_VOLTS_OCTAVE": "hardware",
+    "ZYNPOT": "navigation",
+    "ZYNPOT_ABS": "navigation",
+    "ZYNSWITCH": "navigation",
+}
+
+# The categories used in the docstrings
+CUIA_CATEGORY_NAMES = ("navigation", "screens", "transport", "tempo", "mixer", "zs3", "midi", "tts", "display", "system", "hardware")
+
 
 def get_cuia_list():
     """The CUIA names (upper case, as in "/CUIA/<name>" and the "<name> params" strings)."""
     return list(CUIA_LIST)
+
+
+def get_cuia_categories():
+    """{CUIA name: category} for the documented CUIAs (see CUIA_CATEGORY_NAMES)."""
+    return dict(CUIA_CATEGORIES)

@@ -25,7 +25,6 @@ import os
 import copy
 import shutil
 import logging
-import requests
 import websocket
 import traceback
 from time import sleep
@@ -35,6 +34,20 @@ from threading import Thread
 # Zynthian specific modules
 from zyngine.zynthian_engine import zynthian_engine
 from zyngine.zynthian_controller import zynthian_controller
+
+
+# requests is imported when the engine is created, not with zyngine (it takes ~0.7 s to import on a
+# slow device, and most starts never use this engine), and not lazily in the request methods: those
+# also run on other threads (websocket, MIDI learn), where a first import would stall them
+requests = None
+
+
+def _import_requests():
+    global requests
+    if requests is None:
+        import requests as _requests
+        requests = _requests
+
 
 # ------------------------------------------------------------------------------
 # MOD-UI Engine Class
@@ -62,6 +75,7 @@ class zynthian_engine_modui(zynthian_engine):
 
     def __init__(self, state_manager=None):
         super().__init__(state_manager)
+        _import_requests()
 
         self.type = "Special"
         self.name = "MOD-UI"

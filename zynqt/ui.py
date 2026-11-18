@@ -209,8 +209,9 @@ class ZynUI(QObject):
         finally:
             sm.end_busy("ui startup")
         # The LV2 data (lilv world), unless the snapshot's plugins loaded it already: in the
-        # background now, so the first plugin added doesn't wait for it (zynthian_lv2.get_world)
-        zynthian_lv2.preload_world()
+        # background once zynthian is idle (a snapshot load builds it itself), so the first
+        # plugin added doesn't wait for it (zynthian_lv2.get_world)
+        zynthian_lv2.preload_world(busy=lambda: bool(sm.busy))
         self._startFinished.emit(bool(loaded))
 
     @Slot(bool)

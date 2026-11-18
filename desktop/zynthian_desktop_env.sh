@@ -72,5 +72,12 @@ export ZYNTHIAN_PACKS_DATA_DIR
 _zd_lv2_packs=""
 [ "$ZYNTHIAN_PACKS_DATA_DIR" != "$ZYNTHIAN_DATA_DIR" ] && _zd_lv2_packs=":$ZYNTHIAN_PACKS_DATA_DIR/presets/lv2"
 export LV2_PATH="${LV2_PATH:-$_zd_lv2_system:$ZYNTHIAN_LV2_DIR:$ZYNTHIAN_DATA_DIR/presets/lv2$_zd_lv2_packs:$ZYNTHIAN_MY_DATA_DIR/presets/lv2}"
+# zynthian-ui's own LV2 bundles: the zyngui:widget ontology and the extension bundles adding the
+# built-in zynthian widgets to plugins (upstream a1527c99; ZynthianOS puts them on LV2_PATH in
+# zynthian-sys). Also when LV2_PATH was set before (the session's environment).
+case ":$LV2_PATH:" in
+	*":$ZYNTHIAN_UI_DIR/lv2:"*) ;;
+	*) [ -d "$ZYNTHIAN_UI_DIR/lv2" ] && export LV2_PATH="$LV2_PATH:$ZYNTHIAN_UI_DIR/lv2" ;;
+esac
 
 unset _zd_ui_dir _zd_config_home _zd_data_home _zd_lv2_system _zd_lv2_packs

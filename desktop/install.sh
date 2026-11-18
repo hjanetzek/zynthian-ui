@@ -44,7 +44,8 @@ copy_tree() {
 
 install_ui() {
 	mkdir -p "$ui_dst" "$lib_dir" "$destdir$PREFIX/bin"
-	for d in zyngui zyngine zynconf zynautoconnect fonts icons img; do
+	# lv2: zyngui:widget ontology and widget extension bundles (on LV2_PATH: zynthian_desktop_env.sh)
+	for d in zyngui zyngine zynconf zynautoconnect fonts icons img lv2; do
 		copy_tree "$ui_src/$d" "$ui_dst/$d"
 	done
 	# Python modules of the zynlibs, without tests

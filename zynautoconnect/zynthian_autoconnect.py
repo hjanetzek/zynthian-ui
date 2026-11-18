@@ -1472,6 +1472,23 @@ def get_alsa_audio_devices(playback, filter):
             devices.append(device)
     return devices
 
+def _drain_output(proc, name):
+    """Read alsa_in/alsa_out's output (it prints on xruns): a full pty would block it"""
+    # Imported here: zyngine imports zynautoconnect
+    from zyngine.zynthian_pty_drain import pty_drain
+    pty_drain(proc, name)
+
+
+def _end_alsa_proc(proc):
+    from zyngine.zynthian_pty_drain import stop_pty_drain
+    stop_pty_drain(proc)
+    try:
+        proc.terminate(force=True)
+        proc.close(force=True)
+    except Exception as e:
+        logger.debug(f"Can't end {proc.args} => {e}")
+
+
 def start_alsa_in(device):
     global alsa_audio_srcs
     if device in alsa_audio_srcs:
@@ -1479,6 +1496,7 @@ def start_alsa_in(device):
     proc = pexpect.spawn(f"alsa_in -d hw:{device} -j zynain_{device}", encoding="utf-8", timeout=0.1)
     if proc.exitstatus:
         return False
+    _drain_output(proc, f"alsa_in {device}")
     alsa_audio_srcs[device] = proc
     for i in range(10):
         ports = jclient.get_ports(f"zynain_{device}")
@@ -1495,8 +1513,7 @@ def stop_alsa_in(device):
     global alsa_audio_srcs
     if device not in alsa_audio_srcs:
         return False
-    alsa_audio_srcs[device].terminate()
-    alsa_audio_srcs.pop(device)
+    _end_alsa_proc(alsa_audio_srcs.pop(device))
     return True
 
 
@@ -1507,6 +1524,7 @@ def start_alsa_out(device):
     proc = pexpect.spawn(f"alsa_out -d hw:{device} -j zynaout_{device}", encoding="utf-8", timeout=0.1)
     if proc.exitstatus:
         return False
+    _drain_output(proc, f"alsa_out {device}")
     alsa_audio_dests[device] = proc
     for i in range(10):
         ports = jclient.get_ports(f"zynaout_{device}")
@@ -1523,8 +1541,7 @@ def stop_alsa_out(device):
     global alsa_audio_dests
     if device not in alsa_audio_dests:
         return False
-    alsa_audio_dests[device].terminate()
-    alsa_audio_dests.pop(device)
+    _end_alsa_proc(alsa_audio_dests.pop(device))
     return True
 
 

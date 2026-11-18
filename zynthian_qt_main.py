@@ -19,6 +19,7 @@ import glob
 import os
 import signal
 import sys
+import time
 
 
 def run_under_qmlpreview():
@@ -99,7 +100,6 @@ def add_switch_timing(ui, window):
     """ZYNTHIAN_QT_TIMING=1: log the time from each screen switch to the next frame on screen
     (from the start of ZynUI._set_current_screen to QQuickWindow.frameSwapped, which the render
     thread emits)"""
-    import time
     pending = {}
 
     def switched():
@@ -116,6 +116,16 @@ def add_switch_timing(ui, window):
     ui.currentScreenChanged.connect(switched)
     window.frameSwapped.connect(swapped, Qt.DirectConnection)
     return switched
+
+
+def since_start():
+    """Seconds since this process started (/proc/self/stat), for ZYNTHIAN_QT_TIMING's start-up
+    times (docs/performance-measurement.md)"""
+    try:
+        start = int(open("/proc/self/stat").read().rsplit(")", 1)[1].split()[19]) / os.sysconf("SC_CLK_TCK")
+        return time.clock_gettime(time.CLOCK_BOOTTIME) - start
+    except (OSError, ValueError, IndexError):
+        return -1.0
 
 
 def mark_first_frame(window):
@@ -173,6 +183,8 @@ def mark_first_frame(window):
         if done:
             return
         done.append(True)
+        if os.environ.get("ZYNTHIAN_QT_TIMING") == "1":
+            logging.warning(f"QML TIMING first frame at process +{since_start():.2f} s")
         try:
             open(path, "w").close()
         except OSError as e:
@@ -239,7 +251,12 @@ class QmlFrontend:
         ctx.setContextProperty("zynThemeName", theme)
         if selectors:
             engine.setExtraFileSelectors(selectors)
-        engine.load(QUrl.fromLocalFile(os.path.join(preview_qml_dir() or QML_DIR, "Main.qml")))
+        url = QUrl.fromLocalFile(os.path.join(preview_qml_dir() or QML_DIR, "Main.qml"))
+        t0 = time.monotonic()
+        engine.load(url)
+        if os.environ.get("ZYNTHIAN_QT_TIMING") == "1":
+            logging.warning(f"QML TIMING engine.load {1000 * (time.monotonic() - t0):.0f} ms"
+                            f" (done at process +{since_start():.2f} s)")
         if not engine.rootObjects():
             engine.deleteLater()
             return None
@@ -353,6 +370,8 @@ def main():
     ui.frontend = frontend
     # Admin > Theme > Default leaves a line in the config for this one start (zynqt/theme.py)
     zyntheme.drop_once_lines()
+    if os.environ.get("ZYNTHIAN_QT_TIMING") == "1":
+        logging.warning(f"QML TIMING QML load starts at process +{since_start():.2f} s")
     root = frontend.load(os.environ.get("ZYNTHIAN_QT_THEME"))
     if root is None:
         # A QML error (the messages above). Leave at once: returning ran the interpreter's

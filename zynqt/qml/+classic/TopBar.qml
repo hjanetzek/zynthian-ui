@@ -6,13 +6,10 @@ Rectangle {
     id: root
 
     property string title
-    property bool overlayHint: false   // undocked keypad: the title brings it up
     property real barStart: 0   // enterprise: where the segments start (after the elbow's arm)
     // Enterprise: title and status above the segment bar
     readonly property real _shift: Theme.elbow ? -Theme.elbowBar / 2 : 0
 
-    signal titleTapped
-    signal titleSwipedDown
     signal statusTapped
 
     readonly property var status: zyn.status
@@ -31,7 +28,7 @@ Rectangle {
     }
 
     // Title: tap the root (on the mixer and launcher: switch between them), bold / long press the
-    // main menu, as tk; a swipe down brings up the overlay keypad (tapped: hides it again)
+    // main menu, as tk
     TopBarTitleTouch {
         id: titleArea
         anchors.left: parent.left
@@ -39,9 +36,6 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.right: statusRow.left
         z: 1
-        swipeEnabled: true
-        onTapped: root.titleTapped()
-        onSwipedDown: root.titleSwipedDown()
     }
 
     // Enterprise: segments continuing the elbow's arm, the last one with a rounded end
@@ -87,7 +81,8 @@ Rectangle {
         anchors.left: parent.left
         anchors.leftMargin: 8
         anchors.right: statusRow.left
-        text: (root.overlayHint ? "☰ " : "") + root.barState.text
+        anchors.rightMargin: 10   // clear of the tempo at the status area's left edge
+        text: root.barState.text
         color: root.barState.inverted ? Theme.background : Theme.text
         size: Theme.titleSize
     }

@@ -8,9 +8,6 @@ Item {
     id: root
 
     property int keyHeight: 100
-    property bool translucent: false   // overlay: the (blurred) screen shows through
-
-    signal keyPressed      // any key (the overlay keypad stays while keys are used)
 
     // Labels by key index (zynthian_gui_touchkeypad_v5.buttons)
     readonly property var labels: ["OPT\nADMIN", "MIX\nLEVEL", "CTRL\nPRSET", "ZS3\nSHOT",
@@ -89,7 +86,6 @@ Item {
             minSide: root.keyMinSide
             fill: k.fill
             pressed: tap.pressed
-            translucent: root.translucent
         }
 
         // F1-F4: what they do now (zyn.keypadLeds.functionLabels: "PROG 1", ...), their name
@@ -108,7 +104,7 @@ Item {
         TapHandler {
             id: tap
             gesturePolicy: TapHandler.ReleaseWithinBounds
-            onPressedChanged: { zyn.pushSwitch(k.key, pressed); root.keyPressed() }
+            onPressedChanged: zyn.pushSwitch(k.key, pressed)
         }
     }
 }

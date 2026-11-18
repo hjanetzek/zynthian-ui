@@ -6,17 +6,13 @@ import QtQuick
 Rectangle {
     property color fill: Theme.keyBackground
     property bool pressed: false
-    property bool translucent: false
     property real minSide: Math.min(width, height)   // the keypad's smallest key side (Keypad.qml)
 
-    color: translucent ? Qt.rgba(0, 0, 0, 0.25) : Theme.background
+    color: Theme.background
     Rectangle {
         x: 1; y: 1
         width: parent.width - 1
         height: parent.height - 1
-        color: {
-            const c = parent.pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground
-            return parent.translucent ? Qt.rgba(c.r, c.g, c.b, parent.pressed ? 0.85 : 0.55) : c
-        }
+        color: parent.pressed ? Qt.lighter(Theme.keyBackground, 1.8) : Theme.keyBackground
     }
 }

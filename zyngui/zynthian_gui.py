@@ -532,7 +532,10 @@ class zynthian_gui:
             return
         parts = path.upper().split("/", 2)
         # TODO: message may have fewer parts than expected
-        if parts[1] == "CUIA":
+        if parts[1] == "STATUS" and len(parts) > 2:
+            # A query (/STATUS/BUSY), answered also while busy
+            self.state_manager.osc_status_reply(self.osc_server, src, parts[2])
+        elif parts[1] == "CUIA":
             # Execute action
             cuia = parts[2].upper()
             if cuia != "POWER_SAVE":

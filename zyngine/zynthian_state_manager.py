@@ -463,6 +463,44 @@ class zynthian_state_manager:
             return client in self.busy
         return len(self.busy) > 0
 
+    def busy_status(self):
+        """What zynthian is busy with, for tools outside it (the OSC query /STATUS/BUSY)
+        Returns : (busy clients sorted, message, details); no clients when idle
+        """
+
+        for _ in range(3):
+            try:
+                clients = sorted(str(c) for c in tuple(self.busy))
+                break
+            except RuntimeError:  # the set changed meanwhile (another thread)
+                clients = []
+        progress = self.busy_progress
+        if progress:
+            message = f"{progress[0]} {progress[1]}/{progress[2]}"
+        else:
+            message = self.busy_message or ""
+        return clients, message, self.busy_details or ""
+
+    def osc_status_reply(self, server, src, query):
+        """Answer an OSC status query, from the OSC server of either UI (OSC CUIAs are ignored
+        while busy, so tools ask first, e.g. nura/tools/sync_ui.sh -R before RESTART_UI)
+        server : The liblo server that received it (replies from its port)
+        src : The sender's address
+        query : The path after /STATUS/ (upper case)
+            BUSY => replies /STATUS/BUSY with i pid, i busy (0/1), s busy clients (comma-separated),
+                    s message, s details
+        Returns : True if answered
+        """
+
+        if query != "BUSY":
+            return False
+        clients, message, details = self.busy_status()
+        try:
+            server.send(src, "/STATUS/BUSY", os.getpid(), int(bool(clients)), ",".join(clients), message, details)
+        except Exception as e:
+            logging.warning(f"Can't answer the OSC status query: {e}")
+        return True
+
     def set_busy_message(self, message, details=None):
         """Set busy message
         message : message text

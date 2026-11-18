@@ -1825,6 +1825,16 @@ class zynthian_chain_manager:
         # Stop those unused engines that need restart
         self.stop_unused_single_proc_engines()
 
+        # The LV2 data (built on first use) at once, before the first LV2 processor needs it
+        if not zynthian_lv2.is_world_loaded() and any(
+                str(eng_code).startswith("JV/") for chain_state in state.values()
+                for slot_state in chain_state.get("slots", []) for eng_code in slot_state.values()):
+            self.state_manager.start_busy("lv2_data", None, "loading LV2 data")
+            try:
+                zynthian_lv2.get_world()
+            finally:
+                self.state_manager.end_busy("lv2_data")
+
         for chain_id, chain_state in state.items():
             if merge:
                 chain_id = None

@@ -37,3 +37,12 @@ def test_with_signals_a_process_is_terminated():
     assert module().end_process(proc, "test", grace=0, timeout=2.0) is True
     assert time.monotonic() - t < 2.0
     assert not proc.isalive()
+
+
+def test_a_process_ignoring_sighup_ends_quickly():
+    # like Pure Data: SIGHUP ignored, SIGINT ends it
+    proc = pexpect.spawn("sh", ["-c", "trap '' HUP; echo ready; sleep 30"])
+    proc.expect("ready")
+    t = time.monotonic()
+    assert module().end_process(proc, "test", grace=0, timeout=2.0) is True
+    assert time.monotonic() - t < 0.2

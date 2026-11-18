@@ -146,6 +146,7 @@ class KeypadLeds(QObject):
         self._blink_count = 0
         self._colors = [self.wscolor_default] * 20
         self._alt = [False] * 20
+        self._lit = [False] * 20
         self._fn = [""] * 20
         self._timer = QTimer(self, interval=100)
         self._timer.timeout.connect(self._update)
@@ -214,13 +215,16 @@ class KeypadLeds(QObject):
             self._midi_recorder_leds()
         colors = [self.wscolor_default] * 20
         alts = [False] * 20
+        lit = [False] * 20
         for i, c in enumerate(w):
             colors[LED2BUTTON[i]] = c
             alts[LED2BUTTON[i]] = c == self.wscolor_alt
+            lit[LED2BUTTON[i]] = c not in (self.wscolor_default, self.wscolor_off)
         fn = self._function_labels(screen, cur, alt)
         if colors != self._colors or alts != self._alt or fn != self._fn:
             self._colors = colors
             self._alt = alts
+            self._lit = lit
             self._fn = fn
             self.changed.emit()
 
@@ -265,6 +269,13 @@ class KeypadLeds(QObject):
     def colors(self):
         """The LED colour of each key (by key index)"""
         return self._colors
+
+    @Property("QVariantList", notify=changed)
+    def lit(self):
+        """Keys whose LED shows a state (not the default colour, not off): the workflow's key,
+        ALT, the transport, the screen's own LEDs, the arrows, SEL and BACK. Themes that don't
+        colour their labels with the LED (classic) show these as a light on the key"""
+        return self._lit
 
     @Property("QVariantList", notify=changed)
     def functionLabels(self):

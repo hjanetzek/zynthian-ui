@@ -17,6 +17,9 @@ Rectangle {
 
     readonly property var status: zyn.status
     readonly property var mainLevels: mainMeters.levels
+    // What the bar shows and the title's touch are tk's (shared: TopBarState, TopBarTitleTouch);
+    // this file only places and styles them
+    readonly property TopBarState barState: TopBarState { title: root.title }
 
     color: Theme.background
 
@@ -27,20 +30,18 @@ Rectangle {
         anchors.bottom: parent.bottom
     }
 
-    // The title brings up the overlay keypad, the status area docks / undocks it
-    Item {
+    // Title: tap the root (on the mixer and launcher: switch between them), bold / long press the
+    // main menu, as tk; a swipe down brings up the overlay keypad (tapped: hides it again)
+    TopBarTitleTouch {
         id: titleArea
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.right: statusRow.left
         z: 1
-        TapHandler { onTapped: root.titleTapped() }
-        DragHandler {
-            target: null
-            xAxis.enabled: Theme.uiSideways
-            onTranslationChanged: if (active && Theme.localDrag(parent, centroid).y > 20) root.titleSwipedDown()
-        }
+        swipeEnabled: true
+        onTapped: root.titleTapped()
+        onSwipedDown: root.titleSwipedDown()
     }
 
     // Enterprise: segments continuing the elbow's arm, the last one with a rounded end
@@ -67,6 +68,18 @@ Rectangle {
         }
     }
 
+    // The pattern editor's edit modes: their title inverted
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: statusRow.left
+        anchors.rightMargin: 6
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Theme.elbow ? Theme.elbowBar : 0
+        visible: root.barState.inverted
+        color: Theme.text
+    }
+
     ScrollingTitle {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -74,8 +87,8 @@ Rectangle {
         anchors.left: parent.left
         anchors.leftMargin: 8
         anchors.right: statusRow.left
-        text: (root.overlayHint ? "☰ " : "") + root.title
-        color: Theme.text
+        text: (root.overlayHint ? "☰ " : "") + root.barState.text
+        color: root.barState.inverted ? Theme.background : Theme.text
         size: Theme.titleSize
     }
 
@@ -97,10 +110,28 @@ Rectangle {
         anchors.bottomMargin: Theme.elbow ? Theme.elbowBar : 0
         width: 300
 
-        TapHandler { onTapped: root.statusTapped() }
+        // Tap: docks / undocks the keypad; long press: all sounds off (as tk)
+        TapHandler {
+            onTapped: root.statusTapped()
+            onLongPressed: zyn.cuia("all_sounds_off", [])
+        }
 
+        // Tempo on the mixer and launcher (beat | bpb/4 and the bpm) in place of the meters (as tk:
+        // the mixer shows the main strip's)
+        Label {
+            visible: root.barState.tempoShown
+            x: 0
+            y: 1
+            width: parent.width - 52
+            elide: Text.ElideRight
+            text: root.barState.tempoText
+            color: Theme.textOff
+            body: true
+            size: 16
+        }
         // Main mixbus meters
         Column {
+            visible: !root.barState.tempoShown
             x: 0
             y: 6
             width: parent.width - 52

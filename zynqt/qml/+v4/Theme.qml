@@ -11,8 +11,6 @@ ThemeBase {
     // session sets ZYNTHIAN_UI_SCALE=auto (the height / 600, for HDMI screens and desktops), which
     // would halve it at 320 px; a number given as the scale still applies.
     tkAutoScale: false
-    // No on-screen keypad: the kit has four knobs with switches (ZYNTHIAN_UI_TOUCH_NAVIGATION "")
-    keypadEnabled: false
     // The dialogs over the screens (Main.qml: confirm, value editor, help, busy, info; the keyboard) are sized for
     // 800 px and more
     dialogScale: 0.6

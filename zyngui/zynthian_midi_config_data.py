@@ -258,9 +258,9 @@ def midi_config_list(sm, chain, midi_input):
         list_data.append((None, None, "> CHAINS"))
         len_check = len(list_data)
         for i, chain_id in enumerate(sm.chain_manager.chains):
-            # MIDI chains on a channel, other than this one
+            # MIDI chains on a channel or on all channels (0xffff), other than this one
             target = sm.chain_manager.get_chain(chain_id)
-            if target and target.is_midi() and target != chain and target.midi_chan < 16:
+            if target and target.is_midi() and target != chain and (target.midi_chan < 16 or target.midi_chan == 0xffff):
                 if sm.chain_manager.will_midi_howl(sm.chain_manager.active_chain.chain_id, chain_id):
                     prefix = "∞ "
                 else:

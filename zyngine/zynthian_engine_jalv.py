@@ -31,7 +31,7 @@ import shutil
 import signal
 import logging
 import traceback
-from time import sleep
+from time import sleep, monotonic
 #from datetime import datetime
 from threading import Thread, Timer
 from subprocess import Popen, check_output, run, STDOUT, PIPE, DEVNULL, TimeoutExpired
@@ -1056,6 +1056,7 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
             return self.jalv_bundles_support[jalv_bin]
         except KeyError:
             pass
+        start = monotonic()
         try:
             res = run([jalv_bin, "-h"], env=self.command_env, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT,
                       text=True, timeout=5)
@@ -1064,7 +1065,8 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
         except Exception as e:
             logging.warning(f"Can't run '{jalv_bin} -h' => {e}")
             supported = False
-        logging.info(f"'{jalv_bin}' {'loads plugin bundles only (-B)' if supported else 'has no -B option'}")
+        logging.info(f"'{jalv_bin}' {'loads plugin bundles only (-B)' if supported else 'has no -B option'}"
+                     f" ({monotonic() - start:.2f} s)")
         self.jalv_bundles_support[jalv_bin] = supported
         return supported
 
@@ -1083,6 +1085,8 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
             bundles = None
         if bundles and not any(":" in b for b in bundles):
             self.command[1:1] = ["-B", ":".join(bundles)]
+        else:
+            logging.warning(f"jalv {self.plugin_name}: no -B bundle list => it loads all of LV2_PATH")
 
     def start(self):
         if not self.proc:

@@ -48,6 +48,20 @@ from zyngine.ctrlinfo import *
 # Jalv Engine Base Class => Base Class Engine with basic LV2 functionality
 # ------------------------------------------------------------------------------
 
+def set_plugin_qt_platform(env, platform):
+    """The Qt platform of a jalv process (env: its environment, changed in place). Plugins with a
+    Qt UI create their own QApplication in jalv (rncbc's synthv1 & co., even without a GUI shown):
+    with zynthian's own QT_QPA_PLATFORM (eglfs, linuxfb, wayland) one opened the display device
+    and started a touchscreen reader thread, and aborted at exit. The session's Qt platform
+    settings for zynthian (QT_QPA_*, its EGLFS/EVDEV options, QT_SCALE_*) are dropped.
+    platform : "offscreen" for console jalv, "xcb" for jalv.gtk3 on X11 (GDK_BACKEND=x11/DISPLAY)
+    """
+
+    for name in [name for name in env if name.startswith(("QT_QPA_", "QT_SCALE_"))]:
+        del env[name]
+    env["QT_QPA_PLATFORM"] = platform
+
+
 class zynthian_engine_jalv_base(zynthian_engine):
 
     # Seconds jalv gets to load the plugin and show its prompt (generous: some plugins take
@@ -99,8 +113,10 @@ class zynthian_engine_jalv_base(zynthian_engine):
                 else:  # elif self.native_gui=="X11UI":
                     jalv_bin = "jalv.gtk3"
                 self.command = [jalv_bin, "--jack-name", self.jackname, self.plugin_url]
+            set_plugin_qt_platform(self.command_env, "xcb")
         else:
             self.command = ["jalv", "-n", self.jackname, self.plugin_url]
+            set_plugin_qt_platform(self.command_env, "offscreen")
 
         # Use jalv's development version =>
         #self.command[0] = "/zynthian/zynthian-sw/jalv_asyncli/build/" + self.command[0]
@@ -894,6 +910,7 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
                 # output scale); jalv's -S isn't used, it enlarges the window of plugins that don't.
                 self.command = ["jalv.gtk3", "-H", "-m", "--jack-name", self.jackname, self.plugin_url]
                 self.command_env["GDK_BACKEND"] = "x11"
+                set_plugin_qt_platform(self.command_env, "xcb")
                 # dark around plugin GUIs that don't fill the (full-screen) window
                 self.command_env["GTK_THEME"] = "Adwaita:dark"
                 gui_scale = os.environ.get("ZYNTHIAN_NATIVE_GUI_SCALE")
@@ -913,8 +930,11 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
                         if not self.native_gui:
                             self.minimize_native_gui = True
                     self.command = [jalv_bin, "--jack-name", self.jackname, self.plugin_url]
+                # a remote X11 display (DISPLAY, config_remote_display)
+                set_plugin_qt_platform(self.command_env, "xcb")
             else:
                 self.command = ["jalv", "-n", self.jackname, self.plugin_url]
+                set_plugin_qt_platform(self.command_env, "offscreen")
                 # Some plugins need a X11 display for running headless (QT5, QT6),
                 # but some others can't run headless if there is a valid DISPLAY defined
                 if not self.plugin_name.endswith("v1"):

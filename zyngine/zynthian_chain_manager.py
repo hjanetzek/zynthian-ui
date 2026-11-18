@@ -25,6 +25,7 @@
 import shutil
 import logging
 from threading import Thread
+from time import monotonic
 
 # Zynthian specific modules
 import zynautoconnect
@@ -1680,15 +1681,19 @@ class zynthian_chain_manager:
         names = ", ".join(engine.get_name() for engine in engines)
         logging.debug(f"Stopping Unused Engines {eng_keys} ...")
         self.state_manager.set_busy_details(f"stopping engine{'s' if len(engines) > 1 else ''} {names}")
-        if len(engines) == 1:
-            engines[0].stop()
-            return
 
         def stop(engine):
+            t = monotonic()
             try:
                 engine.stop()
             except Exception as e:
                 logging.error(f"Can't stop engine {engine.get_name()} => {e}")
+            if monotonic() - t > 1.0:
+                # which one held up a snapshot load
+                logging.warning(f"Stopping engine {engine.get_name()} ({getattr(engine, 'jackname', '')}) took {monotonic() - t:.2f} s")
+        if len(engines) == 1:
+            stop(engines[0])
+            return
         threads = [Thread(target=stop, args=(engine,), name=f"stop {engine.get_name()}") for engine in engines]
         for thread in threads:
             thread.start()

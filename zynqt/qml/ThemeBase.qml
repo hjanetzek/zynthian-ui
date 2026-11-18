@@ -67,6 +67,8 @@ QtObject {
     property color gridRow: "#323a45"
     property color gridRowDark: "#262c34"
     property color gridRowLine: "#1c2128"
+    property color gridRowLineTonic: gridRowLine   // the row line of the scale's tonic
+    property real gridBarWidth: 2                  // the step line at a bar
     property color gridBar: "#8090a0"
     property color gridBeat: "#566270"
     property color gridStep: "#2a3038"

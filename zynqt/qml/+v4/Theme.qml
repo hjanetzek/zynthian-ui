@@ -85,4 +85,18 @@ ThemeBase {
     // zynthian_gui_selector_info.update_info: min(max(0.7 F, side width // 16), F) points
     readonly property int _infoSideWidth: Math.floor(infoWidth * (screenWidth - (keypadShown ? keypadWidth : 0)))
     infoTextSize: tkPx(Math.min(Math.max(Math.floor(0.7 * f), Math.floor(_infoSideWidth / 16)), f))
+    // Pattern editor (zynthian_gui_pated_notes): no row bands, row lines GRID_LINE_WEAK, the tonic's
+    // GRID_LINE_STRONG; step lines: bars white, beats grey, steps dark; notes grey by velocity
+    // (noteHue -1), the block a red frame
+    gridRow: "transparent"
+    gridRowDark: "transparent"
+    gridRowLine: "#505050"
+    gridRowLineTonic: "#a0a0a0"
+    gridBar: "#ffffff"
+    gridBeat: "#a0a0a0"
+    gridStep: "#505050"
+    gridBarWidth: 1
+    noteHue: -1
+    selectionFill: "transparent"
+    selectionFrame: select
 }

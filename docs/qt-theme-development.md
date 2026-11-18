@@ -1,6 +1,7 @@
 # Developing a theme for the Qt UI: workflow
 
-Status 2026-11-15 (branch `qt-tk-base`: tk is the base, classic an override). For people who design or change a theme of zynthian's Qt
+Status 2026-11-18 (branch `theme-behaviour`: overrides are looks, behaviour is tk's in every theme;
+tk is the base, classic an override). For people who design or change a theme of zynthian's Qt
 Quick UI. How themes are built (tokens, directories, components) is in
 [qt-theming.md](qt-theming.md); this guide is about the edit → look → compare loop: which setup to
 use for what, how to see changes instantly, how to compare with the Tk UI, and what to check before
@@ -130,6 +131,18 @@ nura/tools/sync_ui.sh -q        # copy only zynqt/qml, no restart: the UI reload
   config for one `RESTART_UI` (the launcher sources it in its own shell), then delete the line.
 - How it works and why (each detail broke it once): [qt-theming.md](qt-theming.md), "Previewing" →
   "QML hot reload (qmlpreview)".
+
+## What a theme may change
+
+Only the look: tokens in its `Theme.qml`, and components in its directory that draw the same
+data with the same properties. Behaviour (what taps, swipes, keys and knobs do; which screens and
+actions are reachable; what is shown: titles, values, labels, indicators, LEDs; the Python calls)
+is tk's in every theme and lives in shared files (`ChainControlScreen`, `PatternEditorScreen`,
+`TopBarState`, `TopBarTitleTouch`, `ControllerTouch`, `SelectorControls`, `Keypad`, ...). The
+list of look-only overrides and the two copies that are kept in step with tk (classic's
+`TopBar.qml` and `MixerView.qml`) is in [qt-theming.md](qt-theming.md), "Behaviour is tk's in
+every theme". A theme may add an extra (a toolbar, a gesture tk doesn't use); it must not change
+what tk's gestures do. Check a new override against tk: same handlers, same `zyn.*` calls.
 
 ## Before you commit
 

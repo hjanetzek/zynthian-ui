@@ -135,8 +135,8 @@ class Admin(SelectorScreen):
                                            lambda v: (s.set_mixer_toggle(v), self.ui.mixer_settings_changed())),
                        icon="settings.png", info="The toggle control to show at top of each mixer channel"))
         e.append(entry(_check(self.ui.keypadDocked) + "Docked Touch Keypad", toggle(self.ui.toggleKeypadDocked),
-                       icon="settings.png", info="The touch keys beside the screens. Off: an overlay, brought "
-                       "up by a tap or swipe down on the top bar (for small screens)."))
+                       icon="settings.png", info="The touch keys beside the screens (phones, touch-only devices). Also "
+                       "shown / hidden by a tap on the top bar's status area."))
         e.append(entry(_check(cfg.preset_preload) + "Preset Preload", toggle(s.toggle_preset_preload),
                        icon="settings.png", info="Pre-load presets while browsing the list" if cfg.preset_preload
                        else "Do not pre-load preset for while browsing the list"))

@@ -108,8 +108,8 @@ keypad, no remap, 8 switches.
 - **Per-screen hooks** (parity work): `zynpot` (chain control, mixer, launcher, chain
   manager), `switch` (chain control, mixer, launcher, chain manager, ZS3, bank/preset, engine),
   `switch_select`, `show_menu`, `back` (Tk's `back_action`), `cuia_v5_zynpot_switch`, `zynpot_abs`.
-- **Keypad**: `Keypad.qml` (V5 layout, always available: docked, or as an overlay from the top
-  edge, whatever `ZYNTHIAN_UI_TOUCH_NAVIGATION` says), `KeypadLeds` (the v5touch colours).
+- **Keypad**: `Keypad.qml` (V5 layout, always available when docked, whatever
+  `ZYNTHIAN_UI_TOUCH_NAVIGATION` says; the overlay keypad was removed 2026-11-18), `KeypadLeds` (the v5touch colours).
 
 **Missing** (before `qt-hw-input`; 1–4 and 6 are done there, see section 3, Implementation):
 
@@ -215,7 +215,7 @@ Options:
 
 | Option | What | Consequences |
 |---|---|---|
-| A. Tk parity | On a kit build show the keypad only with `ZYNTHIAN_UI_TOUCH_NAVIGATION` set (docked / overlay / Admin toggle hidden otherwise). With it set, `zynthian_gui_config`'s remap already gives 32 switches and the v5 actions, in Qt as in Tk | Nothing new to configure; webconf's touch navigation option decides as for Tk. The remap overwrites custom switches 25/26 with the v5 profile's `NONE` (an upstream bug, see issues), so with touch navigation the kit's first two extra buttons lose their actions unless that is fixed |
+| A. Tk parity | On a kit build show the keypad only with `ZYNTHIAN_UI_TOUCH_NAVIGATION` set (docked / Admin toggle hidden otherwise). With it set, `zynthian_gui_config`'s remap already gives 32 switches and the v5 actions, in Qt as in Tk | Nothing new to configure; webconf's touch navigation option decides as for Tk. The remap overwrites custom switches 25/26 with the v5 profile's `NONE` (an upstream bug, see issues), so with touch navigation the kit's first two extra buttons lose their actions unless that is fixed |
 | B. Only the kit's switches | Show as many keys as custom switches exist | Four unlabeled keys on a V4: meaningless; no |
 | C. Own actions | The keypad gets its own action table (the v5 profile's 20 key actions, or `ZYNTHIAN_TOUCH_KEYPAD_*` variables), dispatched as a separate source, independent of zyncore's switch count | Works with every build; the kit's own switch config stays untouched. New configuration that webconf doesn't know; differs from Tk; two places to edit the same V5 actions on DUMMIES unless DUMMIES keeps using the switch slots |
 
@@ -228,7 +228,8 @@ slots 1–24, leave 25+ to the kit's profile), as an upstream candidate. Consequ
   eight switches drive the UI as in Tk.
 - **V4 kit with touch navigation** (webconf): keypad as on the Duet, the physical switches
   0–3 standard, the extra buttons at 28–31 with the `v4_touch_*` actions (after the remap fix).
-  On a 480×320 screen the docked keypad takes a fifth of the width: probably overlay only.
+  On a 480×320 screen the docked keypad takes a fifth of the width: tight but usable in v4 (no
+  overlay keypad any more).
 - **V5 kit**: physical keys 4–23 and the touch keypad send the same switches (as Tk with touch
   navigation); hidden without it, as Tk.
 

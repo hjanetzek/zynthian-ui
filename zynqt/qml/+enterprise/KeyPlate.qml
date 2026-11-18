@@ -7,15 +7,11 @@ import ".."
 Panel {
     property color fill: Theme.keyBackground
     property bool pressed: false
-    property bool translucent: false
     property real minSide: Math.min(width, height)   // the keypad's smallest key side (Keypad.qml)
 
     anchors.margins: 3
     cornerRadius: Theme.keyRadius > 0 ? Theme.keyRadius * Math.max(0, minSide - 2 * anchors.margins) : -1
-    color: {
-        const c = pressed ? Qt.lighter(fill, 1.25) : fill
-        return translucent ? Qt.rgba(c.r, c.g, c.b, pressed ? 0.85 : 0.7) : c
-    }
+    color: pressed ? Qt.lighter(fill, 1.25) : fill
     borderColor: "transparent"
     borderWidth: 0
 }

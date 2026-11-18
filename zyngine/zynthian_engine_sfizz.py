@@ -31,7 +31,9 @@ import yaml
 from pathlib import Path
 
 from zynconf import zynthian_paths
-from zyngine.zynthian_engine import end_process, PROC_STOP_TIMEOUT
+from time import monotonic
+
+from zyngine.zynthian_engine import end_process
 from zyngine.zynthian_engine_sfz import zynthian_engine_sfz
 
 # ------------------------------------------------------------------------------
@@ -90,21 +92,27 @@ class zynthian_engine_sfizz(zynthian_engine_sfz):
     # Subproccess Management & IPC
     # ---------------------------------------------------------------------------
 
+    # sfizz_jack (1.2.3) acts on "quit" only when its main thread wakes up, once a second, then
+    # closes its JACK client and returns: 0-1 s per stop. Signals only set the same flag, and the
+    # main thread then waits for the command line thread, blocked reading stdin (an end of file
+    # there makes it loop instead). It holds no state worth an orderly exit (the samples are
+    # read-only, the JACK server drops a killed client's ports and connections), so it gets a short
+    # grace after "quit" and is killed if it hasn't ended by then.
+    QUIT_GRACE = 0.25  # seconds
+
     def stop(self):
         if not self.proc:
             return
         logging.info("Stopping Engine " + self.name)
         self.proc_exit = True
+        t = monotonic()
         try:
             self.proc.sendline("quit")
-            self.proc.expect("Closing...", timeout=PROC_STOP_TIMEOUT)
-            asked = True
         except Exception:
-            asked = False
-        # sfizz_jack ends by itself after "Closing..." (up to ~1 s on a Pi): wait for it and reap
-        # it (it was left a zombie), signals only if it doesn't
+            pass
         try:
-            end_process(self.proc, self.name, grace=PROC_STOP_TIMEOUT if asked else 0)
+            ended = end_process(self.proc, self.name, grace=self.QUIT_GRACE, signals=False)
+            logging.debug(f"sfizz {self.jackname} {'ended' if ended else 'killed'} after {monotonic() - t:.2f} s")
         except Exception as e:
             logging.error(f"Can't stop engine {self.name} => {e}")
         self.proc = None

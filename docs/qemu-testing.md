@@ -112,6 +112,16 @@ tools/switch_ui.sh -V tomita    # upstream zynthian-ui (Tk) instead of the Qt UI
   re-reads `~/.config/zynthian/zynthian_envars.sh` and `zynthian_custom_config.sh` (so set
   `ZYNTHIAN_QT_THEME` there to switch themes without a session restart). `/etc/default/zynthian`
   is only read at session start: changes there need `-r`.
+- `-R` checks the restart (`tools/restart_ui.py`, run on the target): zynthian ignores
+  RESTART_UI while it is busy (a snapshot loading, an engine starting, or stuck busy), so it waits
+  until zynthian is idle (the OSC query `/STATUS/BUSY` to UDP 1370, answered by the state manager
+  of either UI; it prints what zynthian is busy with), sends RESTART_UI, and waits until that
+  process has ended and a new one answers idle (started, snapshot loaded). Each step waits up to
+  60 s (`-t SECONDS`). Otherwise it exits non-zero with the reason: 2 still busy (RESTART_UI not
+  sent), 3 no restart (the process still runs: the UI hangs, it may restart later), 4 no new
+  process, 5 the new one isn't ready. Nothing is killed. A zynthian older than the query (the
+  first sync onto older code) doesn't answer it: RESTART_UI then goes out unchecked after 10 s,
+  the restart itself is still checked.
 - `sync_ui.sh` copies what `desktop/install.sh` installs as Python (zyngui, zyngine, zynconf,
   zynautoconnect, zynqt, the zynlibs modules, fonts, icons, img, the main scripts) into
   `/usr/share/zynthian/zynthian-ui`. Native code (zynlibs `.so`, zyncoder) isn't copied.

@@ -9,7 +9,8 @@ so the restart is checked, nothing is killed:
 3. wait for a new zynthian process (another PID, TIMEOUT) and until it answers idle: started up,
    UI shown, snapshot loaded (TIMEOUT).
 A zynthian older than the query doesn't answer it: then RESTART_UI is sent without the busy
-check (said so), the restart itself is still checked.
+check (said so), the restart itself is still checked; a new process with older code (its
+zynthian-ui directory has no osc_status_reply) counts as ready when it still runs 10 s later.
 
 Exit codes: 0 restarted and ready, 2 still busy (RESTART_UI not sent), 3 no restart (the process
 still runs), 4 no new process, 5 the new process isn't ready, 10 zynthian isn't running.
@@ -111,6 +112,15 @@ class Shown:
             print(text, flush=True)
 
 
+def answers_status(pid):
+    """The process's code has the /STATUS/BUSY query: zynthian runs in its zynthian-ui directory"""
+    try:
+        with open(f"/proc/{pid}/cwd/zyngine/zynthian_state_manager.py") as f:
+            return "def osc_status_reply" in f.read()
+    except OSError:
+        return True  # can't tell: ask
+
+
 def describe(st):
     text = st["clients"] or "?"
     extra = " - ".join(x for x in (st["message"], st["details"]) if x)
@@ -177,6 +187,16 @@ def main():
             fail(4, f"zynthian (PID {pid}) ended, but no new zynthian process {timeout:.0f} s later"
                  " (the launcher didn't start it again: see ~/.local/state/tinydm.log)")
         time.sleep(0.2)
+    if not answers_status(new):
+        # Older code: no query to ask; it runs and doesn't end during NO_ANSWER_GRACE
+        t = time.monotonic()
+        while time.monotonic() - t < NO_ANSWER_GRACE:
+            if not alive(new):
+                fail(5, f"the new zynthian (PID {new}) ended while starting (see ~/.local/state/tinydm.log)")
+            time.sleep(0.5)
+        print(f"zynthian restarted (RESTART_UI): PID {pid} -> {new}; its code has no /STATUS/BUSY:"
+              f" running for {NO_ANSWER_GRACE} s, readiness not checked")
+        return
     deadline = time.monotonic() + timeout
     pids = [new]
     show = Shown()

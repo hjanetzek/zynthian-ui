@@ -500,6 +500,31 @@ Measured on the Duet for the meters and lists (`docs/performance-measurement.md`
   things that animate;
 - colours bound to state (selection, pressed) are cheap; prefer them to extra items.
 
+Start-up: only what the first frame shows is created when the QML loads; the other screens, the
+controller widget views, the touch keypad (not at all in themes without one, `keypadEnabled:
+false`), the on-screen keyboard and the launcher pads are `Deferred` (`Deferred.qml`, a `Loader`):
+created at once when they are needed (shown), else after the first frame in the background
+(`Startup.ready`, set on the window's first `frameSwapped`), and then kept as before. A part that
+is hidden at first goes into a `Deferred` with an inline `Component`, so the theme's file
+selectors pick its type as everywhere else:
+
+```qml
+Deferred {
+    anchors.fill: parent
+    visible: zyn.someCondition
+    needed: zyn.someCondition       // the same condition: shown means created at once
+    sourceComponent: Component { SomeView { view: zyn.someView } }
+}
+```
+
+Set the visibility on the `Deferred` (the item inside follows it), give the item no size of its
+own (it takes the `Deferred`'s), and refer to ids outside the `Deferred` (the inline component
+sees them), not to the item inside from outside: it may not exist yet. Code that ran on
+`onVisibleChanged` also needs `Component.onCompleted` (an item created while shown never sees the
+change; `Keyboard.qml`). Without `needed`, the part appears only after the background creation,
+which on a slow board takes a few seconds after the first frame. Measuring: performance-measurement.md, "Start-up,
+Qt UI".
+
 ## Open
 
 - Only the screens of `zynqt/qml/` are themed; new screens should use `Panel`/`Label` from the start.

@@ -12,7 +12,10 @@ Rectangle {
     color: Theme.keyboardBackground
     visible: zyn.keyboardShown
 
-    onVisibleChanged: if (visible) { field.text = zyn.keyboardText; field.selectAll(); field.forceActiveFocus() }
+    function start() { field.text = zyn.keyboardText; field.selectAll(); field.forceActiveFocus() }
+    onVisibleChanged: if (visible) start()
+    // created when shown (Main.qml: Deferred)
+    Component.onCompleted: if (visible) start()
 
     MouseArea { anchors.fill: parent; onWheel: (wheel) => wheel.accepted = true }   // modal: keeps touches from the screen below
 

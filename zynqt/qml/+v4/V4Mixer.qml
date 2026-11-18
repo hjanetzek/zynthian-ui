@@ -276,21 +276,27 @@ Item {
             height: root.legendY - root.launcherY
             clip: true
             Rectangle { anchors.fill: parent; color: root.panelBg }   // the canvas between the pads
-            Column {
+            // The pads (created when the launcher is first shown, or after the first frame)
+            Deferred {
                 y: -root.launcherScroll
-                Repeater {
-                    model: root.launcher.phrases
-                    LauncherPad {
-                        required property int index
-                        launcher: root.launcher
-                        shown: root.launcherMode
-                        chainId: strip.chainId
-                        phrase: index
-                        isMain: strip.isMain
-                        selected: strip.active && index === root.launcher.phrase
-                        fontPt: root.padFontPt
-                        width: strip.width
-                        height: root.padHeight
+                needed: root.launcherMode
+                sourceComponent: Component {
+                    Column {
+                        Repeater {
+                            model: root.launcher.phrases
+                            LauncherPad {
+                                required property int index
+                                launcher: root.launcher
+                                shown: root.launcherMode
+                                chainId: strip.chainId
+                                phrase: index
+                                isMain: strip.isMain
+                                selected: strip.active && index === root.launcher.phrase
+                                fontPt: root.padFontPt
+                                width: strip.width
+                                height: root.padHeight
+                            }
+                        }
                     }
                 }
             }

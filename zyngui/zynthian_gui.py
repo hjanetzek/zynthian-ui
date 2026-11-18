@@ -45,6 +45,7 @@ import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 from zynlibs.zynseq import *
 
+from zyngine import zynthian_lv2
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_state_manager import zynthian_state_manager
 
@@ -603,6 +604,9 @@ class zynthian_gui(zynthian_websocket_feedback):
         zynautoconnect.request_midi_connect()
 
         self.state_manager.end_busy("ui startup")
+        # The LV2 data (lilv world), unless the snapshot's plugins loaded it already: in the
+        # background now, so the first plugin added doesn't wait for it (zynthian_lv2.get_world)
+        zynthian_lv2.preload_world()
 
         # Show initial screen
         self.show_screen(init_screen, zynthian_gui.SCREEN_HMODE_RESET)

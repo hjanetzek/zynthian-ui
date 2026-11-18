@@ -139,10 +139,44 @@ def test_changes_after_first_use_reload(lv2):
 def test_preload_in_background(lv2):
     z = lv2.z
     thread = z.preload_world()
-    world = z.get_world()  # waits for the background build instead of building again
     thread.join(10)
+    world = z.get_world()
     assert z.get_world() is world and lv2.builds == ["lv2_world"]
     assert z.preload_world() is None
+
+
+def test_preload_waits_while_busy(lv2):
+    z = lv2.z
+    busy = [True]
+    thread = z.preload_world(busy=lambda: busy[0], idle_time=0.1)
+    time.sleep(0.3)
+    assert lv2.builds == []  # a snapshot load is running: no preload
+    busy[0] = False
+    thread.join(10)
+    assert lv2.builds == ["lv2_world"]
+
+
+def test_a_use_during_the_preload_waits_for_it(lv2):
+    z = lv2.z
+    thread = z.preload_world()
+    while not lv2.builds:
+        time.sleep(0.001)
+    world = z.get_world()  # waits for the preload instead of building again
+    thread.join(10)
+    assert z.get_world() is world and lv2.builds == ["lv2_world"]
+
+
+def test_change_check_doesnt_wait_for_a_load(lv2):
+    z = lv2.z
+    z.get_world()
+    (lv2.tmp / "lv2.stamp").touch()
+    got = []
+    with z._world_lock:  # another thread loading
+        t = threading.Thread(target=lambda: got.append(z.check_lv2_changes()))
+        t.start()
+        t.join(5)
+        assert got == [False] and not t.is_alive()
+    assert z.check_lv2_changes() is True
 
 
 def test_ttl_info_imports_rdflib_when_needed(lv2):

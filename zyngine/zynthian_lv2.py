@@ -215,6 +215,7 @@ engines_mtime = None
 # zynthian_lv2.world (module __getattr__).
 _world = None
 _world_lock = threading.RLock()
+_world_loader = None  # Name of the thread that loads (loaded) the world, for the log
 lv2_signature = None   # Modification times of LV2_PATH folders & stamp file when LV2 data was loaded
 lv2_generation = 0     # Incremented each time LV2 data is (re)loaded
 zyngui_widget_cache = {}  # Widget lookups indexed by plugin URI, cleared when LV2 data is reloaded
@@ -251,16 +252,28 @@ def get_lv2_signature():
 def check_lv2_changes():
     """Reload LV2 data if bundles were added, removed or updated since last load.
     Cheap (a few stat calls), so it can be called when the UI needs LV2 info.
-    Nothing to do while the LV2 data isn't loaded yet: its first use loads the current data.
+    Nothing to do while the LV2 data isn't loaded yet (its first use loads the current data), and
+    never waits for a load in progress in another thread (that one reads the current data).
     Returns True if LV2 data was reloaded."""
     if _world is None:
         return False
-    with _world_lock:
-        if get_lv2_signature() == lv2_signature:
+    signature = get_lv2_signature()
+    if signature == lv2_signature:
+        return False
+    if not _world_lock.acquire(blocking=False):
+        return False
+    try:
+        old = lv2_signature
+        signature = get_lv2_signature()
+        if signature == old:
             return False
-        logging.info("LV2 data changed => reloading")
-        init_lilv()
+        paths = os.environ.get('LV2_PATH', "/usr/lib/lv2:/usr/local/lib/lv2").split(":") + [LV2_STAMP_FILE]
+        changed = [p for p, a, b in zip(paths, old or (), signature) if a != b]
+        logging.info(f"LV2 data changed ({', '.join(changed)}) => reloading")
+        _init_lilv("changed")
         return True
+    finally:
+        _world_lock.release()
 
 
 def get_world():
@@ -268,9 +281,14 @@ def get_world():
     at the same time (a snapshot starts its engines in parallel threads)."""
     world = _world
     if world is None:
+        start = time.monotonic()
         with _world_lock:
             if _world is None:
-                init_lilv()
+                _init_lilv("first use")
+            else:
+                waited = time.monotonic() - start
+                if waited > 0.05:
+                    logging.info(f"LV2 data: waited {waited:.2f} s for the load in thread '{_world_loader}'")
             world = _world
     return world
 
@@ -279,12 +297,28 @@ def is_world_loaded():
     return _world is not None
 
 
-def preload_world():
-    """Build the lilv world in a background thread (after the UI is on screen), so the first chain
-    added or snapshot loaded doesn't wait for it. Returns the thread, or None if already built."""
+def preload_world(busy=None, idle_time=1.0):
+    """Build the lilv world in a background thread (after the start-up), so the first chain added
+    or snapshot loaded doesn't wait for it. busy: a function returning True while zynthian is busy
+    (a snapshot loading): the preload starts only after idle_time seconds without, so it doesn't
+    compete with a load (which builds the world itself when it needs it).
+    Returns the thread, or None if already built."""
     if _world is not None:
         return None
-    thread = threading.Thread(target=get_world, name="lv2_world", daemon=True)
+
+    def preload():
+        idle_since = time.monotonic()
+        while _world is None:
+            if busy is not None and busy():
+                idle_since = time.monotonic()
+            elif time.monotonic() - idle_since >= (idle_time if busy is not None else 0):
+                with _world_lock:
+                    if _world is None:
+                        _init_lilv("preload")
+                return
+            time.sleep(0.1)
+
+    thread = threading.Thread(target=preload, name="lv2_world", daemon=True)
     thread.start()
     return thread
 
@@ -299,11 +333,14 @@ def __getattr__(name):
 def init_lilv():
     """(Re)load all LV2 data into a new lilv world"""
     with _world_lock:
-        _init_lilv()
+        _init_lilv("reload")
 
 
-def _init_lilv():
-    global _world, lv2_signature, lv2_generation
+def _init_lilv(reason):
+    """Called with _world_lock held"""
+    global _world, _world_loader, lv2_signature, lv2_generation
+    _world_loader = threading.current_thread().name
+    logging.info(f"LV2 data: loading ({reason}, thread '{_world_loader}')")
     start = time.monotonic()
     # Get signature before loading, so changes done while loading are detected next time
     signature = get_lv2_signature()
@@ -328,7 +365,8 @@ def _init_lilv():
     zyngui_widget_cache.clear()
     plugin_bundles_cache.clear()
     plugin_ports_cache.clear()
-    logging.info(f"LV2 data loaded in {time.monotonic() - start:.2f} s")
+    logging.info(f"LV2 data loaded in {time.monotonic() - start:.2f} s ({reason}, thread '{_world_loader}',"
+                 f" generation {lv2_generation})")
 
 
 # ------------------------------------------------------------------------------

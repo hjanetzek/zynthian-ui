@@ -65,7 +65,46 @@ they changed out of the Tk files into shared modules (procedure and check: docs/
 | efb40f48 (2026-10-25) curves in the envelope widget | 14442743 "Qt UI: envelope and filter widgets on controller pages" (moves the geometry to `zyngui/zynthian_widget_data.py`) | The replayed commit deleted the widget's drawing code including `build_curve_table()` / `curve_points()`; the module kept straight segments. |
 | be13d828 (2026-11-03) routing to "ALL MIDI-CHAN" chains (`midi_chan == 0xffff`) | 3b84a84a "Chain routing in the Qt UI; MIDI config and audio out lists shared" (moves the lists to `zyngui/zynthian_midi_config_data.py`) | The Tk screen's condition with upstream's `or chain.midi_chan == 0xffff` was deleted; the module kept `midi_chan < 16`. |
 
-Found by the screenshot comparison and code review of the upstream extraction branch `tk-ui-abstraction`; fixed on main by branch `fix-regressions`.
+Found by the screenshot comparison and code review of the upstream extraction branch `tk-ui-abstraction`; fixed on main by branch `fix-regressions` (e8292224 MIDI output list, d14c672e envelope curves, tests 824bb69b).
+
+### Review of all suspects (2026-11-18, branch `fix-regressions`)
+
+Ranges checked against the branch: upstream `d6ed3592..14c9ddad` (from our first base, vangelis
+d6ed3592 of 2026-11-02, to main's current base on tomita; this includes the tomita-only commits older
+than d6ed3592) with `zynthian-stuff/tools/refactor-report/refactor_report.py --lost-upstream` (final
+report: `lost-upstream-fix-regressions-5e4d8917.txt` there), `lostcheck.sh`, a blame of every
+upstream line our diff removes, and a comparison of main's shared modules and Tk screens with the
+ones `tk-ui-abstraction` extracted from current upstream (differences: only the port's additions).
+The 10 upstream commits after 14c9ddad (websocket feedback, CUIA categories, ...) aren't in main's
+base yet: not lost, pending the next rebase. Vangelis after d6ed3592 has one commit not in tomita,
+3d28ae56 "MIDI Player" title, the same change as tomita's 14c9ddad.
+
+| Upstream change | Verdict | Evidence / fix |
+|---|---|---|
+| efb40f48 envelope curves | **lost** (moved code) | fixed d14c672e: `zynthian_widget_data.envelope_geometry()`; Tk widget and Qt `EnvelopeView` draw it |
+| be13d828, 8f58743a/0fbd308f ALL-channel chains in the MIDI output list | **lost** (moved code) | fixed e8292224: `zynthian_midi_config_data.midi_config_list()` |
+| 6a149c4a/3f4d5937 `fader_overlay = None` in mixer strips | **lost in effect** (semantic conflict): upstream's init made our `has_mixer_widgets()` (`hasattr`) always true | fixed 344c3d08: tests `fader_overlay is not None` |
+| 732e32b7 `zynthian_widget_gxgraphiceq` lowercase | **lost** on the Qt side: `plugin_widget()` takes the name from the file, `PLUGIN_WIDGETS` had "GxGraphicEQ" | fixed 4823566f (+ test: every widget in `lv2/` has a Qt view) |
+| a1527c99 widgets as LV2 extension bundles in `lv2/` | **lost** in packaging: `lv2/` wasn't installed nor on LV2_PATH, so no LV2 plugin widget in either UI on Nura | fixed 5e4d8917: `desktop/install.sh`, `zynthian_desktop_env.sh`, `sync_ui.sh` |
+| 14c9ddad / 3d28ae56 "MIDI Player" title | **not followed** by the Qt screen | fixed 55c63a7c |
+| ac618562 CC view: assigned CCs only, bold knob 1 "show all"; ff02526e CC names | changed again upstream (11-15 CC view rework); main's Tk `zynthian_gui_pated_cc.py` is upstream's; the Qt editor has both (`cc_show_all`, CC names in `tkTitle`) | — (the Qt CC list model: open follow-up 3) |
+| 9511465f learn-mode indicator, 172d6741/494db0f2/150f48b7 binding display and unlearn texts | adapted: `zynthian_midi_learn_data.binding()` / `unlearn_label()` (Tk controller and control screen, Qt control) | — |
+| 67cc6aa7 `remove_unused_automate` | adapted ("Adapt to upstream's MIDI binding rework": extra `automated` argument) | — |
+| ee07890c drawbar `screen_type` | adapted: `zynthian_widget_data.screen_type()` returns "drawbar" (no Qt widget: follow-up 4) | — |
+| c0d83cac `list(self.drivers.values())` | adapted: `list(drivers) + list(hid_drivers)` | — |
+| 4b0dbe47 legacy snapshot `mixer_ids` | adapted: `main_mixbus_id()` (import cycle broken) | — |
+| 500e5cd1, a69c4289 `patch_jack_library` | replaced on purpose by our alias store (2079cb4f); upstream later dropped the fallbacks 04882b7f added in autoconnect too | — |
+| 04882b7f `RBPI_VERSION` | adapted: no version counts as RPi4 class (desktop) | — |
+| 6d8ca287 LV2 hot reload, a1527c99 `ZYNGUI_BUILTIN_WIDGETS_DIR` | adapted: lazy lilv world, `zynthian_paths.ui_dir` | — |
+| 0aab7eb3 `check_output(update_zynthian_sys.sh)`, powersave | adapted: `zynthian_paths.sys_dir`; moved, same calls | — |
+| 7be0ece9 remember the last pattern editor | kept in Tk (`show_screen("pated")`, `get_editor_screen()`); Qt has one editor screen whose `cc_mode` persists | — |
+| 8f8213af cycle xfails in `test_imports` | adapted: main broke the cycle | — |
+| c31d5dcd, 82071c48, 63ab84b1, cfa5ddba, a9105074, 4fe36269, f10309d9 | whitespace / comments / tests moved to `tests/native` / schema doc (changed again upstream) | — |
+
+Not an upstream change but noted in the comparison: `zynthian_snapshot_files.bank_list()/snapshot_list()`
+number rows by position (`len(rows)`), where the Tk screen counted only some rows; the selected row
+after a load is the loaded snapshot in both when a "Save" row is shown, upstream's is off by one
+without it. Left as is on main (`tk-ui-abstraction` keeps upstream's counting).
 
 ## Verification done
 

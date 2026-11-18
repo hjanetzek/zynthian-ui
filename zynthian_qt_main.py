@@ -39,7 +39,10 @@ def run_under_qmlpreview():
     env = dict(os.environ, ZYNTHIAN_QT_EXIT_FILE=exit_file)
     # The script itself (executable, #!/usr/bin/python3): qmlpreview appends its option after
     # the program, "python3 script" would get it as the interpreter's
-    proc = subprocess.Popen([qmlpreview, "--verbose", os.path.abspath(__file__)] + sys.argv[1:], env=env)
+    # stdin a pipe that stays open (nothing is written): qmlpreview reads commands from stdin and
+    # quits, terminating the UI, at its end; the launcher's background job gets EOF (EIO) from the tty
+    proc = subprocess.Popen([qmlpreview, "--verbose", os.path.abspath(__file__)] + sys.argv[1:], env=env,
+                            stdin=subprocess.PIPE)
     for signo in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
         signal.signal(signo, lambda s, f: proc.send_signal(s))
     while True:

@@ -46,7 +46,7 @@ The biggest functional change. It replaces "MIDI learn" in `zyngine/zynthian_cha
 
 - Formatting: CRLF → LF, tabs, trailing whitespace, `is None`/`is True`, no mutable default arguments, fewer function-level imports (e.g. `lib_zyncore_init` at module level in `zynthian_gui_config`), logging following the coding guidelines (`print` → `logging`). `#!/usr/bin/python3` and `# -*- coding -*-` headers removed. Author e-mails changed to `@zynthian.org`.
 - `os.system`/`shell=True` replaced by `subprocess.run`/`check_output` with argument lists across the codebase (admin, state manager, config, engines, jalv). `eval()` replaced by `getattr()`.
-- Rename: `zynthian_widget_GxGraphicEQ.py` → `zynthian_widget_gxgraphiceq.py` (and the class name). Our `zynthian_widget_data.PLUGIN_WIDGETS` uses the name `"GxGraphicEQ"` only as a key, so it still works.
+- Rename: `zynthian_widget_GxGraphicEQ.py` → `zynthian_widget_gxgraphiceq.py` (and the class name). Our `zynthian_widget_data.PLUGIN_WIDGETS` matched the old name, which `plugin_widget()` takes from the file name: the Qt UI lost the EQ view until fix-regressions followed the rename.
 - `zynthian_gui_mixer`: `id` no longer shadows the built-in.
 - Build type of zynseq is no longer hardcoded.
 

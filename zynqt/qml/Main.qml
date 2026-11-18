@@ -35,33 +35,18 @@ Window {
     color: Theme.background
     title: "zynthian"
 
-    // Touch keypad: an overlay brought up from the top edge (a swipe down on the title), hidden
-    // again 4 s after the last key or by a tap on the title; or docked (the screens
-    // beside and above it). Tapping the status area (or Admin > Docked Touch Keypad) switches.
+    // Touch keypad: docked (the screens beside and above it) or not shown. A tap on the status
+    // area (as Tk's) or Admin > Docked Touch Keypad shows / hides it (ZYNTHIAN_QT_KEYPAD).
     // The theme's sizes that follow the window (tk: as zynthian_gui_config)
     Binding { target: Theme; property: "screenWidth"; value: ui.width }
     Binding { target: Theme; property: "screenHeight"; value: ui.height }
     Binding { target: Theme; property: "keypadShown"; value: root.keypadDocked }
 
-    // Themes without an on-screen keypad (keypadEnabled false, v4: the kit's knobs and switches)
-    readonly property bool keypadDocked: zyn.keypadDocked && Theme.keypadEnabled
-    property bool keypadOverlay: false
+    readonly property bool keypadDocked: zyn.keypadDocked
     // The keypad on the right (ZYNTHIAN_UI_TOUCH_NAVIGATION v5_keypad_right)
     readonly property bool keypadRight: typeof zynConfig !== "undefined" && zynConfig.keypadRight === true
     readonly property real screensLeft: keypadDocked && !keypadRight ? Theme.keypadWidth : 0
     readonly property real screensRight: keypadDocked && keypadRight ? Theme.keypadWidth : 0
-    onKeypadDockedChanged: keypadOverlay = false
-
-    Timer {
-        id: keypadHide
-        interval: 4000
-        onTriggered: root.keypadOverlay = false
-    }
-    function showKeypadOverlay(show) {
-        keypadOverlay = show && Theme.keypadEnabled
-        if (show)
-            keypadHide.restart()
-    }
 
     readonly property real elbowArm: 180
     readonly property bool elbowShown: Theme.elbow && zyn.topBarShown
@@ -90,40 +75,19 @@ Window {
         height: sideways ? root.width : root.height
         rotation: root.uiRotation
 
-        // Overlay keypad: the screens under it blurred (KeypadBlur, only while shown), translucent keys
-        Loader {
-            x: screens.x
-            y: screens.y
-            width: screens.width
-            height: screens.height
-            z: 19
-            active: root.keypadOverlay
-            source: "KeypadBlur.qml"
-            onLoaded: {
-                item.source = screens
-                item.sideWidth = Qt.binding(() => Theme.keypadWidth)
-                item.bottomHeight = Qt.binding(() => Theme.keypadKeyHeight)
-                item.sideRight = Qt.binding(() => root.keypadRight)
-            }
-        }
-
-        // Not created in themes without it (v4)
+        // The docked keypad, created when first shown (or after the first frame)
         Deferred {
             x: root.keypadRight ? ui.width - width : 0
-            // The overlay leaves the top bar free: its title hides the keypad again
-            anchors.top: root.keypadDocked ? parent.top : topBar.bottom
+            anchors.top: parent.top
             anchors.bottom: parent.bottom
             width: Theme.keypadWidth
             z: 20
-            visible: root.keypadDocked || root.keypadOverlay
-            allowed: Theme.keypadEnabled
-            needed: root.keypadDocked || root.keypadOverlay
+            visible: root.keypadDocked
+            needed: root.keypadDocked
             sourceComponent: Component {
                 Keypad {
                     rightHanded: root.keypadRight
                     keyHeight: Theme.keypadKeyHeight
-                    translucent: !root.keypadDocked
-                    onKeyPressed: if (root.keypadOverlay) keypadHide.restart()
                 }
             }
         }
@@ -136,12 +100,7 @@ Window {
 
             anchors.left: parent.left
             anchors.leftMargin: root.screensLeft
-            overlayHint: !root.keypadDocked
-            // The title's tap goes to the root screen (TopBarTitleTouch, all themes); it also hides the
-            // overlay keypad. A swipe down brings it up (themes whose TopBar emits it)
-            onTitleTapped: if (root.keypadOverlay) root.showKeypadOverlay(false)
-            onTitleSwipedDown: if (!root.keypadDocked) root.showKeypadOverlay(true)
-            onStatusTapped: if (Theme.keypadEnabled) zyn.toggleKeypadDocked()
+            onStatusTapped: zyn.toggleKeypadDocked()
             anchors.right: parent.right
             anchors.rightMargin: root.screensRight
             anchors.top: parent.top

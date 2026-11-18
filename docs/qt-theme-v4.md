@@ -27,8 +27,10 @@ From the wiki (Zynthian UI User Guide V1/V4) and Tk's layout `V4` (`zynthian_gui
   short < 0.3 s, bold 0.3–2 s, long > 2 s. (The Qt UI's switch table follows Tk's; check it
   against the V4 wiring profiles `v4_stage` / `v4_studio`.)
 - Four extra buttons S1–S4 on later kits (by default MIDI program changes 1–4; webconf).
-- No on-screen keypad: the hardware has the controls (`ZYNTHIAN_UI_TOUCH_NAVIGATION` empty, 8
-  zynswitches; see qt-hardware-input.md).
+- The hardware has the controls (`ZYNTHIAN_UI_TOUCH_NAVIGATION` empty, 8 zynswitches; see
+  qt-hardware-input.md), so the kit shows no on-screen keypad unless it is docked (Admin > Docked
+  Touch Keypad, or a tap on the top bar's status area). Phones and other touch-only devices with
+  v4 dock it.
 
 ## Layout rules
 
@@ -63,7 +65,10 @@ From the wiki (Zynthian UI User Guide V1/V4) and Tk's layout `V4` (`zynthian_gui
   fits (probably not at 480 px: show the info text another way or drop it, decide per screen).
 - **Main menu / add chain:** 3 columns (Tk's rule below 800 px), scrolling.
 - **Pattern editor:** the grid as big as possible, the knob functions at the edges; no toolbar (tk).
-- **Top bar, keypad:** no on-screen keypad in this theme.
+- **Top bar, keypad:** the docked keypad as in every theme (off by default, `ZYNTHIAN_QT_KEYPAD`).
+  Docked at 800x480 the content fits beside it (the mixer's 8 strips, chain control with the
+  hints). At 480x320 it still fits but is tight: the keypad takes a fifth of the width and a sixth
+  of the height, the strips get ~45 px, the labels get small; usable, not comfortable.
 
 ## Implementation
 
@@ -72,12 +77,11 @@ Files (`zynqt/qml/+v4/` unless noted):
 - `Theme.qml`: tk's tokens (a copy of `zynqt/qml/Theme.qml`: keep the two in step), plus
   `tkAutoScale: false` (F is `ZYNTHIAN_UI_FONT_SIZE` unscaled, as Tk on a V4 kit: 14 there;
   Nura's session sets `ZYNTHIAN_UI_SCALE=auto`, which would give F = 7 at 320 px; a number as the
-  scale still applies), `keypadEnabled: false` (no docked or overlay keypad; the title and status
-  taps don't bring it up), `infoWidth: 0.23` (Tk's V4 `ctrl_width`), `dialogScale: 0.6`.
+  scale still applies), `infoWidth: 0.23` (Tk's V4 `ctrl_width`), `dialogScale: 0.6`.
 - `KnobHints.qml`: what the knobs do, in a column at each edge (upper half: the top knob, lower
   half: the bottom one; text along the edge, 0.7 F). A tap on a hint pushes that knob's switch
   with Tk's timing (short < 0.3 s, bold to 2 s, long): touch access to the switch functions
-  without a keypad. Only v4's own files use it (no base version).
+  without the keypad. Only v4's own files use it (no base version).
 - `ChainControlScreen.qml`, `Controller.qml`: Tk's V4 layout: slot i at `ctrl_pos[i]` (0 top
   left, 1 bottom left, 2 top right, 3 bottom right), 23 % of the width, half the height each, a
   1 px gap; page list and widgets in the middle column; the side chain left of everything in
@@ -102,7 +106,7 @@ Files (`zynqt/qml/+v4/` unless noted):
   `pattern_editor.py` `knobHints(editMode, ccMode)` (zoom, note, step; per edit mode and in the CC
   view).
 - Shared, unchanged for tk and classic (scenes AE 0): `ThemeBase` tokens `tkAutoScale`,
-  `keypadEnabled`, `dialogScale` (Main.qml's dialogs and the keyboard); `InfoPane`: Tk's half-size
+  `dialogScale` (Main.qml's dialogs and the keyboard); `InfoPane`: Tk's half-size
   icon at the top left when the side is narrow (`get_icon`); `PatternEditorScreen.qml` split into
   the screen (a frame) and `PatternEditorView.qml` (tk's editor).
 
@@ -132,7 +136,6 @@ Open:
 
 - The selector counter under the info pane (bank / MIDI file) elides its label ("MIDI ...") where
   Tk shrinks the font.
-- Admin > Docked Touch Keypad still toggles the (disabled) keypad setting.
 - Hints show what turning does; what a push does is only known from the hardware labels.
 - Check on the Pi 4 kit: legibility of 0.7 F hints and 48 px strips, resistive touch on the hints
   and the 42 x 31 px keyboard keys, linuxfb (no shader effects are used in `+v4/`).

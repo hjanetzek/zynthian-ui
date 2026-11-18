@@ -17,7 +17,7 @@ QML engine's extra file selectors (`zynqt/theme.py`) and passes the name as the 
 | `classic` | `classic` | the Qt port's first look, zynthian's colours (as `zynthian_gui_config`): black, slate-blue plates, red selection, blue keys, Audiowide |
 | `galactica` | `galactica`, `classic` | builds on classic: a battlestar CIC console: gun-metal plates with clipped corners and steel outlines, amber console text in Khand (upper case), an amber selection bar, red alerts |
 | `enterprise` | `enterprise`, `classic` | builds on classic: a starship console: filled keys with one corner radius (a quarter of the smallest key side) in orange, blue-gray, mauve and violet with dark labels, pill rows, mauve section headers, a curved frame (elbow) around the screens |
-| `v4` | `v4` | builds on tk: the V4 kits' 3.5" 480x320 screen with two knobs on each side: Tk's V4 layout (chain control's controllers next to their knobs), the mixer with 8 strips + main, the launcher with 4 x 4 pads + main, knob hints at the edges, no on-screen keypad, F unscaled ([qt-theme-v4.md](qt-theme-v4.md)) |
+| `v4` | `v4` | builds on tk: the V4 kits' 3.5" 480x320 screen with two knobs on each side: Tk's V4 layout (chain control's controllers next to their knobs), the mixer with 8 strips + main, the launcher with 4 x 4 pads + main, knob hints at the edges, the keypad only when docked, F unscaled ([qt-theme-v4.md](qt-theme-v4.md)) |
 
 A name without a directory `zynqt/qml/+<name>/` falls back to tk, with a warning in the log.
 
@@ -140,7 +140,7 @@ and the Python calls are the same. A theme changes only the look. So:
   grid tokens), `SelectorControls` (the selector counter), `TopBarState` (what the top bar shows:
   the title per screen, the inverted edit mode title, the tempo on the mixer),
   `TopBarTitleTouch` (the title's tap: root / mixer <-> launcher, bold or long press: main menu;
-  an optional swipe down), `ControllerTouch` (a controller's drag, tap, long press, wheel). v4
+  no other gestures), `ControllerTouch` (a controller's drag, tap, long press, wheel). v4
   keeps its own `ChainControlScreen` and `PatternEditorScreen` (frames, the knob hints) and uses
   the shared touch.
 - **Look-only overrides** (same properties, same data, no handlers of their own): `InfoPane`,
@@ -154,8 +154,8 @@ and the Python calls are the same. A theme changes only the look. So:
   is its own) and `MixerView.qml` (classic's mixer: tk's touch and content from
   `MixerScreen.qml`, listed in its header comment).
 - **Extras** a theme may have where tk has nothing (they must not change what tk's gestures do):
-  classic's pattern toolbar, the mixer's move buttons, balance drag and double tap, the swipe
-  down on the title for the overlay keypad, the CPU / battery / mute slots.
+  classic's pattern toolbar, the mixer's move buttons, balance drag and double tap, the CPU /
+  battery / mute slots.
 
 A change to behaviour goes into the shared file (or into tk's file and the copies above).
 
@@ -270,8 +270,7 @@ Tk's configuration: `zynthian_qt_main.py` passes `zynConfig` (`fontSize`, `uiSca
 (`screenWidth`, `screenHeight`, set by `Main.qml`) as `zynthian_gui_config` does, `tkPx(points)`
 converts Tk's point sizes to pixels (96 dpi), `tkColor(name, fallback)` reads a colour.
 
-Theme-wide switches: `tkAutoScale` (false: `ZYNTHIAN_UI_SCALE=auto` counts as 1), `keypadEnabled`
-(false: no on-screen keypad, docked or overlay), `dialogScale` (sizes of Main.qml's dialogs and
+Theme-wide switches: `tkAutoScale` (false: `ZYNTHIAN_UI_SCALE=auto` counts as 1), `dialogScale` (sizes of Main.qml's dialogs and
 the keyboard), `flatPresetList` (true: the preset list shows all banks, each under a section
 title, with their presets, and the BACK knob (knob 1) moves from bank to bank; false, the
 default: Tk's bank list, then the bank's presets. On in v4, off in tk and classic).
@@ -329,12 +328,16 @@ the screens by a rounded outer and inner corner, the bar ending in a half circle
 when `Theme.elbow` and the top bar is shown (`HIDE_TOPBAR` hides both), and moves the screens right
 by the bar; the top bar is taller then (50 + `elbowBar` - 4), with title and status above the
 segments in `barColors` that continue the arm. It starts at the screens' left edge: right of the
-docked keypad, at the window's edge with the overlay keypad (which covers it while shown).
+docked keypad, else at the window's edge.
 
 ### Layout parts that follow the theme
 
-- Touch keypad: docked (beside and below the screens) or an overlay over the blurred screens
-  (`KeypadBlur.qml`); the overlay keys are the docked ones with an alpha (0.55, filled keys 0.7).
+- Touch keypad: docked (beside and below the screens) or not shown; nothing else (the overlay
+  keypad was removed 2026-11-18). `ZYNTHIAN_QT_KEYPAD="docked"` shows it, any other value (`off`,
+  the former `overlay`) doesn't; a tap on the top bar's status area (as Tk's) and Admin > Docked
+  Touch Keypad switch it at run time and save it. `KeyPlate` has the properties `fill`,
+  `pressed`, `minSide`; `KeyFace` `key`, `label`, `subLabel`, `radius`. In the classic themes
+  (fixed sizes) the docked keypad leaves too little room at 480x320; tk and v4 scale with it.
 - Keypad labels are shrunk to fit their key (`Text.Fit`), for narrow keys and large font sizes.
 - F-key labels: F1-F4 show what they do now as their `label` and their name ("F1", with the ALT
   LED "F5") as a small `subLabel` (tk: top left in the LED colour; classic and galactica: top left,
@@ -505,8 +508,7 @@ Measured on the Duet for the meters and lists (`docs/performance-measurement.md`
 - colours bound to state (selection, pressed) are cheap; prefer them to extra items.
 
 Start-up: only what the first frame shows is created when the QML loads; the other screens, the
-controller widget views, the touch keypad (not at all in themes without one, `keypadEnabled:
-false`), the on-screen keyboard and the launcher pads are `Deferred` (`Deferred.qml`, a `Loader`):
+controller widget views, the docked touch keypad, the on-screen keyboard and the launcher pads are `Deferred` (`Deferred.qml`, a `Loader`):
 created at once when they are needed (shown), else after the first frame in the background
 (`Startup.ready`, set on the window's first `frameSwapped`), and then kept as before. A part that
 is hidden at first goes into a `Deferred` with an inline `Component`, so the theme's file

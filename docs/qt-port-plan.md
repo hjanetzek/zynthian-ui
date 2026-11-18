@@ -176,8 +176,8 @@ routing, processor options), adding chains (type, engine, MIDI channel, bank, pr
 ZS3 (with program change learning), tempo, audio levels, admin settings (all desktop entries
 except ZynVoice), MIDI devices and their options, audio and MIDI recorder/player, chain manager,
 moving chains and processors, MIDI CC and note range/transpose, on-screen keyboard, value editor.
-Touch keypad (V5 layout) docked or as an overlay from the top edge, translucent over a blurred
-screen (status area or Admin switches). The wiring configuration's switch actions: short / bold /
+Touch keypad (V5 layout) docked or off (status area or Admin switches; the overlay keypad was
+removed 2026-11-18). The wiring configuration's switch actions: short / bold /
 long and push actions with auto repeat (arrows, METRO), PROGRAM_CHANGE (F1–F4); the transport keys
 per screen as in Tk (pattern editor, MIDI recorder, audio file and SooperLooper widgets, audio
 player file list). M3 (below) is done except the hardware kits and small screens.

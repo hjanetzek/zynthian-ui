@@ -150,7 +150,7 @@ what tk's gestures do. Check a new override against tk: same handlers, same `zyn
    `~/.local/state/tinydm.log` on the target (or the preview's output). `ui-parity/tools/qttour.sh`
    tours the screens of the Qt VM and prints the QML errors.
 2. Your theme on the main screens at the target size (800x480 for the V5 kit, the Duet's 1280x800
-   logical): mixer, main menu, a list (admin), chain control, the keypad (docked and overlay),
+   logical): mixer, main menu, a list (admin), chain control, the keypad (docked and off),
    the pattern editor.
 3. Changes to shared components: tk and classic before/after with an exact pixel diff, or a note on
    what changed on purpose.

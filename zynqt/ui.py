@@ -84,10 +84,10 @@ class ZynUI(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # Touch keypad as an overlay brought up from the top edge (default), or docked beside the
-        # screens; saved as ZYNTHIAN_QT_KEYPAD ("overlay" / "docked"). Not Tk's ZYNTHIAN_TOUCH_SHOWN:
-        # the Tk UI saves that on every exit
-        self._keypad_docked = os.environ.get("ZYNTHIAN_QT_KEYPAD", "overlay") == "docked"
+        # Touch keypad docked beside the screens, or not shown (default); saved as ZYNTHIAN_QT_KEYPAD
+        # ("docked" / "off"; any other value, e.g. the former "overlay", is off). Not Tk's
+        # ZYNTHIAN_TOUCH_SHOWN: the Tk UI saves that on every exit
+        self._keypad_docked = os.environ.get("ZYNTHIAN_QT_KEYPAD", "off").strip() == "docked"
         self.state_manager = zynthian_state_manager()
         self.chain_manager = self.state_manager.chain_manager
         self.cuia_queue = self.state_manager.cuia_queue
@@ -400,7 +400,7 @@ class ZynUI(QObject):
         self._keypad_docked = not self._keypad_docked
         self.keypadDockedChanged.emit()
         try:
-            zynconf.save_config({"ZYNTHIAN_QT_KEYPAD": "docked" if self._keypad_docked else "overlay"})
+            zynconf.save_config({"ZYNTHIAN_QT_KEYPAD": "docked" if self._keypad_docked else "off"})
         except Exception as e:
             logging.warning(f"Can't save the keypad setting: {e}")
 

@@ -9,10 +9,7 @@ Rectangle {
     id: root
 
     property string title: ""
-    property bool overlayHint: false   // not used: Tk has no overlay keypad
     property real barStart: 0
-    signal titleTapped
-    signal titleSwipedDown
     signal statusTapped
 
     readonly property var status: zyn.status

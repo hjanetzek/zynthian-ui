@@ -1,5 +1,6 @@
 // The controller page's widget (zynthian_gui_control's widgets): waveform of audio file
-// processors, envelope, filter, plugin widgets ...
+// processors, envelope, filter, plugin widgets ... Each view created when first shown, or
+// after the first frame (Deferred), then kept
 import QtQuick
 
 Item {
@@ -7,39 +8,46 @@ Item {
     property var cc: zyn.chainControl
     visible: cc.widgetType !== ""
 
-    WaveformView {
+    Deferred {
         anchors.fill: parent
         visible: root.cc.widgetType === "audio_file"
-        view: root.cc.waveform
+        needed: root.cc.widgetType === "audio_file"
+        sourceComponent: Component { WaveformView { view: root.cc.waveform } }
     }
-    EnvelopeView {
+    Deferred {
         anchors.fill: parent
         visible: root.cc.widgetType === "envelope"
-        view: root.cc.envelope
+        needed: root.cc.widgetType === "envelope"
+        sourceComponent: Component { EnvelopeView { view: root.cc.envelope } }
     }
-    FilterView {
+    Deferred {
         anchors.fill: parent
         visible: root.cc.widgetType === "filter"
-        view: root.cc.filterView
+        needed: root.cc.widgetType === "filter"
+        sourceComponent: Component { FilterView { view: root.cc.filterView } }
     }
-    PluginWidgetView {
+    Deferred {
         anchors.fill: parent
         visible: root.cc.widgetType === "plugin"
-        view: root.cc.pluginView
+        needed: root.cc.widgetType === "plugin"
+        sourceComponent: Component { PluginWidgetView { view: root.cc.pluginView } }
     }
-    EuclidSeqView {
+    Deferred {
         anchors.fill: parent
         visible: root.cc.widgetType === "euclid"
-        view: root.cc.euclidView
+        needed: root.cc.widgetType === "euclid"
+        sourceComponent: Component { EuclidSeqView { view: root.cc.euclidView } }
     }
-    OrganelleView {
+    Deferred {
         anchors.fill: parent
         visible: root.cc.widgetType === "organelle"
-        view: root.cc.organelleView
+        needed: root.cc.widgetType === "organelle"
+        sourceComponent: Component { OrganelleView { view: root.cc.organelleView } }
     }
-    SooperLooperView {
+    Deferred {
         anchors.fill: parent
         visible: root.cc.widgetType === "sooperlooper"
-        view: root.cc.sooperLooperView
+        needed: root.cc.widgetType === "sooperlooper"
+        sourceComponent: Component { SooperLooperView { view: root.cc.sooperLooperView } }
     }
 }

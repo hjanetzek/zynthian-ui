@@ -48,8 +48,8 @@ Window {
     property bool keypadOverlay: false
     // The keypad on the right (ZYNTHIAN_UI_TOUCH_NAVIGATION v5_keypad_right)
     readonly property bool keypadRight: typeof zynConfig !== "undefined" && zynConfig.keypadRight === true
-    readonly property real screensLeft: keypadDocked && !keypadRight ? keypad.width : 0
-    readonly property real screensRight: keypadDocked && keypadRight ? keypad.width : 0
+    readonly property real screensLeft: keypadDocked && !keypadRight ? Theme.keypadWidth : 0
+    readonly property real screensRight: keypadDocked && keypadRight ? Theme.keypadWidth : 0
     onKeypadDockedChanged: keypadOverlay = false
 
     Timer {
@@ -67,6 +67,16 @@ Window {
     readonly property bool elbowShown: Theme.elbow && zyn.topBarShown
 
     Binding { target: Theme; property: "uiSideways"; value: ui.sideways }
+
+    // The first frame is on screen: the deferred parts of the UI (Deferred.qml) are created now,
+    // in the background. (frameSwapped comes from the render thread: queued to this one.)
+    onFrameSwapped: if (!Startup.ready) Startup.ready = true
+    Timer {
+        // in case no frame comes (a window not exposed)
+        interval: 5000
+        running: !Startup.ready
+        onTriggered: Startup.ready = true
+    }
 
     // Everything visible, rotated by uiRotation (ZYNTHIAN_UI_ROTATION: 0, 90, 180, 270) for
     // displays without output rotation (Qt's eglfs on KMS: no compositor to rotate, and Qt Quick
@@ -91,26 +101,31 @@ Window {
             source: "KeypadBlur.qml"
             onLoaded: {
                 item.source = screens
-                item.sideWidth = Qt.binding(() => keypad.width)
-                item.bottomHeight = Qt.binding(() => keypad.keyHeight)
+                item.sideWidth = Qt.binding(() => Theme.keypadWidth)
+                item.bottomHeight = Qt.binding(() => Theme.keypadKeyHeight)
                 item.sideRight = Qt.binding(() => root.keypadRight)
             }
         }
 
-        Keypad {
-            id: keypad
-
+        // Not created in themes without it (v4)
+        Deferred {
             x: root.keypadRight ? ui.width - width : 0
-            rightHanded: root.keypadRight
             // The overlay leaves the top bar free: its title hides the keypad again
             anchors.top: root.keypadDocked ? parent.top : topBar.bottom
             anchors.bottom: parent.bottom
             width: Theme.keypadWidth
-            keyHeight: Theme.keypadKeyHeight
             z: 20
             visible: root.keypadDocked || root.keypadOverlay
-            translucent: !root.keypadDocked
-            onKeyPressed: if (root.keypadOverlay) keypadHide.restart()
+            allowed: Theme.keypadEnabled
+            needed: root.keypadDocked || root.keypadOverlay
+            sourceComponent: Component {
+                Keypad {
+                    rightHanded: root.keypadRight
+                    keyHeight: Theme.keypadKeyHeight
+                    translucent: !root.keypadDocked
+                    onKeyPressed: if (root.keypadOverlay) keypadHide.restart()
+                }
+            }
         }
 
         // Enterprise: the elbow frames the screens, its arm continues as the top bar's segments
@@ -156,30 +171,48 @@ Window {
             anchors.rightMargin: root.screensRight
             anchors.top: topBar.bottom
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: root.keypadDocked ? keypad.keyHeight : 0
+            anchors.bottomMargin: root.keypadDocked ? Theme.keypadKeyHeight : 0
             currentIndex: zyn.currentList ? 2
                           : (zyn.currentScreen === "mixer" || zyn.currentScreen === "launcher") ? 0
                           : zyn.currentScreen === "chain_manager" ? 3
                           : zyn.currentScreen === "pattern_editor" ? 4
                           : zyn.currentScreen === "control_xy" ? 5 : 1
 
-            MixerScreen { shown: screens.currentIndex === 0 }
-            ChainControlScreen {}
+            // Each screen created when first shown, or after the first frame (Deferred), then kept
+            Deferred {
+                needed: screens.currentIndex === 0
+                sourceComponent: Component { MixerScreen { shown: screens.currentIndex === 0 } }
+            }
+            Deferred {
+                needed: screens.currentIndex === 1
+                sourceComponent: Component { ChainControlScreen {} }
+            }
             // One view per selector screen, kept: switching only changes which one is visible
             Item {
                 Repeater {
                     model: zyn.listScreenObjects
-                    SelectorScreen {
+                    Deferred {
+                        id: selector
                         required property var modelData
                         anchors.fill: parent
-                        screen: modelData
                         visible: modelData === zyn.currentList
+                        needed: modelData === zyn.currentList
+                        sourceComponent: Component { SelectorScreen { screen: selector.modelData } }
                     }
                 }
             }
-            ChainManagerScreen {}
-            PatternEditorScreen {}
-            ControlXYScreen {}
+            Deferred {
+                needed: screens.currentIndex === 3
+                sourceComponent: Component { ChainManagerScreen {} }
+            }
+            Deferred {
+                needed: screens.currentIndex === 4
+                sourceComponent: Component { PatternEditorScreen {} }
+            }
+            Deferred {
+                needed: screens.currentIndex === 5
+                sourceComponent: Component { ControlXYScreen {} }
+            }
         }
 
         // Info message, as zynthian_gui.show_info
@@ -238,8 +271,10 @@ Window {
             }
         }
 
-        Keyboard {
+        Deferred {
             anchors.fill: screens
+            needed: zyn.keyboardShown
+            sourceComponent: Component { Keyboard {} }
         }
 
         // Help (zynthian_gui_help): the screen's zynthian-help page; links followed, arrows scroll,

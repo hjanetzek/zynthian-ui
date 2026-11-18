@@ -206,6 +206,21 @@ def test_osc_status_query_reports_busy_and_idle(state_manager):
     assert len(server.sent) == 2
 
 
+def test_tk_osc_callback_answers_the_status_query_while_busy(state_manager):
+    # Answered from the OSC callback, before the "busy: CUIA ignored" check
+    import os
+    from zyngui.zynthian_gui import zynthian_gui
+    g = zynthian_gui.__new__(zynthian_gui)
+    g.state_manager = state_manager
+    g.osc_server = FakeOscServer()
+    state_manager.start_busy("start_aeolus")
+    try:
+        g.osc_cb_all("/status/busy", [], "", type("Src", (), {"url": "osc.udp://x:1/"})())
+        assert g.osc_server.sent[-1][1:] == ("/STATUS/BUSY", (os.getpid(), 1, "start_aeolus", "", ""))
+    finally:
+        state_manager.clear_busy()
+
+
 def test_snapshot_merge_maps_chain_controller_references(state_manager, zynthian_dirs, monkeypatch):
     """A merged snapshot's processors get new ids: the chain controllers' references (the chain
     state's "zctrls") follow; references to processors not in the snapshot are dropped"""

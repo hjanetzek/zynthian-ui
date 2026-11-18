@@ -57,7 +57,7 @@ Fix commit `ef92d73e` adapted the remaining callers:
 
 ## Upstream changes lost in moved code (found 2026-11-18)
 
-Two upstream changes were lost in this rebase without a conflict, because our commits moved the code
+Two upstream changes were lost without a conflict, not in this rebase but in the earlier one main came from (about 2026-11-07; both upstream commits are older than this rebase's base 322e9079). An earlier attempt, branch `nura-tomita` (2026-11-05, base 500e5cd1, its notes in `git show 5a147281:docs/rebase-tomita.md`), had ported both into the shared modules, but main wasn't built from it. They were lost because our commits moved the code
 they changed out of the Tk files into shared modules (procedure and check: docs/rebasing-onto-upstream.md):
 
 | Upstream change | Our commit (written on an older base) | What happened |

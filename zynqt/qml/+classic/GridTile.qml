@@ -67,7 +67,9 @@ Item {
             // the next row
             fontSizeMode: Text.Fit
             minimumPixelSize: 9
-            text: tile.tileTitle
+            // Tk's titles break lines for its icon-beside-text tiles; here, below the icon, a
+            // line with only a "+" ("MIDI\n+\nAudio") joins its neighbours: "MIDI+Audio"
+            text: tile.tileTitle.replace(/\n\+\n/g, "+")
             color: tile.selected ? Theme.selectText : Theme.text
             size: 18
             title: true

@@ -2,12 +2,19 @@
 usage_text='Copy this checkout'"'"'s Python code into the zynthian-ui installed on the device (or the QEMU
 VM with -V), for testing changes without building packages.
 
-Usage: sync_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-r | -R] [-q] [-n]
+Usage: sync_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-r | -R [-t SECONDS]] [-q] [-n]
 
   -r   restart the kiosk session afterwards (systemctl restart tinydm), so zynthian runs the new code
   -R   restart only zynthian (CUIA RESTART_UI over OSC: the launcher starts it again inside the
        running compositor, no new session; it re-reads ~/.config/zynthian/zynthian_envars.sh and
        zynthian_custom_config.sh, not /etc/default/zynthian). Falls back to -r without a running UI.
+       Checked (zynthian ignores RESTART_UI while busy; nothing is killed): waits until zynthian is
+       idle (OSC query /STATUS/BUSY; shows what it is busy with), sends RESTART_UI, waits until that
+       process has ended, a new one runs and answers idle (started, snapshot loaded). Exits non-zero
+       with the reason otherwise: 2 still busy (RESTART_UI not sent), 3 no restart, 4 no new
+       process, 5 the new one isn'"'"'t ready. A zynthian without the query (older code) gets
+       RESTART_UI unchecked after 10 s without an answer; the restart is still checked.
+  -t   seconds to wait for each of these steps (default 60)
   -q   QML only: copy zynqt/qml and nothing else, no restart (with ZYNTHIAN_QT_QMLPREVIEW=1 and
        qmlpreview watching the copy, docs/qt-theming.md: the running UI reloads it)
   -n   dry run: list what would be copied
@@ -25,7 +32,8 @@ here=$(cd "$(dirname "$0")" && pwd)
 checkout=$(cd "$here/.." && pwd)
 restart=0
 dry=0
-tool_opts="rRqn"
+wait=60
+tool_opts="rRqnt:"
 qml_only=0
 tool_opt() {
 	case $1 in
@@ -33,6 +41,7 @@ tool_opt() {
 		R) restart=2 ;;
 		q) qml_only=1 ;;
 		n) dry=1 ;;
+		t) wait=$2 ;;
 	esac
 }
 parse_common "$@"
@@ -85,12 +94,14 @@ echo "$files" | (cd "$checkout" && tar -cf - -T -) |
 echo "copied $(echo "$files" | wc -l) files to $target:$dst"
 
 if [ $restart = 2 ]; then
-	# An OSC message without arguments: address and type tags, each padded to 4 bytes
-	if dev 'pgrep -f "zynthian_(qt_)?main.py" >/dev/null && python3 -c "import socket; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(b\"/CUIA/RESTART_UI\\0\\0\\0\\0,\\0\\0\\0\", (\"127.0.0.1\", 1370))"'; then
-		echo "zynthian restarted (RESTART_UI)"
-	else
-		restart=1
-	fi
+	# restart_ui.py runs on the device: waits for idle, sends RESTART_UI, checks the new process
+	rc=0
+	dev "python3 - $wait" < "$here/restart_ui.py" || rc=$?
+	case $rc in
+		0) ;;
+		10) restart=1 ;;   # zynthian isn't running
+		*) exit "$rc" ;;
+	esac
 fi
 if [ $restart = 1 ]; then
 	dev 'sudo systemctl restart tinydm'

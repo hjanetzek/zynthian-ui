@@ -55,6 +55,18 @@ Fix commit `ef92d73e` adapted the remaining callers:
 - Qt `chain_options.py`, `processor_options.py`, `ui.py` CUIA unlearn handlers.
 - Qt `pattern_editor.py`.
 
+## Upstream changes lost in moved code (found 2026-11-18)
+
+Two upstream changes were lost in this rebase without a conflict, because our commits moved the code
+they changed out of the Tk files into shared modules (procedure and check: docs/rebasing-onto-upstream.md):
+
+| Upstream change | Our commit (written on an older base) | What happened |
+|---|---|---|
+| efb40f48 (2026-10-25) curves in the envelope widget | 14442743 "Qt UI: envelope and filter widgets on controller pages" (moves the geometry to `zyngui/zynthian_widget_data.py`) | The replayed commit deleted the widget's drawing code including `build_curve_table()` / `curve_points()`; the module kept straight segments. |
+| be13d828 (2026-11-03) routing to "ALL MIDI-CHAN" chains (`midi_chan == 0xffff`) | 3b84a84a "Chain routing in the Qt UI; MIDI config and audio out lists shared" (moves the lists to `zyngui/zynthian_midi_config_data.py`) | The Tk screen's condition with upstream's `or chain.midi_chan == 0xffff` was deleted; the module kept `midi_chan < 16`. |
+
+Found by the screenshot comparison and code review of the upstream extraction branch `tk-ui-abstraction`; fixed on main by branch `fix-regressions`.
+
 ## Verification done
 
 - `uvx ruff check .`: clean.

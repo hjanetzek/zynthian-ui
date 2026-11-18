@@ -1,5 +1,9 @@
 # Tests
 
+**Run the tests in the test suite VM, not on the developer's machine:** `tools/test_vm.sh sync &&
+tools/test_vm.sh run all` from your checkout or worktree (all modes, nothing skipped for a missing
+tool; see [docs/test-vm.md](../docs/test-vm.md)). The commands below are what it runs inside the VM.
+
 ```
 ./run_tests.sh                 # everything that can run here (same as CI): ~90 s with the native libraries built
 ./run_tests.sh -k controller   # extra arguments go to pytest

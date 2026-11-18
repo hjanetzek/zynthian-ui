@@ -19,12 +19,22 @@ import ctypes.util
 import logging
 from math import pow
 
-import numpy as np
+# numpy and python-soundfile (which imports numpy) are imported when a wave is loaded, not with
+# this module: the chain control screen imports it at start, and numpy takes ~0.8 s to import on a
+# slow device
+_soundfile = None
 
-try:
-    import soundfile
-except ImportError:
-    soundfile = None   # libsndfile through ctypes (load_wave)
+
+def _get_soundfile():
+    """python-soundfile, or False without it (load_wave uses libsndfile through ctypes then)"""
+    global _soundfile
+    if _soundfile is None:
+        try:
+            import soundfile
+            _soundfile = soundfile
+        except ImportError:
+            _soundfile = False
+    return _soundfile
 
 ENG_NONE = 0
 ENG_CLIPPY = 1
@@ -209,6 +219,7 @@ def _load_with_libsndfile(fpath):
     handle = _libsndfile.sf_open(fpath.encode(), 0x10, ctypes.byref(info))   # SFM_READ
     if not handle:
         raise IOError(f"libsndfile can't open {fpath}")
+    import numpy as np
     try:
         data = np.zeros((info.frames, info.channels), dtype=np.float32)
         read = _libsndfile.sf_readf_float(handle, data.ctypes.data, info.frames)
@@ -219,6 +230,7 @@ def _load_with_libsndfile(fpath):
 
 def load_wave(fpath):
     """(data: frames x channels array, channels, frames, samplerate) of an audio file"""
+    soundfile = _get_soundfile()
     if soundfile:
         with soundfile.SoundFile(fpath) as sf:
             channels = sf.channels
@@ -235,6 +247,7 @@ def load_wave(fpath):
 def peaks(data, start, length, width, samples_per_peak=16):
     """Waveform of frames start..start+length at width points: (mins, maxs), each channels x
     width, from samples_per_peak samples per point (as the Tk widget)"""
+    import numpy as np
     frames, channels = data.shape
     width = max(1, int(width))
     length = min(frames, int(length))

@@ -114,6 +114,10 @@ nura/tools/sync_ui.sh -R        # device from the pmbootstrap config; add -V (an
 nura/tools/sync_ui.sh -q        # copy only zynqt/qml, no restart: the UI reloads it
 ```
 
+`-R` waits until zynthian is idle and checks that a new zynthian process is up and ready; it exits
+non-zero when the restart didn't happen (details: [qemu-testing.md](qemu-testing.md)). `-q`
+restarts nothing.
+
 - On success `~/.local/state/tinydm.log` on the target shows
   "Inplace updates setting confirmed as: enabled".
 - Literals (sizes, colours, texts) update in place: that is the reliable use (tested in the QEMU

@@ -152,6 +152,30 @@ def test_adding_a_slow_update_callback_twice_keeps_one(state_manager):
         state_manager.slow_update_callbacks[:] = [c for c in state_manager.slow_update_callbacks if c[1] is not cb]
 
 
+class FakeOscServer:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, target, path, *args):
+        self.sent.append((target, path, args))
+
+
+def test_osc_status_query_reports_busy_and_idle(state_manager):
+    import os
+    server = FakeOscServer()
+    state_manager.clear_busy()
+    assert state_manager.osc_status_reply(server, "src", "BUSY")
+    assert server.sent[-1] == ("src", "/STATUS/BUSY", (os.getpid(), 0, "", "", ""))
+    state_manager.start_busy("start_aeolus", "Starting Aeolus", "details")
+    state_manager.start_busy("add_chain")
+    state_manager.osc_status_reply(server, "src", "BUSY")
+    assert server.sent[-1] == ("src", "/STATUS/BUSY",
+                               (os.getpid(), 1, "add_chain,start_aeolus", "Starting Aeolus", "details"))
+    state_manager.clear_busy()
+    assert not state_manager.osc_status_reply(server, "src", "OTHER")
+    assert len(server.sent) == 2
+
+
 def test_snapshot_merge_maps_chain_controller_references(state_manager, zynthian_dirs, monkeypatch):
     """A merged snapshot's processors get new ids: the chain controllers' references (the chain
     state's "zctrls") follow; references to processors not in the snapshot are dropped"""

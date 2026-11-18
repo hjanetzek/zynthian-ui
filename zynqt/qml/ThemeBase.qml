@@ -170,7 +170,9 @@ QtObject {
     property real categoryWidth: 0.2        // the engine screen's category list, part of the width
     property real categoryInfoWidth: infoWidth   // the info pane beside a category list
     property real infoTextSize: 16
-    property int mainMenuColumns: 0          // 0: the screen's (Python) columns
+    // The configured main_menu_columns (ZYNTHIAN_UI_MAIN_MENU_COLUMNS) in every theme; 0: the
+    // screen's (Python) columns
+    property int mainMenuColumns: _cfg && _cfg.mainMenuColumns > 0 ? _cfg.mainMenuColumns : 0
     property int addChainColumns: 0
     property real gridSpacing: 0            // gaps between grid tiles (part of the width per column)
     property bool gridPlaceholders: true    // grids padded with empty placeholder cells
@@ -182,6 +184,11 @@ QtObject {
     // Spacing and outlines that differ per theme (values only; structural differences are
     // components in the theme's directory)
     property real listSpacing: 0                    // between list rows and controller pages
+    // Chain control (ChainControlScreen): the controller column's part of the width, the gap
+    // below each controller, the side chain's background (select mode)
+    property real controllerColumn: 0.3
+    property real controllerGap: 2
+    property color sideChainBackground: background
     property real tileMargin: 1                     // around grid tiles and list rows
     property color infoBackground: background       // the selector's info pane
     property color dialogFrame: "transparent"       // around dialog buttons and the keyboard

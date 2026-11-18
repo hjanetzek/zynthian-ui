@@ -19,6 +19,7 @@ from PySide6.QtGui import QCursor, QGuiApplication, QWindow
 import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 import zynconf
+from zyngine import zynthian_lv2
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_state_manager import zynthian_state_manager
 from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_help, zynthian_power_control, zynthian_wiring
@@ -207,6 +208,9 @@ class ZynUI(QObject):
             logging.exception(f"start-up failed: {e}")
         finally:
             sm.end_busy("ui startup")
+        # The LV2 data (lilv world), unless the snapshot's plugins loaded it already: in the
+        # background now, so the first plugin added doesn't wait for it (zynthian_lv2.get_world)
+        zynthian_lv2.preload_world()
         self._startFinished.emit(bool(loaded))
 
     @Slot(bool)

@@ -35,8 +35,8 @@ Window {
     color: Theme.background
     title: "zynthian"
 
-    // Touch keypad: an overlay brought up from the top edge (tap or swipe down on the title),
-    // hidden again 4 s after the last key or by another tap on the title; or docked (the screens
+    // Touch keypad: an overlay brought up from the top edge (a swipe down on the title), hidden
+    // again 4 s after the last key or by a tap on the title; or docked (the screens
     // beside and above it). Tapping the status area (or Admin > Docked Touch Keypad) switches.
     // The theme's sizes that follow the window (tk: as zynthian_gui_config)
     Binding { target: Theme; property: "screenWidth"; value: ui.width }
@@ -122,7 +122,9 @@ Window {
             anchors.left: parent.left
             anchors.leftMargin: root.screensLeft
             overlayHint: !root.keypadDocked
-            onTitleTapped: if (!root.keypadDocked) root.showKeypadOverlay(!root.keypadOverlay)
+            // The title's tap goes to the root screen (TopBarTitleTouch, all themes); it also hides the
+            // overlay keypad. A swipe down brings it up (themes whose TopBar emits it)
+            onTitleTapped: if (root.keypadOverlay) root.showKeypadOverlay(false)
             onTitleSwipedDown: if (!root.keypadDocked) root.showKeypadOverlay(true)
             onStatusTapped: if (Theme.keypadEnabled) zyn.toggleKeypadDocked()
             anchors.right: parent.right

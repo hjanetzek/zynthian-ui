@@ -17,7 +17,10 @@ Rectangle {
 
     readonly property var status: zyn.status
     readonly property var mainLevels: mainMeters.levels
-    readonly property bool onMixer: zyn.currentScreen === "mixer" || zyn.currentScreen === "launcher"
+    // What the bar shows and the title's touch are shared by all themes (TopBarState,
+    // TopBarTitleTouch): this file only places and styles them
+    readonly property TopBarState barState: TopBarState { title: root.title }
+    readonly property bool onMixer: barState.onMixer
     readonly property real statusWidth: Math.round(0.27 * width)
     readonly property int statusFontPt: Math.floor(0.25 * height)
 
@@ -25,8 +28,7 @@ Rectangle {
 
     // The pattern editor's edit modes (set_edit_mode): their title inverted (color_header_bg on
     // color_panel_tx)
-    readonly property bool onPatternEditor: zyn.currentScreen === "pattern_editor"
-    readonly property bool inverted: onPatternEditor && zyn.patternEditor.modeTitle !== ""
+    readonly property bool inverted: barState.inverted
     Rectangle {
         anchors.left: parent.left
         anchors.right: statusArea.left
@@ -44,47 +46,27 @@ Rectangle {
         anchors.rightMargin: Math.floor(0.36 * root.height)
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        // Chain control (and the special processors' control screens): Tk's select path, the
-        // processor's preset path; the pattern editor: its title or the edit mode's
-        text: root.onMixer && root.status.snapshotTitle ? root.status.snapshotTitle
-            : ["chain_control", "audio_player", "tempo", "alsa_mixer"].indexOf(zyn.currentScreen) >= 0
-              ? zyn.chainControl.selectPath
-            : root.onPatternEditor ? (root.inverted ? zyn.patternEditor.modeTitle : zyn.patternEditor.tkTitle)
-            : root.title
+        text: root.barState.text
         color: root.inverted ? Theme.background : Theme.text
         size: Theme.titleSize
     }
 
-    // Zynthian's tap timing on the title (zynthian_gui_base.cb_topbar_*): short, bold, long
-    Item {
+    // Title: tap the root (mixer <-> launcher), bold / long press the main menu (shared)
+    TopBarTitleTouch {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.right: statusArea.left
-        TapHandler {
-            property real t0: 0
-            longPressThreshold: 0.8
-            onPressedChanged: if (pressed) t0 = Date.now()
-            onTapped: {
-                if (Date.now() - t0 > 300)   // bold (zynswitch_bold_seconds)
-                    zyn.cuia("main_menu", [])
-                else if (root.onMixer)
-                    zyn.cuia("back", [])
-                else
-                    zyn.cuia("show_screen", ["root"])
-            }
-            onLongPressed: zyn.cuia("main_menu", [])
-        }
     }
 
     // Tempo on the mixer: beat | bpb/4 and the bpm, right-aligned left of the status area
     Text {
-        visible: root.onMixer
+        visible: root.barState.tempoShown
         anchors.right: parent.right
         anchors.rightMargin: Math.round(0.065 * root.width)
         y: 2
         z: 2
-        text: root.status.beat + "|" + root.status.bpb + "/4 " + (root.status.tempo || 0).toFixed(1) + "bpm"
+        text: root.barState.tempoText
         color: Theme.text
         font.family: Theme.textFamily
         font.pixelSize: Theme.tkPx(root.statusFontPt)

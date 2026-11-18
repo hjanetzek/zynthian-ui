@@ -40,6 +40,7 @@ import logging
 import urllib.parse
 import shutil
 import platform
+import threading
 from subprocess import run, Popen, STDOUT, PIPE
 
 from enum import Enum
@@ -208,7 +209,12 @@ engines = None
 engines_by_type = None
 engines_mtime = None
 
-world = None
+# The lilv world with all LV2 data: built on first use (get_world), not at import. Building it reads
+# every bundle's TTL (~2.5 s on a slow device with ~500 plugins), and a start needs only the engine
+# list (engine_config.json) until a plugin's ports, presets or UIs are asked for. Also as
+# zynthian_lv2.world (module __getattr__).
+_world = None
+_world_lock = threading.RLock()
 lv2_signature = None   # Modification times of LV2_PATH folders & stamp file when LV2 data was loaded
 lv2_generation = 0     # Incremented each time LV2 data is (re)loaded
 zyngui_widget_cache = {}  # Widget lookups indexed by plugin URI, cleared when LV2 data is reloaded
@@ -245,18 +251,62 @@ def get_lv2_signature():
 def check_lv2_changes():
     """Reload LV2 data if bundles were added, removed or updated since last load.
     Cheap (a few stat calls), so it can be called when the UI needs LV2 info.
+    Nothing to do while the LV2 data isn't loaded yet: its first use loads the current data.
     Returns True if LV2 data was reloaded."""
-    if world is not None and get_lv2_signature() == lv2_signature:
+    if _world is None:
         return False
-    logging.info("LV2 data changed => reloading")
-    init_lilv()
-    return True
+    with _world_lock:
+        if get_lv2_signature() == lv2_signature:
+            return False
+        logging.info("LV2 data changed => reloading")
+        init_lilv()
+        return True
+
+
+def get_world():
+    """The lilv world, built on first use. Thread-safe: built once, also when several threads ask
+    at the same time (a snapshot starts its engines in parallel threads)."""
+    world = _world
+    if world is None:
+        with _world_lock:
+            if _world is None:
+                init_lilv()
+            world = _world
+    return world
+
+
+def is_world_loaded():
+    return _world is not None
+
+
+def preload_world():
+    """Build the lilv world in a background thread (after the UI is on screen), so the first chain
+    added or snapshot loaded doesn't wait for it. Returns the thread, or None if already built."""
+    if _world is not None:
+        return None
+    thread = threading.Thread(target=get_world, name="lv2_world", daemon=True)
+    thread.start()
+    return thread
+
+
+def __getattr__(name):
+    # zynthian_lv2.world for code outside this module (inside, functions call get_world())
+    if name == "world":
+        return get_world()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def init_lilv():
-    global world, lv2_signature, lv2_generation
+    """(Re)load all LV2 data into a new lilv world"""
+    with _world_lock:
+        _init_lilv()
+
+
+def _init_lilv():
+    global _world, lv2_signature, lv2_generation
+    start = time.monotonic()
     # Get signature before loading, so changes done while loading are detected next time
-    lv2_signature = get_lv2_signature()
+    signature = get_lv2_signature()
     world = lilv.World()
     # Disable language filtering
     # world.set_option(lilv.OPTION_FILTER_LANG, world.new_bool(False))
@@ -272,10 +322,13 @@ def init_lilv():
     world.ns.doap = lilv.Namespace(world, "http://usefulinc.com/ns/doap#")
     world.ns.mod = lilv.Namespace(world, "http://moddevices.com/ns/mod#")
     world.ns.zyngui = lilv.Namespace(world, ZYNGUI_NS)
+    lv2_signature = signature
+    _world = world
     lv2_generation += 1
     zyngui_widget_cache.clear()
     plugin_bundles_cache.clear()
     plugin_ports_cache.clear()
+    logging.info(f"LV2 data loaded in {time.monotonic() - start:.2f} s")
 
 
 # ------------------------------------------------------------------------------
@@ -324,6 +377,7 @@ def get_plugin_bundles(plugin_url):
     try:
         bundles = plugin_bundles_cache[plugin_url]
     except KeyError:
+        world = get_world()
         try:
             plugin = world.get_all_plugins()[world.new_uri(plugin_url)]
         except Exception:
@@ -390,8 +444,10 @@ def get_engines():
 
 
 def load_engines():
+    """Load the engine list from the engine config (no LV2 data needed, unless the config has to be
+    generated). LV2 data already loaded is reloaded if it changed (check_lv2_changes)."""
     global engines, engines_mtime
-    init_lilv()
+    check_lv2_changes()
     engines = {}
 
     if os.path.exists(ENGINE_CONFIG_FILE):
@@ -625,6 +681,7 @@ def add_engine(path, enable=True, force=False):
                     if not force and f"JV/{info['name']}" in engines:
                         existing_version = new_version = ""
                         try:
+                            world = get_world()
                             plugin = world.get_all_plugins()[uri]
                             existing_minor_ver = str(plugin.get_value(world.ns.lv2.minorVersion)[0])
                             existing_micro_ver = str(plugin.get_value(world.ns.lv2.microVersion)[0])
@@ -642,6 +699,7 @@ def add_engine(path, enable=True, force=False):
 
                 try:
                     init_lilv()
+                    world = get_world()
                     plugin = world.get_all_plugins()[uri]
                     engine_name = str(plugin.get_name())
                 except Exception as e:
@@ -683,7 +741,7 @@ def remove_engine(id):
 
     try:
         uri = engines[id]["URL"]
-        plugin = world.get_all_plugins().get_by_uri(uri)
+        plugin = get_world().get_all_plugins().get_by_uri(uri)
         bundle_uri=plugin.get_bundle_uri()
         path = urllib.parse.unquote(urllib.parse.urlparse(str(bundle_uri)).path)
         logging.warning(f"Deleting LV2 plugin {str(plugin.get_name())} ({path})")
@@ -707,6 +765,7 @@ def generate_engines_config_file(refresh=True, reset_rankings=None):
     start = int(round(time.time()))
     if refresh:
         init_lilv()
+    world = get_world()
 
     # Add standalone engines
     i = 0
@@ -985,6 +1044,7 @@ def get_plugin_uis(plugin):
 
 
 def _find_plugin_zyngui_widget(plugin_url):
+    world = get_world()
     try:
         plugin = world.get_all_plugins()[world.new_uri(plugin_url)]
     except Exception:
@@ -1026,6 +1086,7 @@ def _find_plugin_zyngui_widget(plugin_url):
 
 
 def get_plugin_type(plugin):
+    world = get_world()
     # Try to determine the plugin type from the LV2 class ...
     try:
         plugin_class = re.sub(' Plugin', '', str(plugin.get_class().get_label()))
@@ -1072,6 +1133,7 @@ def get_plugin_cat(plugin):
 
 
 def get_plugin_description(plugin):
+    world = get_world()
     # Get plugin description from rdfs:comment
     try:
         res = str(plugin.get_value(world.ns.rdfs.comment)[0]).strip()
@@ -1091,7 +1153,7 @@ def generate_all_presets_cache(refresh=True):
     if refresh:
         init_lilv()
 
-    for plugin in world.get_all_plugins():
+    for plugin in get_world().get_all_plugins():
         if is_plugin_supported(str(plugin.get_uri())):
             _generate_plugin_presets_cache(plugin)
 
@@ -1099,7 +1161,7 @@ def generate_all_presets_cache(refresh=True):
 def generate_plugin_presets_cache(plugin_url, refresh=True):
     if refresh:
         init_lilv()
-    wplugins = world.get_all_plugins()
+    wplugins = get_world().get_all_plugins()
     try:
         plugin = wplugins[plugin_url]
     except:
@@ -1113,6 +1175,7 @@ def _get_plugin_preset_cache_fpath(plugin_name):
 
 
 def _generate_plugin_presets_cache(plugin):
+    world = get_world()
     plugin_name = str(plugin.get_name())
     plugin_url = str(plugin.get_uri())
     logging.debug(
@@ -1291,6 +1354,7 @@ def get_plugin_ports(plugin_url):
 
 
 def _get_plugin_ports(plugin_url):
+    world = get_world()
     wplugins = world.get_all_plugins()
     plugin = wplugins[plugin_url]
 
@@ -1670,7 +1734,7 @@ def test_lv2_plugin(plugin_info):
 # ------------------------------------------------------------------------------
 
 
-# Load engine info from cache
+# Load the engine list (engine_config.json). The LV2 data is loaded on first use (get_world).
 load_engines()
 
 if __name__ == '__main__':

@@ -1,7 +1,8 @@
 # Theming the Qt Quick UI
 
-Status: 2026-11-17, branch `qt-theme-switcher` (Admin > Theme, switched at run time; tk is the
-base, `zynqt/qml/` itself, since 2026-11-15; classic is an override directory like the other themes). How the look of the Qt Quick UI (`zynqt/qml/`) is defined, how to choose a theme, and how to change or
+Status: 2026-11-18, branch `theme-behaviour` (every theme behaves as tk: overrides are looks,
+see "Behaviour is tk's in every theme"); Admin > Theme switches at run time; tk is the
+base, `zynqt/qml/` itself, since 2026-11-15; classic is an override directory like the other themes. How the look of the Qt Quick UI (`zynqt/qml/`) is defined, how to choose a theme, and how to change or
 add one.
 
 ## Choosing a theme
@@ -104,14 +105,17 @@ zynqt/qml/
   ThemeBase.qml        all tokens, with classic's values (the list below)
   Theme.qml            the Theme singleton: tk = ThemeBase { tk's values }
   Panel.qml, Label.qml, TopBarRule.qml, Elbow.qml, ...                 default components
+  ChainControlScreen.qml, PatternEditorScreen.qml (+ PatternEditorView.qml, PatternCcLane.qml),
+      SelectorControls.qml, TopBarState.qml, TopBarTitleTouch.qml, ControllerTouch.qml
+                                                    shared behaviour and content (all themes)
   MixerScreen.qml, TopBar.qml, InfoPane.qml, GridTile.qml, KeyFace.qml, KeyPlate.qml,
-      ChainControlScreen.qml, Controller.qml, PatternEditorScreen.qml (a frame around
-      PatternEditorView.qml), PatternToolbar.qml,
-      LauncherPad.qml, ChainManagerMetrics.qml, SelectorControls.qml, PatternCcLane.qml,
-      SelectorCategories.qml                                             tk's versions
+      Controller.qml, ChainNode.qml, ControlPageRow.qml, PatternToolbar.qml (none),
+      LauncherPad.qml, ChainManagerMetrics.qml, SelectorCategories.qml   tk's looks
   SelectorScreen.qml, MixerView.qml, ...                               shared screens
   +classic/Theme.qml   classic = ThemeBase {}
-  +classic/MixerScreen.qml, TopBar.qml, ... (the 15 files above)       classic's versions
+  +classic/TopBar.qml, MixerScreen.qml (MixerView), InfoPane.qml, GridTile.qml, KeyFace.qml,
+      KeyPlate.qml, Controller.qml, ChainNode.qml, ControlPageRow.qml, PatternToolbar.qml,
+      LauncherPad.qml, ChainManagerMetrics.qml, SelectorCategories.qml   classic's looks
   +galactica/Theme.qml    ThemeBase { only the tokens galactica changes from classic }
   +galactica/KeyPlate.qml, TopBarRule.qml                               its own components
   +enterprise/Theme.qml, KeyPlate.qml, Elbow.qml
@@ -122,16 +126,51 @@ zynqt/qml/
 Until 2026-11-15 classic was the base and tk the directory `+tk/`; the files were swapped with
 `git mv` (`git log --follow` finds their history).
 
+### Behaviour is tk's in every theme
+
+Since 2026-11-18 (branch `theme-behaviour`; the inventory is in zynthian-stuff
+`ui-parity/theme-behaviour.md`) every theme behaves as tk: what taps, swipes, keys and knobs do,
+which screens and actions are reachable, what is shown (titles, values, labels, indicators, LEDs)
+and the Python calls are the same. A theme changes only the look. So:
+
+- **Shared, not overridden** (one file for all themes): `ChainControlScreen` (layout, content,
+  touch; looks from `ChainNode`, `ControlPageRow`, `Controller` and the tokens
+  `controllerColumn`, `controllerGap`, `sideChainBackground`), `PatternEditorScreen` (the theme's
+  `PatternToolbar` above the shared `PatternEditorView` and `PatternCcLane`, colours from the
+  grid tokens), `SelectorControls` (the selector counter), `TopBarState` (what the top bar shows:
+  the title per screen, the inverted edit mode title, the tempo on the mixer),
+  `TopBarTitleTouch` (the title's tap: root / mixer <-> launcher, bold or long press: main menu;
+  an optional swipe down), `ControllerTouch` (a controller's drag, tap, long press, wheel). v4
+  keeps its own `ChainControlScreen` and `PatternEditorScreen` (frames, the knob hints) and uses
+  the shared touch.
+- **Look-only overrides** (same properties, same data, no handlers of their own): `InfoPane`,
+  `GridTile`, `SelectorCategories`, `KeyPlate`, `KeyFace` (classic draws the key's LED,
+  `zyn.keypadLeds.lit` / `colors`, as a light; tk colours the label with it), `Controller` (the
+  touch is `ControllerTouch`; the content tk's: `tkValueText`, names with spaces, no arc on path
+  controllers, read-only and select mode dimmed), `ChainNode`, `ControlPageRow`, `LauncherPad`,
+  `ChainManagerMetrics`, `TopBarRule`, `Elbow`, `Theme`.
+- **Full copies kept, with tk's behaviour ported** (keep them in step with tk's): `+classic/TopBar.qml`
+  (uses `TopBarState` and `TopBarTitleTouch`; only the status area's long press, all sounds off,
+  is its own) and `MixerView.qml` (classic's mixer: tk's touch and content from
+  `MixerScreen.qml`, listed in its header comment).
+- **Extras** a theme may have where tk has nothing (they must not change what tk's gestures do):
+  classic's pattern toolbar, the mixer's move buttons, balance drag and double tap, the swipe
+  down on the title for the overlay keypad, the CPU / battery / mute slots.
+
+A change to behaviour goes into the shared file (or into tk's file and the copies above).
+
 Components split out so a theme can replace them: `KeyPlate`, `TopBarRule`, `Elbow`, `InfoPane`
 (the selector's info pane), `GridTile` (main menu / add chain tiles), `MixerScreen` (a wrapper
 around the shared `MixerView`; tk draws Tk's strips, also in launcher mode: the pads in place of
-the faders), `LauncherPad` (a launcher pad), `TopBar` (tk replaces it whole, with the same
-properties and signals), `KeyFace` (a keypad key's label; tk colours it with the LED of
-`zyn.keypadLeds`; properties `key`, `label`, `subLabel`, `radius`), `Controller` (a controller slot; tk: Tk's arc), `PatternToolbar` (the pattern
-editor's toolbar; tk: none), `ChainManagerMetrics` (the chain manager's block sizes, spacings,
+the faders), `LauncherPad` (a launcher pad), `TopBar` (a theme replaces it whole, with the same
+properties and signals, and shows `TopBarState`'s content with `TopBarTitleTouch` on the title), `KeyFace` (a keypad key's label; tk colours it with the LED of
+`zyn.keypadLeds`, classic draws it as a light; properties `key`, `label`, `subLabel`, `radius`),
+`Controller` (a controller slot; tk: Tk's arc; with `ControllerTouch` and property `dimmed`),
+`ChainNode` (a node of chain control's side chain), `ControlPageRow` (a row of its page list),
+`PatternToolbar` (the pattern editor's toolbar; tk: none), `ChainManagerMetrics` (the chain manager's block sizes, spacings,
 margins, node text and selection outline; tk: Tk's formulas from the screen size),
-`SelectorControls` (controller widgets under a selector's info pane: none by default; tk: Tk's
-selector counter on the screens with `zsel_hidden = False`: bank, preset, MIDI recorder),
+`SelectorControls` (Tk's selector counter under a selector's info pane, all themes, on the
+screens with `zsel_hidden = False`: bank, preset, MIDI recorder),
 `SelectorCategories` (the engine screen's category list; tk: Tk's listbox2), `SelectorHints`
 (what the knobs do on a list screen, from the screen's `knobHints`, by knob index: none by
 default, with `leftInset` / `rightInset` 0; v4: `KnobHints` at the edges, the list and the info
@@ -144,9 +183,9 @@ Selector screens can also show a status line under the list (`set_status_line()`
 Shared parts that theme screens reuse: `ControlWidget` (chain control's page widget: waveform,
 envelope, filter, plugin widgets) and `ControlOverlays` (MIDI learn banner, processor move keys),
 `PatternNote` (a note of the pattern grid, its fill a property) and `PatternCcLane` (the CC
-view). tk replaces `ChainControlScreen` (Tk's page list, a quarter-width controller column, the
-side chain only in select mode) and `PatternEditorScreen` (Tk's grid, piano roll and play ruler)
-whole with these.
+view). `ChainControlScreen` (Tk's page list, the controller column, the side chain only in select
+mode) and `PatternEditorScreen` (Tk's grid, piano roll and play ruler) are shared by all themes;
+v4 frames them in its own copies.
 
 With the theme's selectors (`QQmlApplicationEngine.setExtraFileSelectors`, in
 `zynthian_qt_main.py`; `zynqt/theme.py` makes the list), QML loads `+<theme>/X.qml` wherever
@@ -206,7 +245,8 @@ Tokens:
 | MIDI binding | `bindChain`, `bindGlobal`, `bindXy` | a controller's binding text (chain, global or learning, X-Y axis), the MIDI learn banner |
 | Markers | `marker`, `textBypassed` | the selected launcher pad, the chain or processor being moved in the chain manager; bypassed processors |
 | Chain manager | `nodeMidi`, `nodeSynth`, `nodeAudio`, `nodeSpecial`, `nodeOther`, `pinnedBackground`, `divider`, `connector` | blocks by kind, the pinned (main) chains, lines between chains and nodes |
-| Pattern editor | `gridRow`, `gridRowDark`, `gridRowLine`, `gridBar`, `gridBeat`, `gridStep`, `noteHue`, `noteFrame`, `selectionFill`, `selectionFrame`, `ccBar`, `ccBarCurrent`, `buttonOn`, `buttonRecord` | grid rows (black keys darker) and lines, notes (a hue, lighter with velocity), the selected block, CC bars, toolbar buttons |
+| Pattern editor | `gridRow`, `gridRowDark`, `gridRowLine`, `gridRowLineTonic`, `gridBar`, `gridBeat`, `gridStep`, `gridBarWidth`, `noteHue`, `noteFrame`, `selectionFill`, `selectionFrame`, `ccBar`, `ccBarCurrent`, `buttonOn`, `buttonRecord` | row bands (black keys darker; tk transparent: none) and lines (the tonic's), step lines (bars, beats, steps; the bar's width), notes (a hue, lighter with velocity; tk -1: Tk's grey by velocity, selected blue, the moving copy green), the selected block, CC bars, toolbar buttons |
+| Chain control | `controllerColumn`, `controllerGap`, `sideChainBackground` | the controller column's part of the width (tk 0.25), the gap below each controller, the side chain's background |
 | Widgets | `widgetBackground`, `widgetLine`, `widgetFill`, `widgetGrid`, `widgetWave`, `widgetOutside` | the controller page widgets: envelope and filter curves, waveform, plugin meters' background |
 
 Sizes (classic's values; tk derives them from F): `topBarHeight`, `titleSize`, `listRowHeight`,
@@ -297,8 +337,9 @@ docked keypad, at the window's edge with the overlay keypad (which covers it whi
   (`KeypadBlur.qml`); the overlay keys are the docked ones with an alpha (0.55, filled keys 0.7).
 - Keypad labels are shrunk to fit their key (`Text.Fit`), for narrow keys and large font sizes.
 - F-key labels: F1-F4 show what they do now as their `label` and their name ("F1", with the ALT
-  LED "F5") as a small `subLabel` (tk: top left in the LED colour; classic and galactica: top left;
-  enterprise: top right, clear of the corner). The text comes from Python,
+  LED "F5") as a small `subLabel` (tk: top left in the LED colour; classic and galactica: top left,
+  the key's LED a light at its top centre; enterprise: top right, clear of the corner, the LED a
+  dot at the top left). The text comes from Python,
   `zyn.keypadLeds.functionLabels` (`zynqt/keypad_leds.py`, a list by key index, "" for none),
   updated with the LEDs (100 ms) when the wiring, ALT or the screen changes: the screen's own
   action for the key first (a screen's `fkey_labels()` {zynswitch: label}, as its `switch()` takes

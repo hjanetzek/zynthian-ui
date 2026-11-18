@@ -324,23 +324,29 @@ Item {
             clip: true
             onHeightChanged: if (strip.isMain && height > 0) root.padHeight = height / root.launcher.visiblePads
 
-            Column {
+            // The pads (created when the launcher is first shown, or after the first frame)
+            Deferred {
                 y: -root.launcherScroll
                 width: parent.width
-                Repeater {
-                    // Always instantiated: creating the pads (strips x phrases) on each switch
-                    // to the launcher is what made it slow; hidden pads only note changes
-                    model: root.launcher.phrases
-                    LauncherPad {
-                        launcher: root.launcher
-                        shown: root.launcherMode
-                        required property int index
-                        chainId: strip.chainId
-                        phrase: index
-                        isMain: strip.isMain
-                        selected: strip.active && index === root.launcher.phrase
-                        width: pads.width
-                        height: root.padHeight
+                needed: root.launcherMode
+                sourceComponent: Component {
+                    Column {
+                        Repeater {
+                            // Kept once created: creating the pads (strips x phrases) on each switch
+                            // to the launcher is what made it slow; hidden pads only note changes
+                            model: root.launcher.phrases
+                            LauncherPad {
+                                launcher: root.launcher
+                                shown: root.launcherMode
+                                required property int index
+                                chainId: strip.chainId
+                                phrase: index
+                                isMain: strip.isMain
+                                selected: strip.active && index === root.launcher.phrase
+                                width: pads.width
+                                height: root.padHeight
+                            }
+                        }
                     }
                 }
             }

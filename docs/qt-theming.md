@@ -478,6 +478,10 @@ Preview (tested in the QEMU VM, 2026-11-09):
     must be Qt 6's (package `qt6-qtdeclarative-dev`); a Qt 5 `qmlpreview` silently does nothing.
   - `zyninject.sh` and the other tools take the newest zynthian process (the child), not the
     waiting parent.
+  - qmlpreview reads commands from stdin and quits (terminating the UI: "Terminating process
+    ...", exit 2) when it ends. The launcher runs zynthian as a background job that gets EIO
+    from the tty at once, so qmlpreview gets a pipe that stays open (2026-11-18: without it the
+    UI was killed at each start until tinydm restarted the session).
 - The log gets a "Could not open file ...+<theme>/X.qml" line per file selector probe; harmless.
 - Never in production: the QML debug server can control the UI. Without the variable nothing
   changes.

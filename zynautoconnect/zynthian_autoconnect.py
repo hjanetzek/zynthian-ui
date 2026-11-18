@@ -191,10 +191,12 @@ zynseq_input_exclude_ports = []
 
 # Get the main jack audio device
 jack_audio_device = ""
-for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+# Names only (the command line of jackd alone): reading every process's command line took half the
+# scan's time, which runs at import
+for proc in psutil.process_iter(['name']):
     try:
         if 'jackd' in proc.info['name']:
-            cmdline = proc.info['cmdline']
+            cmdline = proc.cmdline()
             for param in cmdline:
                 if param.startswith("hw:"):
                     jack_audio_device = param[3:]

@@ -74,11 +74,23 @@ class AudioFileView(QObject):
             self.clip_info = afd.clippy_info(processor, self.zctrl, self.ui.state_manager.zynseq)
         elif self.eng_type in (afd.ENG_GLOBAL_AP, afd.ENG_CHAIN_AP):
             processor.engine.set_monitored_processor(processor)
+        # Nothing of the previous processor's file stays (its name, markers, cursor): the new
+        # one's file, if it has one, loads on the next refresh
+        self._clear("No file")
+
+    def _clear(self, info):
         self.fpath = None
         self.wave_data = None
         self.frames = 0
+        self.samplerate = None
+        self.cursor_pos = None
         self._paths = []
         self.waveChanged.emit()
+        if self._markers:
+            self._markers = {}
+            self.markersChanged.emit()
+        self._update_cursor()
+        self._set_info(info)
 
     def start(self):
         self._timer.start()
@@ -109,12 +121,7 @@ class AudioFileView(QObject):
         fpath = self._file_path()
         if not fpath or fpath == "_":
             if self.fpath:
-                self.fpath = None
-                self.wave_data = None
-                self.frames = 0
-                self._paths = []
-                self._set_info("No file")
-                self.waveChanged.emit()
+                self._clear("No file")
             return
         if fpath != self.fpath:
             self.fpath = fpath

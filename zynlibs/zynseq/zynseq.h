@@ -123,23 +123,11 @@ const char* getPatternState(uint32_t id);
 */
 bool setState(const char* state);
 
-/** @brief  Load sequences and patterns from file
-    @param  filename Full path and filename
-    @retval bool True on success
-    @note   Pass invalid or empty filename to clear sequences (returns false)
-*/
-bool load(const char* filename);
-
 /** @brief  Convert a legacy pattern from binary file
     @param  filename Full path and filename
     @retval char* JSON representation of pattern as c-string or null on error
 */
 const char* convertPattern(const char* filename);
-
-/** @brief  Save sequences and patterns to file
-    @param  filename Full path and filename
-*/
-void save(const char* filename);
 
 /** @brief  Store current pattern on undo queue
 */
@@ -165,11 +153,6 @@ void setPatternZoom(int16_t zoom);
 
 /** Set pattern zoom */
 int16_t getPatternZoom();
-
-/** @brief  Get horizontal zoom
-    @retval uint16_t Horizontal zoom
-*/
-uint16_t getHorizontalZoom();
 
 // ** Direct MIDI interface **
 
@@ -1183,11 +1166,6 @@ void removeTimeSigEvent(uint8_t scene, uint8_t phrase, uint8_t sequence, uint16_
     @retval uint8_t Time signature in quarter notes (beats per bar)
 */
 uint8_t getTimeSigAt(uint8_t scene, uint8_t phrase, uint8_t sequence, uint16_t bar);
-
-/** @brief  Get sequence currently in MIDI learn mode
-    @retval uint32_t Index of sequence
-*/
-uint8_t getMidiLearnSequence();
 
 /** @brief  Set the pattern editor sequence
     @param  scene Index of scene

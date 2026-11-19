@@ -1,6 +1,8 @@
 // Euclidean sequencer (EuclidSeqView, EuclidSeq6 patch): six channel circles with their steps,
 // hits and play position; tap a circle to select its channel, drag it up/down for its note.
-// The panel changes the selected channel (mode, length, hits, offset, interval, mute).
+// The panel changes the selected channel (mode, length, hits, offset, interval, mute). Too narrow
+// for both (480x320, theme v4): the circles fill the view, a tap on the selected channel shows
+// its panel instead, the panel's ◀ goes back.
 import QtQuick
 import QtQuick.Shapes
 
@@ -12,12 +14,20 @@ Rectangle {
     color: Theme.background
     clip: true
 
+    readonly property int panelWidth: 230
+    // Not enough room for the circles beside the panel
+    readonly property bool narrow: width < 2 * panelWidth + 12
+    property bool panelShown: false
+    onNarrowChanged: panelShown = false
+    readonly property int rowHeight: narrow ? 34 : 40
+
     Grid {
         id: circles
+        visible: !root.narrow || !root.panelShown
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.right: panel.left
+        anchors.right: root.narrow ? parent.right : panel.left
         anchors.margins: 6
         columns: 3
         readonly property real cell: Math.min(width / 3, height / 2)
@@ -110,7 +120,14 @@ Rectangle {
                             dragged = true
                         }
                     }
-                    onReleased: if (!dragged) root.view.selectChannel(chan.index)
+                    onReleased: {
+                        if (dragged)
+                            return
+                        if (root.narrow && chan.modelData.selected)
+                            root.panelShown = true
+                        else
+                            root.view.selectChannel(chan.index)
+                    }
                 }
             }
         }
@@ -118,22 +135,34 @@ Rectangle {
 
     Column {
         id: panel
-        anchors.right: parent.right
+        visible: !root.narrow || root.panelShown
+        anchors.right: root.narrow ? undefined : parent.right
+        anchors.horizontalCenter: root.narrow ? parent.horizontalCenter : undefined
         anchors.top: parent.top
-        anchors.margins: 6
-        width: 230
-        spacing: 6
+        anchors.margins: root.narrow ? 4 : 6
+        width: root.panelWidth
+        spacing: root.narrow ? 4 : 6
         ValueRow { label: "Mode"; value: root.p.mode || ""; key: "mode" }
-        Text {
-            text: "Channel " + (root.p.channel || 1)
-            color: "white"; font.pixelSize: 18; font.bold: true
+        Row {
+            spacing: 8
+            StepButton {   // back to the circles
+                visible: root.narrow
+                text: "◀"
+                onTapped: root.panelShown = false
+            }
+            Text {
+                height: root.narrow ? root.rowHeight : implicitHeight
+                verticalAlignment: Text.AlignVCenter
+                text: "Channel " + (root.p.channel || 1)
+                color: "white"; font.pixelSize: 18; font.bold: true
+            }
         }
         ValueRow { label: "Length"; value: root.p.length; key: "length" }
         ValueRow { label: "Hits"; value: root.p.hits; key: "hits" }
         ValueRow { label: "Offset"; value: root.p.offset; key: "offset" }
         ValueRow { label: "Interval"; value: root.p.interval; key: "interval"; visible: root.p.showInterval === true }
         Rectangle {
-            width: parent.width; height: 40; radius: 4
+            width: parent.width; height: root.rowHeight; radius: 4
             color: root.p.mute ? "#225522" : "#552222"
             Text { anchors.centerIn: parent; text: root.p.mute ? "Unmute" : "Mute"; color: "white"; font.pixelSize: 16 }
             TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: root.view.toggleMute() }
@@ -146,7 +175,7 @@ Rectangle {
         property var value
         property string key
         spacing: 4
-        height: 40
+        height: root.rowHeight
         Text { width: 70; height: parent.height; verticalAlignment: Text.AlignVCenter; text: vrow.label; color: "#cccccc"; font.pixelSize: 15 }
         StepButton { text: "−"; onTapped: root.view.adjust(vrow.key, -1) }
         Text {
@@ -162,7 +191,7 @@ Rectangle {
         id: sb
         property alias text: sbl.text
         signal tapped
-        width: 34; height: 40; radius: 4
+        width: 34; height: root.rowHeight; radius: 4
         color: sbTap.pressed ? "#555555" : "#333333"
         Text { id: sbl; anchors.centerIn: parent; color: "white"; font.pixelSize: 20 }
         TapHandler { id: sbTap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: sb.tapped() }

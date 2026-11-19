@@ -50,6 +50,23 @@ Item {
         needed: root.cc.widgetType === "organelle"
         sourceComponent: Component { OrganelleView { view: root.cc.organelleView } }
     }
+    // A zynthian widget the Qt UI can't show (a user / external widget: Tk code)
+    Rectangle {
+        anchors.fill: parent
+        visible: root.cc.widgetType === "unsupported"
+        color: Theme.widgetBackground
+        Text {
+            anchors.fill: parent
+            anchors.margins: 8
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            wrapMode: Text.Wrap
+            elide: Text.ElideRight
+            text: "This plugin has a zynthian widget the Qt UI can't show:\n" + root.cc.unsupportedWidget
+            color: Theme.textOff
+            font.pixelSize: Math.max(10, Math.min(16, parent.height / 8))
+        }
+    }
     Deferred {
         anchors.fill: parent
         visible: root.cc.widgetType === "sooperlooper"

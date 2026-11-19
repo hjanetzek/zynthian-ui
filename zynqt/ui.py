@@ -924,7 +924,11 @@ class ZynUI(QObject):
         else:
             chain_id, processor = result
             self.screen_history = []
-            self.chain_control(chain_id, processor, force_bank_preset=True)
+            if processor and processor.eng_code == "CL" and "chain_id" not in self.chain_edit.status:
+                # A new Clippy chain: its clips are chosen in the launcher (zynthian_gui.modify_chain)
+                self.show_screen("launcher")
+            else:
+                self.chain_control(chain_id, processor, force_bank_preset=True)
 
     def chain_control(self, chain_id=None, processor=None, force_bank_preset=False):
         """Show a chain's processor: bank/preset selection first if it has no preset yet
@@ -953,8 +957,6 @@ class ZynUI(QObject):
                     # Nothing installed yet (no soundfonts, ...): the bank list says how to add
                     # some; BACK leads to the processor (not out of the new chain)
                     screen = "bank_hint"
-        if processor and processor.eng_code == "CL":
-            screen = "launcher"
         # As zynthian_gui_chain_control.set_chain(reset=True): control mode
         self.chain_control_screen.set_mode("control")
         if screen == "bank_hint":
@@ -1704,7 +1706,10 @@ class ZynUI(QObject):
         proc = self.current_processor
         if proc is None:
             return
-        if self.current_screen == "bank":
+        if self.current_screen == "chain_control" and proc.eng_code == "CL":
+            # Clippy: the selected clip's file
+            proc.engine.request_file()
+        elif self.current_screen == "bank":
             self.back()
         elif self.current_screen == "preset":
             if len(proc.get_bank_list()) > 1:

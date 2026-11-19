@@ -1,12 +1,13 @@
 import tkinter
 import logging
 from zyngui import zynthian_widget_base
+from zyngui import zynthian_widget_data as wd
 
 
 class zynthian_widget_drawbar(zynthian_widget_base.zynthian_widget_base):
-    DRAWBAR_SLOTS = 9
-    DRAWBAR_POSITIONS = 9
-    DRAWBAR_MAX = DRAWBAR_POSITIONS - 1
+    DRAWBAR_SLOTS = wd.DRAWBAR_SLOTS
+    DRAWBAR_POSITIONS = wd.DRAWBAR_POSITIONS
+    DRAWBAR_MAX = wd.DRAWBAR_MAX
     DRAWBAR_Y_OFFSET = -2
 
     def __init__(self, parent):
@@ -50,52 +51,17 @@ class zynthian_widget_drawbar(zynthian_widget_base.zynthian_widget_base):
         return self.processor.controllers_dict[self.drawbars[i]]
 
     def _drawbar_calibration(self, ctrl):
-        # Ticks are interpolation knots, not snap values.
-        if ctrl.ticks and len(ctrl.ticks) == self.DRAWBAR_POSITIONS:
-            return [(i, ctrl.ticks[i]) for i in range(self.DRAWBAR_POSITIONS)]
-        # Linear controls, e.g. Calf organ 0.0..8.0.
-        return [(0, ctrl.value_min), (self.DRAWBAR_MAX, ctrl.value_max)]
+        return wd.drawbar_calibration(ctrl)
 
     def _value_to_position(self, ctrl, value):
-        points = self._drawbar_calibration(ctrl)
-        first_value = points[0][1]
-        last_value = points[-1][1]
-
-        if last_value >= first_value:
-            if value <= first_value:
-                return 0.0
-            if value >= last_value:
-                return float(self.DRAWBAR_MAX)
-        else:
-            if value >= first_value:
-                return 0.0
-            if value <= last_value:
-                return float(self.DRAWBAR_MAX)
-
-        for (p0, v0), (p1, v1) in zip(points, points[1:]):
-            if min(v0, v1) <= value <= max(v0, v1):
-                if v0 == v1:
-                    return float(p0)
-                return p0 + (p1 - p0) * (value - v0) / (v1 - v0)
-
-        return float(self.DRAWBAR_MAX)
+        return wd.drawbar_position(ctrl, value)
 
     def _position_to_value(self, ctrl, position):
-        position = max(0.0, min(float(self.DRAWBAR_MAX), position))
-        points = self._drawbar_calibration(ctrl)
-
-        for (p0, v0), (p1, v1) in zip(points, points[1:]):
-            if p0 <= position <= p1:
-                if p1 == p0:
-                    return v0
-                return v0 + (position - p0) * (v1 - v0) / (p1 - p0)
-
-        return points[-1][1]
+        return wd.drawbar_value(ctrl, position)
 
     def set_processor(self, processor):
         super().set_processor(processor)
-        drawbar_ctrls = [k for k, v in self.processor.controllers_dict.items()
-                         if hasattr(v, 'drawbar')]
+        drawbar_ctrls = wd.drawbar_symbols(self.processor)
         if (len(drawbar_ctrls) > 0):
             self.drawbars = drawbar_ctrls
 
@@ -125,13 +91,8 @@ class zynthian_widget_drawbar(zynthian_widget_base.zynthian_widget_base):
         if self.drag is not None and self.drag["item"]:
             ctrl = self._drawbar_ctrl(self.drag['barnum'])
             y = max(0, min(self.height, event.y))
-            # Start from the position corresponding to the value when pressed,
-            # then apply the pointer delta in position units.
-            start_position = self._value_to_position(ctrl, self.drag['value'])
-            delta_position = ((y - self.drag['y']) /
-                              self.height) * self.DRAWBAR_MAX
-            position = start_position + delta_position
-            ctrl.set_value(self._position_to_value(ctrl, position))
+            # From the position of the value at the press, the pointer's move in drawbar heights
+            wd.drawbar_drag(ctrl, self.drag['value'], (y - self.drag['y']) / self.height)
 
     def on_release(self, event):
         self.drag["item"] = None

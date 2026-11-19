@@ -250,7 +250,7 @@ Without a kit:
   Qt QEMU VM.
 - **DUMMIES regression** (desktop, Duet or the Qt VM): the log says hardware input is off; the
   keypad, key bindings and OSC `ZYNSWITCH` / `ZYNPOT` behave as before (the final-pass CUIA
-  compare, `nura/tools/qemu_compare.sh`).
+  compare, `tools/qemu_compare.sh`).
 - **Emulated kit on the desktop**: none is cheap (zyncore's `vx` build needs wiringPi and I²C).
   A fake `lib_zyncore` injected with `ZYNTHIAN_QT_HW_INPUT=fake` driven by OSC would test
   the wiring into ZynUI, but adds test-only code: only if the Pi isn't available.
@@ -339,7 +339,7 @@ wiring page; the profiles' defaults:
 
 **F. Load**
 
-- [ ] `nura/tools/thread_cpu.sh` with the UI idle: the `zynswitch` thread ~0.2 % of a core, the
+- [ ] `tools/thread_cpu.sh` with the UI idle: the `zynswitch` thread ~0.2 % of a core, the
   `zynpot` thread 0 when nothing turns
 
 ## 6. Risks and open questions

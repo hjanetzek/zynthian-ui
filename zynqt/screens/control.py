@@ -311,6 +311,7 @@ class ChainControl(QObject):
         self._page_zctrls = []
         self.sl_view = SooperLooperView(ui, self)
         self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
+        self._unsupported_widget = ""
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
         # Another chain selected while shown (arrows, switch 0): show it (Tk's cb_set_active_chain)
         ui.bridge.activeChainChanged.connect(self._active_chain_changed)
@@ -694,6 +695,12 @@ class ChainControl(QObject):
         """The page's widget, as zynthian_gui_control: from the page's controllers (envelope,
         filter, audio file path), else the engine's own (audio player, clippy)"""
         wtype, file_zctrl = wd.screen_type(zctrls) if proc else (None, None)
+        if wtype is None and proc is not None:
+            # Widget bundles can be added, removed or updated while running (Tk's show_widget)
+            try:
+                proc.engine.refresh_custom_gui()
+            except Exception as e:
+                logging.warning(f"Can't refresh the widget of {proc.engine.name}: {e}")
         plugin = wd.plugin_widget(proc) if wtype is None else None
         if wtype == "drawbar" or plugin == "setbfree":
             # LV2 drawbar controllers (Calf Organ) or setBfree's: the drawbars
@@ -720,12 +727,19 @@ class ChainControl(QObject):
                 self.sl_view.set_processor(proc)
         elif plugin:
             wtype = "plugin"
-            if self.plugin_view.processor is not proc:
+            if self.plugin_view.processor is not proc or self.plugin_view.name != plugin:
                 self.plugin_view.set_processor(proc, plugin)
+        unsupported = ""
         if wtype is None and proc is not None:
             gui = getattr(proc.engine, "custom_gui_fpath", None)
             if afd.engine_type(proc) != afd.ENG_NONE or (gui and gui.endswith("zynthian_widget_audio_file.py")):
                 wtype = "audio_file"
+            elif wd.engine_widget(proc):
+                # A zynthian widget the Qt UI has no view for (a user or external widget: Tk
+                # code): say so, the controllers stay
+                wtype = "unsupported"
+                unsupported = f"zynthian_widget_{wd.engine_widget(proc)}"
+        self._unsupported_widget = unsupported
         if wtype in ("envelope", "filter"):
             group = proc.get_group_zctrls(zctrls[0].group_symbol) if zctrls and zctrls[0] else list(zctrls)
             (self.envelope_view if wtype == "envelope" else self.filter_view).set_group(group)
@@ -742,6 +756,11 @@ class ChainControl(QObject):
     @Property(str, notify=pageChanged)
     def widgetType(self):
         return self._widget_type
+
+    @Property(str, notify=pageChanged)
+    def unsupportedWidget(self):
+        """The module of a widget the Qt UI can't show (widgetType "unsupported")"""
+        return self._unsupported_widget
 
     @Property(QObject, constant=True)
     def waveform(self):

@@ -311,7 +311,9 @@ Done since the first plan (commits in docs/upstream-candidates.md and the git lo
 launcher with phrase menu, pattern editor (notes and their settings, CC view, chords, block
 edit, undo, pattern files, MIDI file import/export, MIDI recording), all engine widgets (audio
 file waveform, envelope, filter, plugin widgets, Euclidean sequencer, Organelle, SooperLooper),
-MIDI learn, X-Y touchpad. The arranger is not ported: upstream has it switched off.
+MIDI learn, X-Y touchpad. The arranger is not ported: upstream has it switched off. Every
+widget, what triggers it, how to open it and what the Qt UI still lacks (drawbar/setBfree, user
+LV2 widgets, …): [zynthian-widgets.md](zynthian-widgets.md).
 
 
 ### M3: towards parity

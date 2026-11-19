@@ -39,9 +39,11 @@ Rectangle {
     onViewRowsChanged: if (height > 0) pe.setViewRows(viewRows)
 
     function reportZoomLimits() {
-        if (gridWidth > 0 && gridHeight > 0)
+        if (gridWidth > 0 && gridHeight > 0) {
+            pe.setGridHeight(gridHeight)
             pe.setZoomLimits(Math.min(minRowHeight - baseRowHeight, minStepWidth - baseStepWidth),
                              Math.max(maxRowHeight - baseRowHeight, maxStepWidth - baseStepWidth))
+        }
     }
     onMinRowHeightChanged: Qt.callLater(reportZoomLimits)
     onMinStepWidthChanged: Qt.callLater(reportZoomLimits)
@@ -109,8 +111,11 @@ Rectangle {
         showCursor()
     }
     Component.onCompleted: {
-        if (height > 0)
+        if (height > 0) {
             pe.setViewRows(viewRows)
+            if (gridHeight > 0)
+                pe.setGridHeight(gridHeight)
+        }
         Qt.callLater(showRefRow)
     }
 

@@ -83,6 +83,7 @@ class PatternEditor(QObject):
         self.selected_events = None  # selected notes ({event key: True}, zynseq.get_pattern_selection)
         self.zoom = 0               # cell size change in pixels (knob 1), as Tk's set_grid_zoom
         self._view_rows = 16        # rows the grid shows (QML), Tk's view_rows
+        self._grid_height = 0       # the grid's height in pixels (QML)
         self._zoom_limits = (-1000, 1000)
         self._block = None           # selected block: [step1, row1, step2, row2] (inclusive)
         self.copied = None          # copied block (its [step1, row1, step2, row2]); taps paste it
@@ -200,15 +201,15 @@ class PatternEditor(QObject):
         self._events = note_events(self.libseq)
         # The cursor as zynthian_gui_pated_notes.load_pattern: the step kept (within the
         # pattern), the row in the middle of the view from the pattern's reference note (the
-        # bottom row shown, libseq's RefNote). As Tk, the rows shown before the pattern's zoom
-        # applies (Tk computes the row before set_grid_zoom)
+        # bottom row shown, libseq's RefNote; clamped with the rows shown before the pattern's
+        # zoom applies, as Tk). The row is centred in the rows shown at the pattern's zoom (Tk
+        # centres it again after set_grid_zoom, upstream f4c0f2061)
         if self.cursor[0] >= self.steps:
             self.cursor[0] = self.steps - 1
         view_rows = self._view_rows
         offset = int(self.libseq.getRefNote()) if len(self.keymap) > view_rows else 0
         offset = max(0, min(offset, len(self.keymap) - view_rows))
         self.ref_row = offset
-        self.cursor[1] = max(0, min(len(self.keymap) - 1, offset + view_rows // 2))
         self.libseq.isPatternModified()   # reset the flag
         self._pending = False
         self.selected_events = None
@@ -217,6 +218,8 @@ class PatternEditor(QObject):
         # pattern without one gives garbage)
         z = self.libseq.getPatternZoom()
         self.zoom = max(self._zoom_limits[0], min(self._zoom_limits[1], z)) if -1000 < z < 1000 else 0
+        view_rows = self._view_rows_at(self.zoom) or view_rows
+        self.cursor[1] = max(0, min(len(self.keymap) - 1, offset + view_rows // 2))
         self.zoomChanged.emit()
         self.patternChanged.emit()
         self.eventsChanged.emit()
@@ -949,6 +952,21 @@ class PatternEditor(QObject):
         (the screen's teardown and set-up pass through other sizes)"""
         if self._shown and rows > 0:
             self._view_rows = rows
+
+    @Slot(int)
+    def setGridHeight(self, height):
+        """The grid's height (QML), for the rows shown at a zoom before QML applies it"""
+        if self._shown and height > 0:
+            self._grid_height = height
+
+    def _view_rows_at(self, zoom):
+        """The rows the grid shows at zoom (PatternEditorView.qml's rowHeight and viewRows,
+        Tk's set_grid_zoom limits); 0 while the grid's height isn't known"""
+        gh = self._grid_height
+        if gh <= 0:
+            return 0
+        row_height = max(gh // min(36, max(6, len(self.keymap))), min(gh // 6, gh // 16 + zoom))
+        return max(1, gh // max(1, row_height))
 
     @Slot(int, int)
     def setZoomLimits(self, lo, hi):

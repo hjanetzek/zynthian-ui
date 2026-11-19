@@ -24,7 +24,8 @@ import subprocess
 
 import zynconf
 
-# Installed by postmarketos-ui-zynthian (nura/): the kiosk sessions' shared script
+# Installed by postmarketos-ui-zynthian (nura-builds: aports/zynthian/postmarketos-ui-zynthian):
+# the kiosk sessions' shared script
 NURA_SESSION_SCRIPT = "/usr/libexec/zynthian/zynthian-session.sh"
 
 POWEROFF = "poweroff"

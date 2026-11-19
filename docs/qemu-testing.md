@@ -125,8 +125,9 @@ tools/switch_ui.sh -V tomita    # upstream zynthian-ui (Tk) instead of the Qt UI
 - `sync_ui.sh` copies what `desktop/install.sh` installs as Python (zyngui, zyngine, zynconf,
   zynautoconnect, zynqt, the zynlibs modules, fonts, icons, img, the main scripts) into
   `/usr/share/zynthian/zynthian-ui`. Native code (zynlibs `.so`, zyncoder) isn't copied.
-- Native changes: the package, built locally for x86_64 and installed:
-  `nura/deploy.sh -a x86_64 -H 127.0.0.1 -P 2232 -u user -r zynthian-ui` (pmbootstrap builds missing
+- Native changes: the package, built locally for x86_64 with nura-builds'
+  `aports/zynthian/deploy.sh` and installed:
+  `deploy.sh -a x86_64 -H 127.0.0.1 -P 2232 -u user -r zynthian-ui` (pmbootstrap builds missing
   x86_64 dependencies locally, which can take long; or let nura-builds CI build it and
   `sudo apk upgrade` in the VM). The image doesn't have nura-builds' repository: add it once
   (`qemu_compare.sh` does this for its VMs):
@@ -219,8 +220,8 @@ tools/qemu_compare.sh ssh qt ping -c1 192.168.77.2
 - The guest's NIC has a NetworkManager "stable" cloned MAC: `qemu_compare.sh` finds the NIC by its
   permanent address (`ip -o link`, `permaddr`).
 - postmarketOS' firewall drops incoming UDP: the master/slave ports and mDNS need
-  `/etc/nftables.d/50_zynthian-multi.nft` (from `nura/zynthian-ui/`, installed by the zynthian-ui
-  package of the `multi-zynthian` branch; on older packages copy it there and run
+  `/etc/nftables.d/50_zynthian-multi.nft` (from nura-builds' `aports/zynthian/zynthian-ui/`, installed by the
+  zynthian-ui package of the `multi-zynthian` branch; on older packages copy it there and run
   `sudo nft -f /etc/nftables.nft`). Checked 2026-11-11: ping both ways, OSC request round trip
   0.3 ms.
 - mDNS: both VMs are called `nura-zynthian` (the image's host name), so `.local` names don't tell

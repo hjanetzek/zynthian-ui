@@ -1,6 +1,6 @@
 # Measuring UI performance on the device
 
-How the numbers in [qt-port-plan.md](qt-port-plan.md) and [nura-display.md](nura-display.md)
+How the numbers in [qt-port-plan.md](qt-port-plan.md) and [nura-display.md](https://github.com/hjanetzek/nura-builds/blob/main/docs/nura-display.md)
 were measured, so they can be repeated: CPU use per thread, and screen switch times of the Qt and
 Tk UIs. The device was a Lenovo IdeaPad Duet (MT8183: cpu0–3 Cortex-A53, cpu4–7 Cortex-A73) with
 Nura; the tools work on other Nura devices too.
@@ -35,7 +35,7 @@ The numbers depend on these more than on anything else; keep them the same when 
   output's resolution (1920×1200 at scale 2 on the Duet). Tk runs through XWayland; under a
   compositor with output scaling (labwc at scale 2) its window is drawn at half the resolution
   (960×565) and scaled up, under cage at full resolution. XWayland's glamor setting matters too
-  (see nura-display.md).
+  (see nura-builds' [nura-display.md](https://github.com/hjanetzek/nura-builds/blob/main/docs/nura-display.md)).
 - **Idle or playing.** Meters only cost something when the levels change: measure once idle and
   once while playing (e.g. a MIDI keyboard into a FluidSynth chain).
 - **Don't touch the device** during switch timing: touches and the timing CUIAs interleave.

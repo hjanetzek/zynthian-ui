@@ -9,7 +9,7 @@ How zynthian itself is built (processes, MIDI router, CUIAs, zyngine API, snapsh
 
 - Zrythm's Qt Quick UI runs fast and draws correctly on the Duet (native Wayland, OpenGL ES on
   Panfrost), while Tk under XWayland needs glamor turned off to draw correctly
-  ([nura-display.md](nura-display.md)) and takes 37–76 ms per screen switch.
+  ([nura-display.md](https://github.com/hjanetzek/nura-builds/blob/main/docs/nura-display.md)) and takes 37–76 ms per screen switch.
 - The Zrythm port (`~/bastel/github/zrythm/tools/nura`) already packages Qt 6.12 for Nura and has
   it installed on the Duet: `qt6-qtbase` (with the Wayland platform plugin),
   `qt6-qtdeclarative` (Qt Quick, Quick Controls), `qt6-qtwayland`, `qt6-qtsvg`,
@@ -457,7 +457,7 @@ jalv recipes moved to nura-builds, aports/); the notes below are how it was plan
   (`QQmlApplicationEngine` reloading on file change, or `qml` preview for components).
 - Keep the QML to what PySide6/Qt 6.11 and 6.12 both have (no Canvas Painter from QML), so the
   desktop wheels and the device run the same code.
-- Device: `nura/deploy.sh` for packages; for QML and Python, copy files and restart the session
+- Device: nura-builds' `aports/zynthian/deploy.sh` for packages; for QML and Python, copy files and restart the session
   as now. Screenshots with grim (native Wayland, no XWayland detour).
 - Tests: list providers and models with pytest, without a display; QML with `qmltestrunner` where
   useful.

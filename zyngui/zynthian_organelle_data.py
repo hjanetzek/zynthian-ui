@@ -148,3 +148,107 @@ def menu_touch_sequence(current_index, target_index, step_ms=50):
     seq.append((total, "/enc_sel", 1))
     seq.append((total + 100, "/enc_sel", 0))
     return seq
+
+
+# The kits' knobs and switches (zynthian_widget_organelle: zynpot_cb, switch, switch_select_mode,
+# switch_aux, cuia_arrow_up/down, update_wsleds)
+
+def kit_switches(check_wiring_layout):
+    """(select mode switch, AUX switch, select mode LED, AUX LED) of the kit's wiring layout
+    (check_wiring_layout: zynthian_gui_config's); None where the kit has none (touch: the
+    on-screen AUX button and encoder instead)"""
+    if check_wiring_layout(["V5"]):
+        return 19, 23, 12, 13
+    if check_wiring_layout(["Z2"]):
+        return 15, 16, 13, 14
+    if check_wiring_layout(["MCP23017_ZYN"]):
+        return 5, 4, None, None
+    return None, None, None, None
+
+
+class OrganelleKeys:
+    """The Organelle's encoder and AUX button on a kit's knobs and switches, as the Tk widget: a
+    switch toggles a menu *select mode* (entering it scrolls the menu once, leaving it selects),
+    in which knob 3 and the up/down arrows scroll the patch's menu and switch 3 selects (and
+    ends the mode); the AUX switch is the AUX button (the long press is off while it is held).
+
+    pulse(path, ms): send path 1, then 0 after ms; send(path, value); on_select_mode(bool): show
+    the selector instead of the fourth controller (Tk) or not; autolong(bool): the switches'
+    long press while held on / off."""
+
+    def __init__(self, pulse, send, on_select_mode, autolong, switches=(None, None, None, None)):
+        self.pulse = pulse
+        self.send = send
+        self.on_select_mode = on_select_mode
+        self.autolong = autolong
+        self.switch_selmode, self.switch_aux, self.led_selmode, self.led_aux = switches
+        self.selector = True   # the preset's organelle_selector option
+        self.select_mode = False
+        self.aux_pushed = False
+
+    def set_select_mode(self, on):
+        if on != self.select_mode:
+            self.select_mode = on
+            self.on_select_mode(on)
+
+    def zynpot(self, i, d):
+        """Knob i turned by d; True if it scrolled the menu"""
+        if self.select_mode and self.selector and i == 3 and d:
+            self.pulse("/enc_down" if d > 0 else "/enc_up", 50)
+            return True
+        return False
+
+    def arrow(self, d):
+        """Arrow up (-1) / down (1); True if it scrolled the menu (select mode)"""
+        if self.select_mode:
+            self.zynpot(3, d)
+            return True
+        return False
+
+    def switch(self, i, t):
+        """Switch i pushed (P) or released after a short (S), bold (B) or long (L) press; True if
+        handled"""
+        if self.selector and self.select_mode and i == 3:
+            if t == "S":
+                self.pulse("/enc_sel", 100)
+                self.set_select_mode(False)
+                return True
+            return False
+        if self.selector and self.switch_selmode is not None and i == self.switch_selmode:
+            if t in ("S", "B"):
+                self.toggle_select_mode()
+            return True
+        if self.switch_aux is not None and i == self.switch_aux:
+            pushed = t == "P"
+            if pushed != self.aux_pushed:
+                self.aux_pushed = pushed
+                self.autolong(not pushed)
+                self.send("/aux", 1 if pushed else 0)
+            return True
+        return False
+
+    def toggle_select_mode(self):
+        if self.select_mode:
+            self.set_select_mode(False)
+            self.pulse("/enc_sel", 100)
+        else:
+            self.set_select_mode(True)
+            self.pulse("/enc_down", 50)
+
+    def reset(self):
+        """Leave select mode and release AUX (the widget hidden or another processor)"""
+        self.set_select_mode(False)
+        if self.aux_pushed:
+            self.aux_pushed = False
+            self.autolong(True)
+            self.send("/aux", 0)
+
+    def update_wsleds(self, wsl, leds):
+        """The kit's LEDs (wsl: the LED driver's API, leds: the screen's custom LED indices)"""
+        if self.led_selmode is not None and self.selector:
+            if self.select_mode:
+                wsl.blink(leds[self.led_selmode], wsl.wscolor_active2)
+            else:
+                wsl.set_led(leds[self.led_selmode], wsl.wscolor_active2)
+        if self.led_aux is not None:
+            wsl.set_led(leds[self.led_aux], wsl.wscolor_green if self.aux_pushed else wsl.wscolor_active2)

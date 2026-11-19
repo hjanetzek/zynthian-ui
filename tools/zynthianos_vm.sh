@@ -153,16 +153,18 @@ EOF
 }
 
 start_vm() {
+	fresh=0
 	if [ -n "$(vm_pid)" ]; then
 		echo "running (PID $(vm_pid), SSH $port)"
 	else
+		fresh=1
 		[ -f "$disk" ] || new_disk
 		# UEFI (OVMF): the image's BIOS grub loops on this host (the kernel resets right away)
 		[ -f "$dir/OVMF_VARS.fd" ] || cp "$ovmf_vars" "$dir/OVMF_VARS.fd"
 		set -- -nodefaults -machine q35,accel=kvm -cpu host -smp "$cpus" -m "$mem" \
 			-drive "if=pflash,format=raw,readonly=on,file=$ovmf_code" -drive "if=pflash,format=raw,file=$dir/OVMF_VARS.fd" \
 			-drive "file=$disk,format=raw,if=none,id=disk,discard=unmap" -device virtio-blk-pci,drive=disk,bootindex=0 \
-			-netdev "user,id=net,hostname=zynthian,hostfwd=tcp:127.0.0.1:$port-:22,hostfwd=tcp:127.0.0.1:$web-:80,hostfwd=tcp:127.0.0.1:$kasm-:8444,hostfwd=udp:127.0.0.1:$osc-:1370" \
+			-netdev "user,id=net,hostname=zynthian,hostfwd=tcp:127.0.0.1:$port-:22,hostfwd=tcp:127.0.0.1:$web-:80,hostfwd=tcp:127.0.0.1:$kasm-:8443,hostfwd=udp:127.0.0.1:$osc-:1370" \
 			-device virtio-net-pci,netdev=net,romfile= -device virtio-rng-pci \
 			-display none -vga none -serial "file:$dir/serial.log" \
 			-name zynthianos-vm -pidfile "$dir/qemu.pid" -daemonize
@@ -178,7 +180,7 @@ start_vm() {
 		[ -n "$(vm_pid)" ] || { echo "QEMU exited (see $dir/serial.log)" >&2; exit 1; }
 		sleep 5
 	done
-	[ ! -f "$dir/started" ] || echo "SSH up after $(( $(date +%s) - $(cat "$dir/started") )) s"
+	[ $fresh = 0 ] || echo "SSH up after $(( $(date +%s) - $(cat "$dir/started") )) s"
 }
 
 stop_vm() {
@@ -214,8 +216,26 @@ wait_up() {
 # Upstream's setup, as upstream runs it in its trixie container: the three scripts it needs next to
 # each other (setup_system_lxc_64bit_trixie.sh sources ./zynthian_envars_extended.sh, which sources
 # ./zynthian_envars.sh), the branches from the environment, run as root. It runs detached in the
-# VM (nohup) and this waits for it; running setup again resumes waiting, or restarts a setup that
-# died without finishing.
+# VM (nohup) and this waits for it; running setup again resumes waiting.
+#
+# Run unchanged on a fresh Debian trixie (2026-11-19, tomita 3df97e00), the script breaks early and
+# everything after cascades (docs/zynthianos-vm.md, "Changes to upstream's setup"): it was evidently
+# developed in a container that already had the zynthian environment. The fixes, as small as
+# possible, each logged as an upstream issue:
+#  1. ./zynthian_envars.sh is config/zynthian_envars_LXC_x86_64.sh, the configuration the script
+#     itself installs later (line 266): with scripts/zynthian_envars.sh, zyncoder is built for a
+#     wiring layout with GPIO (wiringPi.h missing) before that.
+#  2. PATH has zynthian-sys' scripts and sbin from the start (etc/profile.zynthian, which the
+#     script only sources at line 250; create_my_data_dirtree.sh is called bare at line 208).
+#  3. python3-lgpio is dropped from the script's apt line: it exists only in Raspberry Pi OS'
+#     archive, and the failed apt-get leaves out every Python package of that line (python3.13-venv
+#     too: no /zynthian/venv, no pip modules).
+#  4. ZYNTHIAN_MY_DATA=/zynthian/zynthian-my-data in the environment: sbin/create_my_data_dirtree.sh
+#     tests and creates "$ZYNTHIAN_MY_DATA", which nothing defines (the rest of it uses
+#     $ZYNTHIAN_MY_DATA_DIR), so zynthian-my-data's tree isn't created.
+#  5. python-is-python3 and the en_US.UTF-8 locale beforehand (Raspberry Pi OS has both; recipes
+#     with "#!/usr/bin/env python" waf scripts fail, and the script's update-locale names
+#     en_US.UTF-8 without generating it).
 upstream_setup() {
 	if vm_ssh '[ -f /root/zynthian-setup/done ]'; then
 		echo "upstream setup: done ($(vm_ssh 'cat /root/zynthian-setup/done'))"
@@ -227,12 +247,23 @@ upstream_setup() {
 		vm_ssh "set -e
 			cloud-init status --wait >/dev/null 2>&1 || true
 			mkdir -p /root/zynthian-setup && cd /root/zynthian-setup
-			for f in setup_system_lxc_64bit_trixie.sh zynthian_envars_extended.sh zynthian_envars.sh; do
-				curl -fsSL -o \$f https://raw.githubusercontent.com/zynthian/zynthian-sys/$branch/scripts/\$f
+			raw=https://raw.githubusercontent.com/zynthian/zynthian-sys/$branch
+			for f in setup_system_lxc_64bit_trixie.sh zynthian_envars_extended.sh; do
+				curl -fsSL -o \$f.orig \$raw/scripts/\$f
+				cp \$f.orig \$f
 			done
+			curl -fsSL -o zynthian_envars.sh \$raw/config/zynthian_envars_LXC_x86_64.sh
+			sed -i 's/ python3-lgpio / /' setup_system_lxc_64bit_trixie.sh
 			chmod +x setup_system_lxc_64bit_trixie.sh
+			diff -u setup_system_lxc_64bit_trixie.sh.orig setup_system_lxc_64bit_trixie.sh > setup.patch || true
+			export DEBIAN_FRONTEND=noninteractive
+			apt-get update -q > /dev/null
+			apt-get install -y -q python-is-python3 locales > /dev/null
+			sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+			locale-gen > /dev/null
 			date +%s > started
-			ZYNTHIAN_BRANCH=$branch ZYNTHIAN_SYS_BRANCH=$branch nohup setsid sh -c 'echo \$\$ > pid; ./setup_system_lxc_64bit_trixie.sh; echo \$? > exit; date -u +%FT%TZ > done.time' > setup.log 2>&1 < /dev/null &
+			PATH=\$PATH:/zynthian/zynthian-sys/scripts:/zynthian/zynthian-sys/sbin ZYNTHIAN_MY_DATA=/zynthian/zynthian-my-data ZYNTHIAN_BRANCH=$branch ZYNTHIAN_SYS_BRANCH=$branch \\
+				nohup setsid bash -c 'echo \$\$ > pid; ./setup_system_lxc_64bit_trixie.sh; echo \$? > exit; date -u +%FT%TZ > done.time' > setup.log 2>&1 < /dev/null &
 			sleep 1"
 	fi
 	echo "waiting for upstream's setup (log: $0 ssh tail -f /root/zynthian-setup/setup.log)"
@@ -256,9 +287,27 @@ setup_tests() {
 		venv/bin/python3 -c "import pytest, jack, numpy, PIL"'
 }
 
+# KasmVNC's first start asks interactively which desktop to run (select-de.sh) and fails under
+# systemd (virtual_zynthian.service: "kasmvncserver :0"): no X server, the UI can't open its
+# display. Upstream's setup leaves that to an interactive first run; here: an xstartup without a
+# desktop (the zynthian UI is the only X client) and KasmVNC's "desktop was selected" marker.
+setup_kasmvnc() {
+	vm_ssh '[ -f /root/.vnc/.de-was-selected ] && [ -x /root/.vnc/xstartup ]' && return 0
+	echo "KasmVNC: xstartup without a desktop"
+	vm_ssh 'mkdir -p /root/.vnc && cat > /root/.vnc/xstartup <<EOF
+#!/bin/sh
+# zynthianos_vm.sh: KasmVNC without a desktop environment. virtual_zynthian.service starts
+# "kasmvncserver :0", whose first run asks interactively for a desktop (select-de.sh) and fails
+# under systemd; the zynthian UI is the only X client.
+exec sleep infinity
+EOF
+		chmod 755 /root/.vnc/xstartup && touch /root/.vnc/.de-was-selected && systemctl restart virtual_zynthian'
+}
+
 setup_vm() {
 	start_vm
 	upstream_setup
+	setup_kasmvnc
 	setup_tests
 	if [ ! -f "$built" ]; then
 		echo "rebooting (first boot of the built system)"
@@ -360,7 +409,8 @@ case $cmd in
 		if [ -n "$types" ]; then oscsend "osc.udp://127.0.0.1:$osc" "/cuia/$n" "$types" "$@"; else oscsend "osc.udp://127.0.0.1:$osc" "/cuia/$n"; fi ;;
 	shot)
 		f=${1:-zynthianos-shot.png}
-		vm_ssh 'DISPLAY=:0 import -window root png:-' > "$f"
+		# X's screen is KasmVNC's default size; the UI's window is DISPLAY_WIDTHxDISPLAY_HEIGHT at 0,0
+		vm_ssh '. /zynthian/config/zynthian_envars.sh; DISPLAY=:0 import -window root -crop "${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}+0+0" +repage png:-' > "$f"
 		[ -s "$f" ] && echo "$f" ;;
 	log) vm_ssh "journalctl -u virtual_zynthian -n ${1:-50} --no-pager" ;;
 	versions) versions ;;

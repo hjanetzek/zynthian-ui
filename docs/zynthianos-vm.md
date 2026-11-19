@@ -59,7 +59,29 @@ only ships as aarch64 prebuilt binaries are missing here, as on virtual.zynthian
 
 ## Changes to upstream's setup
 
-Everything else is upstream's script as it is on the branch:
+Run unchanged on a fresh Debian trixie (2026-11-19, zynthian-sys tomita `3df97e00`), the script
+breaks early and everything after it cascades: it was evidently developed in a container that
+already had parts of the zynthian environment. `setup` works around that as narrowly as possible
+(each one is an upstream issue, in the private issues log; the unpatched run's log is in the private
+results repository):
+
+1. `./zynthian_envars.sh` (what the script sources first) is `config/zynthian_envars_LXC_x86_64.sh`,
+   the configuration the script itself installs later (line 266). With `scripts/zynthian_envars.sh`
+   zyncoder is built before that for a GPIO wiring layout and fails (`wiringPi.h` missing).
+2. `PATH` has zynthian-sys' `scripts` and `sbin` from the start (what `etc/profile.zynthian` adds,
+   which the script only sources at line 250; it calls `create_my_data_dirtree.sh` bare at 208).
+3. `ZYNTHIAN_MY_DATA=/zynthian/zynthian-my-data` in the environment: `sbin/create_my_data_dirtree.sh`
+   tests and creates `$ZYNTHIAN_MY_DATA`, which nothing defines (the rest of it uses
+   `$ZYNTHIAN_MY_DATA_DIR`), so the user data tree is never created (vangelis has the same bug).
+4. `python3-lgpio` is dropped from the script's apt line (the only edit of the script; the diff is
+   kept in the VM as `/root/zynthian-setup/setup.patch`): it exists only in Raspberry Pi OS' archive,
+   and the failing `apt-get` leaves out every Python package of that line, `python3.13-venv` too
+   (then no `/zynthian/venv` and no pip modules).
+5. `python-is-python3` and the `en_US.UTF-8` locale are installed/enabled before the run (Raspberry
+   Pi OS has both; waf recipes call `python`, and the script's `update-locale` names en_US.UTF-8
+   without generating it).
+
+The VM-specific additions:
 
 - **snd-dummy is loaded at boot** (`/etc/modules-load.d/zynthianos-vm.conf`, from cloud-init): in
   upstream's container the LXC host provides the Dummy card; here the VM's own kernel does.

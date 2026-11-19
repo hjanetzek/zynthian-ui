@@ -89,6 +89,27 @@ QtObject {
     property color widgetGrid: "#2e4a2e"
     property color widgetWave: "#4a90d0"
     property color widgetOutside: "#181e24"
+    property color widgetBar: "#3a78c0"          // spectrum / graphic EQ level bars
+    property color widgetPeak: "#5ad05a"         // spectrum peak ticks, graphic EQ gain ticks
+    property real widgetBarInset: 2              // space left and right of each bar
+    property color widgetZero: "#808080"         // graphic EQ 0 dB line
+    property color widgetLabel: textOff          // band labels
+    property color widgetAxis: "#606060"         // tuner scale
+    property color widgetAxisCentre: "#a0a0a0"   // its centre line
+    property color widgetHighlight: text         // the chord analyzer's chord
+    property color widgetCursor: "#ff4040"       // waveform: play cursor
+    property color widgetCrop: "#e0c000"         // crop markers
+    property color widgetLoop: "#40c040"         // loop markers
+    property color widgetBeat: "#707070"         // beat / cue markers
+    property color widgetBeatStrong: "#e0e0e0"   // bar / selected cue markers
+    property bool widgetGridOnTop: false         // filter grid drawn over the curve (Tk)
+    // AIDA-X level meters: a bar in low / mid / high colour by the level, or (widgetMeterZones,
+    // Tk) the three zones up to the level (low to 70 %, mid to 90 %) and widgetMeterOff beyond
+    property bool widgetMeterZones: false
+    property color widgetMeterLow: "#40b040"
+    property color widgetMeterMid: "#e0c040"
+    property color widgetMeterHigh: "#e04040"
+    property color widgetMeterOff: "#202830"
     // Drawbars (zynthian_widget_drawbar's colours): the bars' faces, their outline, the slot
     // around each, the numbers (the drawbar's setting brighter)
     property color drawbarBrown: "#8b0000"
@@ -165,6 +186,14 @@ QtObject {
     // Tk's colours (ZYNTHIAN_UI_COLOR_*, e.g. tkColor("panel_bg"))
     function tkColor(name, fallback) {
         return _cfg && _cfg.colors && _cfg.colors[name] ? _cfg.colors[name] : fallback
+    }
+    // zynthian_gui_config.color_variant: offset added to each channel of a "#rrggbb" colour
+    function tkVariant(hex, offset) {
+        const s = String(hex)
+        if (s.length !== 7 || s[0] !== "#")
+            return hex
+        const c = i => Math.max(0, Math.min(255, parseInt(s.substr(i, 2), 16) + offset)) / 255
+        return Qt.rgba(c(1), c(3), c(5), 1)
     }
 
     // Sizes (classic's values)

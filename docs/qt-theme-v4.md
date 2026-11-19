@@ -149,7 +149,7 @@ Open:
 
 ## Testing
 
-QEMU at 480x320: `nura/tools/qemu_compare.sh -g -R 480x320 start` (both VMs; `-W PORT` when the
+QEMU at 480x320: `tools/qemu_compare.sh -g -R 480x320 start` (both VMs; `-W PORT` when the
 webconf ports 8100/8101 are taken). The Tk VM with Tk's own V4 layout as the reference: in
 `~/.config/zynthian/zynthian_custom_config.sh` `ZYNTHIAN_UI_GRAPHIC_LAYOUT=V4`,
 `ZYNTHIAN_UI_TOUCH_NAVIGATION=""`, `ZYNTHIAN_WIRING_LAYOUT=MCP23017_ZynScreen` (the VMs' DUMMIES
@@ -157,5 +157,5 @@ wiring counts as TOUCH_ONLY, which forces Tk's touch keypad; the Python side onl
 hardware), and a real kit's sizes: `ZYNTHIAN_UI_FONT_SIZE=14`, `ZYNTHIAN_UI_SCALE=1`. The Qt VM:
 the same plus `ZYNTHIAN_QT_THEME=v4` (the scale stays auto: v4 ignores it). Encoders and switches
 through the CUIAs `ZYNPOT` / `ZYNSWITCH`, touch with zynthian-stuff's `vin.py` (`VIN_SIZE=480x320`).
-Preview: `nura/tools/qml_preview.py SCENE -t v4 -s 480x320` with `ZYNTHIAN_UI_FONT_SIZE=14`
+Preview: `tools/qml_preview.py SCENE -t v4 -s 480x320` with `ZYNTHIAN_UI_FONT_SIZE=14`
 (scenes in zynthian-stuff `ui-parity/tools/scenes/v4/`). Final check on the Pi 4 kit.

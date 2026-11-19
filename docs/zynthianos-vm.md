@@ -7,7 +7,7 @@ zynthian and runs upstream's test suite there.
 
 ```sh
 tools/zynthianos_vm.sh status                  # running? set up? zynthian up? (last line: usable: yes/no)
-tools/zynthianos_vm.sh start                   # boot it (about 30 s to SSH, see Numbers)
+tools/zynthianos_vm.sh start                   # boot it (about 15 s to SSH, see Numbers)
 tools/zynthianos_vm.sh sync ~/bastel/github/zynthian-ui-noticed   # a checkout -> /zynthian/zynthian-ui
 tools/zynthianos_vm.sh restart                 # restart zynthian, wait until it is up
 tools/zynthianos_vm.sh run-tests               # upstream's ./run_tests.sh in the VM (pytest args after it)
@@ -29,10 +29,10 @@ Demo", 2026-11): an x86_64 Debian trixie LXC container set up with zynthian-sys'
 | | |
 |---|---|
 | Base | Debian 13 trixie generic cloud image (`debian-13-generic-amd64.raw` from cloud.debian.org; the generic kernel, because the cloud kernel has no sound drivers) |
-| Setup | zynthian-sys `scripts/setup_system_lxc_64bit_trixie.sh`, unchanged, run directly on the VM's Debian as root, branches **tomita** (`ZYNTHIAN_BRANCH=tomita ZYNTHIAN_SYS_BRANCH=tomita`) |
+| Setup | zynthian-sys `scripts/setup_system_lxc_64bit_trixie.sh` with five narrow workarounds (see below), run directly on the VM's Debian as root, branches **tomita** (`ZYNTHIAN_BRANCH=tomita ZYNTHIAN_SYS_BRANCH=tomita`) |
 | SSH | port **2272**, `ssh -p 2272 root@127.0.0.1` (key login; root's password is zynthian's `opensynth`) |
 | Webconf | http://127.0.0.1:8172 |
-| Display | KasmVNC (upstream's), https://127.0.0.1:8472 (self-signed certificate, user root, password opensynth); `zynthianos_vm.sh shot` for screenshots |
+| Display | KasmVNC (upstream's; X display `:0`, 1024x768 with the UI's 800x480 window at the top left), https://127.0.0.1:8472 (self-signed certificate, user root, password opensynth); `zynthianos_vm.sh shot` for screenshots |
 | OSC | UDP 1370 in the VM = 127.0.0.1:1372 on the host (`zynthianos_vm.sh cuia ...`) |
 | Directory | `/mnt/ssd860/qemu/zynthianos-x86` (`-d`, `ZOSVM_DIR`): `zos.img` (the disk, 64 GB sparse), `zos-built.img` (the disk right after setup, for `reset`), `seed.img` (cloud-init), `OVMF_VARS.fd`, `serial.log` |
 | Resources | KVM, 8 vCPUs, 6 GB (`-c`, `-m`), UEFI (OVMF), headless (no QEMU display) |
@@ -53,9 +53,9 @@ config) are kept in `/mnt/ssd860/qemu/zynthianos/` and in the private results re
 
 What that means for tests: the userland is upstream's (same repositories, same systemd units, the
 same venv packages, same scripts and webconf), but the binaries are x86_64 Debian packages and
-upstream's x86_64 recipe builds, not the Pi image's aarch64 builds. Engines/plugins that upstream
-only ships as aarch64 prebuilt binaries are missing here, as on virtual.zynthian.org (jofemodo:
-"I only installed the engines available as deb package").
+upstream's x86_64 recipe builds, not the Pi image's aarch64 builds. Plugins that upstream only
+ships as aarch64 prebuilt binaries are installed but can't load (see Limits); jofemodo on
+virtual.zynthian.org: "I only installed the engines available as deb package".
 
 ## Changes to upstream's setup
 
@@ -88,6 +88,10 @@ The VM-specific additions:
 - **cloud-init** (Debian cloud image): hostname `zynthian`, root's SSH key and password.
 - **Test venv** `/zynthian/zynthian-ui/venv`: created by `setup` (see below), plus `xvfb`/`xauth`
   from Debian for `run_tests.sh gui`. Not part of upstream's setup; `/zynthian/venv` is untouched.
+- **KasmVNC's xstartup**: `virtual_zynthian.service` starts `kasmvncserver :0`, whose first run asks
+  interactively which desktop to start and fails under systemd (no X server, the UI crash-loops).
+  `setup` writes `/root/.vnc/xstartup` without a desktop (the UI is the only X client) and
+  KasmVNC's `.de-was-selected` marker.
 - UEFI boot (OVMF): the image's BIOS grub boot-looped under SeaBIOS on this host.
 
 ## Building it
@@ -162,8 +166,33 @@ tools/zynthianos_vm.sh ssh 'cd /zynthian/zynthian-ui && venv/bin/ruff check .'
 - `tools/zyninject.sh` doesn't apply (it needs Python 3.14's `sys.remote_exec`; the VM has Debian's
   3.13) and talks to Nura devices.
 
+## What works (checked 2026-11-19)
+
+| | |
+|---|---|
+| Boot | `systemd-analyze` 7.4 s (kernel 1.9 + userspace 5.5); `virtual_zynthian.service` active at 7.4 s, the UI up about 1 s later |
+| UI | Tk UI on KasmVNC's X server, 800x480, wiring TOUCH_ONLY; restart (`restart`) ~1-3 s |
+| JACK | jackd2 on the snd-dummy card (`hw:Dummy`, 48 kHz, 256 frames, 2 periods), xruns now and then (meaningless here) |
+| Engines | ZynAddSubFX, FluidSynth, LinuxSampler, jalv with x86_64 LV2s (e.g. DJ EQ, YK Chorus), loaded from factory snapshots (003 FluidR3 GM, 006 Tide); setBfree and aeolus are built (setBfree checked as a JACK client) |
+| OSC | CUIAs from the host (`cuia screen_admin`, `arrow_down`, `zynswitch 3 S` ...) |
+| Webconf | http://127.0.0.1:8172 (login page) |
+| Tests | upstream's `run_tests.sh`: 533 passed, 3 failed (2 strict xfails that tomita's newest commit fixed, 1 write-guard test that doesn't expect the device's inherited `ZYNTHIAN_UI_DIR`), 265 skipped (native, run separately), 17 xfailed in 110 s; `native`: 248-249 passed, 0-1 failed (a flaky zynaudioplayer test), 14 xfailed in 35 s; `gui`: passes |
+
+Snapshot load times (UI busy until idle, after "Load"): 003 FluidR3 GM 2.5 s, 006 Tide 2.0 s (Pi 4
+with Nura, warm: 2.5-3.6 s and 6-21 s; here Tide loads only 2 of its 14 LV2 plugins, the others
+aren't installed, see Limits). KVM on a Threadripper: not a measure of a Pi.
+
 ## Limits
 
+- **Many LV2 plugins are missing or broken, as on upstream's own x86 build:** upstream's plugin
+  step fails on trixie amd64 (its one `apt-get` of ~70 plugin packages has packages depending on
+  `libgdk-pixbuf2.0-0`, which trixie dropped, so none is installed), most source recipes fail
+  (`lv2-dev` isn't installed by the x86 setup), and the `*_prebuilt` recipes install **aarch64
+  binaries** (68 bundles: Dexed, Fabla, mod-mda-*, Chow*, NAM, Ratatouille, ...). Zynthian lists
+  those as installed; loading one makes jalv die at start and **the snapshot load hangs** ("Adding
+  chain ...", busy forever, an upstream robustness bug): `restart` recovers. 315 LV2 plugins are
+  found, the x86_64 ones work. Factory snapshots without aarch64 plugins: 003, 004, 006, 010 (003 and
+  006 checked); 002, 005, 007, 008, 009, 012, 014, 015 contain aarch64 plugins.
 - No audio output on the host: JACK runs on the Dummy card (upstream streams the mix to the browser
   via MediaMTX/WebRTC; that is installed and enabled as upstream does, not used by the tools).
 - x86_64 builds, not the device's aarch64 ones: engine/plugin availability differs from a real
@@ -174,4 +203,8 @@ tools/zynthianos_vm.sh ssh 'cd /zynthian/zynthian-ui && venv/bin/ruff check .'
 
 ## Numbers
 
-(filled in from the first build; see the plan document for the measurements)
+- Build (`setup` on a fresh disk): about 30 minutes (upstream's script 25 min with KVM, 8 vCPUs);
+  disk 12 GB used of 64 GB (sparse), the same again for `zos-built.img`.
+- Boot to SSH: 12-16 s; to the running UI: about 9 s after the kernel starts.
+- Running two instances: copy `zos-built.img` to another directory and use `-d DIR -p PORT`
+  (e.g. `-p 2273`: webconf 8173, KasmVNC 8473, OSC 1373); checked.

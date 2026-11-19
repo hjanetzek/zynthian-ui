@@ -14,11 +14,12 @@ Rectangle {
     onHeightChanged: if (view && width > 0) view.setSize(width, height)
     onViewChanged: if (view && width > 0) view.setSize(width, height)
 
-    // Grid: dB lines, 8 frequency divisions
+    // Grid: dB lines, 8 frequency divisions (over the curve in themes with widgetGridOnTop)
     Repeater {
         model: root.view ? root.view.gridY : []
         Rectangle {
             required property real modelData
+            z: Theme.widgetGridOnTop ? 1 : 0
             x: 10; y: modelData; width: root.width - 20; height: 1; color: Theme.widgetGrid
         }
     }
@@ -26,6 +27,7 @@ Rectangle {
         model: 9
         Rectangle {
             required property int index
+            z: Theme.widgetGridOnTop ? 1 : 0
             x: 10 + (root.width - 20) * index / 8; y: 10; width: 1; height: root.height - 20; color: Theme.widgetGrid
         }
     }

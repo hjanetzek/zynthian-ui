@@ -57,26 +57,26 @@ Rectangle {
                 x: modelData.x
                 width: 1
                 height: wave.height
-                color: modelData.strong ? "#e0e0e0" : "#707070"
+                color: modelData.strong ? Theme.widgetBeatStrong : Theme.widgetBeat
             }
         }
         // Crop markers
         Rectangle {
             visible: root.view.markers.cropStart !== undefined
-            x: (root.view.markers.cropStart || 0) - 1; width: 2; height: wave.height; color: "#e0c000"
+            x: (root.view.markers.cropStart || 0) - 1; width: 2; height: wave.height; color: Theme.widgetCrop
         }
         Rectangle {
             visible: root.view.markers.cropEnd !== undefined
-            x: (root.view.markers.cropEnd || 0) - 1; width: 2; height: wave.height; color: "#e0c000"
+            x: (root.view.markers.cropEnd || 0) - 1; width: 2; height: wave.height; color: Theme.widgetCrop
         }
         // Loop markers
         Rectangle {
             visible: (root.view.markers.loopStart || -1) >= 0
-            x: (root.view.markers.loopStart || 0) - 1; width: 2; height: wave.height; color: "#40c040"
+            x: (root.view.markers.loopStart || 0) - 1; width: 2; height: wave.height; color: Theme.widgetLoop
         }
         Rectangle {
             visible: (root.view.markers.loopEnd || -1) >= 0
-            x: (root.view.markers.loopEnd || 0) - 1; width: 2; height: wave.height; color: "#40c040"
+            x: (root.view.markers.loopEnd || 0) - 1; width: 2; height: wave.height; color: Theme.widgetLoop
         }
         // Play cursor
         Rectangle {
@@ -84,7 +84,7 @@ Rectangle {
             x: root.view ? root.view.cursorX : 0
             width: 2
             height: wave.height
-            color: "#ff4040"
+            color: Theme.widgetCursor
         }
         WheelHandler {
             onWheel: (event) => root.view.nudgeZoom(event.angleDelta.y > 0 ? 1 : -1)

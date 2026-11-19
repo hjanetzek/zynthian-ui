@@ -476,7 +476,7 @@ class zynthian_state_manager:
 
     def osc_status_reply(self, server, src, query):
         """Answer an OSC status query, from the OSC server of either UI (OSC CUIAs are ignored
-        while busy, so tools ask first, e.g. nura/tools/sync_ui.sh -R before RESTART_UI)
+        while busy, so tools ask first, e.g. tools/sync_ui.sh -R before RESTART_UI)
         server : The liblo server that received it (replies from its port)
         src : The sender's address
         query : The path after /STATUS/ (upper case)

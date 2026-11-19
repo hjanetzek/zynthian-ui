@@ -448,7 +448,7 @@ moves with the line and stays at the position when stopped, where the line is hi
 
 ### A single scene, offscreen
 
-`nura/tools/qml_preview.py SCENE.qml OUT.png [-t THEME] [--mixer]` renders a QML scene (a file
+`tools/qml_preview.py SCENE.qml OUT.png [-t THEME] [--mixer]` renders a QML scene (a file
 importing `"@QML@"`, i.e. `zynqt/qml/`, with mock data) at 800x480 offscreen, with the theme's file
 selectors (as `zynthian_qt_main.py`, from `zynqt/theme.py`; default tk), the repository's fonts and Tk's default configuration (`ZYNTHIAN_UI_SCALE=auto`);
 `--mixer` adds mock mixer strips (the compare snapshot). `PREVIEW_QML_DIR` points it at another
@@ -482,9 +482,9 @@ only if unset), with a factory snapshot as `last_state.zss`, and wait for the sn
 with `compare -metric AE` leaves only what changes between any two runs: the CPU percentage, and a
 few single pixels.
 
-In the QEMU VM (`docs/qemu-testing.md`; Khand is installed there): `nura/tools/sync_ui.sh -V`,
+In the QEMU VM (`docs/qemu-testing.md`; Khand is installed there): `tools/sync_ui.sh -V`,
 `export ZYNTHIAN_QT_THEME=...` in the VM's `~/.config/zynthian/zynthian_custom_config.sh`, the
-CUIA `RESTART_UI` (QML errors at load end up in `~/.local/state/tinydm.log`), CUIAs with `oscsend localhost 1370 /cuia/...` in the VM, `nura/tools/screenshot.sh -V`.
+CUIA `RESTART_UI` (QML errors at load end up in `~/.local/state/tinydm.log`), CUIAs with `oscsend localhost 1370 /cuia/...` in the VM, `tools/screenshot.sh -V`.
 
 ### QML hot reload (qmlpreview)
 
@@ -492,13 +492,13 @@ For development only, QML changes can reach the running UI without `RESTART_UI`,
 Preview (tested in the QEMU VM, 2026-11-09):
 
 - `export ZYNTHIAN_QT_QMLPREVIEW=1` in `~/.config/zynthian/zynthian_custom_config.sh`, then
-  `RESTART_UI` (`nura/tools/sync_ui.sh -V -R`). `zynthian_qt_main.py` then runs itself again as a
+  `RESTART_UI` (`tools/sync_ui.sh -V -R`). `zynthian_qt_main.py` then runs itself again as a
   child of `/usr/lib/qt6/bin/qmlpreview --verbose` (`run_under_qmlpreview()`) and waits for it;
   the child enables QML debugging and loads the QML through the symlink
   `$XDG_RUNTIME_DIR/zynthian-ui` (to `/usr/share/zynthian/zynthian-ui`). On success
   `~/.local/state/tinydm.log` shows "Starting '...zynthian_qt_main.py -qmljsdebugger=...'" and
   "Inplace updates setting confirmed as: enabled".
-- `nura/tools/sync_ui.sh -V -q` copies only `zynqt/qml` (file by file, no restart, 0.2 s);
+- `tools/sync_ui.sh -V -q` copies only `zynqt/qml` (file by file, no restart, 0.2 s);
   qmlpreview sees the changed files and reloads them in the running UI within a second. Changed
   literals (sizes, colours, texts) update in place, the current screen and the Python state stay:
   that is the reliable use. Structural changes (a new item, a new file) are hit and miss: once a
@@ -531,12 +531,12 @@ Preview (tested in the QEMU VM, 2026-11-09):
 - Never in production: the QML debug server can control the UI. Without the variable nothing
   changes.
 - The component preview has a live mode for the same: `/usr/lib/qt6/bin/qmlpreview
-  ./nura/tools/qml_preview.py SCENE.qml --live [-t THEME]` (a window instead of a PNG; zynqt/qml
+  ./tools/qml_preview.py SCENE.qml --live [-t THEME]` (a window instead of a PNG; zynqt/qml
   files reload, the scene itself is a copy and doesn't). On the host this was flaky (Qt 6.12:
   the child started once, later not).
 
 On the Duet: copy the changed files into `/usr/share/zynthian/zynthian-ui` (as in
-`docs/performance-measurement.md`), restart the session, `nura/tools/screenshot.sh`.
+`docs/performance-measurement.md`), restart the session, `tools/screenshot.sh`.
 
 ## Performance
 

@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """Render a QML scene of the Qt UI offscreen to a PNG, for iterating on themes without a device:
 
-    QT_QPA_PLATFORM=offscreen python3 nura/tools/qml_preview.py SCENE.qml OUT.png [-t THEME] [-s WxH]
+    QT_QPA_PLATFORM=offscreen python3 tools/qml_preview.py SCENE.qml OUT.png [-t THEME] [-s WxH]
 
 SCENE.qml is a QML file whose root is an Item; it can `import "<repo>/zynqt/qml"` (the path is in
 the import path as "ZynQml": `import ZynQml` does not work for a plain directory, so scenes use the
@@ -20,7 +20,7 @@ from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 from zynqt.theme import theme_selectors  # noqa: E402
 QML_DIR = os.environ.get("PREVIEW_QML_DIR") or os.path.join(REPO, "zynqt", "qml")
@@ -168,7 +168,7 @@ def main():
     ap.add_argument("--live", action="store_true",
                     help="show the scene in a window and keep running, with QML debugging for Qt 6's "
                          "qmlpreview (hot reload of zynqt/qml): /usr/lib/qt6/bin/qmlpreview "
-                         "./nura/tools/qml_preview.py SCENE.qml --live")
+                         "./tools/qml_preview.py SCENE.qml --live")
     ap.add_argument("-t", "--theme", default="tk")
     ap.add_argument("-s", "--size", default="800x480")
     ap.add_argument("--mixer", action="store_true", help="mock mixer strips (the compare snapshot)")

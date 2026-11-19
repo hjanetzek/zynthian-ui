@@ -11,9 +11,9 @@ committing.
 
 | Setup | Good for | Turnaround |
 |---|---|---|
-| Offscreen preview on the host (`nura/tools/qml_preview.py`) | a single component (a strip, a list row, a key) with mock data | instant (`--live`) or a PNG per run |
+| Offscreen preview on the host (`tools/qml_preview.py`) | a single component (a strip, a list row, a key) with mock data | instant (`--live`) or a PNG per run |
 | Desktop preview (`desktop/preview_qt.sh`) | whole screens with a real zynthian backend on this machine | hot reload or a UI restart |
-| QEMU VM (`nura/tools/qemu_compare.sh`) | the Nura system at a device's screen size, side by side with the Tk UI | hot reload (`sync_ui.sh -q`) |
+| QEMU VM (`tools/qemu_compare.sh`) | the Nura system at a device's screen size, side by side with the Tk UI | hot reload (`sync_ui.sh -q`) |
 | A device (Duet, Pixel 3) | final look and touch, real performance and fonts | hot reload (`sync_ui.sh -q`) |
 
 Work outside-in: shape a component in the offscreen preview, fit it into its screen with hot reload
@@ -33,7 +33,7 @@ in the VM or on the device, compare with Tk in the VM, finish on the device.
   `zynqt/theme.py`). An unknown name falls back to tk with a warning.
 - The theme is chosen at start with `ZYNTHIAN_QT_THEME` (unset or `tk`: the base). Put it into
   `~/.config/zynthian/zynthian_custom_config.sh` (`export ZYNTHIAN_QT_THEME=classic`): the launcher re-reads
-  that file on every UI start, so switching only needs `RESTART_UI` (`nura/tools/sync_ui.sh -R`, or
+  that file on every UI start, so switching only needs `RESTART_UI` (`tools/sync_ui.sh -R`, or
   the Admin menu's "Restart UI"), not a session restart. `/etc/default/zynthian` is read only when
   the session starts. Admin > Theme switches without a restart and saves the choice in zynthian's
   config ([qt-theming.md](qt-theming.md), "Admin > Theme": where and the precedence); a QML change
@@ -44,11 +44,11 @@ in the VM or on the device, compare with Tk in the VM, finish on the device.
 ```sh
 cd ~/bastel/github/zynthian-ui-parity
 # a PNG
-QT_QPA_PLATFORM=offscreen python3 nura/tools/qml_preview.py SCENE.qml out.png -t tk -s 800x480
+QT_QPA_PLATFORM=offscreen python3 tools/qml_preview.py SCENE.qml out.png -t tk -s 800x480
 # a live window that reloads when SCENE.qml or the theme's files change
-python3 nura/tools/qml_preview.py SCENE.qml --live -t tk
+python3 tools/qml_preview.py SCENE.qml --live -t tk
 # mock mixer strips (the compare snapshot's chains)
-python3 nura/tools/qml_preview.py SCENE.qml --live -t tk --mixer
+python3 tools/qml_preview.py SCENE.qml --live -t tk --mixer
 ```
 
 - A scene is a QML file whose root is an `Item`; it imports the UI's QML with
@@ -72,14 +72,14 @@ other zynthian running). It uses your desktop zynthian's config and data: back u
 
 ## 3. QEMU VM, side by side with Tk
 
-`nura/tools/qemu_compare.sh` runs two VMs from the Nura image at the V5 kit's 800x480: one with
+`tools/qemu_compare.sh` runs two VMs from the Nura image at the V5 kit's 800x480: one with
 the Qt UI (SSH 2242), one with upstream's Tk UI as the reference (SSH 2243). See
 [qemu-testing.md](qemu-testing.md), "Side by side".
 
 ```sh
-nura/tools/qemu_compare.sh -g start          # windows (and sound) on your desktop
-NURA_VM_PORT=2242 nura/tools/sync_ui.sh -V -R  # your checkout into the Qt VM, restart the UI
-nura/tools/qemu_compare.sh shot DIR          # DIR/tk.png, DIR/qt.png, DIR/side-by-side.png
+tools/qemu_compare.sh -g start          # windows (and sound) on your desktop
+NURA_VM_PORT=2242 tools/sync_ui.sh -V -R  # your checkout into the Qt VM, restart the UI
+tools/qemu_compare.sh shot DIR          # DIR/tk.png, DIR/qt.png, DIR/side-by-side.png
 ```
 
 - Load the same snapshot in both before comparing. A quick one with patterns:
@@ -109,9 +109,9 @@ Then, from your checkout (it must contain the hot reload support, `zynthian_qt_m
 `qt-parity` or later):
 
 ```sh
-nura/tools/sync_ui.sh -R        # device from the pmbootstrap config; add -V (and NURA_VM_PORT) for a VM
+tools/sync_ui.sh -R        # device from the pmbootstrap config; add -V (and NURA_VM_PORT) for a VM
 # edit QML ...
-nura/tools/sync_ui.sh -q        # copy only zynqt/qml, no restart: the UI reloads it
+tools/sync_ui.sh -q        # copy only zynqt/qml, no restart: the UI reloads it
 ```
 
 `-R` waits until zynthian is idle and checks that a new zynthian process is up and ready; it exits

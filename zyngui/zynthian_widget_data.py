@@ -3,7 +3,8 @@
 # ZYNTHIAN PROJECT: Zynthian GUI
 #
 # Engine widgets: UI-independent part of zynthian_gui_control's widget selection and of the
-# envelope and filter widgets (their geometry and drag behaviour), used by the Tk and Qt UIs.
+# envelope, filter and drawbar widgets (their geometry and drag behaviour), used by the Tk and Qt
+# UIs.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -272,10 +273,81 @@ def filter_drag(cutoff, resonance, click_cutoff, click_res, dx_rel, dy_rel):
         resonance.set_value(resonance.value_min + y * resonance.value_range)
 
 
+# Drawbars (zynthian_widget_drawbar, zynthian_widget_setbfree; upstream PR 612): nine Hammond
+# drawbars pulled out by their controllers' values. Position 0 is a drawbar pushed in (silent),
+# DRAWBAR_MAX pulled out fully.
+
+DRAWBAR_SLOTS = 9
+DRAWBAR_POSITIONS = 9
+DRAWBAR_MAX = DRAWBAR_POSITIONS - 1
+# Colour ("brown", "white" or "black") and footage of each drawbar
+DRAWBARS = [("brown", "16"), ("brown", "5⅓"), ("white", "8"), ("white", "4"), ("black", "2⅔"),
+            ("white", "2"), ("black", "1⅗"), ("black", "1⅓"), ("white", "1")]
+SETBFREE_DRAWBARS = ["DB 16", "DB 5 1/3", "DB 8", "DB 4", "DB 2 2/3", "DB 2", "DB 1 3/5", "DB 1 1/3", "DB 1"]
+
+
+def drawbar_symbols(processor, setbfree=False):
+    """The symbols of a processor's drawbar controllers, in drawbar order: setBfree's own, else all
+    controllers with a drawbar designation (zynthian_widget_drawbar.set_processor)"""
+    if setbfree:
+        return list(SETBFREE_DRAWBARS)
+    return [k for k, v in processor.controllers_dict.items() if hasattr(v, "drawbar")]
+
+
+def drawbar_calibration(zctrl):
+    """(position, value) knots: a controller's ticks are interpolation knots, not snap values
+    (setBfree: 0-8 are 127 ... 7); linear controllers (Calf Organ 0.0-8.0) map directly"""
+    if zctrl.ticks and len(zctrl.ticks) == DRAWBAR_POSITIONS:
+        return [(i, zctrl.ticks[i]) for i in range(DRAWBAR_POSITIONS)]
+    return [(0, zctrl.value_min), (DRAWBAR_MAX, zctrl.value_max)]
+
+
+def drawbar_position(zctrl, value):
+    """A drawbar's position (0.0 ... DRAWBAR_MAX) for a controller value"""
+    points = drawbar_calibration(zctrl)
+    first_value = points[0][1]
+    last_value = points[-1][1]
+    if last_value >= first_value:
+        if value <= first_value:
+            return 0.0
+        if value >= last_value:
+            return float(DRAWBAR_MAX)
+    else:
+        if value >= first_value:
+            return 0.0
+        if value <= last_value:
+            return float(DRAWBAR_MAX)
+    for (p0, v0), (p1, v1) in zip(points, points[1:]):
+        if min(v0, v1) <= value <= max(v0, v1):
+            if v0 == v1:
+                return float(p0)
+            return p0 + (p1 - p0) * (value - v0) / (v1 - v0)
+    return float(DRAWBAR_MAX)
+
+
+def drawbar_value(zctrl, position):
+    """The controller value for a drawbar position (clamped to 0 ... DRAWBAR_MAX)"""
+    position = max(0.0, min(float(DRAWBAR_MAX), position))
+    points = drawbar_calibration(zctrl)
+    for (p0, v0), (p1, v1) in zip(points, points[1:]):
+        if p0 <= position <= p1:
+            if p1 == p0:
+                return v0
+            return v0 + (position - p0) * (v1 - v0) / (p1 - p0)
+    return points[-1][1]
+
+
+def drawbar_drag(zctrl, press_value, dy_rel):
+    """Drag a drawbar: from the position of the value at the press, dy_rel (the pointer's move
+    down since then, in drawbar heights) pulls it out (down) or pushes it in (up)"""
+    position = drawbar_position(zctrl, press_value) + dy_rel * DRAWBAR_MAX
+    zctrl.set_value(drawbar_value(zctrl, position))
+
+
 # Plugin widgets (engine.custom_gui_fpath: zynthian_widget_<name>.py)
 
 PLUGIN_WIDGETS = ("spectr30", "tunaone", "gxgraphiceq", "nam", "aidax", "chord_analyzer", "tempo", "inet_radio",
-                  "euclidseq", "organelle", "sooperlooper")
+                  "euclidseq", "organelle", "sooperlooper", "setbfree")
 
 
 def plugin_widget(processor):

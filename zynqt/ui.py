@@ -168,6 +168,8 @@ class ZynUI(QObject):
         # The kit's encoders and switches (docs/qt-hardware-input.md): only with a kit's zyncore
         # build, off with the generic one (DUMMIES: Duet, desktops)
         self.zynpot_pr_state = [0] * max(zynthian_gui_config.num_zynpots, 0)
+        # No long press while held (zynthian_gui.zynswitch_disable_autolong: the Organelle's AUX)
+        self.zynswitch_autolong_disabled = False
         self._zynpot_steps = {}   # encoder -> the behaviour set in zyncore
         self.hw_input = HwInput(lib_zyncore, zynthian_gui_config.last_zynswitch_index,
                                 zynthian_gui_config.num_zynpots, self.cuia_queue.put_nowait,
@@ -1005,7 +1007,7 @@ class ZynUI(QObject):
         while not self.exit_flag:
             long_ts = monotonic() - zynthian_gui_config.zynswitch_long_seconds
             for i, ts in list(pressed.items()):
-                if ts < long_ts:
+                if ts < long_ts and not self.zynswitch_autolong_disabled:
                     del pressed[i]
                     # Not while its encoder is turned (push-rotate)
                     zpi = self._switch_zynpot(i)
@@ -1069,6 +1071,10 @@ class ZynUI(QObject):
                         repeating[i] = repeat_delay
                     else:
                         pressed[i] = monotonic()
+                        if i >= 4:
+                            # The screen may take the push (zynthian_gui.zynswitch_push: the
+                            # Organelle's AUX switch)
+                            self._cuiaRequested.emit("_zynswitch", [i, "P"])
                     continue
                 turned = zpi is not None and self.zynpot_pr_state[zpi] > 1
                 if zpi is not None:
@@ -1203,13 +1209,15 @@ class ZynUI(QObject):
         # pattern editor's ALT clipboard, block and CC keys)
         screen = self._screen_obj()
         func = getattr(screen, "switch", None)
-        if t in ("S", "B", "L") and not self._overlay_shown() and callable(func):
+        if t in ("P", "S", "B", "L") and not self._overlay_shown() and callable(func):
             try:
                 if func(i, t):
                     return
             except Exception as e:
                 logging.exception(f"switch {i},{t} of screen {self.current_screen} failed: {e}")
                 return
+        if t == "P" and not self._push_action(i):
+            return
         try:
             config = zynthian_gui_config.custom_switch_ui_actions[i - 4]
         except IndexError:
@@ -1227,6 +1235,12 @@ class ZynUI(QObject):
             parts = cuia.split(" ", 1)
             params = self.state_manager.parse_cuia_params(parts[1]) if len(parts) > 1 else []
             self._run_cuia(parts[0], list(params or []))
+
+    def zynswitch_disable_autolong(self):
+        self.zynswitch_autolong_disabled = True
+
+    def zynswitch_enable_autolong(self):
+        self.zynswitch_autolong_disabled = False
 
     def zynswitch(self, i, t):
         """One of the four standard switches (0-3) pushed (P), or released after a short (S),

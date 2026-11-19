@@ -12,7 +12,7 @@ Rectangle {
 
     readonly property var cc: zyn.chainControl
     readonly property bool chainShown: cc.selectMode && cc.isChain
-    readonly property bool widgetHalf: ["audio_file", "envelope", "filter", "drawbar"].indexOf(cc.widgetType) >= 0
+    readonly property bool widgetHalf: ["audio_file", "envelope", "filter", "drawbar", "unsupported"].indexOf(cc.widgetType) >= 0
 
     color: Theme.background
 

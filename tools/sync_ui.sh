@@ -24,7 +24,7 @@ the zynlibs modules, fonts, icons, img, lv2 (widget bundles), the main scripts, 
 (over ssh, with sudo; old files of these directories are removed first, so deleted modules go
 too; files other packages install there, as the zyngine/ctrldev drivers of drivenbymoss, are kept).
 Native libraries (zynlibs/*/build, zyncoder) are not copied: changes to them need the
-package (deploy.sh). The next package upgrade replaces the copied files.'
+package (nura-builds'"'"' deploy.sh). The next package upgrade replaces the copied files.'
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/common.sh"

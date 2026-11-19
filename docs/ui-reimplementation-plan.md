@@ -2,7 +2,8 @@
 
 Status: planning draft, 2026-11-03; decided: Qt Quick with PySide6 in-process. The port and what's
 left of it: [qt-port-plan.md](qt-port-plan.md). Context: running zynthian on Nura (postmarketOS) on a
-Lenovo Duet (1920×1200, Mali-G72/Panfrost, ARM), see `nura/`.
+Lenovo Duet (1920×1200, Mali-G72/Panfrost, ARM), see nura-builds
+(`aports/zynthian`).
 
 ## Why
 

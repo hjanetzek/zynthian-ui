@@ -71,13 +71,20 @@ fi
 export ZYNTHIAN_PACKS_DATA_DIR
 _zd_lv2_packs=""
 [ "$ZYNTHIAN_PACKS_DATA_DIR" != "$ZYNTHIAN_DATA_DIR" ] && _zd_lv2_packs=":$ZYNTHIAN_PACKS_DATA_DIR/presets/lv2"
-export LV2_PATH="${LV2_PATH:-$_zd_lv2_system:$ZYNTHIAN_LV2_DIR:$ZYNTHIAN_DATA_DIR/presets/lv2$_zd_lv2_packs:$ZYNTHIAN_MY_DATA_DIR/presets/lv2}"
-# zynthian-ui's own LV2 bundles: the zyngui:widget ontology and the extension bundles adding the
-# built-in zynthian widgets to plugins (upstream a1527c99; ZynthianOS puts them on LV2_PATH in
-# zynthian-sys). Also when LV2_PATH was set before (the session's environment).
-case ":$LV2_PATH:" in
-	*":$ZYNTHIAN_UI_DIR/lv2:"*) ;;
-	*) [ -d "$ZYNTHIAN_UI_DIR/lv2" ] && export LV2_PATH="$LV2_PATH:$ZYNTHIAN_UI_DIR/lv2" ;;
-esac
+# In ZynthianOS's order (zynthian-sys update_zynthian_sys.sh): the plugins' directories
+# (ZYNTHIAN_PLUGINS_DIR: the user's, in XDG data): installed plugins, preset bundles (lv2-presets),
+# zynthian widget bundles (lv2-widgets: user and external widgets, zyngui:widget extension bundles
+# as in zynthian-ui's lv2/, upstream a1527c99; zynthian_desktop.sh creates it); zynthian-ui's own
+# bundles (the zyngui:widget ontology and the extension bundles adding the built-in widgets to
+# plugins); the presets.
+export LV2_PATH="${LV2_PATH:-$_zd_lv2_system:$ZYNTHIAN_LV2_DIR:$ZYNTHIAN_PLUGINS_DIR/lv2-presets:$ZYNTHIAN_PLUGINS_DIR/lv2-widgets:$ZYNTHIAN_UI_DIR/lv2:$ZYNTHIAN_DATA_DIR/presets/lv2$_zd_lv2_packs:$ZYNTHIAN_MY_DATA_DIR/presets/lv2}"
+# The widget directories and zynthian-ui's bundles also when LV2_PATH was set before (the
+# session's environment)
+for _zd_lv2 in "$ZYNTHIAN_PLUGINS_DIR/lv2-presets" "$ZYNTHIAN_PLUGINS_DIR/lv2-widgets" "$ZYNTHIAN_UI_DIR/lv2"; do
+	case ":$LV2_PATH:" in
+		*":$_zd_lv2:"*) ;;
+		*) [ "$_zd_lv2" != "$ZYNTHIAN_UI_DIR/lv2" ] || [ -d "$_zd_lv2" ] && export LV2_PATH="$LV2_PATH:$_zd_lv2" ;;
+	esac
+done
 
-unset _zd_ui_dir _zd_config_home _zd_data_home _zd_lv2_system _zd_lv2_packs
+unset _zd_ui_dir _zd_config_home _zd_data_home _zd_lv2_system _zd_lv2_packs _zd_lv2

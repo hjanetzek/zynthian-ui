@@ -39,6 +39,9 @@ else
 	fi
 fi
 
+# User and external zynthian widgets (LV2 bundles, on LV2_PATH): also for existing setups
+mkdir -p "$ZYNTHIAN_PLUGINS_DIR/lv2-widgets" 2>/dev/null
+
 load_config_env() {
 	source "$ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh"
 	if [ -n "$ZYNTHIAN_SCRIPT_MIDI_PROFILE" ] && [ -f "$ZYNTHIAN_SCRIPT_MIDI_PROFILE" ]; then

@@ -1,5 +1,5 @@
 // The controller page's widget (zynthian_gui_control's widgets): waveform of audio file
-// processors, envelope, filter, plugin widgets ... Each view created when first shown, or
+// processors, envelope, filter, drawbars, plugin widgets ... Each view created when first shown, or
 // after the first frame (Deferred), then kept
 import QtQuick
 
@@ -25,6 +25,12 @@ Item {
         visible: root.cc.widgetType === "filter"
         needed: root.cc.widgetType === "filter"
         sourceComponent: Component { FilterView { view: root.cc.filterView } }
+    }
+    Deferred {
+        anchors.fill: parent
+        visible: root.cc.widgetType === "drawbar"
+        needed: root.cc.widgetType === "drawbar"
+        sourceComponent: Component { DrawbarView { view: root.cc.drawbarView } }
     }
     Deferred {
         anchors.fill: parent

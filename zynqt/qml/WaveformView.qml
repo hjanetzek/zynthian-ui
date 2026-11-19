@@ -61,8 +61,14 @@ Rectangle {
             }
         }
         // Crop markers
-        Rectangle { x: (root.view.markers.cropStart || 0) - 1; width: 2; height: wave.height; color: "#e0c000" }
-        Rectangle { x: (root.view.markers.cropEnd || 0) - 1; width: 2; height: wave.height; color: "#e0c000" }
+        Rectangle {
+            visible: root.view.markers.cropStart !== undefined
+            x: (root.view.markers.cropStart || 0) - 1; width: 2; height: wave.height; color: "#e0c000"
+        }
+        Rectangle {
+            visible: root.view.markers.cropEnd !== undefined
+            x: (root.view.markers.cropEnd || 0) - 1; width: 2; height: wave.height; color: "#e0c000"
+        }
         // Loop markers
         Rectangle {
             visible: (root.view.markers.loopStart || -1) >= 0

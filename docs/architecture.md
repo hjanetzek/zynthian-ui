@@ -518,6 +518,34 @@ MIDI channel), except jalv, sfizz and Pd (one process per processor,
 `zyngine/zynthian_chain_manager.py:1464-1475`) and the single-processor engines BF, MD, PT,
 AE, SL, IR (:113).
 
+#### Zynthian widgets of LV2 plugins (zyngui:widget)
+
+Since upstream a1527c99 an LV2 plugin's zynthian widget (spectrum, tuner, …) is an LV2 UI of
+class `zyngui:widget` (ontology `lv2/zyngui.lv2/zyngui.ttl`) whose `ui:binary` is the Python
+module `zynthian_widget_<name>.py`, declared in an extension bundle (`manifest.ttl`, usually
+with the module beside it) anywhere on LV2_PATH. `zynthian_lv2.get_plugin_zyngui_widget()`
+finds it through lilv (`zynthian_engine_jalv.get_custom_gui_fpath()`); a widget outside
+zynthian-ui wins over a built-in one. New, removed or changed bundles are picked up while
+running (6d8ca287): `check_lv2_changes()` compares the modification times of the LV2_PATH
+directories (and `$ZYNTHIAN_CONFIG_DIR/lv2.stamp`, to touch after editing files inside a
+bundle) when a processor is added or the Tk control screen shows its widget, and reloads the
+lilv world.
+
+| Where | What |
+|---|---|
+| `$ZYNTHIAN_UI_DIR/lv2/` | the built-in widget bundles (meters, tuna, aidax, nam, gxgraphiceq, chord-analyzer; samplv1's points at the shared `zyngui/zynthian_widget_audio_file.py`) |
+| `$ZYNTHIAN_PLUGINS_DIR/lv2-widgets/` | user and external widgets. On the desktop and on Nura `ZYNTHIAN_PLUGINS_DIR` is the user's `~/.local/share/zynthian/plugins` (XDG data, writable; the packaged files are in `/usr/share/zynthian`), so this is `~/.local/share/zynthian/plugins/lv2-widgets`; the launcher creates it. ZynthianOS: `/zynthian/zynthian-plugins/lv2-widgets` |
+| `$ZYNTHIAN_PLUGINS_DIR/lv2-presets/` | preset bundles, on LV2_PATH as on ZynthianOS |
+
+`desktop/zynthian_desktop_env.sh` puts these on LV2_PATH in zynthian-sys's order (also when the
+session set LV2_PATH before). ZynthianOS's `migrate_user_widgets.py` (old
+`zyngui/widgets_user/zynthian_widget_<plugin>.py` files into bundles) has no counterpart in the
+port: desktop and Nura installs have no such files. The Qt UI doesn't run the Tk widget modules:
+it has QML views for the widget names in `zynthian_widget_data.PLUGIN_WIDGETS` (chosen by the
+module's file name) and the envelope, filter and audio file views; a plugin whose widget has
+another name shows its controllers. It reads the widget when the processor is created (no
+`refresh_custom_gui()`).
+
 ### 3.3 How values flow
 
 **UI → engine**: `zctrl.set_value(v, send=True)` (`zyngine/zynthian_controller.py:490-501`)

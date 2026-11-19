@@ -10,11 +10,13 @@ import logging
 
 from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
+from zyngine.zynthian_controller import zynthian_controller
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
 from zyngui import zynthian_sooperlooper_data as sld
+from zyngui.zynthian_organelle_data import OrganelleKeys, kit_switches
 from zyngui.zynthian_midi_learn_data import (MIDI_LEARNING_CHAIN, MIDI_LEARNING_DISABLED, MIDI_LEARNING_GLOBAL,
                                              binding, note_range_learn)
 from zynqt.hw_input import STEP_FIXED, list_step, zctrl_step
@@ -300,6 +302,12 @@ class ChainControl(QObject):
         self.plugin_view = PluginView(self)
         self.euclid_view = EuclidSeqView(self)
         self.organelle_view = OrganelleView(self)
+        # The Organelle's encoder and AUX on the kit's knobs and switches (as the Tk widget)
+        self.organelle_keys = OrganelleKeys(self.organelle_view.pulse, self.organelle_view.send,
+                                            self._organelle_select_mode, self._autolong,
+                                            kit_switches(zynthian_gui_config.check_wiring_layout))
+        self._organelle_selector = None   # the select mode's "Select" controller (slot 4)
+        self._page_zctrls = []
         self.sl_view = SooperLooperView(ui, self)
         self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
@@ -355,6 +363,7 @@ class ChainControl(QObject):
         self._shown = False
         self._timer.stop()
         self.audio_view.stop()
+        self.organelle_keys.reset()
         self.exit_midi_learn()
 
     def rebuild(self):
@@ -432,6 +441,7 @@ class ChainControl(QObject):
         self._page = -1
         if page is None:
             # No controller page (e.g. no audio levels on this device): empty slots
+            self._page_zctrls = []
             for c in self.controllers:
                 c.set_zctrl(None)
             self._set_widget(None)
@@ -670,6 +680,7 @@ class ChainControl(QObject):
             except Exception as e:
                 logging.error(f"controller page '{title}': {e}")
                 zctrls = []
+        self._page_zctrls = list(zctrls)
         for i, c in enumerate(self.controllers):
             c.set_zctrl(zctrls[i] if i < len(zctrls) else None)
         self._set_widget(proc if kind != "chain" else None, zctrls)
@@ -688,7 +699,14 @@ class ChainControl(QObject):
             self.euclid_view.set_processor(proc)
         elif plugin == "organelle":
             wtype = "organelle"
+            if self.organelle_view.processor is not proc:
+                self.organelle_keys.reset()
             self.organelle_view.set_processor(proc)
+            self.organelle_keys.selector = self.organelle_view.selector
+            if not self.organelle_keys.selector:
+                self.organelle_keys.set_select_mode(False)   # a preset without the selector
+            elif self.organelle_keys.select_mode:
+                self._organelle_select_mode(True)   # another page: the selector stays
         elif plugin == "sooperlooper":
             wtype = "sooperlooper"
             if self.sl_view.processor is not proc:
@@ -704,6 +722,8 @@ class ChainControl(QObject):
         if wtype in ("envelope", "filter"):
             group = proc.get_group_zctrls(zctrls[0].group_symbol) if zctrls and zctrls[0] else list(zctrls)
             (self.envelope_view if wtype == "envelope" else self.filter_view).set_group(group)
+        if wtype != "organelle":
+            self.organelle_keys.reset()
         if wtype == "audio_file":
             self.audio_view.set_processor(proc, file_zctrl)
             if self._shown:
@@ -801,7 +821,10 @@ class ChainControl(QObject):
 
     def zynpot(self, i, d):
         """zynthian_gui_chain_control.zynpot_cb: in select mode knob 2 the processor, knob 3 the
-        page; in control mode knob i its controller (learning it while MIDI learning)"""
+        page; in control mode knob i its controller (learning it while MIDI learning). The
+        widget first (the Organelle's menu select mode)"""
+        if self._widget_type == "organelle" and self.organelle_keys.zynpot(i, d):
+            return True
         if self._mode == "select":
             if i == 2 and self.isChain:
                 self._processor_step(1 if d > 0 else -1)
@@ -825,6 +848,11 @@ class ChainControl(QObject):
             if c is not None:
                 c.options()
             return True
+        # The widget next (zynthian_gui_control.switch): the Organelle's select mode and AUX
+        if self._widget_type == "organelle" and self.organelle_keys.switch(i, t):
+            return True
+        if t == "P":
+            return False
         if i == 3 and t == "B":
             self.ui.cuia_bank_preset()
             return True
@@ -917,11 +945,19 @@ class ChainControl(QObject):
         return False
 
     def cuia_arrow_right(self, params=None):
-        self.navigate("right")
+        proc = self._sl_alt()
+        if proc is not None:
+            proc.engine.redo()   # SooperLooper in ALT mode
+        else:
+            self.navigate("right")
         return True
 
     def cuia_arrow_left(self, params=None):
-        self.navigate("left")
+        proc = self._sl_alt()
+        if proc is not None:
+            proc.engine.undo()   # SooperLooper in ALT mode
+        else:
+            self.navigate("left")
         return True
 
     def move_page(self, step):
@@ -974,6 +1010,61 @@ class ChainControl(QObject):
             proc = self.sl_view.processor
             return sld.alt_transport(action, proc, proc.engine.get_monitors_dict() or {})
         return False
+
+    def _sl_alt(self):
+        """The SooperLooper processor while its widget is shown in ALT mode, else None"""
+        if self._widget_type == "sooperlooper" and self.ui.alt_mode:
+            return self.sl_view.processor
+        return None
+
+    # SooperLooper in ALT mode (zynthian_widget_sooperlooper): up/down the previous/next loop,
+    # left/right undo/redo, program change 5-8 replace, substitute, insert, add a loop
+
+    def cuia_arrow_up(self, params=None):
+        proc = self._sl_alt()
+        if proc is not None:
+            proc.engine.prev_loop()
+            return True
+        return self._widget_type == "organelle" and self.organelle_keys.arrow(-1)
+
+    def cuia_arrow_down(self, params=None):
+        proc = self._sl_alt()
+        if proc is not None:
+            proc.engine.next_loop()
+            return True
+        return self._widget_type == "organelle" and self.organelle_keys.arrow(1)
+
+    # Organelle (OrganelleKeys)
+
+    def _organelle_select_mode(self, on):
+        """The Organelle's menu select mode: knob 4 shows "Select" instead of its controller (Tk)"""
+        if on:
+            if self._organelle_selector is None:
+                self._organelle_selector = zynthian_controller(None, "Select", {"labels": ["<>"]})
+            self.controllers[3].set_zctrl(self._organelle_selector)
+        else:
+            zctrls = self._page_zctrls
+            self.controllers[3].set_zctrl(zctrls[3] if len(zctrls) > 3 else None)
+        self.organelle_view.set_select_mode(on)
+
+    def _autolong(self, on):
+        if on:
+            self.ui.zynswitch_enable_autolong()
+        else:
+            self.ui.zynswitch_disable_autolong()
+
+    def update_wsleds(self, leds):
+        """The kit's LEDs of the widget (zynthian_gui_control.set_current_widget: the Organelle's)"""
+        if self._widget_type == "organelle" and self.ui.wsleds is not None:
+            self.organelle_keys.update_wsleds(self.ui.wsleds, leds)
+
+    def cuia_program_change(self, params=None):
+        proc = self._sl_alt()
+        if proc is None:
+            return False
+        if params:
+            sld.alt_program_change(proc, int(params[0]))
+        return True
 
     def cuia_toggle_record(self, params=None):
         return self._transport("record")

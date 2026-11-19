@@ -29,6 +29,7 @@ class OrganelleView(QObject):
         self.osc_target = None
         self.in_parameter_view = False
         self._led = False
+        self._select_mode = False
         self._osc.connect(self._handle)
 
     def set_processor(self, processor):
@@ -88,6 +89,20 @@ class OrganelleView(QObject):
     def _sequence(self, seq):
         for delay, path, value in seq:
             threading.Timer(delay / 1000, self.send, (path, value)).start()
+
+    def pulse(self, path, ms):
+        """path 1 now, 0 after ms (a hardware encoder step or push)"""
+        self._sequence([(0, path, 1), (ms, path, 0)])
+
+    def set_select_mode(self, on):
+        """The kit's menu select mode (OrganelleKeys): shown on the SEL button"""
+        if on != self._select_mode:
+            self._select_mode = on
+            self.stateChanged.emit()
+
+    @Property(bool, notify=stateChanged)
+    def selectMode(self):
+        return self._select_mode
 
     @Slot(str, bool)
     def button(self, path, pressed):

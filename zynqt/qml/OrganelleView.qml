@@ -40,7 +40,8 @@ Rectangle {
             spacing: 4
             visible: root.view ? root.view.selector : true
             PressButton { text: "▲"; onTapped: root.view.encoder(-1) }
-            PressButton { text: "SEL"; onTapped: root.view.encoderPress() }
+            // Lit in the kit's menu select mode (knob 4 scrolls the menu, its switch selects)
+            PressButton { text: "SEL"; lit: root.view ? root.view.selectMode : false; onTapped: root.view.encoderPress() }
             PressButton { text: "▼"; onTapped: root.view.encoder(1) }
         }
     }
@@ -62,9 +63,10 @@ Rectangle {
     component PressButton: Rectangle {
         id: pb
         property alias text: pbl.text
+        property bool lit: false
         signal tapped
         width: 60; height: 56; radius: 6
-        color: pbTap.pressed ? Theme.keyText : Theme.keyBackground
+        color: pbTap.pressed || lit ? Theme.keyText : Theme.keyBackground
         Text { id: pbl; anchors.centerIn: parent; color: "white"; font.pixelSize: 18 }
         TapHandler { id: pbTap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: pb.tapped() }
     }

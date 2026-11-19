@@ -276,7 +276,7 @@ class PluginView(QObject):
             case "chord_analyzer":
                 texts = wd.chord_texts(monitors)
                 old = self._data.get("lines") if self._data.get("kind") == "text" else None
-                data.update(kind="text", lines=[["Chord", texts[0]], ["", texts[1]]] if texts else
+                data.update(kind="text", highlight=0, lines=[["Chord", texts[0]], ["", texts[1]]] if texts else
                             (old or [["Chord", "-"], ["", ""]]))
             case "aidax":
                 for i, key in enumerate(("MeterIn", "MeterOut")):

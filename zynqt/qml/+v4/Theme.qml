@@ -44,12 +44,36 @@ ThemeBase {
     bindGlobal: tkColor("ml", "#f0f000")
     statusLine: tkColor("ml", "#f0f000")
     marker: "#ffff00"
-    // Controller page widgets (zynthian_widget_filter / _envelope): the canvas in the background
-    // colour, the grid color_variant(hl, -60) drawn over the curve in Tk: here the curve's fill is
-    // translucent so the grid shows through (the curve stays blue)
+    // Controller page widgets in Tk's colours: envelope / filter outline color_on, filled
+    // color_variant(on, -90), the filter grid color_variant(hl, -60) over the curve; spectrum and
+    // graphic EQ bars color_hl with color_on ticks; the chord in color_ml; the waveform color_hl
+    // with a color_on cursor, color_ml loop markers, color_variant(panel_bg, 25) outside the crop
+    // range (no crop lines); AIDA-X meters with green / yellow / red zones
     widgetBackground: tkColor("bg", "#000000")
-    widgetGrid: "#008400"
-    widgetFill: Qt.rgba(0.30, 0.52, 0.85, 0.45)
+    widgetLine: tkColor("on", "#ff0000")
+    widgetFill: tkVariant(tkColor("on", "#ff0000"), -90)
+    widgetGrid: tkVariant(tkColor("hl", "#00c000"), -60)
+    widgetGridOnTop: true
+    widgetBar: tkColor("hl", "#00c000")
+    widgetPeak: tkColor("on", "#ff0000")
+    widgetBarInset: 0.5   // Tk: the bars' black outlines
+    widgetZero: tkColor("tx_off", "#e0e0e0")
+    widgetLabel: tkColor("tx", "#ffffff")
+    widgetAxis: tkColor("tx_off", "#e0e0e0")
+    widgetAxisCentre: tkColor("tx_off", "#e0e0e0")
+    widgetHighlight: tkColor("ml", "#f0f000")
+    widgetWave: tkColor("hl", "#00c000")
+    widgetOutside: tkVariant(tkColor("panel_bg", "#3a424d"), 25)
+    widgetCursor: tkColor("on", "#ff0000")
+    widgetCrop: "transparent"
+    widgetLoop: tkColor("ml", "#f0f000")
+    widgetBeat: tkVariant(tkColor("tx", "#ffffff"), -80)
+    widgetBeatStrong: tkColor("tx", "#ffffff")
+    widgetMeterZones: true
+    widgetMeterLow: "#008000"    // Tk's "green", "yellow", "red", "grey"
+    widgetMeterMid: "#ffff00"
+    widgetMeterHigh: "#ff0000"
+    widgetMeterOff: "#bebebe"
     frameActive: "#ffff00"   // grid selection: a yellow outline
 
     // Shapes and type: square plates, Audiowide

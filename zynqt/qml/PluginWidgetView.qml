@@ -26,7 +26,7 @@ Rectangle {
             y: bars.height * (1 - (root.d.zero || 0))
             width: bars.width
             height: 1
-            color: "#808080"
+            color: Theme.widgetZero
         }
         Repeater {
             model: bars.n
@@ -37,17 +37,17 @@ Rectangle {
                 width: bars.bw
                 height: bars.height
                 Rectangle {   // level (bottom..top)
-                    x: 2
-                    width: parent.width - 4
+                    x: Theme.widgetBarInset
+                    width: parent.width - 2 * Theme.widgetBarInset
                     y: parent.height * (1 - Math.max(parent.b[0], parent.b[1]))
                     height: parent.height * Math.abs(parent.b[1] - parent.b[0])
-                    color: "#3a78c0"
+                    color: Theme.widgetBar
                 }
                 Rectangle {   // peak / gain tick
                     width: parent.width
                     height: 3
                     y: parent.height * (1 - parent.b[2])
-                    color: "#5ad05a"
+                    color: Theme.widgetPeak
                 }
                 Text {
                     // Rotated about its centre: placed so that it ends 2 px above the bottom
@@ -56,7 +56,7 @@ Rectangle {
                     text: (root.d.labels || [])[index] || ""
                     rotation: -90
                     transformOrigin: Item.Center
-                    color: Theme.textOff
+                    color: Theme.widgetLabel
                     font.pixelSize: Math.max(8, Math.min(14, bars.bw * 0.5))
                 }
             }
@@ -78,7 +78,7 @@ Rectangle {
         anchors.fill: parent
         visible: root.d.kind === "tuner"
         readonly property real y0: height / 4
-        Rectangle { y: parent.y0; width: parent.width; height: 1; color: "#606060" }
+        Rectangle { y: parent.y0; width: parent.width; height: 1; color: Theme.widgetAxis }
         Repeater {
             model: 19
             Rectangle {
@@ -87,7 +87,7 @@ Rectangle {
                 y: parent.y0 - root.height / 10
                 width: 1
                 height: root.height / 5
-                color: index === 9 ? "#a0a0a0" : "#606060"
+                color: index === 9 ? Theme.widgetAxisCentre : Theme.widgetAxis
             }
         }
         Rectangle {   // cents needle
@@ -155,11 +155,19 @@ Rectangle {
                 required property real modelData
                 width: parent.width
                 height: 24
-                color: "#202830"
-                Rectangle {
+                color: Theme.widgetMeterOff
+                Rectangle {   // the level in its zone's colour
+                    visible: !Theme.widgetMeterZones
                     width: parent.width * modelData
                     height: parent.height
-                    color: modelData > 0.9 ? "#e04040" : (modelData > 0.7 ? "#e0c040" : "#40b040")
+                    color: modelData > 0.9 ? Theme.widgetMeterHigh : (modelData > 0.7 ? Theme.widgetMeterMid : Theme.widgetMeterLow)
+                }
+                Row {   // Tk: the zones, uncovered up to the level
+                    visible: Theme.widgetMeterZones
+                    readonly property real w: parent.width
+                    Rectangle { width: Math.min(parent.w * 0.7, parent.w * modelData); height: 24; color: Theme.widgetMeterLow }
+                    Rectangle { width: Math.max(0, Math.min(parent.w * 0.2, parent.w * (modelData - 0.7))); height: 24; color: Theme.widgetMeterMid }
+                    Rectangle { width: Math.max(0, Math.min(parent.w * 0.1, parent.w * (modelData - 0.9))); height: 24; color: Theme.widgetMeterHigh }
                 }
                 Text {
                     anchors.left: parent.left; anchors.leftMargin: 6; anchors.verticalCenter: parent.verticalCenter
@@ -173,6 +181,7 @@ Rectangle {
             model: root.d.lines || []
             Column {
                 required property var modelData
+                required property int index
                 width: parent.width
                 Text {
                     visible: modelData[0] !== ""
@@ -184,7 +193,7 @@ Rectangle {
                     width: parent.width
                     elide: Text.ElideMiddle
                     text: modelData[1]
-                    color: Theme.text
+                    color: index === root.d.highlight ? Theme.widgetHighlight : Theme.text
                     font.pixelSize: 28
                     font.family: Theme.fontFamily
                 }

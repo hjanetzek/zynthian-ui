@@ -81,25 +81,35 @@ widgets went into `zyngui/widgets_user` (see [User and external widgets](#user-a
 
 ### Qt UI
 
-`zynqt/screens/control.py` `_set_widget()` applies the same order: `screen_type()` (but a
-drawbar page gets no view), then `plugin_widget()`, which maps the engine's widget **module
+`zynqt/screens/control.py` `_set_widget()` applies the same order: `screen_type()`, then (after
+`engine.refresh_custom_gui()`, as Tk) `plugin_widget()`, which maps the engine's widget **module
 name** to a QML view if the name is in `zynthian_widget_data.PLUGIN_WIDGETS` (spectr30, tunaone,
-gxgraphiceq, nam, aidax, chord_analyzer, tempo, inet_radio, euclidseq, organelle, sooperlooper);
-then the audio file view for audio player, Clippy and samplv1 processors. The Qt UI never runs the
-Tk modules. `ControlWidget.qml` picks the view by `widgetType`:
+gxgraphiceq, nam, aidax, chord_analyzer, tempo, inet_radio, euclidseq, organelle, sooperlooper,
+setbfree); then the audio file view for audio player, Clippy and samplv1 processors; any other
+engine widget (`engine_widget()`: a user or external one) gets a note that the Qt UI can't show it.
+The Qt UI never runs the Tk modules. `ControlWidget.qml` picks the view by `widgetType`:
 
 | widgetType | QML | Model |
 |---|---|---|
 | `envelope` | `EnvelopeView.qml` | `zynqt/models/widgets.py` `EnvelopeView` |
 | `filter` | `FilterView.qml` | `FilterView` |
+| `drawbar` | `DrawbarView.qml` | `DrawbarView` (shared `zynthian_widget_data.drawbar_*`) |
 | `audio_file` | `WaveformView.qml` | `zynqt/models/audio_file.py` (shared `zyngui/zynthian_audio_file_data.py`) |
 | `plugin` | `PluginWidgetView.qml` (kinds bars, tuner, text, aidax, tempo, radio) | `PluginView` |
 | `euclid` | `EuclidSeqView.qml` | `EuclidSeqView` (shared `zyngui/zynthian_euclidseq_data.py`) |
 | `organelle` | `OrganelleView.qml` | `zynqt/models/organelle.py` (shared `zyngui/zynthian_organelle_data.py`) |
 | `sooperlooper` | `SooperLooperView.qml` | `SooperLooperView` (shared `zyngui/zynthian_sooperlooper_data.py`) |
+| `unsupported` | a note in `ControlWidget.qml` | `ChainControl.unsupportedWidget` (the module name) |
 
-Envelope, filter and audio file take the lower half of the middle column (`widgetHalf` in
-`ChainControlScreen.qml`, theme v4 the same); the others replace the page list.
+Envelope, filter, drawbar, audio file and the "can't show" note take the lower half of the middle
+column (`widgetHalf` in `ChainControlScreen.qml`, theme v4 the same); the others replace the page
+list.
+
+Colours are Theme tokens (`ThemeBase.qml`: `widgetLine`, `widgetFill`, `widgetGrid`, `widgetBar`,
+`widgetPeak`, `widgetHighlight`, `widgetWave`, `widgetCursor`, `widgetMeter*`, `drawbar*`, ...):
+the `tk` and `v4` themes use Tk's (`color_on` outlines with a `color_variant(on, -90)` fill,
+`color_hl` bars and waveform, `color_ml` chord, the filter grid over the curve, AIDA-X meter zones),
+classic, galactica and enterprise keep their own.
 
 ## Overview
 
@@ -107,8 +117,8 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
 |---|---|---|---|---|---|
 | [Envelope](#envelope) | port designation `param:delay/attack/hold/decay/sustain/fade/release`; FluidSynth's env. attack/release | MDA JX10 > "Amp Envelope"; Fabla > "Pad 1 - ADSR"; FluidSynth > "envelope/filter" | yes | yes | yes (mda-lv2/mod-mda-lv2, fabla-lv2, amsynth-lv2, MiMi-d, fluidsynth) |
 | [Filter](#filter) | `param:cutoffFrequency`, `param:resonance`; ZynAddSubFX's filter cutoff/resonance | MDA JX10 > "Params 2"; amsynth > "Filter 1"; ZynAddSubFX > "main" | yes | yes | yes (same, zynaddsubfx) |
-| [Drawbar](#drawbar-and-setbfree) | `param:drawbar` (zynthian-data's patched Calf Organ TTL) | Calf Organ > a drawbar page (ZynthianOS) | yes (since 2026-11-09) | **no** | Calf Organ yes, the patched TTL no |
-| [setBfree](#drawbar-and-setbfree) | engine setBfree | setBfree chain, any page | yes (since 2026-11-09) | **no** | setbfree |
+| [Drawbar](#drawbar-and-setbfree) | `param:drawbar` (zynthian-data's patched Calf Organ TTL) | Calf Organ > a drawbar page (ZynthianOS) | yes (since 2026-11-09) | yes | Calf Organ yes, the patched TTL no |
+| [setBfree](#drawbar-and-setbfree) | engine setBfree | setBfree chain, any page | yes (since 2026-11-09) | yes | setbfree |
 | [Audio file](#audio-file-waveform) | audio player, Clippy, samplv1; any page with an audio file path controller | Audio player (chain or the global one); Clippy pad; samplv1 | yes (needs moderngl) | yes | built in; samplv1-lv2 (Tk: no moderngl on Nura) |
 | [Spectrum](#spectrum-spectr30) | x42 `meters#spectr30mono/stereo` | Audio effect "1/3 Octave Spectrum Display" | yes | yes | x42-plugins |
 | [Tuner](#tuner-tunaone) | x42 `tuna#one`, `tuna#mod` | Audio effect "x42 Instrument Tuner" | yes | yes | x42-plugins (`tuna#one`) |
@@ -118,10 +128,10 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
 | [Chord analyzer](#chord-analyzer) | Dusk Audio chord-analyzer, -midi, -headless | MIDI tool "Chord Analyzer Headless" | yes | yes | dusk-audio-juce-lv2 |
 | [Tempo](#tempo) | the tempo processor | main menu > Tempo, CUIA `TEMPO` | yes | yes (own layout, decided deviation) | built in |
 | [Internet radio](#internet-radio) | engine InternetRadio | Audio generator "Internet Radio" | yes | yes | needs `vlc` (not a dependency) |
-| [Euclidean sequencer](#euclidean-sequencer) | Pd preset with `use_euclidseq_widget` | Special > PureData > midi-generative/EuclidSeq6 | yes | yes (small screens: see gaps) | puredata, zynthian-puredata |
-| [Organelle](#organelle) | Pd preset path with "organelle", or `use_organelle_widget` | PureData > audio-fx/Cannabits (and 9 more) | yes | yes (knob/switch mapping differs) | puredata, zynthian-puredata |
-| [SooperLooper](#sooperlooper) | engine SooperLooper | Audio effect "SooperLooper" | yes | yes (no ALT arrows) | sooperlooper |
-| [User widgets](#user-and-external-widgets) | a `zyngui:widget` UI anywhere on LV2_PATH | the plugin's pages | yes (a1527c99) | **no** | folder `~/.local/share/zynthian/plugins/lv2-widgets` |
+| [Euclidean sequencer](#euclidean-sequencer) | Pd preset with `use_euclidseq_widget` | Special > PureData > midi-generative/EuclidSeq6 | yes | yes (small screens: the panel on demand) | puredata, zynthian-puredata |
+| [Organelle](#organelle) | Pd preset path with "organelle", or `use_organelle_widget` | PureData > audio-fx/Cannabits (and 9 more) | yes | yes | puredata, zynthian-puredata |
+| [SooperLooper](#sooperlooper) | engine SooperLooper | Audio effect "SooperLooper" | yes | yes | sooperlooper |
+| [User widgets](#user-and-external-widgets) | a `zyngui:widget` UI anywhere on LV2_PATH | the plugin's pages | yes (a1527c99) | a note only | folder `~/.local/share/zynthian/plugins/lv2-widgets` |
 
 ## Envelope
 
@@ -150,7 +160,8 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
 - **Tk:** yes. **Qt:** yes (`EnvelopeView.qml`, same geometry and drag code). Parity: Qt draws
   in fixed blue (`ThemeBase.widgetLine/widgetFill`), Tk in `color_on` with a darker fill (red
   in the default theme); Tk's `show()` divides by the number of envelope controllers (a
-  ZeroDivisionError if the page's group has none; Qt guards it).
+  ZeroDivisionError if the page's group has none; Qt guards it). Colours: Theme tokens, Tk's in
+  the `tk` and `v4` themes (classic and the others blue).
 - **Nura:** see the plugin list.
 
 ## Filter
@@ -170,8 +181,8 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
 - **How to open:** MDA JX10 > page "Params 2" (its VCF Freq/Reso are ungrouped, so they share
   the default group); amsynth > "Filter 1"; ZynAddSubFX > "main"; MiMi-d > "Filter"; MDA
   RezFilter (audio effect) > its filter page.
-- **Tk:** yes. **Qt:** yes (`FilterView.qml`). Parity: colours as for the envelope (Tk red
-  fill, Qt blue).
+- **Tk:** yes. **Qt:** yes (`FilterView.qml`). Colours as for the envelope; the `tk` and `v4`
+  themes draw the grid over the curve as Tk.
 
 ## Drawbar and setBfree
 
@@ -189,11 +200,15 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
   zynthian-data's `lv2-custom/calf.lv2/Organ.ttl` (zynthian-data PR 31).
 - **How to open:** setBfree chain (Add chain > Instrument > setBfree), page "drawbars 1".
 - **Tk:** upstream yes; the Tk VM's 20261107 package predates it (no widget there).
-- **Qt:** **no view**: `_set_widget()` drops `drawbar`, and `setbfree` is not in
-  `PLUGIN_WIDGETS`, so Qt shows the controllers (knobs "DB 16" …) and nothing else.
+- **Qt:** yes (`DrawbarView.qml`, `DrawbarView` in `zynqt/models/widgets.py`): the same look
+  (Tk's colours as `drawbar*` Theme tokens), in the lower half of the page; drag a drawbar up /
+  down (relative to its setting at the press, as Tk); the knobs turn the page's controllers. The
+  value mapping and drag are shared with the Tk widgets (`zynthian_widget_data.drawbar_*`). Checked
+  with setBfree and with Calf Organ whose `l1`…`l9` controllers were given the `drawbar`
+  attribute by hand (the patched TTL isn't on Nura).
 - **Nura:** setbfree and calf-lv2 are packaged; the patched Organ TTL is not applied (see
   [Nura packaging](#nura-the-lv2-custom-ttls-are-not-applied)), and Nura's zynthian-data is older than
-  that TTL. So on Nura only setBfree can show drawbars, and only in the Tk UI.
+  that TTL. So on Nura only setBfree shows drawbars.
 
 ## Audio file (waveform)
 
@@ -215,9 +230,9 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
   'zynthian_widget_audio_file' => No module named 'moderngl'"): no waveform in the Tk UI on
   Nura. The desktop venv has them with `ZYNTHIAN_TK_WIDGETS=1`.
 - **Qt:** yes (`WaveformView.qml`, QML Shape, libsndfile through ctypes when python-soundfile is
-  missing). Gaps: the view keeps the previous processor's file name when the new one has no
-  file (samplv1 without a sample, an empty Clippy show "Oya.mp3"); Qt's `chain_control` sends a
-  Clippy chain to the launcher (since 4c408ea3), so its "Clip" page is reached from a pad.
+  missing). A processor without a file shows "No file" (nothing of the previous one's file). A
+  new Clippy chain opens the launcher, as Tk; afterwards chain control shows its "Clip" page, and
+  BANK_PRESET there asks for the selected clip's file (Tk's `request_file`).
 - **samplv1:** main's bundle names the module as `file:///zynthian/zynthian-ui/zyngui/…`, which
   doesn't exist outside ZynthianOS: no engine widget for samplv1 in the port (the Qt UI shows the
   waveform anyway, from the engine type). Fixed on branch `lv2-user-widgets` (35c278d6, module
@@ -232,8 +247,8 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
 - **Trigger:** `http://gareus.org/oss/lv2/meters#spectr30mono`, `#spectr30stereo`.
 - **How to open:** in an audio chain (or after a synth) add Audio Effect > Analyzer > "1/3
   Octave Spectrum Display Stereo", any page; play something.
-- **Tk:** yes. **Qt:** yes (`PluginWidgetView` "bars"). Parity: Tk green bars, red ticks; Qt
-  blue bars, green ticks.
+- **Tk:** yes. **Qt:** yes (`PluginWidgetView` "bars"); `tk` / `v4` theme: Tk's green bars and
+  red ticks (classic: blue bars, green ticks).
 
 ## Tuner (tunaone)
 
@@ -276,8 +291,8 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
   file names. No touch.
 - **Trigger:** `http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-loader`.
 - **How to open:** Audio Effect > Simulator > "AIDA-X".
-- **Tk:** yes. **Qt:** yes ("aidax"). Parity: Tk's meters have green/yellow/grey zones, Qt plain
-  bars.
+- **Tk:** yes. **Qt:** yes ("aidax"); `tk` / `v4`: Tk's green / yellow / red zones up to the
+  level (classic: a bar in the zone's colour).
 
 ## Chord analyzer
 
@@ -289,7 +304,8 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
   (not the "-2" variants).
 - **How to open:** in a MIDI/synth chain add MIDI Tool > "Chord Analyzer Headless" (enabled by
   default; the other two are disabled in the engine list), play a chord.
-- **Tk:** yes. **Qt:** yes ("text"). Parity: Tk yellow chord text, Qt white.
+- **Tk:** yes. **Qt:** yes ("text"); the chord in `widgetHighlight` (Tk's yellow `color_ml` in
+  `tk` / `v4`, white in classic).
 
 ## Tempo
 
@@ -327,8 +343,9 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
   (zynthian-data: midi-generative/EuclidSeq6).
 - **How to open:** Add chain > Special > PureData, bank "midi-generative", preset "EuclidSeq6",
   page "General".
-- **Tk:** yes. **Qt:** yes (`EuclidSeqView.qml`). Gap: at 480x320 (theme v4) the panel takes the
-  whole middle column and the circles get no room (Tk shows the circles and cuts the panel).
+- **Tk:** yes. **Qt:** yes (`EuclidSeqView.qml`). Where the view is narrower than twice the
+  panel (480x320, theme v4) the circles fill it and a tap on the selected channel shows its panel
+  (◀ back); Tk shows the circles and cuts the panel off.
 
 ## Organelle
 
@@ -348,9 +365,14 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
   patch 3237ba5a, nura-builds `zynthian-ui-tomita` patch 0019).
 - **How to open:** Add chain > Special > PureData, bank "audio-fx", preset "Cannabits", page
   "Knobs".
-- **Tk:** yes. **Qt:** yes (`OrganelleView.qml`); instead of the knob/switch select mode it has
-  on-screen ▲ / SEL / ▼ buttons: the hardware mapping (knob 3, switches, arrows) is not
-  ported.
+- **Tk:** yes. **Qt:** yes (`OrganelleView.qml`), with Tk's kit mapping (shared
+  `OrganelleKeys` in `zynthian_organelle_data.py`): the select mode switch (V5 F3 = switch 19, Z2
+  15, MCP23017 5), knob 4 and the up/down arrows scroll the menu, switch 3 selects; knob 4 shows
+  "Select" and the on-screen SEL button is lit meanwhile; the AUX switch (V5 F4 = 23, Z2 16,
+  MCP23017 4) is held as AUX, without a long press; the LEDs as Tk. The on-screen AUX / FS /
+  ▲ / SEL / ▼ buttons stay for touch. Most Organelle presets in zynthian-data set
+  `organelle_selector: false` (Cannabits too): no select mode there, in Tk neither; synth/ArpII,
+  sampler/Segmenti and others have it.
 
 ## SooperLooper
 
@@ -366,8 +388,9 @@ Envelope, filter and audio file take the lower half of the middle column (`widge
 - **Trigger:** engine SooperLooper (SL).
 - **How to open:** Add chain > Audio Effect > SooperLooper (also an Audio Input chain), page
   "Loop record 1".
-- **Tk:** yes. **Qt:** yes (`SooperLooperView.qml`: buttons, loops, sliders, add/remove, ALT
-  transport). Gap: ALT + arrows and ALT + program change are not handled.
+- **Tk:** yes. **Qt:** yes (`SooperLooperView.qml`: buttons, loops, sliders, add/remove; in ALT
+  mode the transport keys, up/down the previous/next loop, left/right undo/redo, program change
+  5-8 replace / substitute / insert / add a loop, shared `alt_program_change()`).
 - **Nura:** sooperlooper is a zynthian-ui dependency (nura-builds `aports/engines/sooperlooper`).
 
 ## How to see the envelope
@@ -444,9 +467,20 @@ session); `tools/lv2_widget_designations.py` lists what the installed TTLs decla
   `~/.local/share/zynthian/plugins/lv2-widgets` (and the presets folder) on LV2_PATH in the
   launcher and fixes the samplv1 bundle path; see its docs/architecture.md section.
 - **Qt:** user widgets are Python/Tk modules, which the Qt UI doesn't run: a plugin whose widget
-  isn't one of the built-in names shows only its controllers. A user widget with a built-in
-  module name (e.g. its own `zynthian_widget_tunaone.py`) gets the built-in QML view. Qt reads
-  `custom_gui_fpath` when the processor is created (no `refresh_custom_gui()`).
+  isn't one of the built-in names shows a note in the lower half of the page ("This plugin has a
+  zynthian widget the Qt UI can't show: zynthian_widget_<name>"), the controllers stay usable. A
+  user widget with a built-in module name (e.g. its own `zynthian_widget_tunaone.py`) gets the
+  built-in QML view. As Tk, `refresh_custom_gui()` runs before the widget is chosen, so bundles
+  added, removed or changed while the processor exists show at the next page change (checked
+  with an extension bundle for MDA RezFilter in `lv2-widgets`, added and removed).
+- **Running Tk widgets in Qt (not done, findings):** the plugin widgets that only draw on a
+  `tkinter.Canvas` (spectr30, tunaone, nam, chord_analyzer, gxgraphiceq, aidax: rectangles, lines,
+  text, `coords`/`itemconfig`, mouse bindings, on `zynthian_widget_base`, a `tkinter.Frame`) could
+  run on a small `tkinter` stand-in (Frame, Canvas, StringVar) that records a display list, painted
+  by a `QQuickPaintedItem` like the Organelle's `OledDisplay`, with `zynthian_gui_config` as is.
+  Widgets with Tk widgets of their own (Organelle, Euclidean sequencer, SooperLooper), PIL images
+  (internet radio) or OpenGL (audio file: moderngl/pyopengltk) wouldn't. A user widget's code then
+  runs in the UI process as in Tk.
 - **Existing user widgets found (2026-11-19):** none published as packages yet.
   zynthian-packages has only Soundfonts, Samples and IRs (46 packages). On the forum:
   ascari.maximilian's looper LV2 plugin with its own touch widget (topic 13650, a SooperLooper
@@ -455,18 +489,14 @@ session); `tools/lv2_widget_designations.py` lists what the installed TTLs decla
 
 ## Qt gaps (to do)
 
-- [ ] Drawbar view: `drawbar` pages (LV2 `param:drawbar`) and setBfree's engine widget
-      (`zynthian_widget_drawbar.py`, `zynthian_widget_setbfree.py`, upstream PR 612).
-- [ ] User/external `zyngui:widget` widgets: at least say "this plugin has a widget the Qt UI
-      can't show" (or a fallback to the controllers is fine), pick up widget changes at runtime.
-- [ ] Widget colours in the `tk` theme as Tk's (`color_on` outline, darker fill; spectrum green
-      bars and red peaks; chord text yellow; AIDA-X meter zones).
-- [ ] Waveform view: clear the file name/data when the processor has no file (samplv1, Clippy).
-- [ ] Euclidean sequencer at 480x320: room for the circles (or a toggle between circles and
-      panel).
-- [ ] Organelle: the hardware mapping (select mode on knob 3, its switch, AUX switch, arrows).
-- [ ] SooperLooper: ALT + arrows (previous/next loop, undo/redo), ALT + program change.
-- [ ] Clippy: Qt opens the launcher for a Clippy chain (upstream shows its control page).
+Done on branch `qt-widget-gaps` (2026-11-19): drawbar view (setBfree, `param:drawbar`); the note
+for user / external widgets and `refresh_custom_gui()`; widget colours as Theme tokens (Tk's in
+`tk` / `v4`); the waveform's file name cleared; the Euclidean sequencer at 480x320; the
+Organelle's kit mapping; SooperLooper ALT + arrows / program change; a Clippy chain's control page.
+
+- [ ] User / external widgets drawn in Qt: a `tkinter` stand-in for canvas-only widgets (see
+      [User and external widgets](#user-and-external-widgets)).
+- [ ] Drawbar widget on Nura's Calf Organ: needs the patched TTL (packaging, below).
 - Nura packaging, not Qt: apply zynthian-data's lv2-custom TTLs; `vlc` for the internet radio;
   moderngl for the Tk waveform (Tk only).
 

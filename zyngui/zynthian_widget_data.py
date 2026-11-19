@@ -350,17 +350,23 @@ PLUGIN_WIDGETS = ("spectr30", "tunaone", "gxgraphiceq", "nam", "aidax", "chord_a
                   "euclidseq", "organelle", "sooperlooper", "setbfree")
 
 
-def plugin_widget(processor):
-    """Name of a processor's plugin widget (zynthian_widget_<name>.py) if it has one of
-    PLUGIN_WIDGETS, else None"""
+def engine_widget(processor):
+    """Name of a processor's engine widget (custom_gui_fpath zynthian_widget_<name>.py: built in,
+    an LV2 zyngui:widget bundle or a user widget), else None"""
     gui = getattr(processor.engine, "custom_gui_fpath", None) if processor else None
     if not gui:
         return None
     name = gui.rsplit("/", 1)[-1]
     if name.startswith("zynthian_widget_") and name.endswith(".py"):
-        name = name[len("zynthian_widget_"):-3]
-        return name if name in PLUGIN_WIDGETS else None
+        return name[len("zynthian_widget_"):-3]
     return None
+
+
+def plugin_widget(processor):
+    """Name of a processor's plugin widget (zynthian_widget_<name>.py) if it has one of
+    PLUGIN_WIDGETS, else None"""
+    name = engine_widget(processor)
+    return name if name in PLUGIN_WIDGETS else None
 
 
 # 1/3 octave spectrum (x42 spectr30, zynthian_widget_spectr30)

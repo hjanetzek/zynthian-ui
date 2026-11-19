@@ -34,3 +34,10 @@ def test_every_bundled_lv2_widget_has_a_qt_view(fpath):
 def test_no_widget():
     assert wd.plugin_widget(processor(None)) is None
     assert wd.plugin_widget(processor("/x/zynthian_widget_unknown.py")) is None
+
+
+def test_engine_widget_names_any_widget_module():
+    assert wd.engine_widget(processor("/u/lv2-widgets/x-zyngui.lv2/zynthian_widget_mylooper.py")) == "mylooper"
+    assert wd.plugin_widget(processor("/u/lv2-widgets/x-zyngui.lv2/zynthian_widget_mylooper.py")) is None
+    assert wd.engine_widget(processor("/x/other.py")) is None
+    assert wd.engine_widget(None) is None

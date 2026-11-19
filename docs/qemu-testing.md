@@ -14,6 +14,10 @@ Checked 2026-11-08 (headless VM, sync, session restart, screenshot); side by sid
 **The test suite** (`run_tests.sh`) runs in a VM of its own, `tools/test_vm.sh` (SSH 2262):
 see [test-vm.md](test-vm.md).
 
+**Upstream's own environment** (no Nura, no port changes: upstream's x86_64 "virtual zynthian"
+setup on tomita, for testing upstream behaviour and upstream fixes) is a VM of its own,
+`tools/zynthianos_vm.sh` (SSH 2272): see [zynthianos-vm.md](zynthianos-vm.md).
+
 **To compare upstream zynthian (Tk UI) with the Qt port**, see [Side by side](#side-by-side-upstream-zynthian-and-the-qt-port):
 one command starts both at the V5 kit's screen size.
 

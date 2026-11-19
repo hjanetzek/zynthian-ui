@@ -60,10 +60,9 @@ class ZS3(SelectorScreen):
             self.fill()
 
     def build(self):
-        """Shown: the row of the last visit selected, the loaded ZS3's when that was the first
-        row. Tk's build_view fills the list that way, then sets index 0 without moving the
-        listbox's selection: the row of the last visit stays highlighted and SELECT acts on it
-        (only knob / arrow moves start from row 0: upstream inconsistency, not copied)"""
+        """Shown: the cursor on the last loaded ZS3 (else the first row), as Tk's build_view,
+        which resets the cursor before filling the list since upstream 7d445b81"""
+        self._index = 0   # set_entries() emits the change
         self.fill()
 
     def fill(self):

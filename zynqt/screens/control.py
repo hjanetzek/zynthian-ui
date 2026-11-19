@@ -22,7 +22,7 @@ from zyngui.zynthian_midi_learn_data import (MIDI_LEARNING_CHAIN, MIDI_LEARNING_
 from zynqt.hw_input import STEP_FIXED, list_step, zctrl_step
 from zynqt.models.audio_file import AudioFileView
 from zynqt.models.organelle import OrganelleView
-from zynqt.models.widgets import EnvelopeView, FilterView, PluginView, EuclidSeqView, SooperLooperView
+from zynqt.models.widgets import DrawbarView, EnvelopeView, FilterView, PluginView, EuclidSeqView, SooperLooperView
 from zynqt.screens.base import EntryModel, entry, separator
 from zynqt.screens.controller_options import show_controller_options
 
@@ -299,6 +299,7 @@ class ChainControl(QObject):
         self.audio_view = AudioFileView(ui, self)
         self.envelope_view = EnvelopeView(self)
         self.filter_view = FilterView(self)
+        self.drawbar_view = DrawbarView(self)
         self.plugin_view = PluginView(self)
         self.euclid_view = EuclidSeqView(self)
         self.organelle_view = OrganelleView(self)
@@ -389,6 +390,8 @@ class ChainControl(QObject):
             self.envelope_view.refresh()
         elif self._widget_type == "filter":
             self.filter_view.refresh()
+        elif self._widget_type == "drawbar":
+            self.drawbar_view.refresh()
         elif self._widget_type == "plugin":
             self.plugin_view.refresh()
         elif self._widget_type == "sooperlooper":
@@ -691,10 +694,14 @@ class ChainControl(QObject):
         """The page's widget, as zynthian_gui_control: from the page's controllers (envelope,
         filter, audio file path), else the engine's own (audio player, clippy)"""
         wtype, file_zctrl = wd.screen_type(zctrls) if proc else (None, None)
-        if wtype == "drawbar":
-            wtype = None  # No Qt drawbar widget (yet): the controllers are shown
         plugin = wd.plugin_widget(proc) if wtype is None else None
-        if plugin == "euclidseq":
+        if wtype == "drawbar" or plugin == "setbfree":
+            # LV2 drawbar controllers (Calf Organ) or setBfree's: the drawbars
+            setbfree = plugin == "setbfree"
+            wtype = "drawbar"
+            if self.drawbar_view.processor is not proc or self.drawbar_view.setbfree != setbfree:
+                self.drawbar_view.set_processor(proc, setbfree)
+        elif plugin == "euclidseq":
             wtype = "euclid"
             self.euclid_view.set_processor(proc)
         elif plugin == "organelle":
@@ -747,6 +754,10 @@ class ChainControl(QObject):
     @Property(QObject, constant=True)
     def filterView(self):
         return self.filter_view
+
+    @Property(QObject, constant=True)
+    def drawbarView(self):
+        return self.drawbar_view
 
     @Property(QObject, constant=True)
     def pluginView(self):

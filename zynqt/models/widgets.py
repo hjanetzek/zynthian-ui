@@ -1,5 +1,5 @@
-"""Envelope and filter views for chain control pages (zynthian_widget_envelope, _filter): the
-shape from the page's controllers, dragging changes them. Geometry and drag behaviour are
+"""Envelope, filter and drawbar views for chain control pages (zynthian_widget_envelope,
+_filter, _drawbar): the shape from the page's controllers, dragging changes them. Geometry and drag behaviour are
 shared with the Tk widgets (zyngui.zynthian_widget_data); QML draws the polygons.
 
 ChainControl sets the controller group and calls refresh() at its controller refresh rate."""
@@ -153,6 +153,71 @@ class FilterView(QObject):
     @Slot()
     def release(self):
         self.dragging = False
+
+
+class DrawbarView(QObject):
+    """Drawbars (zynthian_widget_drawbar, zynthian_widget_setbfree): per drawbar its colour,
+    footage and position (0 pushed in ... DRAWBAR_MAX pulled out, from the controller's value
+    by the shared mapping); dragging a drawbar changes its controller"""
+    changed = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.processor = None
+        self.setbfree = False
+        self.zctrls = []
+        self._values = None
+        self._bars = []
+        self._drag = None   # (drawbar, value at the press)
+
+    def set_processor(self, processor, setbfree=False):
+        self.processor = processor
+        self.setbfree = setbfree
+        self.zctrls = []
+        for symbol in wd.drawbar_symbols(processor, setbfree):
+            zctrl = processor.controllers_dict.get(symbol)
+            if zctrl is not None:
+                self.zctrls.append(zctrl)
+        self._drag = None
+        self._values = None
+        self.refresh()
+
+    def refresh(self):
+        values = [z.value for z in self.zctrls]
+        if values == self._values:
+            return
+        self._values = values
+        bars = []
+        for i, z in enumerate(self.zctrls[:wd.DRAWBAR_SLOTS]):
+            colour, footage = wd.DRAWBARS[i]
+            bars.append({"colour": colour, "footage": footage, "position": wd.drawbar_position(z, z.value)})
+        self._bars = bars
+        self.changed.emit()
+
+    @Property("QVariantList", notify=changed)
+    def bars(self):
+        return self._bars
+
+    @Property(int, constant=True)
+    def positions(self):
+        return wd.DRAWBAR_POSITIONS
+
+    @Slot(int)
+    def press(self, i):
+        if 0 <= i < len(self.zctrls):
+            self._drag = (i, self.zctrls[i].value)
+
+    @Slot(float)
+    def drag(self, dy_rel):
+        """The pointer moved dy_rel drawbar heights down since the press"""
+        if self._drag:
+            i, value = self._drag
+            wd.drawbar_drag(self.zctrls[i], value, dy_rel)
+            self.refresh()
+
+    @Slot()
+    def release(self):
+        self._drag = None
 
 
 class PluginView(QObject):

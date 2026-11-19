@@ -89,6 +89,15 @@ QtObject {
     property color widgetGrid: "#2e4a2e"
     property color widgetWave: "#4a90d0"
     property color widgetOutside: "#181e24"
+    // Drawbars (zynthian_widget_drawbar's colours): the bars' faces, their outline, the slot
+    // around each, the numbers (the drawbar's setting brighter)
+    property color drawbarBrown: "#8b0000"
+    property color drawbarWhite: "#ffffff"
+    property color drawbarBlack: "#000000"
+    property color drawbarOutline: "#f5deb3"
+    property color drawbarTrack: "#333333"
+    property color drawbarNumber: "#bebebe"
+    property color drawbarNumberOn: "#ffffff"
     property color dialogText: "#ffffff"
     // List section headers ("> MIDI")
     property color separator: "#2a323d"

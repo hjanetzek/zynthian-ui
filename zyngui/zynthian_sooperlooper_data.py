@@ -154,3 +154,16 @@ def alt_transport(action, processor, monitors):
             ctrls['pause'].set_value(0, True)
         return True
     return False
+
+
+# Program changes in ALT mode (zynthian_widget_sooperlooper.cuia_program_change)
+ALT_PROGRAMS = {5: 'replace', 6: 'substitute', 7: 'insert'}
+
+
+def alt_program_change(processor, program):
+    """Program 5-7 toggle replace / substitute / insert, 8 adds a loop; others do nothing"""
+    ctrls = processor.controllers_dict
+    if program in ALT_PROGRAMS:
+        ctrls[ALT_PROGRAMS[program]].toggle()
+    elif program == 8:
+        ctrls['loop_count'].nudge(1)

@@ -32,7 +32,7 @@ from zyngine.zynthian_engine import zynthian_engine
 from zyngine.zynthian_engine_sooperlooper import *
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
-from zyngui.zynthian_sooperlooper_data import alt_transport
+from zyngui.zynthian_sooperlooper_data import alt_transport, alt_program_change
 from zyngui.zynthian_sooperlooper_data import (loop_kind, select_loop as sl_select_loop, toggle_mute as sl_toggle_mute,
                                               add_loop as sl_add_loop, remove_loop as sl_remove_loop,
                                               press_button as sl_press_button)
@@ -558,15 +558,7 @@ class zynthian_widget_sooperlooper(zynthian_widget_base.zynthian_widget_base):
     def cuia_program_change(self, params=None):
         if self.alt_mode:
             if len(params) > 0:
-                pgm = int(params[0])
-                if pgm == 5:
-                    self.processor.controllers_dict['replace'].toggle()
-                elif pgm == 6:
-                    self.processor.controllers_dict['substitute'].toggle()
-                elif pgm == 7:
-                    self.processor.controllers_dict['insert'].toggle()
-                elif pgm == 8:
-                    self.processor.controllers_dict['loop_count'].nudge(1)
+                alt_program_change(self.processor, int(params[0]))
             return True
 
     def update_wsleds(self, leds):

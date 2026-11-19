@@ -25,8 +25,8 @@ DESKTOP_DIR="$ZYNTHIAN_UI_DIR/desktop"
 
 # Python packages for the venv, all installed with uv: the venv does not see the
 # distribution's packages, so the desktop runs with a known set, kept in line with the
-# Nura package's py3-* dependencies (nura/zynthian-ui/APKBUILD). PySide6 at the Qt
-# version of the Duet (Zrythm's Qt 6.12 packages).
+# Nura package's py3-* dependencies (nura-builds: aports/zynthian/zynthian-ui/APKBUILD).
+# PySide6 at the Qt version of the Duet (Zrythm's Qt 6.12 packages).
 PY_PACKAGES=(
 	"pyside6-essentials==6.12.*"   # the core modules, as the Duet's PySide6 build
 	typing-extensions

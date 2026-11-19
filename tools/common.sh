@@ -1,5 +1,5 @@
 #!/bin/sh
-# Shared option handling of the tools: device address from the pmbootstrap config, as deploy.sh;
+# Shared option handling of the tools: device address from the pmbootstrap config, as nura-builds' deploy.sh;
 # -P PORT for another SSH port, -V for the local QEMU VM (user@127.0.0.1:2222, docs/qemu-testing.md).
 # Sourced by the tools after setting $usage_text; leaves the remaining arguments in "$@".
 

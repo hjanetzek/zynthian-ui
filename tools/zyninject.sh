@@ -12,7 +12,7 @@ bootstrap that schedules it. Running it directly at the point where remote_exec 
 the main thread can deadlock zynthian: that point may be inside code holding one of its
 locks. The script writes its result to the file in its OUTPUT variable, which this tool
 waits for, prints and removes; an exception is reported instead. Device: from the pmbootstrap config
-(default ~/.config/pmbootstrap-zynthian.cfg), as deploy.sh.
+(default ~/.config/pmbootstrap-zynthian.cfg), as nura-builds'"'"' deploy.sh.
 
 Scripts in this directory: profile_idle.py, profile_screen.py, screen_timing.py.'
 set -eu

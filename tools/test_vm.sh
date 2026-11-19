@@ -239,8 +239,9 @@ export VIRTUAL_ENV=$HOME/zyntest-venv
 export PATH=$VIRTUAL_ENV/bin:$PATH
 EOF
 	# The Python modules the zynthian-ui package vendors (not packaged in Alpine: JACK-Client,
-	# pyliblo3, oyaml, soundfile, wavio, ...; nura/zynthian-ui/APKBUILD) are in /usr/share/zynthian/python,
-	# which zynthian'"'"'s launcher puts on its path. The test venv gets them through a .pth file
+	# pyliblo3, oyaml, soundfile, wavio, ...; nura-builds: aports/zynthian/zynthian-ui/APKBUILD) are
+	# in /usr/share/zynthian/python, which zynthian'"'"'s launcher puts on its path. The test venv
+	# gets them through a .pth file
 	echo "venv ~/zyntest-venv (system modules + /usr/share/zynthian/python)"
 	vm_ssh "set -e
 		[ -x ~/zyntest-venv/bin/python3 ] || python3 -m venv --system-site-packages ~/zyntest-venv

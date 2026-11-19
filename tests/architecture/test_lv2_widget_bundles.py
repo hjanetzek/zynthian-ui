@@ -13,9 +13,12 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 ENV_SH = os.path.join(REPO, "desktop", "zynthian_desktop_env.sh")
 
 
+PLUGINS = "/nonexistent/zynthian-plugins"
+
+
 def lv2_path(preset):
     env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": os.environ.get("HOME", "/tmp"),
-           "ZYNTHIAN_UI_DIR": REPO}
+           "ZYNTHIAN_UI_DIR": REPO, "ZYNTHIAN_PLUGINS_DIR": PLUGINS}
     if preset is not None:
         env["LV2_PATH"] = preset
     out = subprocess.run(["bash", "-c", f'. "{ENV_SH}" >/dev/null 2>&1; . "{ENV_SH}" >/dev/null 2>&1; echo "$LV2_PATH"'],
@@ -29,6 +32,19 @@ def test_ui_lv2_bundles_on_lv2_path_once(preset):
     assert path.count(f"{REPO}/lv2") == 1
     if preset:
         assert path[0] == preset
+
+
+@pytest.mark.parametrize("preset", [None, "/usr/lib/lv2"], ids=["default", "set-by-session"])
+def test_user_widget_and_preset_folders_on_lv2_path_once(preset):
+    """User and external zynthian widgets ($ZYNTHIAN_PLUGINS_DIR/lv2-widgets) and preset bundles
+    (lv2-presets), as zynthian-sys puts them on LV2_PATH on ZynthianOS"""
+    path = lv2_path(preset)
+    for d in ("lv2-presets", "lv2-widgets"):
+        assert path.count(f"{PLUGINS}/{d}") == 1
+    if not preset:
+        # ZynthianOS's order: plugins, preset bundles, widget bundles, zynthian-ui's bundles
+        i = path.index(f"{PLUGINS}/lv2")
+        assert path[i:i + 4] == [f"{PLUGINS}/lv2", f"{PLUGINS}/lv2-presets", f"{PLUGINS}/lv2-widgets", f"{REPO}/lv2"]
 
 
 def test_install_copies_lv2_bundles():

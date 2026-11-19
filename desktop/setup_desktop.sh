@@ -184,7 +184,7 @@ do_dirs() {
 	mkdir -p "$ZYNTHIAN_MY_DATA_DIR/snapshots/000-Factory"
 	cp -Ru "$ZYNTHIAN_DATA_DIR/snapshots/." "$ZYNTHIAN_MY_DATA_DIR/snapshots/000-Factory/"
 
-	mkdir -p "$ZYNTHIAN_LV2_DIR" "$ZYNTHIAN_SW_DIR"
+	mkdir -p "$ZYNTHIAN_LV2_DIR" "$ZYNTHIAN_PLUGINS_DIR/lv2-widgets" "$ZYNTHIAN_SW_DIR"
 }
 
 case "${1:-all}" in

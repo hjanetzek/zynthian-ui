@@ -1191,11 +1191,19 @@ class zynthian_gui:
                         fast_refresh=True
                     )
                     if chain_id is None:
+                        self.state_manager.end_busy("modify_chain")
                         self.show_screen_reset("root")
                         self.show_info("Failed to create chain", 1500)
                         return
                     chain = self.chain_manager.get_chain(chain_id)
                     processor = self.chain_manager.add_processor(chain_id, self.modify_chain_status["engine"])
+                    if processor is None and self.modify_chain_status["engine"] != "None":
+                        # The engine failed to start => don't leave an empty chain behind
+                        self.chain_manager.remove_chain(chain_id)
+                        self.state_manager.end_busy("modify_chain")
+                        self.show_screen_reset("root")
+                        self.show_info("Failed to create chain", 1500)
+                        return
                     if self.chain_manager.chains[chain_id].synth_slots or self.modify_chain_status["audio_thru"]:
                         if self.modify_chain_status["mixbus"]:
                             am_proc = self.chain_manager.add_processor(chain_id, "MR")

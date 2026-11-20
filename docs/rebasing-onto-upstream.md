@@ -13,6 +13,12 @@ notes of each rebase go into their own file (`docs/rebase-onto-tomita-<date>.md`
 2. `git rebase --update-refs origin/tomita` (the repository has `rerere.enabled=true` and
    `merge.conflictStyle=zdiff3`): the strand markers move along. Record every conflict and its
    resolution in the dated notes, by strand. Then check the stack with `strand-check.sh`.
+   The changelog commits stay at the strands' ends (they touch only their files, a rebase keeps
+   the order); their hashes are now stale. Bring them up to date and add an entry to each strand
+   the rebase affected (conflicts, commits dropped because upstream took them):
+   `strand-changelog.sh -e "strand/05-tkabs=rebased onto tomita <hash>: conflicts in …, see
+   rebase-onto-tomita-<date>.md" -e …` (see [Changelogs](#changelogs)). Unmapped hashes it
+   reports are commits that were dropped: say so in the entry.
 3. **Check for upstream changes lost in moved code** (below). Git's conflicts don't cover this case.
 4. Run the test suite in the test VM (`tools/test_vm.sh sync && tools/test_vm.sh run all`,
    docs/test-vm.md), never on the host; also at the top of each strand that had conflicts. Then the Qt UI in a compare VM and this repository's Tk UI in
@@ -47,7 +53,8 @@ The check, after every rebase:
 ## Strands
 
 `main` is one linear series on top of `origin/tomita`, ordered in feature strands (since
-2026-11-19). Each strand's last commit is marked by a local branch:
+2026-11-19). Each strand's last commit is its changelog commit (since 2026-11-20, see
+[Changelogs](#changelogs)) and is marked by a local branch:
 
 | Marker | What |
 |---|---|
@@ -81,17 +88,42 @@ Rules:
 
 The helper scripts are in zynthian-stuff `tools/history-reorder/` (not in this repository):
 
-- `strand-place.sh STRAND COMMIT...`, run on `main`: moves the commits (above STRAND) to the end
-  of the strand, with a scripted `git rebase -i --update-refs` (no editor), and checks that the
-  tree is unchanged afterwards (a pure reorder: main's CI result stays the same). Conflicts show up
-  at the moved commit as in any rebase. Example:
-  `strand-place.sh strand/06-loadopt HEAD~1 HEAD`.
-- `strand-check.sh BASE TOP STRAND...`: no merge commits, every marker an ancestor of the next,
-  commits per strand:
+- `strand-place.sh [-m TITLE | -n] STRAND COMMIT...`, run on `main`: moves the commits (above
+  STRAND) to the end of the strand, before its changelog commit, with a scripted `git rebase -i
+  --update-refs` (no editor), and adds an entry for them to the strand's changelog (`-m`: its
+  title, default the first commit's subject; `-n`: none). Every changelog commit the rebase
+  rewrites gets its hashes remapped. It checks that the tree is unchanged outside
+  `docs/changelog/` afterwards (a pure reorder: main's CI result stays the same). Conflicts show
+  up at the moved commit as in any rebase. Example:
+  `strand-place.sh -m "jalv: faster preset loads" strand/06-loadopt HEAD~1 HEAD`.
+- `strand-changelog.sh [-e STRAND=TITLE [-c COMMIT...]]...`: remaps the changelog hashes after
+  any other rewrite (upstream rebase, fixup, reword) and adds entries.
+- `strand-check.sh BASE TOP STRAND...`: no merge commits, no empty commits, every marker an
+  ancestor of the next, every strand but 01 ending with its changelog commit, changelog commits
+  touching only their file, commits per strand:
   `strand-check.sh origin/tomita main $(git for-each-ref --format='%(refname:short)' 'refs/heads/strand/*' | sort)`.
 
-Without the scripts: `git rebase -i --update-refs strand/06-loadopt^` and move the `pick` lines of
-the new commits up before the line `update-ref refs/heads/strand/06-loadopt`.
+Without the scripts: `git rebase -i --update-refs strand/06-loadopt~1` and move the `pick` lines
+of the new commits up before the strand's changelog commit (`changelog: 06-loadopt`), then amend
+the changelog commit with an entry (`edit` it in the same todo), and update hashes in the
+changelog commits above (`changelog.py rehash`).
+
+### Changelogs
+
+Each strand has a living changelog, `docs/changelog/<NN-name>.md` ([README](changelog/README.md)):
+dated entries, newest first, with the commits as hashes in backticks and the docs to read. It is
+one commit, the strand's last, touching only its file; entries are added by amending it. Strand
+01 (offered upstream as is) has no changelog commit of its own: `01-upstream.md`'s commit sits in
+strand 10, below 10's own changelog commit.
+
+- Placing commits: `strand-place.sh` adds the entry; reword it later by amending the changelog
+  commit (e.g. `git commit --fixup=amend:<changelog commit>` on top and `git rebase -i
+  --autosquash --update-refs <changelog commit>~1`, then `strand-changelog.sh` for the hashes).
+- Hashes go stale whenever main is rewritten below a changelog commit; `strand-place.sh` and
+  `strand-changelog.sh` remap them (an old commit maps to the one with the same author date,
+  author email and subject). Entries name commits of their strand or below only.
+- After an upstream rebase: `strand-changelog.sh` with an entry per affected strand (step 2 of
+  the procedure).
 
 Other tasks:
 
@@ -101,9 +133,11 @@ Other tasks:
   `zynthian-data`). Test the tops of the strands that changed.
 - **Offer a strand upstream:** upstream, tkfix and port apply directly on tomita:
   `git format-patch origin/tomita..strand/01-upstream`, or for one strand alone on a copy:
-  `git switch -c offer/tkfix strand/02-tkfix && git rebase --onto origin/tomita strand/01-upstream`
-  (never rebase a marker itself; the copy leaves main's range with the rebase). The curated
+  `git switch -c offer/tkfix strand/02-tkfix~1 && git rebase --onto origin/tomita strand/01-upstream`
+  (`~1`: without the strand's changelog commit; never rebase a marker itself; the copy leaves
+  main's range with the rebase). The curated
   `tk-ui-abstraction` branch stays the upstream offer of tkabs.
 - **When upstream takes a commit:** the next `git rebase --update-refs origin/tomita` drops it
-  (already upstream) or conflicts at the bottom; a strand upstream took whole becomes empty and its
-  marker ends up on the strand below: delete the marker.
+  (already upstream) or conflicts at the bottom; a strand upstream took whole keeps only its
+  changelog commit: give it a last entry, then drop the commit and delete the marker (or keep the
+  file, moved into 10-docs' changelog block like 01's).

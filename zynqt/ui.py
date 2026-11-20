@@ -25,6 +25,7 @@ from zyngine.zynthian_state_manager import zynthian_state_manager
 from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_help, zynthian_power_control, zynthian_wiring
 
 from zynqt.bridge import SignalBridge
+from zynqt.gui_thread import GuiCaller, gui_thread
 from zynqt.power import battery_status
 from zynqt.keyboard import load_bindings
 from zynqt.chain_edit import ChainEdit
@@ -84,6 +85,8 @@ class ZynUI(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # Calls from other threads (engines, MIDI, OSC, drivers) go to the GUI thread (@gui_thread)
+        self._gui = GuiCaller(self)
         # Touch keypad docked beside the screens, or not shown (default); saved as ZYNTHIAN_QT_KEYPAD
         # ("docked" / "off"; any other value, e.g. the former "overlay", is off). Not Tk's
         # ZYNTHIAN_TOUCH_SHOWN: the Tk UI saves that on every exit
@@ -230,6 +233,7 @@ class ZynUI(QObject):
         if not snapshot_loaded:
             self.cuia_add_chain()
 
+    @gui_thread
     def exit(self, code=0):
         """Called from signal handlers and CUIAs: stop in the GUI thread"""
         if self.exit_flag:
@@ -239,6 +243,7 @@ class ZynUI(QObject):
         logging.info(f"STOPPING ZYNTHIAN-UI (Qt), exit code {code} ...")
         QTimer.singleShot(0, self._do_exit)
 
+    @gui_thread
     def switch_theme(self, name, done=None):
         """Show the UI in theme name ("" / None: the default), then call done(), without
         restarting zynthian: the
@@ -476,7 +481,9 @@ class ZynUI(QObject):
             self.currentScreenChanged.emit()
         self.setup_zynpots()
 
+    @gui_thread
     def show_screen(self, name, history=True, params=None):
+        """Show screen name; from any thread"""
         if name not in QML_SCREENS and name not in self.list_screens:
             logging.warning(f"Qt UI has no screen '{name}' (yet)")
             self.show_info(f"'{name}' is not in the Qt UI yet.")
@@ -490,14 +497,17 @@ class ZynUI(QObject):
             del self.screen_history[self.screen_history.index(name):]
         self._set_current_screen(name, params)
 
+    @gui_thread
     def replace_screen(self, name):
         """Show name instead of the current screen (BACK skips the current one)"""
         self.show_screen(name, history=False)
 
+    @gui_thread
     def show_screen_reset(self, name):
         self.screen_history = []
         self.show_screen(name, history=False)
 
+    @gui_thread
     def purge_history(self, name):
         self.screen_history = [n for n in self.screen_history if n != name]
 
@@ -517,6 +527,7 @@ class ZynUI(QObject):
     def movingChain(self):
         return self._moving_chain
 
+    @gui_thread
     def start_move_chain(self, stay=False):
         """Move the active chain: in the mixer, or in the screen shown (stay: chain manager)"""
         if not stay:
@@ -541,6 +552,7 @@ class ZynUI(QObject):
     def movingProcessor(self):
         return self._moving_processor is not None
 
+    @gui_thread
     def start_move_processor(self, processor, stay=False):
         """Move processor: in chain control, or in the screen shown (stay: chain manager)"""
         if not stay:
@@ -676,7 +688,10 @@ class ZynUI(QObject):
             self._info = text
             self.infoChanged.emit()
 
+    @gui_thread
     def show_info(self, text, ms=2500):
+        """The info box with text for ms; from any thread (the timer that clears it runs only
+        when started in the GUI thread)"""
         self._set_info(text)
         self._info_timer.start(ms)
 
@@ -684,6 +699,7 @@ class ZynUI(QObject):
     def confirmText(self):
         return self._confirm_text
 
+    @gui_thread
     def confirm(self, text, action):
         self._confirm_text = text
         self._confirm_action = action
@@ -702,6 +718,7 @@ class ZynUI(QObject):
         self._confirm_action = None
         self.confirmChanged.emit()
 
+    @gui_thread
     def show_options(self, title, options, selected=0):
         """options: list of (label, action, info, icon); selected: the entry selected first"""
         self.list_screens["option"].config(title, options, selected)
@@ -721,6 +738,7 @@ class ZynUI(QObject):
     def keyboardText(self):
         return self._keyboard_text
 
+    @gui_thread
     def show_keyboard(self, action, text="", title=""):
         """Ask for a text; action(text) runs when it is accepted"""
         self._keyboard_title = title
@@ -742,6 +760,7 @@ class ZynUI(QObject):
 
     # Value editor (Tk's param editor, for numeric values): action(value) when accepted
 
+    @gui_thread
     def edit_value(self, title, value, vmin, vmax, action, step=1, decimals=0):
         self._value_editor = [title, value, vmin, vmax, step, decimals, action]
         self.valueEditorChanged.emit()
@@ -813,6 +832,7 @@ class ZynUI(QObject):
             return [f"{name}.html", "selector_grid.html" if screen.kind == "grid" else "selector.html"]
         return [f"{name}.html"]
 
+    @gui_thread
     def show_help(self, fpath=None):
         """Show the help page fpath (a path, a file name or "index:"), else the screen's page"""
         layout = zynthian_gui_config.layout["name"]
@@ -911,6 +931,7 @@ class ZynUI(QObject):
         if processor and processor.chain:
             processor.chain.set_current_processor(processor)
 
+    @gui_thread
     def modify_chain(self, status=None):
         """Next stage of adding a chain or processor (zynthian_gui.modify_chain)"""
         if status is not None:
@@ -932,6 +953,7 @@ class ZynUI(QObject):
             else:
                 self.chain_control(chain_id, processor, force_bank_preset=True)
 
+    @gui_thread
     def chain_control(self, chain_id=None, processor=None, force_bank_preset=False):
         """Show a chain's processor: bank/preset selection first if it has no preset yet
         (zynthian_gui.chain_control)"""

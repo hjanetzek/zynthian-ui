@@ -28,6 +28,11 @@ def points(coords):
     return [(coords[i], coords[i + 1]) for i in range(0, len(coords), 2)]
 
 
+def flat(pts):
+    """[(x, y), ...] -> [x, y, ...]: pytest.approx() takes no nested data (lists of points)"""
+    return [c for p in pts for c in p]
+
+
 def curve(p0, p1):
     """Upstream's curve from p0 to p1 without p0"""
     (x0, y0), (x1, y1) = p0, p1
@@ -83,6 +88,6 @@ def test_drag_polygons_follow_the_curves():
     coords, _, drag = geometry(zs, drag=zs[0])
     pts = points(coords)
     # attack: start, curve, down to the base line, back
-    assert points(drag) == pytest.approx([pts[0]] + pts[1:N + 1] + [(pts[N][0], MB + H), (ML, MB + H)])
+    assert list(drag) == pytest.approx(flat([pts[0]] + pts[1:N + 1] + [(pts[N][0], MB + H), (ML, MB + H)]))
     _, _, drag = geometry(zs, drag=zs[3])
-    assert points(drag)[1:N + 1] == pytest.approx(pts[-N:])
+    assert flat(points(drag)[1:N + 1]) == pytest.approx(flat(pts[-N:]))

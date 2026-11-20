@@ -1508,7 +1508,13 @@ def test_lv2_plugin(plugin_info):
     try:
         res = ""
         while proc.returncode is None:
-            line = proc.stdout.readline().strip()
+            line = proc.stdout.readline()
+            if not line:
+                # End of output before the prompt: jalv has ended (e.g. the plugin crashed)
+                proc.wait()
+                logging.error(f"\tjalv ended before its prompt with exit code {proc.returncode}")
+                return False
+            line = line.strip()
             if line == command_prompt:
                 break
             elif line:

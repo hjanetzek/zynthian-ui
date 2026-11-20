@@ -248,3 +248,14 @@ def test_output_thread_ends_when_jalv_ends(jalv_mod, fake_popen, caplog):
     assert not thread.is_alive(), "the output thread keeps reading the closed pipe"
     assert "ended unexpectedly" in caplog.text
     engine.proc_exit = True
+
+
+# --- zynthian_lv2's plugin test ------------------------------------------------------------------------------
+def test_lv2_plugin_test_returns_when_jalv_crashes(monkeypatch, caplog):
+    import zyngine.zynthian_lv2  # noqa: F401
+    lv2 = sys.modules["zyngine.zynthian_lv2"]
+    # A crash without any message jalv could print ("Segmentation fault" comes from the shell)
+    monkeypatch.setattr(lv2, "Popen", lambda *a, **kw: FakeJalv(JALV_START, "exit", -11))
+    result = run_with_deadline(lambda: lv2.test_lv2_plugin({"NAME": "Broken", "URL": "urn:test:broken"}))
+    assert result is False
+    assert "exit code -11" in caplog.text

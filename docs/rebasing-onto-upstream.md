@@ -91,16 +91,18 @@ The helper scripts are in zynthian-stuff `tools/history-reorder/` (not in this r
 - `strand-place.sh [-m TITLE | -n] STRAND COMMIT...`, run on `main`: moves the commits (above
   STRAND) to the end of the strand, before its changelog commit, with a scripted `git rebase -i
   --update-refs` (no editor), and adds an entry for them to the strand's changelog (`-m`: its
-  title, default the first commit's subject; `-n`: none). Every changelog commit the rebase
-  rewrites gets its hashes remapped. It checks that the tree is unchanged outside
-  `docs/changelog/` afterwards (a pure reorder: main's CI result stays the same). Conflicts show
+  title, default the first commit's subject; `-n`: none). Every living commit the rebase
+  rewrites (the changelog commits and "docs: upstream candidates") gets its hashes remapped. It
+  checks that the tree is unchanged outside `docs/changelog/` and `docs/upstream-candidates.md`
+  afterwards (a pure reorder: main's CI result stays the same). Conflicts show
   up at the moved commit as in any rebase. Example:
   `strand-place.sh -m "jalv: faster preset loads" strand/06-loadopt HEAD~1 HEAD`.
-- `strand-changelog.sh [-e STRAND=TITLE [-c COMMIT...]]...`: remaps the changelog hashes after
-  any other rewrite (upstream rebase, fixup, reword) and adds entries.
+- `strand-changelog.sh [-e STRAND=TITLE [-c COMMIT...]]...`: remaps the hashes in the changelogs
+  and `docs/upstream-candidates.md` after any other rewrite (upstream rebase, fixup, reword) and
+  adds entries.
 - `strand-check.sh BASE TOP STRAND...`: no merge commits, no empty commits, every marker an
   ancestor of the next, every strand but 01 ending with its changelog commit, changelog commits
-  touching only their file, commits per strand:
+  and the upstream-candidates commit touching only their file, commits per strand:
   `strand-check.sh origin/tomita main $(git for-each-ref --format='%(refname:short)' 'refs/heads/strand/*' | sort)`.
 
 Without the scripts: `git rebase -i --update-refs strand/06-loadopt~1` and move the `pick` lines
@@ -122,6 +124,10 @@ strand 10, below 10's own changelog commit.
 - Hashes go stale whenever main is rewritten below a changelog commit; `strand-place.sh` and
   `strand-changelog.sh` remap them (an old commit maps to the one with the same author date,
   author email and subject). Entries name commits of their strand or below only.
+- `docs/upstream-candidates.md` is a living commit too ("docs: upstream candidates", in strand
+  10, the only commit touching the file): the same remap runs after it, for its bare hashes
+  (commit links, backticked and prose hashes) and leaves upstream commits and other repositories'
+  links and hashes alone. New rows go into that commit (fixup), naming commits below it.
 - After an upstream rebase: `strand-changelog.sh` with an entry per affected strand (step 2 of
   the procedure).
 

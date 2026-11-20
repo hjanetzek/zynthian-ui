@@ -340,6 +340,8 @@ class PatternEditor(QObject):
             self._cc_select()
         self.ccChanged.emit()
         self.patternChanged.emit()   # the title
+        # Tk's CC view is a screen of its own (pated_cc): the drivers learn of it
+        self.ui.notify_screen()
 
     @Slot(int, int)
     def setCc(self, step, value):

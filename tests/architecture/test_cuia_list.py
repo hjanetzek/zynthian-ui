@@ -14,6 +14,7 @@ Static analysis (``ast``) for the UIs: nothing of them is imported.
 """
 
 import ast
+import os
 import re
 import subprocess
 import sys
@@ -102,7 +103,21 @@ def test_qt_ui_handles_the_same_cuias():
         f"Qt only {sorted(qt - listed)}")
 
 
-def test_imports_without_the_ui_dependencies():
+def zyncoder_path(tmp_path):
+    """A sys.path entry for the zyncoder package: None where the repo's ``zyncoder`` symlink leads to it, else
+    a link to the checkout tests/bootstrap.py finds ($ZYNCODER_DIR: CI checks zyncoder out as zyncoder-src,
+    and the symlink dangles). The fresh interpreter has no bootstrap and so none of its fake zyncoder."""
+    if (REPO / "zyncoder" / "__init__.py").is_file():
+        return None
+    from tests.bootstrap import zyncoder_dir
+    src = zyncoder_dir()
+    if src is None or not (src / "__init__.py").is_file():
+        pytest.skip("the zyncoder package isn't there (zyncoder symlink dangles; set ZYNCODER_DIR)")
+    (tmp_path / "zyncoder").symlink_to(src, target_is_directory=True)
+    return tmp_path
+
+
+def test_imports_without_the_ui_dependencies(tmp_path):
     code = (
         "import sys\n"
         "for m in ('tkinter', 'PIL', 'websocket_server', 'zyngine', 'zynqt', 'PySide6'):\n"
@@ -116,6 +131,11 @@ def test_imports_without_the_ui_dependencies():
         "assert zyncore.lib_zyncore is None\n"
         "print(len(l))\n"
     )
-    res = subprocess.run([sys.executable, "-c", code], cwd=REPO, capture_output=True, text=True, timeout=30)
+    env = dict(os.environ)
+    path = zyncoder_path(tmp_path)
+    if path:
+        env["PYTHONPATH"] = os.pathsep.join(p for p in (env.get("PYTHONPATH"), str(path)) if p)
+    res = subprocess.run([sys.executable, "-c", code], cwd=REPO, env=env, capture_output=True, text=True,
+                         timeout=30)
     assert res.returncode == 0, res.stderr
     assert int(res.stdout) == len(zynthian_cuia_list.CUIA_LIST)

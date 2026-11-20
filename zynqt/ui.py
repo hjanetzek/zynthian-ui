@@ -27,6 +27,7 @@ from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_help, 
 from zynqt.bridge import SignalBridge
 from zynqt.gui_thread import GuiCaller, gui_thread
 from zynqt.screen_names import qt_name, tk_name
+from zynqt.tk_screens import TkScreens
 from zynqt.power import battery_status
 from zynqt.keyboard import load_bindings
 from zynqt.chain_edit import ChainEdit
@@ -98,7 +99,6 @@ class ZynUI(QObject):
         self.bridge = SignalBridge(self)
 
         # What the engine side expects of zynthian_gui
-        self.screens = {}  # Tk screen objects: none here (used by some controller drivers)
         self.current_screen = "mixer"
         # The root screen shown last (Tk's "root": the mixer in its mode)
         self._last_root = "mixer"
@@ -129,6 +129,8 @@ class ZynUI(QObject):
         self.launcher = Launcher(self, self)
         self.pattern_editor = PatternEditor(self, self)
         self.control_xy = ControlXY(self, self)
+        # Stand-ins for the Tk screen objects some controller drivers use (zynqt.tk_screens)
+        self.screens = TkScreens(self)
         # Screens with their own QML and Python object (build when shown, hide when left)
         self.qml_screen_objects = {"mixer": MixerNav(self),
                                    "launcher": self.launcher,

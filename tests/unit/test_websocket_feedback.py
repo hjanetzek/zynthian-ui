@@ -1,4 +1,5 @@
-"""Websocket feedback of zyngui.zynthian_gui: subscriptions, "chain_state", DPM streams and helpers.
+"""Websocket feedback of zyngui.zynthian_gui (the zyngui.zynthian_websocket mixin): subscriptions, "chain_state",
+DPM streams and helpers.
 
 zynthian_gui can't be built in tests (its __init__ starts the whole UI), so the websocket methods run on a
 bare instance (``__new__``) holding only the attributes they use, with a fake websocket server and a fake
@@ -17,7 +18,7 @@ from types import SimpleNamespace
 import pytest
 
 from tests.bootstrap import STUBBED_MODULES
-from zyngui import zynthian_gui as gui_module
+from zyngui import zynthian_websocket as ws_module
 from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui import zynthian_gui, zynthian_websocket_server
 from zyngine.zynthian_signal_manager import zynsigman
@@ -67,7 +68,7 @@ def top(monkeypatch):
 
 @pytest.fixture
 def gui(top, monkeypatch):
-    monkeypatch.setattr(gui_module, "sleep", lambda s: None)  # send_chain_state's coalescing delay
+    monkeypatch.setattr(ws_module, "sleep", lambda s: None)  # send_chain_state's coalescing delay
     g = zynthian_gui.__new__(zynthian_gui)
     g.exit_flag = False
     g.websocket_server = FakeServer()

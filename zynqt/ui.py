@@ -162,6 +162,8 @@ class ZynUI(QObject):
 
         self._cuiaRequested.connect(self._run_cuia)
         self.bridge.recorderStateChanged.connect(self._recorder_state_changed)
+        # SS_GUI_SHOW_MESSAGE (drivers, engines): Tk shows it in the screen's title
+        self.bridge.showMessage.connect(self.show_info)
         self._startFinished.connect(self._start_finished)
         # The touch keypad's LEDs (zynthian_wsleds_v5)
         self.keypad_leds = KeypadLeds(self, self)

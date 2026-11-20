@@ -32,6 +32,8 @@ class SignalBridge(QObject):
     midiNoteOn = Signal(int, int, int, int)
     midiProgramChange = Signal(int, int, int)
     zs3Saved = Signal()
+    # A message for the user (SS_GUI_SHOW_MESSAGE: drivers, engines)
+    showMessage = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -55,6 +57,7 @@ class SignalBridge(QObject):
         self._register(zynsigman.S_MIDI, zynsigman.SS_MIDI_NOTE_ON, self._cb_midi_note_on)
         self._register(zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self._cb_midi_pc)
         self._register(zynsigman.S_STATE_MAN, zynsigman.SS_SAVE_ZS3, self._cb_zs3_saved)
+        self._register(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_MESSAGE, self._cb_show_message)
 
     def _register(self, signal, subsignal, callback):
         zynsigman.register(signal, subsignal, callback)
@@ -90,6 +93,9 @@ class SignalBridge(QObject):
 
     def _cb_zs3_saved(self, **kwargs):
         self.zs3Saved.emit()
+
+    def _cb_show_message(self, message="", **kwargs):
+        self.showMessage.emit(str(message))
 
     def _cb_snapshot(self, **kwargs):
         self.snapshotLoaded.emit()

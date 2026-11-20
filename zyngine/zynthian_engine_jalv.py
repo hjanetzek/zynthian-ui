@@ -31,7 +31,7 @@ import logging
 import traceback
 from time import sleep
 #from datetime import datetime
-from threading import Thread
+from threading import Thread, Timer
 from subprocess import Popen, check_output, STDOUT, PIPE
 
 import zynautoconnect
@@ -47,6 +47,10 @@ from zyngine.ctrlinfo import *
 # ------------------------------------------------------------------------------
 
 class zynthian_engine_jalv_base(zynthian_engine):
+
+    # Seconds jalv gets to load the plugin and show its prompt (generous: some plugins take
+    # several seconds to load on a Raspberry Pi)
+    proc_start_timeout = 60
 
     # ----------------------------------------------------------------------------
     # Initialization
@@ -116,6 +120,8 @@ class zynthian_engine_jalv_base(zynthian_engine):
 
         # Instance jalv host with the plugin URI
         output = self.start()
+        if not self.proc:
+            raise RuntimeError(f"Can't start jalv for plugin '{self.plugin_name}'")
         # Get Plugin & Jack names from Jalv starting text ...
         if output:
             for line in output.split("\n"):
@@ -145,13 +151,39 @@ class zynthian_engine_jalv_base(zynthian_engine):
                 # cwd when PWD has been set.
                 self.proc = Popen(self.command, env=self.command_env, cwd=self.command_cwd, shell=False,
                                   text=True, bufsize=1, stdout=PIPE, stderr=STDOUT, stdin=PIPE)
-                output = self.proc_get_output()
+                # Kill a jalv that doesn't show its prompt in time: its output ends and the start fails
+                watchdog = Timer(self.proc_start_timeout, self.proc_start_timed_out, args=(self.proc,))
+                watchdog.daemon = True
+                watchdog.start()
+                try:
+                    output = self.proc_get_output()
+                finally:
+                    watchdog.cancel()
                 self.start_proc_poll_thread()
                 return output
 
             except Exception as err:
-                logging.error(
-                    "Can't start engine {} => {}".format(self.name, err))
+                exit_code = self.proc_start_cleanup()
+                logging.error(f"Can't start engine {self.name} => {err}, exit code {exit_code}")
+
+    def proc_start_timed_out(self, proc):
+        logging.error(f"Jalv engine '{self.name}' didn't start in {self.proc_start_timeout} s. Killing it!")
+        proc.kill()
+
+    def proc_start_cleanup(self):
+        """Reap a jalv that failed to start, so no process or JACK client is left behind.
+        Returns jalv's exit code"""
+        exit_code = None
+        if self.proc:
+            self.proc_exit = True
+            try:
+                self.proc.kill()
+                self.proc.communicate(timeout=5)
+                exit_code = self.proc.returncode
+            except Exception as e:
+                logging.error(f"Can't reap jalv engine '{self.name}' => {e}")
+            self.proc = None
+        return exit_code
 
     def stop(self):
         if self.proc:
@@ -195,8 +227,15 @@ class zynthian_engine_jalv_base(zynthian_engine):
 
     def proc_get_output(self):
         res = ""
+        last_error = ""
         while not self.proc_exit:
-            line = self.proc.stdout.readline().strip()
+            line = self.proc.stdout.readline()
+            if not line:
+                # End of output before the prompt: jalv has ended (e.g. the plugin can't be loaded)
+                raise EOFError("jalv ended before its prompt" + (f" ({last_error})" if last_error else ""))
+            line = line.strip()
+            if line.startswith("error:"):
+                last_error = line
             if line == self.command_prompt:
                 break
             elif line:
@@ -861,6 +900,8 @@ class zynthian_engine_jalv(zynthian_engine_jalv_base):
 
             # Instance jalv host with the plugin URI
             output = self.start()
+            if not self.proc:
+                raise RuntimeError(f"Can't start jalv for plugin '{self.plugin_name}'")
             # Get Plugin & Jack names from Jalv starting text ...
             if output:
                 for line in output.split("\n"):

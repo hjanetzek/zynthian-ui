@@ -233,3 +233,18 @@ def test_snapshot_load_continues_after_a_jalv_that_exits_at_start(cm):
     assert 1 not in cm.processors
     assert [p.eng_code for p in cm.get_chain(1).get_processors()] == ["MI"]
     assert [p.eng_code for p in cm.get_chain(2).get_processors()] == ["MI"]
+
+
+# --- after the start -----------------------------------------------------------------------------------------
+def test_output_thread_ends_when_jalv_ends(jalv_mod, fake_popen, caplog):
+    fake_popen.lines = JALV_START
+    fake_popen.mode = "prompt"
+    engine = bare_engine(jalv_mod)
+    run_with_deadline(engine.start)
+    thread = engine.proc_poll_thread
+    assert thread.is_alive()
+    FakeJalv.instances[0].kill()  # jalv crashes: its output ends
+    thread.join(5)
+    assert not thread.is_alive(), "the output thread keeps reading the closed pipe"
+    assert "ended unexpectedly" in caplog.text
+    engine.proc_exit = True

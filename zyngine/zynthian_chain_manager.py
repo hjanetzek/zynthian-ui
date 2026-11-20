@@ -1157,8 +1157,12 @@ class zynthian_chain_manager:
 
         engine = self.start_engine(processor, eng_code, eng_config)
         if not engine:
-            # Failed!! => Remove processor from list
+            # Failed!! => Remove processor from chain and list
+            if chain_id is not None:
+                chain.remove_processor(processor)
             del self.processors[proc_id]
+            self.state_manager.set_busy_error(f"Can't start {processor.name}")
+            sleep(2)
             self.state_manager.end_busy("add_processor")
             return None
 
@@ -1564,15 +1568,19 @@ class zynthian_chain_manager:
             # Start new engine instance
             info = self.engine_info[eng_code]
             zynthian_engine_class = info["ENGINE"]
-            if eng_code[0:3] == "JV/":
-                eng_key = f"JV/{self.zyngine_counter}"
-                zyngine = zynthian_engine_class(eng_code, self.state_manager, False)
-            elif eng_code in ("SF", "PD"):
-                eng_key = f"{eng_code}/{self.zyngine_counter}"
-                zyngine = zynthian_engine_class(self.state_manager)
-            else:
-                eng_key = eng_code
-                zyngine = zynthian_engine_class(self.state_manager)
+            try:
+                if eng_code[0:3] == "JV/":
+                    eng_key = f"JV/{self.zyngine_counter}"
+                    zyngine = zynthian_engine_class(eng_code, self.state_manager, False)
+                elif eng_code in ("SF", "PD"):
+                    eng_key = f"{eng_code}/{self.zyngine_counter}"
+                    zyngine = zynthian_engine_class(self.state_manager)
+                else:
+                    eng_key = eng_code
+                    zyngine = zynthian_engine_class(self.state_manager)
+            except Exception as e:
+                logging.error(f"Can't start engine '{eng_code}' => {e}")
+                return None
 
             self.zyngines[eng_key] = zyngine
             self.zyngine_counter += 1

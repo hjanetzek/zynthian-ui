@@ -56,6 +56,16 @@ QML_SCREENS = ("mixer", "launcher", "pattern_editor", "chain_manager", "chain_co
                "midi_key_range", "control_xy")
 
 
+def zynpot_params(params):
+    """ZYNPOT's encoder and delta as ints (zynthian_gui.cuia_zynpot), from numbers or strings
+    (CUIA strings, OSC: "1" or "1.0"), or None (logged) if they are missing or not numbers"""
+    try:
+        return int(float(params[0])), int(float(params[1]))
+    except (TypeError, ValueError, IndexError):
+        logging.error(f"ZYNPOT requires 2 parameters: index, delta, not {params}")
+        return None
+
+
 class ZynUI(QObject):
     currentScreenChanged = Signal()
     statusChanged = Signal()
@@ -1112,9 +1122,12 @@ class ZynUI(QObject):
             # As zynthian_gui's CUIA thread: user activity (wakes the screen from power save)
             if str(cuia).lower() != "power_save":
                 self.state_manager.set_event_flag()
-            if cuia.lower() == "zynpot" and len(params) >= 2:
+            if cuia.lower() == "zynpot":
                 # ZYNPOT i,d (as zynthian_gui: from key bindings with P / R: repeat while held)
-                i, d = int(params[0]), int(params[1])
+                pot = zynpot_params(params)
+                if pot is None:
+                    continue    # logged; bad parameters must not end this thread
+                i, d = pot
                 t = str(params[2]).upper() if len(params) > 2 else ""
                 if t == "R":
                     pot_repeating.pop(i, None)
@@ -1164,20 +1177,50 @@ class ZynUI(QObject):
                 continue
             self._cuiaRequested.emit(str(cuia), params)
 
+    def cuia_zynpot(self, params=None):
+        """ZYNPOT i,d run directly (zynthian_gui.cuia_zynpot): the CUIAs that don't come through
+        cuia_queue (custom switch actions, QML, callable_ui_action); the queue's take the
+        _zynpot path (key repeat)"""
+        pot = zynpot_params(params)
+        if pot is not None:
+            self.cuia__zynpot(list(pot))
+
     def cuia__zynpot(self, params):
-        """Encoder i turned by d (key bindings; the Qt UI has no encoder input yet): the current
-        screen's zynpot(i, d) if it has one; chain control turns its controllers (knob i slot i,
-        as Tk), elsewhere the select encoder moves the selection"""
+        """Encoder i turned by d (the kit's encoders, ZYNPOT): the current screen's zynpot(i, d)
+        if it has one; chain control turns its controllers (knob i slot i, as Tk), elsewhere the
+        select encoder moves the selection. A dialog shown takes the encoders instead (Tk: they
+        are screens of their own)"""
         i, d = int(params[0]), int(params[1])
+        if self._overlay_shown():
+            self._overlay_zynpot(i, d)
+            return
         screen = self._screen_obj()
         func = getattr(screen, "zynpot", None)
-        if not self._overlay_shown() and callable(func) and func(i, d):
+        if callable(func) and func(i, d):
             return
         if i == zynthian_gui_config.select_ctrl:
             if self.current_screen in self.list_screens and screen is not None:
                 screen.move(d)
             else:
                 self._navigate("down" if d > 0 else "up")
+
+    def _overlay_zynpot(self, i, d):
+        """The encoders while a dialog is shown: the value editor's value (Tk's param editor,
+        zynthian_gui_base.zynpot_cb: the layout's ctrl_order[3] by one step, ctrl_order[2] by
+        ten), the help scrolled (zynthian_gui_help.zynpot_cb), the select knob moves a chain or
+        processor being moved; the confirm dialog and the keyboard take none (as Tk's)"""
+        if self._help_html:
+            if i == zynthian_gui_config.select_ctrl and d:
+                self.helpScroll.emit(1 if d > 0 else -1)    # by most of a page (Tk: by lines)
+        elif self._moving_chain or self._moving_processor is not None:
+            if i == zynthian_gui_config.select_ctrl:
+                self._navigate("down" if d > 0 else "up")
+        elif self._value_editor:
+            order = zynthian_gui_config.layout.get("ctrl_order", (0, 1, 2, 3))
+            if i == order[3]:
+                self.valueEditorStep(d)
+            elif i == order[2]:
+                self.valueEditorStep(10 * d)
 
     def setup_zynpots(self, screen=None):
         """The kit's encoder behaviour (acceleration) for the screen shown, as the Tk screens set

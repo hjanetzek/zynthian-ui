@@ -131,6 +131,45 @@ def run_with_deadline(fn, seconds=10):
     return result.get("value")
 
 
+# --- jalv engine start ---------------------------------------------------------------------------------------
+def test_start_returns_when_jalv_exits_at_start(jalv_mod, fake_popen, caplog):
+    engine = bare_engine(jalv_mod)
+    assert run_with_deadline(engine.start) is None
+    assert engine.proc is None
+    assert engine.proc_poll_thread is None
+    proc = FakeJalv.instances[0]
+    assert proc.reaped
+    assert "Failed to instantiate plugin" in caplog.text
+    assert "exit code 1" in caplog.text
+
+
+def test_start_kills_a_jalv_that_never_shows_its_prompt(jalv_mod, fake_popen, monkeypatch, caplog):
+    fake_popen.mode = "hang"
+    monkeypatch.setattr(jalv_mod.zynthian_engine_jalv_base, "proc_start_timeout", 0.3)
+    engine = bare_engine(jalv_mod)
+    t0 = time.monotonic()
+    assert run_with_deadline(engine.start) is None
+    assert time.monotonic() - t0 < 5
+    proc = FakeJalv.instances[0]
+    assert proc.killed and proc.reaped
+    assert engine.proc is None
+    assert "didn't start in 0.3 s" in caplog.text
+
+
+def test_start_succeeds_when_jalv_shows_its_prompt(jalv_mod, fake_popen):
+    fake_popen.lines = JALV_START
+    fake_popen.mode = "prompt"
+    engine = bare_engine(jalv_mod)
+    output = run_with_deadline(engine.start)
+    try:
+        assert "JACK Name:" in output
+        assert engine.proc is FakeJalv.instances[0]
+        assert not engine.proc.killed
+    finally:
+        engine.proc_exit = True
+        FakeJalv.instances[0].kill()
+
+
 # --- chain manager -------------------------------------------------------------------------------------------
 @pytest.fixture
 def cm(state_manager, monkeypatch, jalv_mod, fake_popen):
@@ -151,6 +190,27 @@ def cm(state_manager, monkeypatch, jalv_mod, fake_popen):
     return cm
 
 
+def test_add_processor_fails_cleanly_when_jalv_exits_at_start(cm, fake_popen):
+    sm = cm.state_manager
+    errors = []
+    real_set_busy_error = sm.set_busy_error
+    sm.set_busy_error = lambda msg, details=None: (errors.append(msg), real_set_busy_error(msg, details))
+    try:
+        assert cm.add_chain(1, midi_chan=0) == 1
+        processor = run_with_deadline(lambda: cm.add_processor(1, "JV/Broken"))
+    finally:
+        del sm.set_busy_error
+    assert processor is None
+    assert fake_popen.commands, "jalv wasn't started"
+    assert not sm.is_busy(), f"still busy: {sm.busy}"
+    chain = cm.get_chain(1)
+    assert chain.get_processors() == []
+    assert all(p.eng_code != "JV/Broken" for p in cm.processors.values())
+    assert not any(k.startswith("JV/") for k in cm.zyngines)
+    assert errors == ["Can't start Broken"]
+    assert all(p.reaped for p in FakeJalv.instances)
+
+
 def test_any_engine_constructor_failure_ends_the_busy_state(cm, monkeypatch):
     class BrokenEngine:
         def __init__(self, *args):
@@ -161,3 +221,15 @@ def test_any_engine_constructor_failure_ends_the_busy_state(cm, monkeypatch):
     assert run_with_deadline(lambda: cm.add_processor(1, "XB")) is None
     assert not cm.state_manager.is_busy()
     assert cm.get_chain(1).get_processors() == []
+
+
+def test_snapshot_load_continues_after_a_jalv_that_exits_at_start(cm):
+    state = {
+        1: {"midi_chan": 0, "slots": [{"1": "JV/Broken"}, {"2": "MI"}]},
+        2: {"midi_chan": 1, "slots": [{"3": "MI"}]},
+    }
+    run_with_deadline(lambda: cm.set_state(state, {}))
+    assert not cm.state_manager.is_busy(), f"still busy: {cm.state_manager.busy}"
+    assert 1 not in cm.processors
+    assert [p.eng_code for p in cm.get_chain(1).get_processors()] == ["MI"]
+    assert [p.eng_code for p in cm.get_chain(2).get_processors()] == ["MI"]

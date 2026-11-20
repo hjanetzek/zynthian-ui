@@ -3,7 +3,8 @@ qt_screen_name):
 
 - every screen change sends SS_GUI_SHOW_SCREEN with the Tk name, once the screen is current, from
   the GUI thread also when the change was asked for in another thread;
-- Tk names (control, root, zynpad, pated, ...) open the Qt screens."""
+- Tk names (control, root, zynpad, pated, ...) open the Qt screens;
+- zyngui.screens for drivers: stand-ins of the Tk screens they use (zynqt.tk_screens)."""
 
 import threading
 from types import SimpleNamespace
@@ -137,3 +138,41 @@ def test_name_map_covers_both_uis():
     # Tk aliases point at Qt screens; Tk-only names aren't Qt screens
     assert set(screen_names.TK_TO_QT.values()) <= qt_screens
     assert not set(screen_names.TK_ONLY) & qt_screens
+
+
+# zyngui.screens for drivers (zynqt.tk_screens)
+
+def shim_ui(gui=None):
+    calls = []
+    rec = lambda name: (lambda *a: calls.append((name, threading.get_ident())))   # noqa: E731
+    ui = SimpleNamespace(current_screen="mixer", calls=calls, _gui=gui or GuiCaller(),
+                         launcher=SimpleNamespace(edit_pad=rec("edit_pad"),
+                                                  padsChanged=SimpleNamespace(emit=rec("padsChanged"))),
+                         pattern_editor=SimpleNamespace(undo=rec("undo"), redo=rec("redo"), cursor=[3, 60],
+                                                        pattern=7, _shown=False))
+    ui.show_screen = lambda name: calls.append((f"show {name}", threading.get_ident()))
+    return ui
+
+
+def test_tk_screens_shims(app):
+    from zynqt.tk_screens import TkScreens
+    ui = shim_ui()
+    screens = TkScreens(ui)
+    assert screens["mixer"].launcher_mode is False
+    ui.current_screen = "launcher"
+    assert screens["launcher"].launcher_mode is True
+    assert screens["pattern_editor"].selected_cell == [3, 60]
+    assert screens["pattern_editor"].pattern == 7
+    screens["arranger"].select_cell(1, 2)   # ignored (disabled in base_ui)
+    with pytest.raises(KeyError):
+        screens["zynpad"]
+    # Actions from a driver's MIDI thread run in the GUI thread
+    in_thread(lambda: (screens["mixer"].edit_pad(), screens["pattern_editor"].undo_pattern(),
+                       screens["pattern_editor"].redo_pattern(), screens["launcher"].refresh_launchers()))
+    assert wait_for(app, lambda: len(ui.calls) == 4)
+    main = threading.get_ident()
+    posted = [(c, t) for c, t in ui.calls if c != "padsChanged"]   # a signal: emitted from any thread
+    assert [c for c, _ in posted] == ["edit_pad", "undo", "redo"]
+    assert all(t == main for _, t in posted)
+    screens["launcher"].set_launcher_mode(False)
+    assert ui.calls[-1][0] == "show mixer"

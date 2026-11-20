@@ -26,6 +26,7 @@ from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_help, 
 
 from zynqt.bridge import SignalBridge
 from zynqt.gui_thread import GuiCaller, gui_thread
+from zynqt.screen_names import qt_name, tk_name
 from zynqt.power import battery_status
 from zynqt.keyboard import load_bindings
 from zynqt.chain_edit import ChainEdit
@@ -99,6 +100,10 @@ class ZynUI(QObject):
         # What the engine side expects of zynthian_gui
         self.screens = {}  # Tk screen objects: none here (used by some controller drivers)
         self.current_screen = "mixer"
+        # The root screen shown last (Tk's "root": the mixer in its mode)
+        self._last_root = "mixer"
+        # The screen announced with SS_GUI_SHOW_SCREEN (its Tk name)
+        self._sent_screen = None
         self.screen_history = []
         self.current_processor = None
         self.wsleds = None
@@ -225,6 +230,8 @@ class ZynUI(QObject):
     def _start_finished(self, snapshot_loaded):
         self._started = True
         self.startedChanged.emit()
+        # The start screen, for the drivers (Tk announces its first screen too)
+        self.notify_screen()
         # As zynthian_gui (create_screens, cb_set_active_chain): the custom switches' MIDI events,
         # Zynaptik and Zyntof, for the active chain's channel. Kit builds only: the generic
         # zyncore has no setup_zynswitch_midi
@@ -478,14 +485,44 @@ class ZynUI(QObject):
         if screen:
             screen.build()
         self.switch_build_ms = 1000 * (monotonic() - self.switch_t0)
+        if name in ("mixer", "launcher"):
+            self._last_root = name
         if name != self.current_screen:
             self.current_screen = name
             self.currentScreenChanged.emit()
         self.setup_zynpots()
+        self.notify_screen()
+
+    def notify_screen(self):
+        """Announce the screen shown under its Tk name (zynqt.screen_names), as
+        zynthian_gui.show_screen: SS_GUI_SHOW_SCREEN with screen=name, sent directly from the GUI
+        thread once the screen is current, only when the name changed. Controller drivers change
+        their buttons and LEDs by it; the pattern editor calls this when it switches to CCs
+        (Tk's pated_cc)."""
+        name = self.get_current_screen()
+        if name != self._sent_screen:
+            self._sent_screen = name
+            zynsigman.send(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SCREEN, screen=name)
+
+    def qt_screen_name(self, name):
+        """The Qt screen for name, a Qt or Tk screen name (zynqt.screen_names); None: the
+        current screen (zynthian_gui.show_screen)"""
+        if name is None:
+            return self.current_screen
+        special = None
+        if name == "control":
+            sm = self.state_manager
+            proc = self.current_processor
+            for screen, sproc in (("tempo", sm.tempo_processor), ("alsa_mixer", sm.alsa_mixer_processor),
+                                  ("audio_player", sm.audio_player)):
+                if proc is not None and proc is sproc:
+                    special = screen
+        return qt_name(name, self._last_root, special)
 
     @gui_thread
     def show_screen(self, name, history=True, params=None):
-        """Show screen name; from any thread"""
+        """Show screen name (a Qt or Tk name); from any thread"""
+        name = self.qt_screen_name(name)
         if name not in QML_SCREENS and name not in self.list_screens:
             logging.warning(f"Qt UI has no screen '{name}' (yet)")
             self.show_info(f"'{name}' is not in the Qt UI yet.")
@@ -511,6 +548,7 @@ class ZynUI(QObject):
 
     @gui_thread
     def purge_history(self, name):
+        name = self.qt_screen_name(name)
         self.screen_history = [n for n in self.screen_history if n != name]
 
     # Moving the active chain in the mixer (zynthian_gui_chain_manager's move mode)
@@ -993,7 +1031,9 @@ class ZynUI(QObject):
             self.show_screen(screen)
 
     def get_current_screen(self):
-        return self.current_screen
+        """The current screen's Tk name (zynqt.screen_names): for drivers and shared code"""
+        return tk_name(self.current_screen, self.current_screen == "pattern_editor"
+                       and bool(getattr(self.pattern_editor, "cc_mode", False)))
 
     def get_alt_mode(self):
         return self.alt_mode
@@ -1406,7 +1446,7 @@ class ZynUI(QObject):
         """As zynthian_gui: the screen with a new history ("root": the mixer)"""
         if params:
             name = str(params[0])
-            self.show_screen_reset("mixer" if name == "root" else name)
+            self.show_screen_reset(name)   # Tk names too ("root": the last root screen)
 
     def cuia_screen_admin(self, params=None):
         self.show_screen("admin")

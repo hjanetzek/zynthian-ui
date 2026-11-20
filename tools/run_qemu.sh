@@ -31,6 +31,9 @@
 #               write access to its /dev/bus/usb node (a udev rule, or run as root)
 #   -p PORT     host port for the VM's SSH (default 2222, or the next free one: ssh -p PORT user@localhost)
 #   -w PORT     host port for the VM's webconf (default 8080, or the next free one: http://localhost:PORT)
+#   -S PORT     host port for the UI's websocket (8370 in the VM; default 8370, or the next free one:
+#               ws://localhost:PORT, e.g. the zynthian-operator skill's zynctl.py --host localhost --port
+#               PORT). The image's sshd doesn't allow port forwarding (ssh -L)
 #   -d DIR      cache directory (default ~/.cache/nura-builds)
 #   -L MAC      a second NIC on a VM-to-VM LAN (no root needed): QEMU's socket multicast netdev,
 #               shared by every VM started with -L on this machine (and the same group). MAC must be
@@ -46,8 +49,8 @@ usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0
 
 url=https://github.com/hjanetzek/nura-builds/releases/download/zynthian-latest/zynthian-qemu-amd64.img.zst
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/nura-builds
-update=0 reset=0 size=8G mem=4G cpus= res=1280x800 display=gtk gl=on audio=virtio usb= ssh_port= web_port= lan_mac=
-while getopts urs:m:c:R:D:nA:U:p:w:d:L:h opt; do
+update=0 reset=0 size=8G mem=4G cpus= res=1280x800 display=gtk gl=on audio=virtio usb= ssh_port= web_port= ws_port= lan_mac=
+while getopts urs:m:c:R:D:nA:U:p:w:S:d:L:h opt; do
 	case $opt in
 		u) update=1 ;;
 		r) reset=1 ;;
@@ -61,6 +64,7 @@ while getopts urs:m:c:R:D:nA:U:p:w:d:L:h opt; do
 		U) usb="$usb $OPTARG" ;;
 		p) ssh_port=$OPTARG ;;
 		w) web_port=$OPTARG ;;
+		S) ws_port=$OPTARG ;;
 		d) cache=$OPTARG ;;
 		L) lan_mac=$OPTARG ;;
 		h) usage ;;
@@ -180,12 +184,13 @@ free_port() {
 [ -n "$ssh_port" ] || ssh_port=$(free_port 2222)
 [ -n "$web_port" ] || web_port=$(free_port 8080)
 [ "$web_port" != "$ssh_port" ] || web_port=$(free_port $((web_port + 1)))
+[ -n "$ws_port" ] || ws_port=$(free_port 8370)
 
 set -- -nodefaults -machine q35 -smp "$cpus" -m "$mem" \
 	-drive "if=pflash,format=raw,readonly=on,file=$ovmf" \
 	-drive "file=$disk,format=raw,if=none,id=disk" -device virtio-blk-pci,drive=disk,bootindex=0 \
 	-device virtio-tablet-pci -device virtio-keyboard-pci \
-	-netdev "user,id=net,hostfwd=tcp:127.0.0.1:$ssh_port-:22,hostfwd=tcp:127.0.0.1:$web_port-:8080" \
+	-netdev "user,id=net,hostfwd=tcp:127.0.0.1:$ssh_port-:22,hostfwd=tcp:127.0.0.1:$web_port-:8080,hostfwd=tcp:127.0.0.1:$ws_port-:8370" \
 	-device virtio-net-pci,netdev=net,romfile= \
 	-fw_cfg name=opt/org.tianocore/IPv4PXESupport,string=n \
 	-fw_cfg name=opt/org.tianocore/IPv6PXESupport,string=n
@@ -260,6 +265,7 @@ echo "disk:    $disk"
 echo "screen:  ${xres}x${yres}"
 echo "ssh:     ssh -p $ssh_port <user>@localhost"
 echo "webconf: http://localhost:$web_port"
+echo "ws:      ws://localhost:$ws_port"
 echo "opengl:  $gl"
 [ -z "$lan_mac" ] || echo "lan:     $lan_mac on ${NURA_QEMU_LAN:-230.0.0.1:12345}"
 if [ -n "$serial_log" ]; then

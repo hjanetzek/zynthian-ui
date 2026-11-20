@@ -143,6 +143,14 @@ tools/switch_ui.sh -V tomita    # upstream zynthian-ui (Tk) instead of the Qt UI
 - zynthian's state and config in the VM: `~user/.config/zynthian`,
   `~user/.local/share/zynthian/my-data`; logs with `journalctl -b` in the VM.
 - webconf: `http://localhost:8092` (your `-w` port), login user `user`, password `147147`.
+- The UI's websocket (port 8370 in the VM: CUIAs in, `screen_state` and the other feedback out):
+  `ws://localhost:8370` or the next free port (`-S PORT`; run_qemu.sh prints it), e.g. for the
+  zynthian-operator skill: `zynctl.py --host localhost --port PORT state`. The image's sshd doesn't
+  allow `ssh -L`; a VM started before the forward existed (2026-11-20) needs a restart for it, or a
+  bridge over SSH: `socat TCP-LISTEN:PORT,bind=127.0.0.1,reuseaddr,fork EXEC:"ssh -p SSHPORT
+  user@127.0.0.1 nc 127.0.0.1 8370"`. The Qt UI needs the `websocket_server` module (pip
+  websocket-server; not packaged for Nura yet: without it the UI logs an error and runs without
+  websocket).
 
 ## A second VM from the same disk
 
@@ -181,8 +189,8 @@ tools/qemu_compare.sh stop
 ```
 
 - Directories `~/.cache/nura-builds-compare-qt` and `-tk` (`-d BASE`), SSH ports 2242 (Qt) and 2243
-  (Tk), webconf 8100 and 8101 (`-p PORT` moves both): its own VMs, not the user's or another
-  agent's. The other tools reach them with `-V` and `NURA_VM_PORT=2242` / `2243`.
+  (Tk), webconf 8100 and 8101, websocket 8390 and 8391 (`-p PORT` moves them): its own VMs, not the
+  user's or another agent's. The other tools reach them with `-V` and `NURA_VM_PORT=2242` / `2243`.
 - A new disk (first start, `-r`) links the user's downloaded image (`-i` for another), and is set up
   once: SSH key and sudo (`qemu_setup.sh`), nura-builds' package repository (the image has none),
   `apk upgrade`, grim and font-dejavu, and

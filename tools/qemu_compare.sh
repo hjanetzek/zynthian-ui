@@ -25,6 +25,8 @@ Usage: qemu_compare.sh [options] [start | stop | status | shot [DIR] | ssh qt|tk
   -p PORT     SSH ports PORT (Qt) and PORT+1 (Tk), webconf 8080 + the same offset
               (default 2242: 2242/2243, webconf 8100/8101)
   -W PORT     webconf ports PORT (Qt) and PORT+1 (Tk), when the default ones are taken
+              The UI websocket (8370 in the VMs) is forwarded to 8370 + the SSH port - 2222
+              (default 8390/8391): ws://localhost:PORT, e.g. for the zynthian-operator skill
   -m MEM      memory per VM (default 3G)
   -l          a LAN between the two VMs (run_qemu.sh -L: QEMU socket multicast, no root), static
               addresses 192.168.77.1 (Qt VM) and 192.168.77.2 (Tk VM) on its NIC (NetworkManager
@@ -68,6 +70,7 @@ vm_port() { if [ "$1" = qt ]; then echo "$port"; else echo $((port + 1)); fi; }
 vm_web() {
 	if [ -n "$web" ]; then echo $((web + $(vm_port "$1") - port)); else echo $((8080 + $(vm_port "$1") - 2222)); fi
 }
+vm_ws() { echo $((8370 + $(vm_port "$1") - 2222)); }
 # The LAN (-l): MAC and address per VM
 vm_lan_n() { if [ "$1" = qt ]; then echo 1; else echo 2; fi; }
 vm_lan_mac() { echo "52:54:00:77:00:0$(vm_lan_n "$1")"; }
@@ -94,7 +97,7 @@ start_vm() {
 	if [ ! -e "$dir/zynthian-qemu-amd64.img.zst" ] && [ -f "$image" ]; then
 		ln -sf "$image" "$dir/zynthian-qemu-amd64.img.zst"
 	fi
-	set -- -d "$dir" -R "$res" -m "$mem" -p "$(vm_port "$v")" -w "$(vm_web "$v")"
+	set -- -d "$dir" -R "$res" -m "$mem" -p "$(vm_port "$v")" -w "$(vm_web "$v")" -S "$(vm_ws "$v")"
 	[ $reset = 0 ] || set -- "$@" -r
 	[ $lan = 0 ] || set -- "$@" -L "$(vm_lan_mac "$v")"
 	if [ $gui = 1 ]; then
@@ -102,7 +105,7 @@ start_vm() {
 	else
 		set -- "$@" -D none -A silent
 	fi
-	echo "$v: starting (SSH $(vm_port "$v"), webconf $(vm_web "$v"), log $dir/run.log)"
+	echo "$v: starting (SSH $(vm_port "$v"), webconf $(vm_web "$v"), websocket $(vm_ws "$v"), log $dir/run.log)"
 	setsid "$here/run_qemu.sh" "$@" < /dev/null > "$dir/run.log" 2>&1 &
 	# the next VM uses the image this one may be downloading: wait until its disk exists
 	i=0
@@ -225,7 +228,7 @@ case $cmd in
 				continue
 			fi
 			ui=$(vm_ssh "$v" "apk info -v 2>/dev/null | grep -E '^zynthian-ui(-vangelis|-tomita)?-[0-9]'; grep -h '^ZYNTHIAN_UI=' /etc/default/zynthian 2>/dev/null" 2>/dev/null | tr '\n' ' ') || true
-			echo "$v: PID $pid, SSH $(vm_port "$v"), webconf $(vm_web "$v"), ${ui:-no SSH yet}"
+			echo "$v: PID $pid, SSH $(vm_port "$v"), webconf $(vm_web "$v"), websocket $(vm_ws "$v"), ${ui:-no SSH yet}"
 		done
 		;;
 	shot)

@@ -1,7 +1,7 @@
 """The lilv world of zynthian_lv2 is built on first use, not at import: importing reads only the engine list.
 Built once, also when several threads (a snapshot's parallel engine starts) ask at the same time.
 
-Needs the real lilv binding: skipped where tests/bootstrap.py had to stub it.
+Needs the real lilv binding (the TTL parsing test also rdflib): skipped where tests/bootstrap.py had to stub it.
 """
 
 import json
@@ -180,7 +180,10 @@ def test_change_check_doesnt_wait_for_a_load(lv2):
 
 
 def test_ttl_info_imports_rdflib_when_needed(lv2):
-    pytest.importorskip("rdflib")
+    # not importorskip: where rdflib isn't installed (upstream's CI), tests/bootstrap.py put a stub in its place
+    from tests.bootstrap import STUBBED_MODULES
+    if "rdflib" in STUBBED_MODULES:
+        pytest.skip("needs rdflib (stubbed here)")
     info = lv2.z.get_info_from_ttl(str(lv2.tmp / "system" / "lazy.lv2"))
     assert info["urn:zyntest:lazy"]["name"] == "Lazy"
     assert lv2.builds == []

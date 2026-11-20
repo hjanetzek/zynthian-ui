@@ -3,9 +3,12 @@
 It is set as zynthian_gui_config.zyngui, owns the state manager and runs the start-up and
 shutdown sequences. CUIAs come in through the state manager's cuia_queue (MIDI, keyboard
 bindings) and OSC (port 1370, /cuia/<name>); a thread reads the queue and hands each CUIA to the
-GUI thread, where it is dispatched to a cuia_<name>() method.
+GUI thread, where it is dispatched to a cuia_<name>() method. The websocket API (port 8370:
+CUIAs, keys, MIDI in; LED, screen, DPM and chain feedback out) is upstream's, shared with the Tk
+UI (zyngui.zynthian_websocket); zynqt.ws_state reports the Qt screens as Tk's.
 """
 
+import functools
 import logging
 import os
 from queue import Empty
@@ -23,6 +26,7 @@ from zyngine import zynthian_lv2
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_state_manager import zynthian_state_manager
 from zyngui import zynthian_gui_config, zynthian_admin_settings, zynthian_help, zynthian_power_control, zynthian_wiring
+from zyngui.zynthian_websocket import zynthian_websocket_feedback
 
 from zynqt.bridge import SignalBridge
 from zynqt.gui_thread import GuiCaller, gui_thread
@@ -49,6 +53,8 @@ from zynqt.screens.admin import Admin
 from zynqt.screens.midi_recorder import MidiRecorder
 from zynqt.screens.midi_chain import KeyRangeProcessor, MidiCC
 from zynqt.screens.mixer_nav import MixerNav
+from zynqt.ws_state import ScreenStateWatch, current_state
+from zynqt.ws_keys import WebsocketKeys
 
 # Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
 # alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
@@ -66,7 +72,22 @@ def zynpot_params(params):
         return None
 
 
-class ZynUI(QObject):
+def ws_cuia_args_ok(cuia, args):
+    """ZYNPOT index,delta[,P|R] and ZYNSWITCH index,action[,µs]: as _cuia_task parses them"""
+    name = str(cuia).lower()
+    try:
+        if name == "zynpot" and len(args) >= 2:
+            int(args[0]), int(args[1])
+        elif name == "zynswitch" and len(args) >= 2:
+            int(args[0])
+            if len(args) > 2 and str(args[1]).upper() == "R":
+                int(args[2])
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+class ZynUI(QObject, zynthian_websocket_feedback):
     currentScreenChanged = Signal()
     statusChanged = Signal()
     busyChanged = Signal()
@@ -198,6 +219,10 @@ class ZynUI(QObject):
                                 self._has_switch_ui_action, self._zynpotPending.emit,
                                 self.state_manager.set_event_flag)
         self._zynpotPending.connect(self._take_zynpots)
+        # The websocket API (zyngui.zynthian_websocket): started with start()
+        self.websocket_setup()
+        self._ws_watch = ScreenStateWatch(self, self.cb_screen_state_full)
+        self._ws_keys = WebsocketKeys(self)
 
     # --------------------------------------------------------------------------
     # Start and exit
@@ -205,6 +230,7 @@ class ZynUI(QObject):
 
     def start(self):
         self._start_osc()
+        self.websocket_init()
         self._cuia_thread = Thread(target=self._cuia_task, name="cuia", daemon=True)
         self._cuia_thread.start()
         if self.hw_input.enabled:
@@ -301,6 +327,7 @@ class ZynUI(QObject):
         if self._osc_server:
             self._osc_server.stop()
             self._osc_server = None
+        self.websocket_stop()
         zynsigman.stop()
         try:
             self.state_manager.stop()
@@ -1484,6 +1511,43 @@ class ZynUI(QObject):
         self.cuia_queue.put_nowait((parts[2], args, src))
         zynautoconnect.request_audio_connect()
         zynautoconnect.request_midi_connect()
+
+    # Toolkit interface of the websocket API (zyngui.zynthian_websocket)
+
+    def websocket_run_idle(self, fn, *args):
+        self._gui.post(functools.partial(fn, *args))
+
+    def websocket_run_later(self, ms, fn, *args):
+        call = functools.partial(fn, *args)
+        self._gui.run(lambda: QTimer.singleShot(ms, self, call))
+
+    def websocket_key_event(self, action, code):
+        self._gui.run(lambda: self._ws_keys.event(action, code))
+
+    def websocket_cuia(self, cuia, args, src):
+        """Into the CUIA queue (the CUIA thread, then the GUI thread), as OSC; ZYNPOT / ZYNSWITCH
+        with arguments the CUIA thread can't parse are dropped: its int() conversions would end
+        the thread"""
+        args = list(args) if isinstance(args, (list, tuple)) else ([] if args is None else [args])
+        if not ws_cuia_args_ok(cuia, args):
+            logging.warning(f"websocket {src}: bad arguments for CUIA {cuia}: {args}")
+            return
+        self.cuia_queue.put_nowait((str(cuia), args, src))
+
+    def websocket_wsleds(self):
+        return self.keypad_leds
+
+    def screen_state_current(self):
+        return current_state(self)
+
+    def get_screen_title(self, view):
+        return view.title() if view is not None else ""
+
+    def screen_state_watch(self, on):
+        if on:
+            self._ws_watch.start()
+        else:
+            self._ws_watch.stop()
 
     # CUIA implementations (the subset the Qt UI has so far)
 

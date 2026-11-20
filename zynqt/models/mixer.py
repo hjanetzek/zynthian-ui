@@ -353,8 +353,11 @@ class MixerMeters(QObject):
             return
         self._active = active
         sm = self.state_manager
+        # Kept enabled while websocket "dpm_state" subscribers need it (as zynthian_gui_mixer.hide)
+        ui = getattr(zynthian_gui_config, "zyngui", None)
+        keep = not active and getattr(ui, "websocket_has_subscribers", lambda s: False)("dpm_state")
         for mixer in (sm.zynmixer_chan, sm.zynmixer_bus):
-            if mixer:
+            if mixer and not keep:
                 mixer.enable_dpm(active)
         if active:
             self._timer.start()

@@ -148,6 +148,13 @@ class KeypadLeds(QObject):
         self._alt = [False] * 20
         self._lit = [False] * 20
         self._fn = [""] * 20
+        # The websocket's "wsled_state" (zynthian_wsleds_base.update): the LED colours by LED
+        # index as letters, while websocket clients are connected
+        self.wscolors_dict = {str(self.wscolor_off): "0", str(self.wscolor_blue): "B", str(self.wscolor_green): "G",
+                              str(self.wscolor_red): "R", str(self.wscolor_orange): "O",
+                              str(self.wscolor_yellow): "Y", str(self.wscolor_purple): "P"}
+        self.last_wsled_state = ""
+        self.wsled_state_changed = False
         self._timer = QTimer(self, interval=100)
         self._timer.timeout.connect(self._update)
         self._timer.start()
@@ -220,6 +227,11 @@ class KeypadLeds(QObject):
             colors[LED2BUTTON[i]] = c
             alts[LED2BUTTON[i]] = c == self.wscolor_alt
             lit[LED2BUTTON[i]] = c not in (self.wscolor_default, self.wscolor_off)
+        if getattr(ui, "websocket_clients", None):
+            state = ",".join(self.wscolors_dict.get(str(c), "0") for c in w)
+            if state != self.last_wsled_state:
+                self.last_wsled_state = state
+                self.wsled_state_changed = True
         fn = self._function_labels(screen, cur, alt)
         if colors != self._colors or alts != self._alt or fn != self._fn:
             self._colors = colors

@@ -20,13 +20,28 @@ def keys():
     return k
 
 
+def layout(name):
+    """zynthian_gui_config.check_wiring_layout for wiring layout name (it compares the start)"""
+    return lambda names: any(name.startswith(n) for n in names)
+
+
 def test_kit_switches():
-    def layout(name):
-        return lambda names: name in names
     assert od.kit_switches(layout("V5")) == (19, 23, 12, 13)
-    assert od.kit_switches(layout("Z2")) == (15, 16, 13, 14)
-    assert od.kit_switches(layout("MCP23017_ZYN")) == (5, 4, None, None)
-    assert od.kit_switches(layout("DUMMIES")) == (None, None, None, None)
+    assert od.kit_switches(layout("V5_ZYNFACE")) == (19, 23, 12, 13)
+    assert od.kit_switches(layout("Z2_V3")) == (15, 16, 13, 14)
+    assert od.kit_switches(layout("TOUCH_ONLY")) == (None, None, None, None)
+
+
+@pytest.mark.parametrize("name", ["MCP23017_ZynScreen", "MCP23017_ZynScreen_Zynaptik", "MCP23017_Zynaptik-3"])
+def test_kit_switches_v4_kits_s3_s4(name):
+    # V4-type kits: S3 select mode, S4 AUX (switches 6, 7), no LEDs
+    assert od.kit_switches(layout(name)) == (6, 7, None, None)
+
+
+@pytest.mark.parametrize("name", ["TOUCH_ONLY", "MCP23017_ZynScreen", "Z2_V3"])
+def test_kit_switches_touch_keypad_v5_numbers(name):
+    # The touch keypad sends the V5 numbers on any layout (zynthian_gui_config remaps the wiring)
+    assert od.kit_switches(layout(name), "v5_keypad_left") == (19, 23, 12, 13)
 
 
 def test_knob_3_scrolls_only_in_select_mode(keys):
@@ -96,3 +111,19 @@ def test_leds(keys):
     keys.switch(23, "P")
     keys.update_wsleds(wsl, leds)
     assert calls == [("set", 12, "a2"), ("set", 13, "a2"), ("blink", 12, "a2"), ("set", 13, "g")]
+
+
+def test_sel_key_selects_in_select_mode(keys):
+    assert not keys.select()                # not in select mode: chain control's SELECT
+    keys.switch(19, "S")
+    keys.log.clear()
+    assert keys.select()
+    assert keys.log == [("pulse", "/enc_sel", 100), ("select_mode", False)]
+
+
+def test_labels(keys):
+    assert keys.labels() == {19: "MENU", 23: "AUX"}
+    keys.switch(19, "S")
+    assert keys.labels() == {19: "SELECT", 23: "AUX"}
+    keys.selector = False
+    assert keys.labels() == {23: "AUX"}     # F3 keeps its own action

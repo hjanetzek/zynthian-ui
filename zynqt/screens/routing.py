@@ -192,7 +192,7 @@ def show_device_options(ui, midi_input, idev, refresh):
             else:
                 action = act(lambda c=driver_class: cdm.load_driver(idev, c.__name__))
             opts.append((("☒ " if loaded else "☐ ") + driver_class.get_driver_name(), action,
-                         driver_description(driver_class), "midi_input.png"))
+                         driver_description(driver_class, ui.state_manager, idev), "midi_input.png"))
         if drivers:
             opts.append(("Advanced", None, None, None))
 

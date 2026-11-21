@@ -42,6 +42,11 @@ fi
 # User and external zynthian widgets (LV2 bundles, on LV2_PATH): also for existing setups
 mkdir -p "$ZYNTHIAN_PLUGINS_DIR/lv2-widgets" 2>/dev/null
 
+# zynthian's configuration (the user's files): sourced only in subshells (the LV2 scan, each UI
+# start in run_zynthian), never in the launcher itself. A variable a config file exported would
+# otherwise stay in the launcher's environment after the line is removed, for every later start
+# until the session restarts (ZYNTHIAN_UI=tk kept the Tk UI after RESTART_UI). Each start sees the
+# session's environment plus exactly the current files.
 load_config_env() {
 	source "$ZYNTHIAN_CONFIG_DIR/zynthian_envars.sh"
 	if [ -n "$ZYNTHIAN_SCRIPT_MIDI_PROFILE" ] && [ -f "$ZYNTHIAN_SCRIPT_MIDI_PROFILE" ]; then
@@ -86,8 +91,7 @@ fi
 # installing plugins with: (cd zyngine && python3 zynthian_lv2.py)
 if [ ! -f "$ZYNTHIAN_CONFIG_DIR/engine_config.json" ]; then
 	echo "Scanning LV2 plugins ($LV2_PATH) ..."
-	load_config_env
-	(cd "$ZYNTHIAN_UI_DIR/zyngine" && python3 ./zynthian_lv2.py)
+	(load_config_env && cd "$ZYNTHIAN_UI_DIR/zyngine" && python3 ./zynthian_lv2.py)
 fi
 
 cd "$ZYNTHIAN_UI_DIR"
@@ -125,15 +129,28 @@ wait_gone() {
 	! kill -0 -- "$1" 2>/dev/null
 }
 
-# Run zynthian (the command line) in its own process group, its engines with it, and wait for it;
-# status: its exit status
+# The UI the configuration asks for (in run_zynthian's subshell, after load_config_env).
+# ZYNTHIAN_UI=qt: the Qt Quick UI (docs/qt-port-plan.md) instead of the Tk UI (if this tree has
+# it: upstream zynthian-ui hasn't)
+start_ui() {
+	if [ "$ZYNTHIAN_UI" == "qt" ] && [ -f ./zynthian_qt_main.py ]; then
+		exec python3 ./zynthian_qt_main.py
+	fi
+	# Tk draws through X11 (XWayland on a Wayland desktop): its OpenGL widgets
+	# (pyopengltk) need GLX, PyOpenGL would pick EGL when WAYLAND_DISPLAY is set
+	export PYOPENGL_PLATFORM="${PYOPENGL_PLATFORM:-glx}"
+	exec python3 ./zynthian_main.py
+}
+
+# Run zynthian (a command line, e.g. start_ui, run after load_config_env) in its own process group,
+# its engines with it, and wait for it; status: its exit status
 run_zynthian() {
 	# set -m: the background job gets its own process group. Not the terminal's foreground group
 	# any more: the session's hangup reaches the launcher only, which asks zynthian to stop.
 	# TTOU/TTIN ignored: terminal calls from the background group (Qt's linuxfb on the VT) must not
 	# stop it.
 	set -m
-	(trap '' TTOU TTIN; exec "$@" 9>&-) &
+	(trap '' TTOU TTIN; exec 9>&-; load_config_env; "$@") &
 	zpid=$!
 	set +m
 	[ -n "$stop_signal" ] && kill -TERM "$zpid" 2>/dev/null
@@ -158,16 +175,7 @@ run_zynthian() {
 
 error_counter=0
 while [ -z "$stop_signal" ]; do
-	load_config_env
-	# ZYNTHIAN_UI=qt: the Qt Quick UI (docs/qt-port-plan.md) instead of the Tk UI (if this tree
-	# has it: upstream zynthian-ui hasn't)
-	if [ "$ZYNTHIAN_UI" == "qt" ] && [ -f ./zynthian_qt_main.py ]; then
-		run_zynthian python3 ./zynthian_qt_main.py
-	else
-		# Tk draws through X11 (XWayland on a Wayland desktop): its OpenGL widgets
-		# (pyopengltk) need GLX, PyOpenGL would pick EGL when WAYLAND_DISPLAY is set
-		run_zynthian env PYOPENGL_PLATFORM="${PYOPENGL_PLATFORM:-glx}" python3 ./zynthian_main.py
-	fi
+	run_zynthian start_ui
 	echo "zynthian exit status: $status"
 	[ -n "$stop_signal" ] && break
 

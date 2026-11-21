@@ -20,12 +20,14 @@ Usage: zynthianos_vm.sh [options] COMMAND [ARGS...]
   sync [DIR]         copy the zynthian-ui checkout DIR (default: the current directory'"'"'s, else
                      this script'"'"'s) into the VM'"'"'s /zynthian/zynthian-ui; the first sync saves the
                      original tree as /zynthian/zynthian-ui.orig. .git, venv, build directories
-                     and caches are neither sent nor deleted (the VM'"'"'s native builds stay)
+                     and caches are neither sent nor deleted (the VM'"'"'s native builds stay).
+                     Changed files get the sync'"'"'s time (native builds rebuild them), owner root
   restore            put the original tree back (from /zynthian/zynthian-ui.orig)
   restart            restart zynthian (virtual_zynthian.service) and wait until it is up
   run-tests [MODE] [ARGS]
                      upstream'"'"'s run_tests.sh in /zynthian/zynthian-ui (MODE: default, gui,
-                     native; ARGS go to pytest), with the test venv (/zynthian/venv + pytest)
+                     native; ARGS go to pytest), with the test venv (/zynthian/venv + pytest);
+                     native first (re)builds tests/native/build (incremental)
   cuia NAME [ARGS]   send the CUIA /cuia/NAME over OSC (UDP 1370 in the VM)
   shot [FILE]        screenshot of the UI'"'"'s X display (:0, KasmVNC), PNG, default
                      ./zynthianos-shot.png
@@ -340,7 +342,11 @@ sync_tree() {
 	# .gitignore'd files (build directories, caches, venv) are neither sent nor deleted: the VM's
 	# native builds (zynlibs/*/build) and its test venv stay. The VM's .git stays too: git
 	# status/diff there show the synced change against the VM's commit.
-	rsync -a --delete -e "ssh $ssh_opts -p $port" --filter=':- .gitignore' --exclude=.git --exclude='/venv*' \
+	# Not -a: no host mtimes (-t) but --checksum, so only files whose content differs are written,
+	# with the time of the sync: newer than the VM's native builds, which make then rebuilds
+	# (run-tests native, zynlibs/build.sh). Owner root:root as upstream's tree (rsync as root
+	# would keep the host's uid 1000).
+	rsync -rlpgoD --checksum --chown=root:root --delete -e "ssh $ssh_opts -p $port" --filter=':- .gitignore' --exclude=.git --exclude='/venv*' \
 		--exclude=build/ --exclude=__pycache__ --exclude=.pytest_cache --exclude=.ruff_cache --exclude='*.pyc' --exclude='*.so' \
 		"$src/" "root@127.0.0.1:/zynthian/zynthian-ui/"
 	vm_ssh 'cd /zynthian/zynthian-ui && git status --short | head -n 20'
@@ -349,7 +355,8 @@ sync_tree() {
 restore_tree() {
 	vm_ssh '[ -d /zynthian/zynthian-ui.orig ]' || { echo "nothing to restore (no sync yet)"; return 0; }
 	echo "restoring /zynthian/zynthian-ui from /zynthian/zynthian-ui.orig"
-	vm_ssh 'rsync -a --delete --exclude=/venv /zynthian/zynthian-ui.orig/ /zynthian/zynthian-ui/ && rm -rf /zynthian/zynthian-ui.orig && cd /zynthian/zynthian-ui && git status --short | head'
+	# As sync: changed files get the current time (the native builds see them as newer)
+	vm_ssh 'rsync -rlpgoD --checksum --delete --exclude=/venv /zynthian/zynthian-ui.orig/ /zynthian/zynthian-ui/ && rm -rf /zynthian/zynthian-ui.orig && cd /zynthian/zynthian-ui && git status --short | head'
 }
 
 case $cmd in
@@ -400,7 +407,12 @@ case $cmd in
 	run-tests)
 		mode=
 		case ${1:-} in default) shift ;; gui | native) mode=$1; shift ;; esac
-		vm_ssh "cd /zynthian/zynthian-ui && ./run_tests.sh $mode $(q "$@")" ;;
+		# native: (re)build tests/native/build first. run_tests.sh builds it only when libzyncore.so
+		# is missing; build_native.sh runs cmake + make in the existing build directories, so
+		# sources changed by sync (newer mtimes) are rebuilt, the rest stays
+		build=
+		[ "$mode" != native ] || build="tests/native/build_native.sh /zynthian/zyncoder >/dev/null || { echo 'native build failed (tests/native/build/*/make.log)'; exit 1; }; "
+		vm_ssh "cd /zynthian/zynthian-ui && $build./run_tests.sh $mode $(q "$@")" ;;
 	cuia)
 		[ $# -ge 1 ] || usage 1
 		n=$1; shift

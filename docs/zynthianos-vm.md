@@ -126,7 +126,13 @@ tools/zynthianos_vm.sh restore && tools/zynthianos_vm.sh restart   # back to ups
   upstream's commit), `.gitignore`d files, `venv`, `build/` directories, `*.so`, caches. The VM's
   native libraries (`zynlibs/*/build`, built by upstream's setup) stay, so a change to C code in
   zynlibs needs a build in the VM (`zynthianos_vm.sh ssh 'cd /zynthian/zynthian-ui/zynlibs && ./build.sh'`).
-- **restore** rsyncs `/zynthian/zynthian-ui.orig` back and removes it.
+  Only files whose content differs are written (`--checksum`), and they get the time of the sync,
+  not the host's mtime: a checkout's sources are often older than the VM's builds, which `make`
+  then took as up to date. Unchanged files keep their time, so the incremental builds stay short.
+  The tree stays owned by root, as upstream's (rsync as root kept the host's uid 1000, and git
+  in the VM then refused the repository: "dubious ownership").
+- **restore** rsyncs `/zynthian/zynthian-ui.orig` back and removes it; the files it changes back
+  get the current time too, so the next build picks them up.
 - **restart** restarts `virtual_zynthian.service` (upstream's `zynthian.service` is a trigger for it
   in this setup: `systemctl restart zynthian` from webconf and scripts does the same) and waits
   until the service is active and zynthian's OSC server is bound (UDP 1370).
@@ -144,10 +150,15 @@ with a write guard that refuses writes to `/zynthian/config` & co.
 ```sh
 tools/zynthianos_vm.sh run-tests                 # ./run_tests.sh (hermetic: unit, integration, architecture)
 tools/zynthianos_vm.sh run-tests gui             # under xvfb
-tools/zynthianos_vm.sh run-tests native          # builds tests/native (against /zynthian/zyncoder), real libs on a private dummy jackd
+tools/zynthianos_vm.sh run-tests native          # (re)builds tests/native (against /zynthian/zyncoder), real libs on a private dummy jackd
 tools/zynthianos_vm.sh run-tests -k chain -x     # pytest arguments
 tools/zynthianos_vm.sh ssh 'cd /zynthian/zynthian-ui && venv/bin/ruff check .'
 ```
+
+`run-tests native` runs `tests/native/build_native.sh /zynthian/zyncoder` before `run_tests.sh
+native`: upstream's `run_tests.sh` builds only when `tests/native/build/libzyncore.so` is missing, so
+after a sync the tests ran the old libraries. `build_native.sh` runs cmake and make in the existing
+build directories: what a sync changed is rebuilt (a few seconds when nothing changed).
 
 `run_tests.sh` uses the checkout's `venv` when there is one, else `/zynthian/venv`. `setup` makes
 `/zynthian/zynthian-ui/venv` (a venv of /zynthian/venv's Python with a `.pth` file that adds

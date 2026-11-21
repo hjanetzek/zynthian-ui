@@ -196,6 +196,9 @@ class PatternEditor(QObject):
         self.pattern = self.libseq.getPattern(zs.scene, self.phrase, self.sequence, 0, 0)
         self.libseq.setChannel(zs.scene, self.phrase, self.sequence, 0, self.channel)
         self.libseq.selectPattern(self.pattern)
+        # as zynthian_gui_pated_base.build_view: libseq's MIDI recording (and getPatternPlayhead)
+        # work on the selected sequence
+        self.libseq.selectSequence(zs.scene, self.phrase, self.sequence)
         self.keymap_name, self.keymap = load_keymap(self.ui.chain_manager, self.channel, self.libseq.getScale(),
                                                     self.libseq.getTonic())
         self._events = note_events(self.libseq)

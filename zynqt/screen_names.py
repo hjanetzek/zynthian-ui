@@ -22,9 +22,8 @@ Qt doesn't distinguish the two ways).
 
 Tk screens the Qt UI doesn't have as screens: none, splash, loading, info (Qt: the info box);
 help, confirm, keyboard (Qt: overlays; Tk doesn't announce confirm and keyboard either);
-file_selector (Qt: the option list); midi_cc_range, midi_cc_single, midi_prog, zs3_options,
-grid_sel, wifi, bluetooth, midi_profile, brightness_config, touchscreen_calibration,
-control_test, tts, cv_config.
+midi_cc_range, midi_cc_single, midi_prog, zs3_options, grid_sel, wifi, bluetooth, midi_profile,
+brightness_config, touchscreen_calibration, control_test, tts, cv_config.
 """
 
 # Qt screen -> Tk name, where they differ
@@ -47,10 +46,9 @@ TK_TO_QT = {
 }
 
 # Tk screens without a Qt screen
-TK_ONLY = ("none", "splash", "loading", "info", "help", "confirm", "keyboard", "file_selector",
-           "midi_cc_range", "midi_cc_single", "midi_prog", "zs3_options", "grid_sel", "wifi",
-           "bluetooth", "midi_profile", "brightness_config", "touchscreen_calibration",
-           "control_test", "tts", "cv_config")
+TK_ONLY = ("none", "splash", "loading", "info", "help", "confirm", "keyboard", "midi_cc_range",
+           "midi_cc_single", "midi_prog", "zs3_options", "grid_sel", "wifi", "bluetooth", "midi_profile",
+           "brightness_config", "touchscreen_calibration", "control_test", "tts", "cv_config")
 
 
 def tk_name(qt_screen, pattern_cc=False):

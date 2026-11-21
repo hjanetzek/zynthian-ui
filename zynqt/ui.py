@@ -45,6 +45,7 @@ from zynqt.screens.pattern_editor import PatternEditor
 from zynqt.screens.chain_manager import ChainManager
 from zynqt.screens.control import ChainControl
 from zynqt.screens.snapshots import Options, Snapshots
+from zynqt.screens.file_selector import FileSelector
 from zynqt.screens.chain_options import ChainOptions
 from zynqt.screens.routing import AudioIn, AudioOut, MidiDevicesIn, MidiDevicesOut, MidiIn, MidiOut
 from zynqt.screens.processor_options import ProcessorOptions
@@ -214,7 +215,7 @@ class ZynUI(QObject, zynthian_websocket_feedback):
                                    "control_xy": self.control_xy}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
                     ChainOptions, AudioIn, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
-                    MidiDevicesOut, ZS3, Admin, MidiRecorder, MidiCC):
+                    MidiDevicesOut, ZS3, Admin, MidiRecorder, MidiCC, FileSelector):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""
@@ -241,6 +242,8 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         self.bridge.recorderStateChanged.connect(self._recorder_state_changed)
         # SS_GUI_SHOW_MESSAGE (drivers, engines): Tk shows it in the screen's title
         self.bridge.showMessage.connect(self.show_info)
+        # SS_GUI_SHOW_FILE_SELECTOR (path controllers)
+        self.bridge.showFileSelector.connect(lambda kwargs: self.show_file_selector(**kwargs))
         self._startFinished.connect(self._start_finished)
         # The touch keypad's LEDs (zynthian_wsleds_v5)
         self.keypad_leds = KeypadLeds(self, self)
@@ -722,7 +725,11 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         screen = self._screen_obj()
         if screen and screen.back():
             return
-        # As zynthian_gui.close_screen: the previous screen, the mixer (root) without one
+        self.close_screen()
+
+    @gui_thread
+    def close_screen(self):
+        """As zynthian_gui.close_screen: the previous screen, the mixer (root) without one"""
         if self.screen_history:
             self._set_current_screen(self.screen_history.pop())
         elif self.current_screen not in ("mixer", "launcher"):
@@ -835,6 +842,18 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         self._confirm_text = ""
         self._confirm_action = None
         self.confirmChanged.emit()
+
+    @gui_thread
+    def show_file_selector(self, cb_func, fexts=None, dirnames=None, path=None, preload=False):
+        """A file for a path controller (zynthian_gui.cb_show_file_selector): cb_func(path) for
+        the chosen file; preload: the selected file is applied while browsing and the value
+        restored on leaving without a choice (zynqt.screens.file_selector)"""
+        screen = self.list_screens["file_selector"]
+        if self.current_screen == "file_selector" and screen.cb_func == cb_func:
+            return  # asked again while it is shown (the knob turned on): keep the preview's start
+        self._close_overlays()
+        screen.config(cb_func, fexts=fexts, dirnames=dirnames, path=path, preload=preload)
+        self.show_screen("file_selector")
 
     @gui_thread
     def show_options(self, title, options, selected=0):

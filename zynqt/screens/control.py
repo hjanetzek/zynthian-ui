@@ -267,6 +267,12 @@ class ControllerProxy(QObject):
             self.changed.emit()
 
 
+def organelle_kit_switches():
+    """The Organelle's switches and LEDs on this kit (kit_switches): the wiring layout's, the
+    touch keypad's (V5 numbers) when it is on"""
+    return kit_switches(zynthian_gui_config.check_wiring_layout, zynthian_gui_config.touch_navigation)
+
+
 class ChainControl(QObject):
     name = "chain_control"
 
@@ -303,10 +309,13 @@ class ChainControl(QObject):
         self.plugin_view = PluginView(self)
         self.euclid_view = EuclidSeqView(self)
         self.organelle_view = OrganelleView(self)
-        # The Organelle's encoder and AUX on the kit's knobs and switches (as the Tk widget)
+        # The Organelle's encoder and AUX on the kit's knobs and switches, or the touch keypad's
+        # F3 / F4 (as the Tk widget; kit_switches has the mapping per layout)
         self.organelle_keys = OrganelleKeys(self.organelle_view.pulse, self.organelle_view.send,
                                             self._organelle_select_mode, self._autolong,
-                                            kit_switches(zynthian_gui_config.check_wiring_layout))
+                                            organelle_kit_switches())
+        # The on-screen SEL button in select mode: select and end the mode, as switch 3
+        self.organelle_view.select_hook = self.organelle_keys.select
         self._organelle_selector = None   # the select mode's "Select" controller (slot 4)
         self._page_zctrls = []
         self.sl_view = SooperLooperView(ui, self)
@@ -916,7 +925,10 @@ class ChainControl(QObject):
             self.ui.start_move_processor(proc, stay=True)
 
     def switch_select(self, t="S"):
-        """SELECT: short toggles control / select mode, bold the processor's options"""
+        """SELECT: short toggles control / select mode, bold the processor's options. In the
+        Organelle's menu select mode the short press selects the menu entry (as switch 3)"""
+        if t == "S" and self._widget_type == "organelle" and self.organelle_keys.select():
+            return True
         if t == "S":
             if self._mode == "select" and self._on_empty_page():
                 # Nothing to control: its banks / presets instead
@@ -953,6 +965,10 @@ class ChainControl(QObject):
             i, t = int(params[0]), str(params[1]).upper()
         except (TypeError, ValueError, IndexError):
             return False
+        # The widget first (zynthian_widget_organelle.cuia_v5_zynpot_switch: knob 4's push
+        # selects in the menu select mode)
+        if self._widget_type == "organelle" and self.organelle_keys.switch(i, t):
+            return True
         if self._mode == "select":
             if i == 2:
                 self._processor_select(t)
@@ -1084,9 +1100,18 @@ class ChainControl(QObject):
             self.ui.zynswitch_disable_autolong()
 
     def update_wsleds(self, leds):
-        """The kit's LEDs of the widget (zynthian_gui_control.set_current_widget: the Organelle's)"""
-        if self._widget_type == "organelle" and self.ui.wsleds is not None:
-            self.organelle_keys.update_wsleds(self.ui.wsleds, leds)
+        """The keypad LEDs of the widget (zynthian_gui_control.update_wsleds: the Organelle's F3
+        select mode, blinking while on, and F4 AUX, green while held). KeypadLeds calls it; the
+        Qt UI drives no kit LEDs (V5, Z2) yet"""
+        if self._widget_type == "organelle":
+            self.organelle_keys.update_wsleds(self.ui.keypad_leds, leds)
+
+    def fkey_labels(self):
+        """The keypad's F-key labels for the keys switch() takes (KeypadLeds.functionLabels): the
+        Organelle's F3 (menu select mode) and F4 (AUX)"""
+        if self._widget_type == "organelle":
+            return self.organelle_keys.labels()
+        return {}
 
     def cuia_program_change(self, params=None):
         proc = self._sl_alt()

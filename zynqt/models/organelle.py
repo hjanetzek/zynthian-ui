@@ -30,6 +30,8 @@ class OrganelleView(QObject):
         self.in_parameter_view = False
         self._led = False
         self._select_mode = False
+        self._aux = False          # AUX held (the on-screen button or the kit's AUX switch)
+        self.select_hook = None    # the SEL button in the kit's select mode (OrganelleKeys.select)
         self._osc.connect(self._handle)
 
     def set_processor(self, processor):
@@ -83,6 +85,9 @@ class OrganelleView(QObject):
     # To the patch
 
     def send(self, path, value):
+        if path == "/aux" and bool(value) != self._aux:
+            self._aux = bool(value)
+            self.stateChanged.emit()
         if self.osc_target:
             liblo.send(self.osc_target, path, value)
 
@@ -104,6 +109,10 @@ class OrganelleView(QObject):
     def selectMode(self):
         return self._select_mode
 
+    @Property(bool, notify=stateChanged)
+    def aux(self):
+        return self._aux
+
     @Slot(str, bool)
     def button(self, path, pressed):
         """AUX (/aux) or FS (/fs) pressed or released"""
@@ -117,6 +126,9 @@ class OrganelleView(QObject):
 
     @Slot()
     def encoderPress(self):
+        """SEL: in the kit's menu select mode it selects and ends the mode (OrganelleKeys)"""
+        if self._select_mode and self.select_hook and self.select_hook():
+            return
         self._sequence([(0, "/enc_sel", 1), (100, "/enc_sel", 0)])
 
     @Slot(float)

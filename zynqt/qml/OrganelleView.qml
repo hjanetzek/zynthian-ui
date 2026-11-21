@@ -34,7 +34,8 @@ Rectangle {
             width: 18; height: 18; radius: 9
             color: root.view && root.view.led ? "#00e000" : "#204020"
         }
-        HoldButton { text: "AUX"; path: "/aux" }
+        // Lit while the kit's AUX switch (V5 F4, V4 S4) is held
+        HoldButton { text: "AUX"; path: "/aux"; lit: root.view ? root.view.aux : false }
         HoldButton { text: "FS"; path: "/fs"; visible: root.view ? root.view.fsButton : true }
         Row {
             spacing: 4
@@ -50,8 +51,9 @@ Rectangle {
         id: hb
         property alias text: hbl.text
         property string path
+        property bool lit: false
         width: 70; height: 56; radius: 28
-        color: hbTap.pressed ? "#00a000" : "#b07000"
+        color: hbTap.pressed || lit ? "#00a000" : "#b07000"
         Text { id: hbl; anchors.centerIn: parent; color: "white"; font.pixelSize: 16; font.bold: true }
         TapHandler {
             id: hbTap

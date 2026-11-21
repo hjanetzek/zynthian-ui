@@ -942,10 +942,12 @@ class zynthian_widget_organelle(zynthian_widget_base):
         elif self.selector and self.switch_i_selmode is not None and i == self.switch_i_selmode:
             if t == 'S' or t == 'B':
                 self.switch_select_mode()
-            return True
+            # Not the push: taken, it would be a push action (auto-repeated, the release dropped)
+            return t != 'P'
         elif self.switch_i_aux is not None and i == self.switch_i_aux:
             self.switch_aux(t)
-            return True
+            # The push isn't a push action either: its release must come back to release AUX
+            return t != 'P'
         return False
 
     def switch_select_mode(self):

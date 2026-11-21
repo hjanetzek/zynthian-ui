@@ -147,6 +147,9 @@ setup_vm() {
 		vm_ssh "$v" 'sudo apk update -q 2>&1 | grep -v "^WARNING: Permanently redirected"
 			sudo apk upgrade -q 2>&1 | grep -v "^WARNING: Permanently redirected" || true'
 	fi
+	# No firewall in the VM (as qemu_setup.sh, for disks set up before it did): the image's nftables
+	# drops the forwarded ports but SSH, e.g. the websocket (docs/qemu-testing.md)
+	vm_ssh "$v" 'sudo systemctl disable -q --now nftables 2>/dev/null; sudo systemctl mask -q nftables && sudo nft flush ruleset'
 	# grim for screenshots; font-dejavu: the Tk UI's mixer loads DejaVuSans.ttf and dies without it
 	# (a dependency of zynthian-ui since 2026-11-09, missing in older images and packages)
 	vm_ssh "$v" 'sudo apk add -q grim font-dejavu 2>/dev/null

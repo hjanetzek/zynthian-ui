@@ -168,6 +168,9 @@ apk_packages="build-base cmake pkgconf python3-dev py3-pip py3-pytest py3-pytest
 pip_packages="moderngl-window pyopengltk"
 setup_vm() {
 	start_vm
+	# No firewall in the VM (as qemu_setup.sh, for disks set up before it did): the image's nftables
+	# drops the forwarded ports but SSH (docs/qemu-testing.md)
+	vm_ssh 'sudo systemctl disable -q --now nftables 2>/dev/null; sudo systemctl mask -q nftables && sudo nft flush ruleset'
 	echo "installing the packages"
 	# shellcheck disable=SC2086
 	vm_ssh "set -e

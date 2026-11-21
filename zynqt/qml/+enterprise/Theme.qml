@@ -60,6 +60,12 @@ ThemeBase {
     gridBeat: "#5b5866"
     gridStep: "#24222c"
     noteHue: 0.085
+    // playhead: a radar sweep in the console's blue-gray, a long afterglow
+    playheadColor: "#d9e0e3"
+    playheadTailColor: "#bbc6cb"
+    playheadTailSteps: 3
+    playheadTailOpacity: 0.45
+    playheadTailCurve: 2.2
     noteFrame: "#ffe0c0"
     selectionFill: "#30bbc6cb"
     selectionFrame: "#bbc6cb"

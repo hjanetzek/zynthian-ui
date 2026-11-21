@@ -80,6 +80,20 @@ QtObject {
     property color ccBarCurrent: "#4080c0"
     property color buttonOn: "#206030"
     property color buttonRecord: "#a02020"
+    // Pattern editor playhead: a vertical line across the grid (and the CC view) moving smoothly,
+    // a gradient tail behind it (left, the direction of travel; plain Rectangle + Gradient, no
+    // shaders: the software renderer draws it too), a marker in the ruler below. The tail's alpha
+    // is playheadTailOpacity * t^playheadTailCurve (t = 0 at its end, 1 at the line): curve 1 a
+    // straight fade, higher ones a short bright glow and a long faint afterglow (radar).
+    // playheadFps: updates per second (0: every frame)
+    property real playheadLineWidth: 2
+    property color playheadColor: select
+    property color playheadTailColor: playheadColor
+    property real playheadTailSteps: 0.75          // tail length in steps (follows the zoom)
+    property real playheadTailOpacity: 0.22
+    property real playheadTailCurve: 1
+    property bool playheadLineOnTop: true          // the line over the notes (the tail is behind them)
+    property int playheadFps: 0
 
     // Controller page widgets (envelope, filter, waveform, plugin meters): background, curve
     // line and fill, grid, waveform fill and the part outside the crop range

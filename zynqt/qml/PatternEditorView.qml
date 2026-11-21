@@ -5,7 +5,8 @@
 // hue, lighter with velocity, framed noteFrame, selected selectionFrame; tk -1: grey by velocity,
 // selected blue, the moving copy green, as Tk), the cursor and the block in the selection colour
 // (the block filled selectionFill); below: the velocity bar (yellow) and the play ruler (beat
-// numbers, step ticks, the playhead). Cell sizes from 16 x 16 cells plus the zoom (knob 1,
+// numbers, step ticks, the playhead marker); the playhead line with its tail moves smoothly over
+// the grid (PatternPlayhead, the clock below). Cell sizes from 16 x 16 cells plus the zoom (knob 1,
 // pinch). Tap toggles a note, a bold press edits it (the knobs, title bar), drag scrolls. The
 // toolbar (themes that have one) is the screen's (PatternEditorScreen).
 import QtQuick
@@ -121,6 +122,79 @@ Rectangle {
 
     color: Theme.background
 
+    // Smooth playhead: the position (steps, with the fraction) extrapolated every frame (or
+    // Theme.playheadFps times a second) from the last poll (pe.playPosition at pe.stepRate steps
+    // per second, which is 0 while it doesn't move). A new poll value doesn't move the line: the
+    // difference to the extrapolation (offset) fades out over `tau` ms, so it neither jumps nor
+    // drifts. The extrapolation stops `maxAhead` ms after the last poll (a stalled sequencer), it
+    // wraps at pe.playLength; a difference over max(1 step, 150 ms) (start, a jump) snaps. Not
+    // moving (stopped, starting, paused) it stands at the polled position.
+    QtObject {
+        id: clock
+        readonly property bool moving: root.visible && root.pe.playing && root.pe.stepRate > 0
+        readonly property real len: Math.max(1, root.pe.playLength)
+        readonly property real tau: 150
+        readonly property real maxAhead: 120
+        property real pos: root.pe.playPosition
+        property real basePos: 0
+        property real baseRate: 0
+        property real baseTime: 0
+        property real offset: 0
+        property bool settling: false       // a fading offset while not moving
+
+        function wrap(p) { p = p % len; return p < 0 ? p + len : p }
+        function unwrapped(t) {
+            const dt = Math.max(0, Math.min(t - baseTime, maxAhead)) / 1000
+            return basePos + baseRate * dt + offset * Math.exp(-(t - baseTime) / tau)
+        }
+        function sample() {
+            const t = Date.now()
+            const p = root.pe.playPosition
+            // (not `moving`: its binding may not have seen this change yet)
+            if (!(root.visible && root.pe.playing && root.pe.stepRate > 0)) {
+                // stopped, starting or paused: stand at the polled position; from a moving line
+                // (a pause) the extrapolation fades back instead of jumping
+                let d = baseRate > 0 ? unwrapped(t) - p : 0
+                d -= len * Math.round(d / len)
+                basePos = p; baseRate = 0; baseTime = t
+                offset = Math.abs(d) <= 2 ? d : 0
+                settling = offset !== 0
+                tick()
+                return
+            }
+            let e = unwrapped(t) - p
+            e -= len * Math.round(e / len)
+            basePos = p; baseRate = root.pe.stepRate; baseTime = t
+            offset = Math.abs(e) <= Math.max(1, 0.15 * baseRate) && Math.abs(e) < len / 2 ? e : 0
+            // no tick() here: the frame driver moves the line (a poll would add a repaint)
+        }
+        function tick() {
+            const t = Date.now()
+            if (settling && t - baseTime > 5 * tau) {
+                // settled: exactly at the polled position (a remainder of a wrapped offset would
+                // otherwise leave the line at the pattern's end instead of at 0)
+                settling = false
+                offset = 0
+            }
+            pos = basePos < 0 ? basePos : wrap(unwrapped(t))
+        }
+        readonly property bool animate: moving || settling
+    }
+    Connections {
+        target: root.pe
+        function onPlayheadChanged() { clock.sample() }
+    }
+    FrameAnimation {
+        running: clock.animate && Theme.playheadFps <= 0
+        onTriggered: clock.tick()
+    }
+    Timer {
+        running: clock.animate && Theme.playheadFps > 0
+        interval: Math.max(10, Math.round(1000 / Math.max(1, Theme.playheadFps)))
+        repeat: true
+        onTriggered: clock.tick()
+    }
+
     // Piano roll
     Item {
         id: keys
@@ -231,6 +305,14 @@ Rectangle {
                     height: content.height
                     color: bar ? Theme.gridBar : (beat ? Theme.gridBeat : Theme.gridStep)
                 }
+            }
+            // Playhead tail (behind the notes; the line is above them, at the end)
+            PatternPlayhead {
+                height: content.height
+                pos: root.pe.playing ? clock.pos : -1
+                stepWidth: root.stepWidth
+                steps: root.steps
+                showLine: !Theme.playheadLineOnTop
             }
             Item {
                 y: content.rowsTop
@@ -375,6 +457,14 @@ Rectangle {
                     onCanceled: { held = false; velocityMode = false; durationMode = false; root.pe.editDone() }
                 }
             }
+            PatternPlayhead {
+                visible: Theme.playheadLineOnTop && shown
+                height: content.height
+                pos: root.pe.playing ? clock.pos : -1
+                stepWidth: root.stepWidth
+                steps: root.steps
+                showTail: false
+            }
         }
     }
 
@@ -404,12 +494,15 @@ Rectangle {
         Item {
             x: -grid.contentX
             height: parent.height
+            // The playhead's marker (Tk: a step-wide block in the selection colour): a notch in
+            // the line's colour, moving with it; it stays at the position when stopped
             Rectangle {
-                x: 1 + root.pe.playhead * root.stepWidth
-                width: root.stepWidth
+                readonly property int w: Math.max(4, 3 * Math.round(Theme.playheadLineWidth))
+                x: Math.max(0, Math.min(root.steps * root.stepWidth - w, Math.round(clock.pos * root.stepWidth) - Math.floor(w / 2)))
+                width: w
                 height: parent.height
-                visible: root.pe.playhead >= 0
-                color: Theme.select
+                visible: clock.pos >= 0 && clock.pos < root.steps
+                color: Theme.playheadColor
             }
             Repeater {
                 model: root.steps
@@ -446,5 +539,22 @@ Rectangle {
         pe: root.pe
         steps: root.steps
         keyWidth: root.keyWidth
+        // the playhead: tail behind the values, line over them
+        PatternPlayhead {
+            z: -1
+            clip: true
+            height: parent.height
+            pos: root.pe.playing ? clock.pos : -1
+            stepWidth: parent.sw
+            steps: root.steps
+            showLine: false
+        }
+        PatternPlayhead {
+            height: parent.height
+            pos: root.pe.playing ? clock.pos : -1
+            stepWidth: parent.sw
+            steps: root.steps
+            showTail: false
+        }
     }
 }

@@ -66,6 +66,12 @@ ThemeBase {
     gridBeat: "#5f5b50"
     gridStep: "#333436"
     noteHue: 0.105                  // amber
+    // playhead: a radar sweep, a bright line and a long amber afterglow
+    playheadColor: "#ffd27a"
+    playheadTailColor: "#f0ad3c"
+    playheadTailSteps: 3
+    playheadTailOpacity: 0.5
+    playheadTailCurve: 2.2
     noteFrame: "#ffe2a8"
     selectionFill: "#30f0ad3c"
     selectionFrame: "#f0ad3c"

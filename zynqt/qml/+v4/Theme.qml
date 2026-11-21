@@ -121,4 +121,7 @@ ThemeBase {
     noteHue: -1
     selectionFill: "transparent"
     selectionFrame: select
+    // playhead updates: 20 a second for the software renderer (linuxfb on the Pi): about half
+    // the CPU of every frame (docs/qt-theming.md, "Pattern editor playhead")
+    playheadFps: 20
 }

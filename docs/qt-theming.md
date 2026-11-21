@@ -246,6 +246,7 @@ Tokens:
 | Markers | `marker`, `textBypassed` | the selected launcher pad, the chain or processor being moved in the chain manager; bypassed processors |
 | Chain manager | `nodeMidi`, `nodeSynth`, `nodeAudio`, `nodeSpecial`, `nodeOther`, `pinnedBackground`, `divider`, `connector` | blocks by kind, the pinned (main) chains, lines between chains and nodes |
 | Pattern editor | `gridRow`, `gridRowDark`, `gridRowLine`, `gridRowLineTonic`, `gridBar`, `gridBeat`, `gridStep`, `gridBarWidth`, `noteHue`, `noteFrame`, `selectionFill`, `selectionFrame`, `ccBar`, `ccBarCurrent`, `buttonOn`, `buttonRecord` | row bands (black keys darker; tk transparent: none) and lines (the tonic's), step lines (bars, beats, steps; the bar's width), notes (a hue, lighter with velocity; tk -1: Tk's grey by velocity, selected blue, the moving copy green), the selected block, CC bars, toolbar buttons |
+| Pattern playhead | `playheadLineWidth`, `playheadColor`, `playheadTailColor`, `playheadTailSteps`, `playheadTailOpacity`, `playheadTailCurve`, `playheadLineOnTop`, `playheadFps` | the playhead line across the grid and the CC view (width, colour; default `select`), its gradient tail (colour, length in steps, alpha at the line, fade curve: alpha = opacity x t^curve), the line over the notes (the tail is always behind them), updates per second (0: every frame). See "Pattern editor playhead" below |
 | Chain control | `controllerColumn`, `controllerGap`, `sideChainBackground` | the controller column's part of the width (tk 0.25), the gap below each controller, the side chain's background |
 | Widgets | `widgetBackground`, `widgetLine`, `widgetFill`, `widgetGrid`, `widgetWave`, `widgetOutside` | the controller page widgets: envelope and filter curves, waveform, plugin meters' background |
 
@@ -361,6 +362,40 @@ docked keypad, else at the window's edge.
   cells are `panelHighlight` plates (invisible on black in enterprise: empty).
 - Launcher pads keep the colours of the sequences (zynseq data), only the selection uses `marker`;
   piano keys of the pattern editor stay black and white.
+
+### Pattern editor playhead
+
+A deliberate deviation from Tk in every theme (the user's request, 2026-11-21): Tk moves a
+step-wide block in the selection colour along the play ruler, step by step. The Qt UI draws a thin
+vertical line across the grid (and the CC view) that moves smoothly, with a gradient tail behind it
+(to the left, the direction of travel); the ruler keeps a small marker in the line's colour (it
+moves with the line and stays at the position when stopped, where the line is hidden).
+
+- **Position:** `PatternEditor._poll` (every 40 ms, as before) reads the sequence clock
+  (`getSequencePlayPosition`) and divides it by the pattern's clocks per step, as
+  `getPatternPlayhead` does but with the fraction and for this screen's sequence: `playPosition`
+  (steps), `stepRate` (steps per second: tempo x steps per beat / 60, 0 while starting, stopped or
+  when the clock hasn't moved for two polls: a paused transport), `playLength` (the sequence's
+  length in steps: where it wraps).
+- **Interpolation** (`PatternEditorView`, `clock`): every frame (`FrameAnimation`) or
+  `playheadFps` times a second (`Timer`) the line is extrapolated from the last poll. A new poll
+  doesn't move it: the difference to the extrapolation fades out over 150 ms (no jump, no drift);
+  the extrapolation stops 120 ms after the last poll; it wraps at `playLength`; a difference over
+  max(1 step, 150 ms) snaps (start, a jump). Tempo changes show as a short catch-up, a pause as a
+  stop (with a fade back of up to 120 ms of motion).
+- **Drawing:** `PatternPlayhead.qml`, plain `Rectangle`s with a horizontal `Gradient` (five stops),
+  no shaders (the software renderer draws it). In the grid the tail is behind the notes and the
+  line above them, so dense patterns stay readable. Near step 0 the tail continues at the pattern's
+  end. Positions are rounded to whole pixels; only the line, the tail and the ruler marker change
+  per frame, the grid isn't laid out again.
+- **Values:** tk, classic and v4 a short, subtle tail (0.75 steps, alpha 0.22 at the line, linear);
+  galactica and enterprise a radar sweep (3 steps, alpha 0.5 / 0.45, curve 2.2: bright at the line,
+  a long faint afterglow) in their colours (galactica amber `#ffd27a` / `#f0ad3c`, enterprise
+  blue-gray `#d9e0e3` / `#bbc6cb`); v4 updates 20 times a second.
+- **Cost** (QEMU VM, zynthian pinned to one core with `taskset`, the editor playing at 120 BPM,
+  60 notes): v4 at 480x320 with the software renderer, GUI thread / compositor: before 2.3 % /
+  0.8 %, every frame 9.8 % / 3.8 %, 30 a second 6.3 % / 2.5 %, 20 a second 5.2 % / 1.9 %. tk at
+  1280x800 with OpenGL (GUI + render thread + compositor): before 3.6 %, every frame 10 %.
 
 ## Adding a theme
 

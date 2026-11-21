@@ -1090,17 +1090,26 @@ class ZynUI(QObject, zynthian_websocket_feedback):
             self.show_info(result)
         else:
             chain_id, processor = result
-            self.screen_history = []
-            if processor and processor.eng_code == "CL" and "chain_id" not in self.chain_edit.status:
+            new_chain = "chain_id" not in self.chain_edit.status
+            if new_chain:
+                # As zynthian_gui.modify_chain: a new chain starts a new history, BACK from its
+                # first screen (bank, preset, chain control) leads to the mixer, not into the
+                # add-chain screens (type, engine, MIDI channel)
+                self.screen_history = []
+            if processor and processor.eng_code == "CL" and new_chain:
                 # A new Clippy chain: its clips are chosen in the launcher (zynthian_gui.modify_chain)
-                self.show_screen("launcher")
+                self.show_screen("launcher", history=False)
             else:
-                self.chain_control(chain_id, processor, force_bank_preset=True)
+                # A processor added to or replaced in a chain keeps the history (Tk: chain_control
+                # with reset=False): BACK from chain control to the screen before it, as chain
+                # control shown again ends the history there; from bank/preset to the engine list
+                self.chain_control(chain_id, processor, force_bank_preset=True, history=not new_chain)
 
     @gui_thread
-    def chain_control(self, chain_id=None, processor=None, force_bank_preset=False):
+    def chain_control(self, chain_id=None, processor=None, force_bank_preset=False, history=True):
         """Show a chain's processor: bank/preset selection first if it has no preset yet
-        (zynthian_gui.chain_control)"""
+        (zynthian_gui.chain_control). history: False to show it without the current screen in
+        the history (a new chain)"""
         cm = self.chain_manager
         if chain_id is None:
             chain_id = cm.active_chain.chain_id
@@ -1128,11 +1137,12 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         # As zynthian_gui_chain_control.set_chain(reset=True): control mode
         self.chain_control_screen.set_mode("control")
         if screen == "bank_hint":
-            self.show_screen("bank")
-            if self.screen_history[-1:] != ["chain_control"]:
-                self.screen_history.append("chain_control")
+            self.show_screen("bank", history=history)
+            if "chain_control" in self.screen_history:
+                del self.screen_history[self.screen_history.index("chain_control"):]
+            self.screen_history.append("chain_control")
         else:
-            self.show_screen(screen)
+            self.show_screen(screen, history=history)
 
     def get_current_screen(self):
         """The current screen's Tk name (zynqt.screen_names): for drivers and shared code"""

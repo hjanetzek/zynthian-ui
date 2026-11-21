@@ -149,8 +149,11 @@ class zynthian_engine_jalv_base(zynthian_engine):
                 # Setting cwd is because we've set PWD above. Some engines doesn't
                 # care about the process's cwd, but it is more consistent to set
                 # cwd when PWD has been set.
+                # errors="replace": jalv's output (plugin messages, preset names) isn't always valid
+                # UTF-8, and a decoding error would end the output thread (nothing reads jalv's
+                # output any more: once the pipe is full, jalv blocks)
                 self.proc = Popen(self.command, env=self.command_env, cwd=self.command_cwd, shell=False,
-                                  text=True, bufsize=1, stdout=PIPE, stderr=STDOUT, stdin=PIPE)
+                                  text=True, errors="replace", bufsize=1, stdout=PIPE, stderr=STDOUT, stdin=PIPE)
                 # Kill a jalv that doesn't show its prompt in time: its output ends and the start fails
                 watchdog = Timer(self.proc_start_timeout, self.proc_start_timed_out, args=(self.proc,))
                 watchdog.daemon = True

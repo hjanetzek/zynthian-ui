@@ -6,7 +6,8 @@ zynthian_gui_file_selector) and the engines' GUI signals:
   and preload flag;
 - choosing a file closes it and calls cb_func(path) once; directories open, BACK goes up;
 - preload: moving the selection applies the file after 200 ms, leaving without a choice restores
-  the value it had; without preload nothing is applied before the choice."""
+  the value it had; without preload nothing is applied before the choice;
+- SS_GUI_CONTROL_MODE (SooperLooper's loop selection) ends chain control's select mode."""
 
 import threading
 from types import SimpleNamespace
@@ -206,3 +207,33 @@ def test_path_controller_nudge_reaches_the_bridge(app):
     finally:
         bridge.stop()
     assert got[0]["fexts"] == ["wav"] and got[0]["preload"] is True and got[0]["cb_func"] == z.set_value
+
+
+# SS_GUI_CONTROL_MODE
+
+def test_control_mode_signal_leaves_select_mode(app):
+    bridge = bridge_mod.SignalBridge()
+    modes = []
+    cc = SimpleNamespace(set_mode=modes.append)
+    ui = SimpleNamespace(current_screen="chain_control", chain_control_screen=cc)
+    control_mode = ZynUI._control_mode.__get__(ui)
+    bridge.controlMode.connect(control_mode)
+    try:
+        zynsigman.send_queued(zynsigman.S_GUI, zynsigman.SS_GUI_CONTROL_MODE, mode="control")
+        assert wait_for(app, lambda: modes)
+    finally:
+        bridge.stop()
+    assert modes == ["control"]
+    ui.current_screen = "mixer"     # not shown: nothing
+    control_mode("control")
+    assert modes == ["control"]
+
+
+def test_chain_control_set_mode_from_select(app):
+    from zynqt.screens.control import ChainControl
+    emitted, zynpots = [], []
+    cc = SimpleNamespace(_mode="select", modeChanged=SimpleNamespace(emit=lambda: emitted.append(True)),
+                         exit_midi_learn=lambda: None, ui=SimpleNamespace(setup_zynpots=zynpots.append))
+    ChainControl.set_mode(cc, "control")
+    assert cc._mode == "control" and emitted == [True] and zynpots == [cc]
+

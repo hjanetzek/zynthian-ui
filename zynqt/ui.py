@@ -242,8 +242,9 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         self.bridge.recorderStateChanged.connect(self._recorder_state_changed)
         # SS_GUI_SHOW_MESSAGE (drivers, engines): Tk shows it in the screen's title
         self.bridge.showMessage.connect(self.show_info)
-        # SS_GUI_SHOW_FILE_SELECTOR (path controllers)
+        # SS_GUI_SHOW_FILE_SELECTOR (path controllers) and SS_GUI_CONTROL_MODE (SooperLooper)
         self.bridge.showFileSelector.connect(lambda kwargs: self.show_file_selector(**kwargs))
+        self.bridge.controlMode.connect(self._control_mode)
         self._startFinished.connect(self._start_finished)
         # The touch keypad's LEDs (zynthian_wsleds_v5)
         self.keypad_leds = KeypadLeds(self, self)
@@ -854,6 +855,12 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         self._close_overlays()
         screen.config(cb_func, fexts=fexts, dirnames=dirnames, path=path, preload=preload)
         self.show_screen("file_selector")
+
+    def _control_mode(self, mode):
+        """SS_GUI_CONTROL_MODE (SooperLooper after selecting a loop): chain control leaves its
+        select mode"""
+        if mode in ("control", "select") and self.current_screen == "chain_control":
+            self.chain_control_screen.set_mode(mode)
 
     @gui_thread
     def show_options(self, title, options, selected=0):

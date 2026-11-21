@@ -271,11 +271,13 @@ locks to it with a PLL and is the JACK timebase master. Details in
 - **ctrldev drivers** send LEDs, motor faders, displays through `dev_send_*` into the device's
   zmop (`ZMOP_DEVn`), from signals they register (`SS_ZYNMIXER_SET_VALUE` queued,
   `zyngine/ctrldev/zynthian_ctrldev_base.py:528`; active chain, view position, sequencer state).
-- **zctrl feedback callbacks**: the list `zctrl.send_value_cb`, filled by
-  `register_send_value_cb()` / emptied by `unregister_send_value_cb()`
-  (`zyngine/zynthian_controller.py`, upstream 91d51107: several listeners per controller), by
-  drivers that mirror a controller (APC40 mk2 encoders, Behringer Motor faders). Called from
-  whichever thread sets the value.
+- **CC feedback broker** (`zyngine/zynthian_cc_feedback.py`, `chain_manager.cc_feedback`, upstream
+  d6d08865 / 6f18babb): drivers that mirror controllers (APC40 mk2 encoders, Behringer Motor
+  faders, FCB1010 riban) register their zmip with a callback and their bindings; the broker
+  follows MIDI-learn bindings and the active chain and sets `zctrl.feedback` on each bound zctrl.
+  `zctrl.send_feedback()` (`zyngine/zynthian_controller.py`) passes a value change to it, from
+  whichever thread sets the value. (The per-zctrl callback list `send_value_cb` of 91d51107 is
+  gone since 6f18babb.)
 - **Generic CC feedback** (`ZMOP_CTRL`, `ctrlfb_send_*`): the zmop's connection is commented out
   (`zynautoconnect/zynthian_autoconnect.py:1054-1058`), so it is drained and dropped
   (`zynmidirouter.c:1703`): no generic "send learned CC values back to the device".
@@ -555,8 +557,8 @@ another name shows its controllers. It reads the widget when the processor is cr
 clamps/converts, then `send_value()` (:503-529): the engine's `send_controller_value(zctrl)` if
 it implements one; otherwise OSC (`liblo.send(engine.osc_target, osc_path, …)`) if the zctrl
 has an OSC path, else MIDI CC (`send_midi_cc`, :532-547: `zmop_send_ccontrol_change` into the
-chain's zmop, or `ui_send_ccontrol_change` via `ZMIP_FAKE_UI`). Then each `send_value_cb` callback (driver
-feedback) and, for bypass zctrls, `SS_PROCESSOR_BYPASS`. `is_dirty = True`.
+chain's zmop, or `ui_send_ccontrol_change` via `ZMIP_FAKE_UI`). Then `send_feedback()`: the CC feedback
+broker (driver feedback, if the zctrl is bound) and, for bypass zctrls, `SS_PROCESSOR_BYPASS`. `is_dirty = True`.
 
 **MIDI → engine**: CC → `midi_control_change` → `zctrl.midi_control_change` → `set_value` →
 same path. Notes/pedals bypass Python (router → engine).

@@ -201,8 +201,6 @@ class OledDisplay(QQuickPaintedItem):
         white, black = QColor("#ffffff"), QColor("#000000")
         hl_bg = QColor(zynthian_gui_config.color_ctrl_bg_on)
         hl_tx = QColor(zynthian_gui_config.color_ctrl_tx)
-        if scene.inverted is not None:
-            painter.fillRect(QRectF(0, scene.inverted - 1, OLED_WIDTH, 10), hl_bg)
         font = QFont("FreeMono")
         font.setStyleHint(QFont.Monospace)
         for item in scene.items:
@@ -213,6 +211,9 @@ class OledDisplay(QQuickPaintedItem):
                 font.setBold(item["size"] > 16)
                 painter.setFont(font)
                 if item["x"] <= 10 and item["y"] == scene.inverted:
+                    # The highlight right under the selected menu line (as the Tk widget lowers
+                    # it under the text only): over the line's clearing fill the patch draws first
+                    painter.fillRect(QRectF(0, scene.inverted - 1, OLED_WIDTH, 10), hl_bg)
                     painter.setPen(hl_tx)
                 else:
                     painter.setPen(color)

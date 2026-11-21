@@ -27,8 +27,10 @@ tell the two UIs apart where they show the same thing.
   - `zynqt/ws_keys.py`: `{"key": ...}` as QKeyEvents for the QML window, with the native X11
     keycode and modifier bits the key bindings use (works on Wayland, unlike xdotool).
   - CUIAs go into the CUIA queue as OSC's do: the CUIA thread, then `_cuiaRequested` to the GUI
-    thread (`_run_cuia`). ZYNPOT / ZYNSWITCH with arguments the CUIA thread can't convert are
-    dropped (`ws_cuia_args_ok`): its `int()` would end the thread.
+    thread (`_run_cuia`). ZYNPOT / ZYNSWITCH with arguments the CUIA thread doesn't accept are
+    dropped here with a warning naming the client (`ws_cuia_args_ok`, the thread's own parsers
+    `zynpot_params` / `zynswitch_params`: numbers or number strings, "1.0" too); the thread would
+    log and skip them.
   - `wsled_state`: the touch keypad's LEDs (`KeypadLeds`), in LED order as Tk's v5touch emulation.
   - The mixer meters keep DPM enabled while `dpm_state` has subscribers (as the Tk mixer).
 

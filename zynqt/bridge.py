@@ -34,6 +34,9 @@ class SignalBridge(QObject):
     zs3Saved = Signal()
     # A message for the user (SS_GUI_SHOW_MESSAGE: drivers, engines)
     showMessage = Signal(str)
+    # A path controller asks for a file (SS_GUI_SHOW_FILE_SELECTOR, zynthian_controller.nudge):
+    # the keyword arguments (cb_func, fexts, dirnames, path, preload)
+    showFileSelector = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -58,9 +61,12 @@ class SignalBridge(QObject):
         self._register(zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self._cb_midi_pc)
         self._register(zynsigman.S_STATE_MAN, zynsigman.SS_SAVE_ZS3, self._cb_zs3_saved)
         self._register(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_MESSAGE, self._cb_show_message)
+        # Queued as in zynthian_gui.register_signals (its sender queues it anyway)
+        self._register(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_FILE_SELECTOR, self._cb_show_file_selector,
+                       queued=True)
 
-    def _register(self, signal, subsignal, callback):
-        zynsigman.register(signal, subsignal, callback)
+    def _register(self, signal, subsignal, callback, queued=False):
+        zynsigman.register(signal, subsignal, callback, queued)
         self._registered.append((signal, subsignal, callback))
 
     def stop(self):
@@ -96,6 +102,13 @@ class SignalBridge(QObject):
 
     def _cb_show_message(self, message="", **kwargs):
         self.showMessage.emit(str(message))
+
+    def _cb_show_file_selector(self, cb_func=None, fexts=None, dirnames=None, path=None, preload=False, **kwargs):
+        if not callable(cb_func):
+            logging.error(f"file selector without a callback: {cb_func!r}")
+            return
+        self.showFileSelector.emit({"cb_func": cb_func, "fexts": fexts, "dirnames": dirnames, "path": path,
+                                    "preload": bool(preload)})
 
     def _cb_snapshot(self, **kwargs):
         self.snapshotLoaded.emit()

@@ -131,7 +131,8 @@ def test_name_map_covers_both_uis():
     qt_screens = set(ui_mod.QML_SCREENS) | {"main_menu", "add_chain", "engine", "midi_chan", "bank", "preset",
                                             "option", "snapshot", "chain_options", "audio_in", "audio_out",
                                             "midi_in", "midi_out", "processor_options", "midi_devices_in",
-                                            "midi_devices_out", "zs3", "admin", "midi_recorder", "midi_cc"}
+                                            "midi_devices_out", "zs3", "admin", "midi_recorder", "midi_cc",
+                                            "file_selector"}
     # Every Tk name of a Qt screen opens a Qt screen again
     for screen in qt_screens:
         assert screen_names.qt_name(screen_names.tk_name(screen)) in qt_screens

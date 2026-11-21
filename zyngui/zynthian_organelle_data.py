@@ -153,16 +153,26 @@ def menu_touch_sequence(current_index, target_index, step_ms=50):
 # The kits' knobs and switches (zynthian_widget_organelle: zynpot_cb, switch, switch_select_mode,
 # switch_aux, cuia_arrow_up/down, update_wsleds)
 
-def kit_switches(check_wiring_layout):
+def kit_switches(check_wiring_layout, touch_navigation=False):
     """(select mode switch, AUX switch, select mode LED, AUX LED) of the kit's wiring layout
     (check_wiring_layout: zynthian_gui_config's); None where the kit has none (touch: the
-    on-screen AUX button and encoder instead)"""
-    if check_wiring_layout(["V5"]):
+    on-screen AUX button and encoder instead).
+
+    - V5: F3 (19) select mode, F4 (23) AUX, their LEDs (as the Tk widget).
+    - The touch keypad (touch_navigation: zynthian_gui_config.touch_navigation): the same, as
+      the keypad sends the V5 switch numbers on any layout (zynthian_gui_config remaps the
+      wiring; the Tk mixer and pattern editor take the V5 numbers for it too).
+    - Z2: 15 and 16 (as the Tk widget).
+    - V4-type kits (MCP23017 layouts: ZynScreen, Zynaptik, ...): S3 (6) select mode, S4 (7)
+      AUX, as V5's F3 / F4 (the Tk pattern editor's block / CC keys are S3 / S4 too). The Tk
+      widget's "MCP23017_ZYN" (5, 4) matches no layout (check_wiring_layout compares the start,
+      case sensitive): Tk has no V4 mapping."""
+    if touch_navigation or check_wiring_layout(["V5"]):
         return 19, 23, 12, 13
     if check_wiring_layout(["Z2"]):
         return 15, 16, 13, 14
-    if check_wiring_layout(["MCP23017_ZYN"]):
-        return 5, 4, None, None
+    if check_wiring_layout(["MCP23017"]):
+        return 6, 7, None, None
     return None, None, None, None
 
 
@@ -226,6 +236,20 @@ class OrganelleKeys:
                 self.send("/aux", 1 if pushed else 0)
             return True
         return False
+
+    def select(self):
+        """The SEL key (SELECT_ACTION) or the on-screen SEL button: in select mode the menu entry
+        is selected and the mode ends, as switch 3 (on V4 kits the SEL switch); True if taken"""
+        return self.switch(3, "S")
+
+    def labels(self):
+        """{switch: label} of the switches taken (the touch keypad's F-key labels)"""
+        out = {}
+        if self.selector and self.switch_selmode is not None:
+            out[self.switch_selmode] = "SELECT" if self.select_mode else "MENU"
+        if self.switch_aux is not None:
+            out[self.switch_aux] = "AUX"
+        return out
 
     def toggle_select_mode(self):
         if self.select_mode:

@@ -1,7 +1,9 @@
 #!/bin/sh
 # One-time setup of a running QEMU VM (tools/run_qemu.sh) for scripted use (agents, tests): installs
 # this user's SSH public key for the VM's user, and passwordless sudo for that user in the VM, using
-# the image's password once. Then ssh/scp work with BatchMode (the other tools with -V).
+# the image's password once. Then ssh/scp work with BatchMode (the other tools with -V). And turns
+# the image's firewall off (nftables, masked): the host reaches every forwarded port, e.g. the Qt
+# UI's websocket (docs/qemu-testing.md). Only the VM: devices and packages keep theirs.
 #
 #   tools/qemu_setup.sh [-p PORT] [-u USER] [-k PUBKEY] [-w PASSWORD]
 #
@@ -12,6 +14,9 @@
 #
 # Run it again after run-qemu.sh -r / -u (a fresh disk).
 set -eu
+
+# (the same line in test_vm.sh and qemu_compare.sh setup)
+firewall_off='sudo systemctl disable -q --now nftables 2>/dev/null; sudo systemctl mask -q nftables && sudo nft flush ruleset'
 
 usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0}"; }
 port=2222 user=user key= password=147147
@@ -57,6 +62,13 @@ SSH_ASKPASS=$askpass SSH_ASKPASS_REQUIRE=force DISPLAY=${DISPLAY:-:0} ssh $opts 
 	grep -qxF '$(cat "$key")' ~/.ssh/authorized_keys 2>/dev/null || echo '$(cat "$key")' >> ~/.ssh/authorized_keys
 	chmod 600 ~/.ssh/authorized_keys
 	echo '$password' | sudo -S -p '' sh -c \"echo '$user ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/90-nura-vm && chmod 440 /etc/sudoers.d/90-nura-vm\""
+
+# No firewall: postmarketOS' nftables drops incoming connections but SSH (and the ports of
+# /etc/nftables.d/), also QEMU's port forwards. Masked, so neither its preset nor an upgrade
+# enables it again; stopping it flushes the ruleset. test_vm.sh/qemu_compare.sh setup repeat it
+# for older disks.
+# shellcheck disable=SC2086
+ssh $opts -o BatchMode=yes "$user@127.0.0.1" "$firewall_off"
 
 # shellcheck disable=SC2086
 ssh $opts -o BatchMode=yes "$user@127.0.0.1" 'sudo -n true' && echo "ready: ssh -p $port $user@127.0.0.1 (key login, passwordless sudo)"

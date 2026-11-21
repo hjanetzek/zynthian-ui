@@ -94,6 +94,15 @@ ssh -p 2232 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@127
 
 (The host key changes with every fresh disk; don't record it in known_hosts.)
 
+It also turns the VM's firewall off: the image's nftables (postmarketOS' ruleset plus
+`/etc/nftables.d/`, e.g. zynthian-ui's `50_zynthian-multi.nft`) drops every incoming connection
+but SSH and a few listed ports, QEMU's port forwards too, e.g. the Qt UI's websocket (8370 in the
+VM). `systemctl disable --now nftables` (which flushes the ruleset) and `systemctl mask nftables`:
+the image's systemd preset enables the unit, a mask keeps it off through reboots and package
+upgrades (no package script loads rules itself). `test_vm.sh setup` and `qemu_compare.sh start`
+do the same on disks set up before (2026-11-21). Only the VMs: the devices and the packages keep
+their firewall. Check: `systemctl is-enabled nftables` = `masked`, `sudo nft list ruleset` empty.
+
 ## Test your changes
 
 This repository's `tools` take `-V` for the VM (user@127.0.0.1, port `NURA_VM_PORT`, default
@@ -189,10 +198,11 @@ tools/qemu_compare.sh stop
 ```
 
 - Directories `~/.cache/nura-builds-compare-qt` and `-tk` (`-d BASE`), SSH ports 2242 (Qt) and 2243
-  (Tk), webconf 8100 and 8101, websocket 8390 and 8391 (`-p PORT` moves them): its own VMs, not the
+  (Tk), webconf 8100 and 8101 (taken by the builder VM 2240: `-W 8104`), websocket 8390 and 8391
+  (`-p PORT` moves them; check: `zynctl.py --host 127.0.0.1 --port 8390 state`): its own VMs, not the
   user's or another agent's. The other tools reach them with `-V` and `NURA_VM_PORT=2242` / `2243`.
 - A new disk (first start, `-r`) links the user's downloaded image (`-i` for another), and is set up
-  once: SSH key and sudo (`qemu_setup.sh`), nura-builds' package repository (the image has none),
+  once: SSH key, sudo and no firewall (`qemu_setup.sh`), nura-builds' package repository (the image has none),
   `apk upgrade`, grim and font-dejavu, and
   `ZYNTHIAN_OUTPUT_SCALE=1` in `/etc/default/zynthian` (the image's kiosk package before r21 uses the
   Duet's scale 1.5 in a VM). Then `switch_ui.sh` installs each VM's zynthian-ui package.
@@ -231,11 +241,10 @@ tools/qemu_compare.sh ssh qt ping -c1 192.168.77.2
   showed the same), and the VMs' frames would go out to the real LAN.
 - The guest's NIC has a NetworkManager "stable" cloned MAC: `qemu_compare.sh` finds the NIC by its
   permanent address (`ip -o link`, `permaddr`).
-- postmarketOS' firewall drops incoming UDP: the master/slave ports and mDNS need
-  `/etc/nftables.d/50_zynthian-multi.nft` (from nura-builds' `aports/zynthian/zynthian-ui/`, installed by the
-  zynthian-ui package of the `multi-zynthian` branch; on older packages copy it there and run
-  `sudo nft -f /etc/nftables.nft`). Checked 2026-11-11: ping both ways, OSC request round trip
-  0.3 ms.
+- The VMs have no firewall (see "One-time setup per disk"). On the devices postmarketOS' firewall
+  drops incoming UDP: the master/slave ports and mDNS need `/etc/nftables.d/50_zynthian-multi.nft`
+  (from nura-builds' `aports/zynthian/zynthian-ui/`, installed by the zynthian-ui package).
+  Checked 2026-11-11: ping both ways, OSC request round trip 0.3 ms.
 - mDNS: both VMs are called `nura-zynthian` (the image's host name), so `.local` names don't tell
   them apart; the master/slave set-up finds slaves by broadcast or by address
   (`ZYNTHIAN_MULTI_SLAVES=192.168.77.2`), not by name.

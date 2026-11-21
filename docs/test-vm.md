@@ -54,6 +54,8 @@ PipeWire) is switched off: the VM only runs tests.
   has: moderngl-window and pyopengltk (imported by the Tk UI's `zynthian_widget_audio_file.py`).
 - **jackd** (next section), and `/etc/profile.d/zyntest.sh` (the venv on `PATH`).
 - `tinydm` disabled: no kiosk session.
+- No firewall: nftables stopped and masked (as `qemu_setup.sh`, [qemu-testing.md](qemu-testing.md)):
+  the forwarded ports (webconf 8162 → 8080) reach the VM.
 
 ### jackd
 

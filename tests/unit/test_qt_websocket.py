@@ -472,12 +472,14 @@ def test_keypad_leds_give_the_wsled_state_while_clients_are_connected(app):
 
 
 def test_malformed_zynpot_and_zynswitch_cuias_are_dropped():
-    """They would end the CUIA thread (its int() conversions); the others go into the queue as OSC's"""
+    """The CUIA thread would log and skip them; the others go into the queue as OSC's"""
     ok = ui_mod.ws_cuia_args_ok
     assert ok("ZYNPOT", [3, -1]) and ok("zynpot", ["3", "1", "P"]) and ok("ZYNSWITCH", [1, "S"])
     assert ok("ZYNSWITCH", [1, "R", "200000"]) and ok("ARROW_DOWN", []) and ok("SELECT", ["x"])
     assert not ok("ZYNPOT", ["x", 1]) and not ok("ZYNPOT", [1, None]) and not ok("ZYNSWITCH", ["a", "S"])
     assert not ok("ZYNSWITCH", [1, "R", "soon"])
+    # As the CUIA thread since its ZYNPOT fix: "1.0" (untyped OSC) is a number
+    assert ok("ZYNPOT", ["3", "1.0"]) and ok("ZYNSWITCH", ["1.0", "S"])
     host = SimpleNamespace(cuia_queue=SimpleQueue())
     ZynUI.websocket_cuia(host, "ZYNPOT", ["x", 1], "WS#1")
     ZynUI.websocket_cuia(host, "ZYNPOT", [3, 1], "WS#1")

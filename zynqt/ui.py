@@ -62,28 +62,67 @@ QML_SCREENS = ("mixer", "launcher", "pattern_editor", "chain_manager", "chain_co
                "midi_key_range", "control_xy")
 
 
-def zynpot_params(params):
+def _int(value):
+    """An int from a number or a string ("1", "1.0": CUIA strings, untyped OSC); ValueError,
+    TypeError or OverflowError ("inf") if it isn't one"""
+    return int(float(value))
+
+
+def zynpot_params(params, log=True):
     """ZYNPOT's encoder and delta as ints (zynthian_gui.cuia_zynpot), from numbers or strings
     (CUIA strings, OSC: "1" or "1.0"), or None (logged) if they are missing or not numbers"""
     try:
-        return int(float(params[0])), int(float(params[1]))
-    except (TypeError, ValueError, IndexError):
-        logging.error(f"ZYNPOT requires 2 parameters: index, delta, not {params}")
+        return _int(params[0]), _int(params[1])
+    except (TypeError, ValueError, OverflowError, IndexError, KeyError):
+        if log:
+            logging.error(f"ZYNPOT requires 2 parameters: index, delta, not {params}")
         return None
 
 
-def ws_cuia_args_ok(cuia, args):
-    """ZYNPOT index,delta[,P|R] and ZYNSWITCH index,action[,µs]: as _cuia_task parses them"""
-    name = str(cuia).lower()
+def zynswitch_params(params, log=True):
+    """ZYNSWITCH's switch, action (P, R, S, B, L, ...: upper case) and, for R, the press duration
+    in µs (the kit's switches; None: timed here), from numbers or strings as zynpot_params; None
+    (logged) if they are missing or not numbers"""
     try:
-        if name == "zynpot" and len(args) >= 2:
-            int(args[0]), int(args[1])
-        elif name == "zynswitch" and len(args) >= 2:
-            int(args[0])
-            if len(args) > 2 and str(args[1]).upper() == "R":
-                int(args[2])
-    except (TypeError, ValueError):
-        return False
+        i, t = _int(params[0]), str(params[1]).upper()
+        dtus = _int(params[2]) if t == "R" and len(params) > 2 else None
+    except (TypeError, ValueError, OverflowError, IndexError, KeyError):
+        if log:
+            logging.error(f"ZYNSWITCH requires 2 parameters: index, action[, µs], not {params}")
+        return None
+    return i, t, dtus
+
+
+def cuia_event(event):
+    """A cuia_queue entry as (name, params list): a CUIA string ("NAME p1,p2"), or a tuple / list
+    (name, params[, source]) from OSC, the websocket, drivers (params a list, a tuple or one
+    value); None (logged) for anything else"""
+    try:
+        if isinstance(event, str):
+            parts = event.split(" ", 2)
+            return parts[0], parts[1].split(",") if len(parts) > 1 else []
+        cuia = event[0]
+        params = event[1] if len(event) > 1 else None
+    except (TypeError, IndexError, KeyError):
+        cuia = None
+    if not isinstance(cuia, str) or not cuia:
+        logging.error(f"bad CUIA event {event!r}")
+        return None
+    if params is None or params == "":
+        return cuia, []
+    if isinstance(params, (list, tuple)):
+        return cuia, list(params)
+    return cuia, [params]
+
+
+def ws_cuia_args_ok(cuia, args):
+    """ZYNPOT index,delta[,P|R] and ZYNSWITCH index,action[,µs]: what _cuia_task accepts
+    (zynpot_params, zynswitch_params)"""
+    name = str(cuia).lower()
+    if name == "zynpot":
+        return zynpot_params(args, log=False) is not None
+    if name == "zynswitch":
+        return zynswitch_params(args, log=False) is not None
     return True
 
 
@@ -1134,75 +1173,77 @@ class ZynUI(QObject, zynthian_websocket_feedback):
                     self._cuiaRequested.emit("_zynpot", [i, r[1]])
             if event is None:
                 continue
-            params = []
-            if isinstance(event, str):
-                if event == "__EXIT__":
-                    break
-                parts = event.split(" ", 2)
-                cuia = parts[0]
-                if len(parts) > 1:
-                    params = parts[1].split(",")
-            else:
-                cuia = event[0]
-                if len(event) > 1 and event[1]:
-                    params = list(event[1])
-            # As zynthian_gui's CUIA thread: user activity (wakes the screen from power save)
-            if str(cuia).lower() != "power_save":
-                self.state_manager.set_event_flag()
-            if cuia.lower() == "zynpot":
-                # ZYNPOT i,d (as zynthian_gui: from key bindings with P / R: repeat while held)
-                pot = zynpot_params(params)
-                if pot is None:
-                    continue    # logged; bad parameters must not end this thread
-                i, d = pot
-                t = str(params[2]).upper() if len(params) > 2 else ""
-                if t == "R":
-                    pot_repeating.pop(i, None)
-                    continue
-                if t == "P":
-                    pot_repeating[i] = [repeat_delay, d]
-                self._cuiaRequested.emit("_zynpot", [i, d])
-                continue
-            if cuia.lower() == "zynswitch" and len(params) >= 2:
-                i, t = int(params[0]), str(params[1]).upper()
-                # The push switch of an encoder (kits): push-rotate (zynthian_gui.zynpot_pr_state)
-                zpi = self._switch_zynpot(i)
-                if t == "P":
-                    if zpi is not None:
-                        self.zynpot_pr_state[zpi] = 1
-                        pressed[i] = monotonic()
-                    elif self._push_action(i):
-                        # A push action (zynthian_gui.zynswitch_push): now, repeated while held
-                        self._cuiaRequested.emit("_zynswitch", [i, "P"])
-                        repeating[i] = repeat_delay
-                    else:
-                        pressed[i] = monotonic()
-                        if i >= 4:
-                            # The screen may take the push (zynthian_gui.zynswitch_push: the
-                            # Organelle's AUX switch)
-                            self._cuiaRequested.emit("_zynswitch", [i, "P"])
-                    continue
-                turned = zpi is not None and self.zynpot_pr_state[zpi] > 1
-                if zpi is not None:
-                    self.zynpot_pr_state[zpi] = 0
-                if t == "R":
-                    if repeating.pop(i, None) is not None:
+            if event == "__EXIT__":
+                break
+            # Whatever goes wrong with one event: logged, the thread goes on (it ends only
+            # with __EXIT__)
+            try:
+                parsed = cuia_event(event)
+                if parsed is None:
+                    continue    # logged
+                cuia, params = parsed
+                # As zynthian_gui's CUIA thread: user activity (wakes the screen from power save)
+                if cuia.lower() != "power_save":
+                    self.state_manager.set_event_flag()
+                if cuia.lower() == "zynpot":
+                    # ZYNPOT i,d (as zynthian_gui: from key bindings with P / R: repeat while held)
+                    pot = zynpot_params(params)
+                    if pot is None:
+                        continue    # logged; bad parameters must not end this thread
+                    i, d = pot
+                    t = str(params[2]).upper() if len(params) > 2 else ""
+                    if t == "R":
+                        pot_repeating.pop(i, None)
                         continue
-                    ts = pressed.pop(i, None)
-                    if ts is None:
-                        continue  # long press already handled
-                    # The kit's switches: zyncore's (debounced) duration in µs
-                    seconds = int(params[2]) / 1000000 if len(params) > 2 else monotonic() - ts
-                    t = self._switch_timing(seconds)
-                else:
-                    # S / B / L given (OSC): ends a press started with P
-                    pressed.pop(i, None)
-                    repeating.pop(i, None)
-                if turned:
-                    continue  # its encoder was turned while pushed: no switch action
-                self._cuiaRequested.emit("_zynswitch", [i, t])
-                continue
-            self._cuiaRequested.emit(str(cuia), params)
+                    if t == "P":
+                        pot_repeating[i] = [repeat_delay, d]
+                    self._cuiaRequested.emit("_zynpot", [i, d])
+                    continue
+                if cuia.lower() == "zynswitch":
+                    sw = zynswitch_params(params)
+                    if sw is None:
+                        continue    # logged; bad parameters must not end this thread
+                    i, t, dtus = sw
+                    # The push switch of an encoder (kits): push-rotate (zynthian_gui.zynpot_pr_state)
+                    zpi = self._switch_zynpot(i)
+                    if t == "P":
+                        if zpi is not None:
+                            self.zynpot_pr_state[zpi] = 1
+                            pressed[i] = monotonic()
+                        elif self._push_action(i):
+                            # A push action (zynthian_gui.zynswitch_push): now, repeated while held
+                            self._cuiaRequested.emit("_zynswitch", [i, "P"])
+                            repeating[i] = repeat_delay
+                        else:
+                            pressed[i] = monotonic()
+                            if i >= 4:
+                                # The screen may take the push (zynthian_gui.zynswitch_push: the
+                                # Organelle's AUX switch)
+                                self._cuiaRequested.emit("_zynswitch", [i, "P"])
+                        continue
+                    turned = zpi is not None and self.zynpot_pr_state[zpi] > 1
+                    if zpi is not None:
+                        self.zynpot_pr_state[zpi] = 0
+                    if t == "R":
+                        if repeating.pop(i, None) is not None:
+                            continue
+                        ts = pressed.pop(i, None)
+                        if ts is None:
+                            continue  # long press already handled
+                        # The kit's switches: zyncore's (debounced) duration in µs
+                        seconds = dtus / 1000000 if dtus is not None else monotonic() - ts
+                        t = self._switch_timing(seconds)
+                    else:
+                        # S / B / L given (OSC): ends a press started with P
+                        pressed.pop(i, None)
+                        repeating.pop(i, None)
+                    if turned:
+                        continue  # its encoder was turned while pushed: no switch action
+                    self._cuiaRequested.emit("_zynswitch", [i, t])
+                    continue
+                self._cuiaRequested.emit(str(cuia), params)
+            except Exception as e:
+                logging.exception(f"CUIA event {event!r} failed: {e}")
 
     def cuia_zynpot(self, params=None):
         """ZYNPOT i,d run directly (zynthian_gui.cuia_zynpot): the CUIAs that don't come through
@@ -1526,8 +1567,8 @@ class ZynUI(QObject, zynthian_websocket_feedback):
 
     def websocket_cuia(self, cuia, args, src):
         """Into the CUIA queue (the CUIA thread, then the GUI thread), as OSC; ZYNPOT / ZYNSWITCH
-        with arguments the CUIA thread can't parse are dropped: its int() conversions would end
-        the thread"""
+        with arguments the CUIA thread doesn't accept are dropped here, with the client in the
+        log"""
         args = list(args) if isinstance(args, (list, tuple)) else ([] if args is None else [args])
         if not ws_cuia_args_ok(cuia, args):
             logging.warning(f"websocket {src}: bad arguments for CUIA {cuia}: {args}")

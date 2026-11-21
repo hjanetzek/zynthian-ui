@@ -128,6 +128,13 @@ nura_repo=https://github.com/hjanetzek/nura-builds/releases/download
 nura_key=https://raw.githubusercontent.com/hjanetzek/nura-builds/main/keys/nura-builds-ci.rsa.pub
 setup_vm() {
 	v=$1 upgrade=0
+	# (sshd first: a key login that fails while the VM boots isn't a new disk)
+	i=0
+	until ssh-keyscan -T 5 -p "$(vm_port "$v")" 127.0.0.1 >/dev/null 2>&1; do
+		i=$((i + 1))
+		[ $i -lt 60 ] || { echo "$v: no SSH on port $(vm_port "$v") after 5 minutes (see $(vm_dir "$v")/run.log)" >&2; exit 1; }
+		sleep 5
+	done
 	if ! vm_ssh "$v" true 2>/dev/null; then
 		echo "$v: setting up SSH (first boot of a new disk takes about a minute)"
 		"$here/qemu_setup.sh" -p "$(vm_port "$v")" > /dev/null

@@ -1499,7 +1499,9 @@ def test_lv2_plugin(plugin_info):
         else:
             command_env['DISPLAY'] = "X"
         command_prompt = ">"
-        proc = Popen(command, env=command_env, shell=False, text=True, bufsize=1, stdout=PIPE, stderr=STDOUT, stdin=PIPE)
+        # errors="replace": a plugin printing a non-UTF-8 byte doesn't fail the test
+        proc = Popen(command, env=command_env, shell=False, text=True, errors="replace", bufsize=1,
+                     stdout=PIPE, stderr=STDOUT, stdin=PIPE)
     except Exception as e:
         logging.error(f"\tCan't start jalv => {e}")
         return False

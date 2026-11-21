@@ -37,6 +37,9 @@ class SignalBridge(QObject):
     # A path controller asks for a file (SS_GUI_SHOW_FILE_SELECTOR, zynthian_controller.nudge):
     # the keyword arguments (cb_func, fexts, dirnames, path, preload)
     showFileSelector = Signal(object)
+    # An engine asks the control screen for a mode (SS_GUI_CONTROL_MODE: SooperLooper's loop
+    # selection, "control")
+    controlMode = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -61,9 +64,10 @@ class SignalBridge(QObject):
         self._register(zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self._cb_midi_pc)
         self._register(zynsigman.S_STATE_MAN, zynsigman.SS_SAVE_ZS3, self._cb_zs3_saved)
         self._register(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_MESSAGE, self._cb_show_message)
-        # Queued as in zynthian_gui.register_signals (its sender queues it anyway)
+        # Queued as in zynthian_gui.register_signals (their senders queue them anyway)
         self._register(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_FILE_SELECTOR, self._cb_show_file_selector,
                        queued=True)
+        self._register(zynsigman.S_GUI, zynsigman.SS_GUI_CONTROL_MODE, self._cb_control_mode, queued=True)
 
     def _register(self, signal, subsignal, callback, queued=False):
         zynsigman.register(signal, subsignal, callback, queued)
@@ -109,6 +113,9 @@ class SignalBridge(QObject):
             return
         self.showFileSelector.emit({"cb_func": cb_func, "fexts": fexts, "dirnames": dirnames, "path": path,
                                     "preload": bool(preload)})
+
+    def _cb_control_mode(self, mode="control", **kwargs):
+        self.controlMode.emit(str(mode))
 
     def _cb_snapshot(self, **kwargs):
         self.snapshotLoaded.emit()

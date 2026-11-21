@@ -62,6 +62,14 @@ class PatternEditor(QObject):
         self._events = []
         self._playhead = -1
         self._playing = False
+        # Smooth playhead (QML extrapolates between the polls): the position in steps (fraction
+        # included), the speed in steps per second (0 while it doesn't move: stopped, starting,
+        # paused), the loop length in steps (the sequence's)
+        self._play_pos = -1.0
+        self._step_rate = 0.0
+        self._play_len = 16.0
+        self._play_ticks = -1
+        self._play_still = 0         # polls without a position change while playing
         self.cursor = [0, 60]      # step, keymap row
         self.velocity = 100
         self.duration = 1.0
@@ -230,11 +238,30 @@ class PatternEditor(QObject):
         self.ccChanged.emit()
 
     def _poll(self):
-        step = self.libseq.getPatternPlayhead()
-        playing = self.libseq.getPlayState(self.zynseq.scene, self.phrase, self.sequence) != zynseq.SEQ_STOPPED
-        if step != self._playhead or playing != self._playing:
+        # The position as getPatternPlayhead computes it (sequence clock / clocks per step), but
+        # with the fraction and from this screen's sequence. Cheap: a few ctypes calls per poll.
+        zs = self.zynseq
+        state = self.libseq.getPlayState(zs.scene, self.phrase, self.sequence)
+        playing = state != zynseq.SEQ_STOPPED
+        ticks = self.libseq.getSequencePlayPosition(zs.scene, self.phrase, self.sequence)
+        cps = max(1, self.libseq.getClocksPerStep(self.pattern))
+        step = ticks // cps
+        moved = ticks != self._play_ticks
+        self._play_still = 0 if moved else self._play_still + 1
+        self._play_ticks = ticks
+        rate = 0.0
+        if state in (zynseq.SEQ_PLAYING, zynseq.SEQ_STOPPING) and self._play_still < 2:
+            # steps per second from the current tempo (the sequence's tempo map drives it);
+            # one poll without a change is tolerated (a long JACK period), two mean paused
+            rate = self.libseq.getTempo() * self.libseq.getStepsPerBeat() / 60.0
+        length = self.libseq.getSequenceLength(zs.scene, self.phrase, self.sequence) / cps
+        if step != self._playhead or playing != self._playing or moved or rate != self._step_rate \
+                or length != self._play_len:
             self._playhead = step
             self._playing = playing
+            self._play_pos = ticks / cps
+            self._step_rate = rate
+            self._play_len = length or float(self.steps)
             self.playheadChanged.emit()
         if self.libseq.isPatternModified():
             # Changed elsewhere (MIDI recording): an undo step before the next change
@@ -287,6 +314,22 @@ class PatternEditor(QObject):
     @Property(bool, notify=playheadChanged)
     def playing(self):
         return self._playing
+
+    @Property(float, notify=playheadChanged)
+    def playPosition(self):
+        """The playhead in steps with its fraction (as of the last poll)"""
+        return self._play_pos
+
+    @Property(float, notify=playheadChanged)
+    def stepRate(self):
+        """Steps per second while the playhead moves, else 0"""
+        return self._step_rate
+
+    @Property(float, notify=playheadChanged)
+    def playLength(self):
+        """Where the playhead wraps, in steps (the sequence's length: the pattern's when it is the
+        only one)"""
+        return self._play_len
 
     @Property("QVariantList", notify=cursorChanged)
     def cursorCell(self):

@@ -363,10 +363,12 @@ class zynthian_widget_organelle(zynthian_widget_base):
             self.switch_i_aux = 16
             self.wsled_i_selmode = 13
             self.wsled_i_aux = 14
-        elif zynthian_gui_config.check_wiring_layout(["MCP23017_ZYN"]):
+        elif zynthian_gui_config.check_wiring_layout(["MCP23017"]) and not zynthian_gui_config.touch_navigation:
+            # V4-type kits (MCP23017_ZynScreen, ...): S3 & S4, as F3 & F4 on V5. Not with the
+            # touch keypad: it takes switches 4-27, S1-S4 move to 28-31.
             self.show_touch_widgets = False
-            self.switch_i_selmode = 5
-            self.switch_i_aux = 4
+            self.switch_i_selmode = 6
+            self.switch_i_aux = 7
             self.wsled_i_selmode = None
             self.wsled_i_aux = None
         else:

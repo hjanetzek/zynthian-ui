@@ -86,6 +86,16 @@ zynthian's UI therefore reach the controller within 250 ms.
 The drivers use zynthian-ui's PipeWire port names, the `dev_in_2_dev_out` fix and
 `getTransportState` in `zynseq.h` (all on this branch).
 
+## The host's pages (chain control's grid)
+
+With zynthian-ui's grid module (`zyngui/zynthian_control_grid_data.py` with `chain_pages` and
+`shared_selection`: the `electra-grid` branch) a controller with a grid (the Maschine JAM:
+Select + SONG) shows the active chain's controller pages as zynthian's grid layouts do, and its
+selection is chain control's: a press on a cell selects its page and cell on zynthian's screen,
+a change on the screen moves the controller's highlight (`dbm_zynthian/host_page.py`,
+[doc/HOST_PAGE_PLAN.md §12](https://github.com/hjanetzek/drivenbymoss-rust/blob/main/doc/HOST_PAGE_PLAN.md)). Without that module (a stock zynthian)
+the host-page commands are not declared and the controller has no host source.
+
 ## Device IDs from the environment
 
 `ZYNTHIAN_DBM_DEVICE_<MODEL>` (the driver module's model, upper-cased, e.g.

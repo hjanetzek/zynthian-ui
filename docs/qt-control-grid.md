@@ -1,6 +1,6 @@
 # Chain control as a grid of pages (Qt UI)
 
-Status: 2026-11-24, branch `electra-grid`. Layouts `grid4x6` and `grid8x6` for chain control,
+Status: 2026-11-24, branch `electra-grid` (the shared selection and `turn_travel` for DrivenByMoss's host pages added). Layouts `grid4x6` and `grid8x6` for chain control,
 next to the default `v5` layout (the page list and four controllers in a column). Inspired by the
 Electra One mk2's control grid (coloured cells with name, value and a bar or arc; rows mapped to
 the encoders), not a copy of its look.
@@ -21,6 +21,10 @@ the encoders), not a copy of its look.
   controllers) at the right, with the section's colour.
 - The **selected page** (the one the four encoders turn) has its header in the selection colour
   and a frame (`frameActive`) around its four cells; in 8x6 that marks one half of a row.
+- The **selected cell** (the selected page's last touched or turned controller, else its first;
+  shared with controller drivers, below) has a thin frame (`controlGridCurrent`,
+  `controlGridCurrentWidth`: `textOff` at half opacity, 1 px). It changes nothing in how the
+  encoders work: they still turn the page's four controllers.
 - **The page list** stays at the left (`controlGridList` of the width, tk 0.2) when there is room:
   not in select mode (the side chain is shown there instead), not after `HIDE_SIDEBAR`, and only
   while the cells stay at least `controlCellMinWidth` (96 px) wide. The pages the grid shows are
@@ -79,12 +83,24 @@ Encoders and keys work as in the v5 layout; only what is drawn differs.
 
 ## The model (`zyngui/zynthian_control_grid_data.py`)
 
-UI independent (no Qt, no Tk), so other consumers can share it later (e.g. mapping the grid onto a
-controller's pad grid). Nothing of that is built.
+UI independent (no Qt, no Tk), shared with other consumers: DrivenByMoss's zynthian adapter maps
+it onto a controller's pad grid (the Maschine JAM's host pages, below).
 
 - `GridPage(key, title, section, section_index, zctrls, empty)`: one controller page.
 - `LAYOUTS`: `GridLayout(name, columns, rows, pages_per_row)` for `grid4x6`, `grid8x6`.
-- `ControlGrid`: `pages`, `layout`, `first_row` (the window), `selected` (a page index),
+- **Pages without Qt**: `chain_page_items(chain, processors, current_processor)` is chain
+  control's page list (`PageItem(title, separator, header, data)`: the chain's controllers by 4
+  under "CHAIN", each processor's controller screens under its name, a processor without screens
+  as one selectable header; data `("chain", None, zctrls)`, `("proc", processor, screen index)`,
+  `("empty", processor, 0)`) and the row of the current processor's current screen;
+  `grid_pages(items)` its `GridPage`s (also from the Qt UI's entry dicts) and each page's row;
+  `chain_pages(...)` both at once with the selected page's index. The Qt screen builds its page
+  list with them, so a driver's page indices are the screen's.
+- **Section colours**: `section_color(index)` (RGB, wrapping as `ControlGrid.qml`'s accent) from
+  the theme's `controlGridColors`: `Main.qml` passes them on every QML load
+  (`ChainControl.setThemeGridColors` -> `set_section_colors`); without it `ThemeBase`'s
+  defaults (`DEFAULT_SECTION_COLORS`, the same list as in `ThemeBase.qml`: keep both in step).
+- `ControlGrid(layout, paged=False)`: `pages`, `layout`, `first_row` (the window), `selected` (a page index),
   `selected_row`, `selected_half`, `selected_zctrl` (the anchor: the selected page's first
   controller, for views with other row widths), `cells` (rows × columns `GridCell`s in reading
   order; cell id = row · columns + column).
@@ -101,9 +117,22 @@ controller's pad grid). Nothing of that is built.
   controller and value and returns the changed cells. The model never reads or resets
   `zctrl.is_dirty`: chain control's four controller slots consume that flag (as before), and two
   consumers of it would steal each other's updates. Cost: 48 comparisons per 50 ms tick.
+- The selected cell: `selected_slot` (0-3 in the selected page, -1 none), `selected_cell` (its
+  id, -1 when not shown), `select_slot(slot)`, `select(page, slot=None)` (None: the page's first
+  controller, `first_slot(page)`). `paged=True` moves the window by whole windows (`first_row` a
+  multiple of `rows`, the last window may be partly empty: a controller's pages); `window`,
+  `window_count`, `first_page`, `shown_pages`.
 - Input methods: `select_page`, `select_row`, `select_cell` (through `on_select` when the owner
-  set it: chain control selects the page and the model follows), `turn(cell, delta, fine)`,
-  `press(cell)`, `release`, `touch`, `set_default`.
+  set it: chain control selects the page and the model follows), `turn(cell, delta, fine)` (an
+  encoder's detent: `zctrl.nudge`), `turn_travel(cell, delta, fine)`, `press(cell)`, `release`,
+  `touch`, `set_default`.
+- **`turn_travel`**: a strip's or fader's travel. The normalized value moves by delta / 127
+  (`TRAVEL`; fine: a tenth, `FINE`), so a swipe over the whole strip is the whole range;
+  logarithmic controllers in their logarithmic scale (as `nudge`). Stepped controllers
+  (`cell_steps`: lists' and toggles' ticks, toggles' two values, integer ranges) accumulate the
+  travel and step one value per 1 / (values - 1); the rest is kept per controller and dropped
+  when the direction turns, the value was changed elsewhere, or after a detent `turn`. Triggers
+  and file controllers don't move.
 - Not thread safe: use it from the GUI thread.
 
 ## The Qt side
@@ -128,6 +157,42 @@ controller's pad grid). Nothing of that is built.
   content changes. The theme looks: `ControlCell` (a cell) and `ControlGridPage` (a page's header
   and frame), touch `ControlCellTouch` (shared).
 
+## The shared selection (`shared_selection`)
+
+Chain control's selection is shared with other consumers (DrivenByMoss's host pages:
+`dbm_zynthian/host_page.py` in the drivenbymoss-rust repository, doc/HOST_PAGE_PLAN.md §12).
+The screen owns it; a consumer shows it and asks for changes.
+
+- **State** (`Selection(chain, page, slot, first_row, rows, layout)`): the chain (`chain_id`),
+  the selected page (its index in `chain_pages`), the selected cell (slot), the screen's grid
+  window (`first_row`, `rows`, `layout`; layout "" in v5). `shared_selection.get(chain_id)`
+  from any thread: the state if it is that chain's, else None (the consumer then uses
+  `chain_pages`' default, as the screen would when it builds that chain).
+- **Signals** (zynsigman `S_GUI`, sent directly from the GUI thread for every change, whatever
+  its origin: touch, encoders, the page list, a driver): `SS_GUI_CONTROL_GRID_PAGE` (chain, page,
+  slot), `SS_GUI_CONTROL_GRID_CELL` (chain, page, slot), `SS_GUI_CONTROL_GRID_WINDOW` (chain,
+  first_row, rows, layout). Receivers on other threads only take note (DrivenByMoss: the next
+  pass reads the state).
+- **Requests** (any thread): `request_page(chain, page)` (its first controller the cell),
+  `request_cell(chain, page, slot)`, `request_window(chain, first_row)`. The owner
+  (`ChainControl.grid_selection_request`) posts them to the GUI thread (`GuiCaller.run`); one for
+  another chain than the active one is dropped. Not shown, or built for another chain: the
+  screen builds the active chain's pages first. A page request goes through `setPage` (the same
+  path as the page list: the processor becomes current, its screen index is set), so the grid
+  scrolls to show the page: a driver's selection is always on screen, also when the driver's
+  windows differ from the screen's (8x6 windows of 6 rows against a 4x6 screen scrolling by
+  rows). Without an owner (the Tk UI) a request is applied to the state at once.
+- **The selected cell** on the screen (`ChainControl.cell`): set to the page's first controller
+  by every page change, and to a slot when its controller is turned or touched: the four
+  encoders (`zynpot`), the controller column's touch (`ControllerProxy`: nudge, toggle, set_abs,
+  touch), a cell of the selected page in the grid (drag, wheel, tap, long press). A drag on
+  another page's cell changes that controller without moving the selection (as before).
+- The Qt side: `ChainControl` reports in `setPage` / `_build` (page and cell), `set_cell`
+  (cell), `report_window` (the grid's structure events, layout changes);
+  `GridCellProxy.current` draws the cell. Tests: `tests/unit/test_control_grid_data.py` (the
+  model), `tests/unit/test_qt_control_grid_selection.py` (the screen with a real
+  `ChainControl`).
+
 ## Looks per theme
 
 | Theme | Cell | Page header |
@@ -141,7 +206,8 @@ controller's pad grid). Nothing of that is built.
 Tokens (`ThemeBase.qml`): `controlLayout` (the default when the user chose none: `v5` in all
 themes), `controlGrid` (the theme has the grid layouts; v4 false), `controlGridList`,
 `controlCellMinWidth`, `controlGridGap`, `controlGridColors` (by section; empty: `select`),
-`controlGridHeaderFilled`, `controlCellSegments`.
+`controlGridHeaderFilled`, `controlCellSegments`, `controlGridCurrent` /
+`controlGridCurrentWidth` (the selected cell's frame).
 
 Texts stay inside the cells: names wrap on at most two lines and elide; values shrink to fit
 (`Text.HorizontalFit`, down to 7-8 px) and then elide; header titles and sections elide.
@@ -179,7 +245,8 @@ once per layout. Not measured on a device yet.
   that aren't selected.
 - Other sizes (e.g. 6 or 8 columns with other page arrangements): add a `GridLayout` and, if a
   page should not be one row, a placement rule in `ControlGrid._fill` / `page_at`.
-- Mapping the grid onto a control surface (e.g. a pad grid through DrivenByMoss): the model is UI
-  independent and has the input methods and its own value watcher for that; nothing is built.
+- Mapping the grid onto a control surface: done for DrivenByMoss's host pages (the JAM, see the
+  shared selection above). The JAM's touch (`HostPageCellTouch`) could later show the page's
+  widget (`gridWidgetPoke`).
 - A per-zctrl change signal (the grid polls by value, which also sees engines that write
   `zctrl.value` directly).

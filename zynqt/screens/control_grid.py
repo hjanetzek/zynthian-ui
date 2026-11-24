@@ -6,7 +6,8 @@ four of the controller column, so the looks and the touch read the same properti
 pages (`blocks`: row by row, one or two a row) and the window's place in the page list. The
 selection is chain control's page (ChainControl.setPage): the grid follows it, a tap on a page
 selects it there; the four encoders keep turning chain control's four controllers, i.e. the
-selected page's.
+selected page's. The selected cell (ChainControl.cell: the last touched or turned controller of the
+selected page) is the model's selected_slot, drawn by the cells' `current`.
 """
 
 from PySide6.QtCore import QObject, Property, Signal, Slot
@@ -57,6 +58,17 @@ class GridCellProxy(ControllerProxy):
         """Its page is the selected one (the encoders turn it)"""
         return self.page >= 0 and self.page == self.grid.grid.selected
 
+    @Property(bool, notify=stateChanged)
+    def current(self):
+        """It is the selected cell (the selected page's last touched or turned controller)"""
+        g = self.grid.grid
+        return self.page >= 0 and self.page == g.selected and self.cell is not None and self.cell.slot == g.selected_slot
+
+    def _note_cell(self):
+        """Touched or turned: the selected cell, if it is on the selected page"""
+        if self.zctrl is not None and self.page >= 0 and self.page == self.grid.grid.selected:
+            self.control.set_cell(self.index)
+
     @Property(int, notify=stateChanged)
     def sectionIndex(self):
         g = self.grid.grid
@@ -97,6 +109,7 @@ class GridCellProxy(ControllerProxy):
         MIDI learning: learn it"""
         if not self._select_page():
             return
+        self._note_cell()
         c = self.control
         if c.midi_learning or c.note_learn:
             c.controllers[self.index].touched()
@@ -110,16 +123,19 @@ class GridCellProxy(ControllerProxy):
         """A drag or the wheel: the model's turn (zctrl.is_dirty stays for the controller slots)"""
         z = self.grid.grid.turn(self.cell_index, steps)
         if z is not None:
+            self._note_cell()
             self.control.zctrl_changed(z)
 
     @Slot()
     def options(self):
         if self.zctrl is not None and self._select_page():
+            self._note_cell()
             self.control.controllers[self.index].options()
 
     @Slot()
     def touched(self):
         """A drag started on it: while MIDI learning, learn it (its page selected first)"""
+        self._note_cell()
         c = self.control
         if c.midi_learning and self.zctrl is not None and self._select_page():
             c.controllers[self.index].touched()
@@ -144,6 +160,7 @@ class ControlGridModel(QObject):
         if event == "structure":
             self._sync()
             self.layoutChanged.emit()
+            self.control.report_window()
         elif event == "state":
             for proxy in self._cells:
                 proxy.stateChanged.emit()
@@ -163,37 +180,16 @@ class ControlGridModel(QObject):
         if name in gd.LAYOUTS:
             self.grid.set_layout(name)
 
-    def set_pages(self, entries, selected_entry):
-        """chain control's page list (EntryModel entries): the pages (not the section rows), the
-        selected one"""
-        pages = []
-        self.entries = []
-        section, section_index = "", -1
-        for row, e in enumerate(entries):
-            if e["separator"]:
-                section = e["title"]
-                section_index += 1
-                continue
-            kind, proc, arg = e["data"]
-            if kind == "chain":
-                zctrls = arg
-            elif kind == "empty":
-                section = e["title"]
-                section_index += 1
-                zctrls = []
-            else:
-                try:
-                    zctrls = proc.get_ctrl_screen(e["title"])
-                except Exception:
-                    zctrls = []
-            pages.append(gd.GridPage(row, e["title"], section.title() if section.isupper() else section,
-                                     max(0, section_index), zctrls, empty=(kind == "empty")))
-            self.entries.append(row)
+    def set_pages(self, entries, selected_entry, slot=None):
+        """chain control's page list (EntryModel entries): the pages (not the section rows,
+        zynthian_control_grid_data.grid_pages), the selected one and its selected cell (slot)"""
+        pages, self.entries = gd.grid_pages(entries)
         sel = self.entries.index(selected_entry) if selected_entry in self.entries else -1
-        self.grid.set_pages(pages, sel)
+        self.grid.set_pages(pages, sel, slot if slot is not None and slot >= 0 else None)
 
     def select_entry(self, entry):
-        """chain control's page changed: select it here too"""
+        """chain control's page changed: select it here too (its first controller the selected
+        cell)"""
         if entry in self.entries:
             self.grid.select(self.entries.index(entry))
 

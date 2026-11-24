@@ -144,6 +144,14 @@ Item {
                             dimmed: grid.cc.selectMode
                             accent: grid.accent(slot.ctrl ? slot.ctrl.sectionIndex : 0)
                         }
+                        // The selected cell (ChainControl.cell, shared with controller drivers)
+                        Rectangle {
+                            anchors.fill: parent
+                            visible: slot.ctrl !== null && slot.ctrl.current && !grid.cc.selectMode
+                            color: "transparent"
+                            border.color: Theme.controlGridCurrent
+                            border.width: Theme.controlGridCurrentWidth
+                        }
                         ControlCellTouch { ctrl: slot.ctrl }
                     }
                 }

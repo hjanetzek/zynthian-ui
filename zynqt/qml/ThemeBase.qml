@@ -258,6 +258,10 @@ QtObject {
     property int controlCellSegments: 0
     // how long a page's widget shows over its cells after a change (ms)
     property int controlGridWidgetMs: 1800
+    // the selected cell (the selected page's last touched or turned controller, shared with
+    // controller drivers): a thin frame, subtle next to the page's frameActive
+    property color controlGridCurrent: Qt.rgba(textOff.r, textOff.g, textOff.b, 0.5)
+    property real controlGridCurrentWidth: 1
     property real tileMargin: 1                     // around grid tiles and list rows
     property color infoBackground: background       // the selector's info pane
     property color dialogFrame: "transparent"       // around dialog buttons and the keyboard

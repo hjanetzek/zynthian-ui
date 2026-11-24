@@ -354,8 +354,8 @@ classic, galactica and enterprise keep their own.
 - **Shows:** the Organelle's 128x64 OLED (five text lines and graphics sent by the patch over
   OSC), its LED, an AUX button (and FS), a volume slider; the knobs are the patch's knob 1–4.
 - **Touch/keys:** tap a text line to go to that menu entry (the patch's menu); AUX
-  press/release. Tk also maps the hardware: a switch toggles a menu *select mode* in which knob 3
-  scrolls the menu (`/enc_up`, `/enc_down`) and its switch selects (`/enc_sel`), another switch is
+  press/release. Tk also maps the hardware: a switch toggles a menu *select mode* in which knob 4
+  (index 3) scrolls the menu (`/enc_up`, `/enc_down`) and its switch selects (`/enc_sel`), another switch is
   AUX (auto-long disabled while held); arrow CUIAs too.
 - **Trigger:** a Pure Data preset whose path contains "organelle" or whose config has
   `use_organelle_widget: true`. In Nura's zynthian-data: audio-fx Cannabits, CA_Filter,
@@ -364,15 +364,34 @@ classic, galactica and enterprise keep their own.
   `zynthian-data/puredata/organelle` (pd started with `-path` for it outside /zynthian: our
   patch 3237ba5a, nura-builds `zynthian-ui-tomita` patch 0019).
 - **How to open:** Add chain > Special > PureData, bank "audio-fx", preset "Cannabits", page
-  "Knobs".
+  "Knobs" (no select mode; for the keys bank "synth", preset "ArpII").
 - **Tk:** yes. **Qt:** yes (`OrganelleView.qml`), with Tk's kit mapping (shared
-  `OrganelleKeys` in `zynthian_organelle_data.py`): the select mode switch (V5 F3 = switch 19, Z2
-  15, MCP23017 5), knob 4 and the up/down arrows scroll the menu, switch 3 selects; knob 4 shows
-  "Select" and the on-screen SEL button is lit meanwhile; the AUX switch (V5 F4 = 23, Z2 16,
-  MCP23017 4) is held as AUX, without a long press; the LEDs as Tk. The on-screen AUX / FS /
-  ▲ / SEL / ▼ buttons stay for touch. Most Organelle presets in zynthian-data set
-  `organelle_selector: false` (Cannabits too): no select mode there, in Tk neither; synth/ArpII,
-  sampler/Segmenti and others have it.
+  `OrganelleKeys`, `kit_switches()` in `zynthian_organelle_data.py`). Most Organelle presets in
+  zynthian-data set `organelle_selector: false` (Cannabits too): no select mode there (in Tk
+  neither), the select mode switch keeps its own action; synth/ArpII, sampler/Segmenti and others
+  have it.
+- **Keys per layout** (select mode: the switch enters it and scrolls once, knob 4 and the up/down
+  arrows scroll the patch's menu, knob 4 shows "Select"; leaving it selects):
+
+  | Layout | Select mode | AUX (held, no long press) | Select in select mode | LEDs |
+  |---|---|---|---|---|
+  | V5 kit (`V5*`) | F3 (switch 19) | F4 (23) | knob 4's push (`V5_ZYNPOT_SWITCH 3`), F3 again; Qt also SEL | F3 blinks / F4 green (Tk: the kit's LEDs; Qt drives no kit LEDs yet) |
+  | Touch keypad (`ZYNTHIAN_UI_TOUCH_NAVIGATION`, any layout; the VMs: `TOUCH_ONLY`) | F3 (19) | F4 (23) | F3 again, SEL (Qt) | the keypad's F3 / F4 (Qt); F-key labels MENU / SELECT, AUX |
+  | Z2 | 15 | 16 | knob 4's push | Z2's LEDs (Tk) |
+  | V4 kits (`MCP23017*`: ZynScreen, Zynaptik, ...) | S3 (switch 6) | S4 (7) | knob 4's push (switch 3, the select knob) | none |
+  | others | the on-screen ▲ / SEL / ▼ and AUX only | | | |
+
+  The on-screen AUX / FS / ▲ / SEL / ▼ buttons stay in Qt (SEL in select mode selects and ends
+  it; SEL and AUX are lit meanwhile). Qt's SEL key selecting in select mode is our addition: in
+  Tk, SEL (`SELECT_ACTION`) toggles the chain control's select mode underneath.
+- **Tk differences** (upstream tomita 3dbab929): the V4 branch checks `"MCP23017_ZYN"` (5, 4),
+  which no layout starts with (`check_wiring_layout` compares the start, case sensitive), so V4
+  kits had no mapping (touch encoder and AUX instead); the touch keypad isn't mapped (Tk shows the
+  touch widgets; F3 / F4 run their program changes); the widget took the push of the select mode
+  and AUX switches, which the CUIA thread treats as a push action (repeated, release dropped):
+  P / R (keypad, `ZYNSWITCH i,P` / `i,R`) never toggled the select mode nor released AUX. Our
+  strand 01 fixes the V4 match (S3 / S4, not with the keypad on a V4 kit: it moves S1-S4 to
+  28-31) and the push; the Tk keypad stays unmapped.
 
 ## SooperLooper
 

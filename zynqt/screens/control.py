@@ -7,6 +7,7 @@ checks while the screen is shown (as zynthian_gui's plot_zctrls).
 """
 
 import logging
+import os
 
 from PySide6.QtCore import QObject, QTimer, Property, Signal, Slot
 
@@ -15,6 +16,7 @@ from zyngine.zynthian_signal_manager import zynsigman
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_audio_file_data as afd
 from zyngui import zynthian_widget_data as wd
+from zyngui import zynthian_control_grid_data as gd
 from zyngui import zynthian_sooperlooper_data as sld
 from zyngui.zynthian_organelle_data import OrganelleKeys, kit_switches
 from zyngui.zynthian_midi_learn_data import (MIDI_LEARNING_CHAIN, MIDI_LEARNING_DISABLED, MIDI_LEARNING_GLOBAL,
@@ -25,6 +27,9 @@ from zynqt.models.organelle import OrganelleView
 from zynqt.models.widgets import DrawbarView, EnvelopeView, FilterView, PluginView, EuclidSeqView, SooperLooperView
 from zynqt.screens.base import EntryModel, entry, separator
 from zynqt.screens.controller_options import show_controller_options
+
+
+LAYOUT_VAR = "ZYNTHIAN_QT_CONTROL_LAYOUT"
 
 
 def tk_plot(z):
@@ -248,7 +253,7 @@ class ControllerProxy(QObject):
         if self.zctrl is not None and steps:
             self.zctrl.nudge(steps, fine=fine)
             self.zctrl.is_dirty = False
-            self.changed.emit()
+            self.control.zctrl_changed(self.zctrl)
 
     def set_abs(self, val):
         """Set to a part of the range (val 0..1): ZYNPOT_ABS, as zynthian_gui_controller.zynpot_abs
@@ -257,14 +262,14 @@ class ControllerProxy(QObject):
         if z is not None:
             z.set_value(z.value_min + val * z.value_range)
             z.is_dirty = False
-            self.changed.emit()
+            self.control.zctrl_changed(z)
 
     @Slot()
     def toggle(self):
         if self.zctrl is not None:
             self.zctrl.toggle()
             self.zctrl.is_dirty = False
-            self.changed.emit()
+            self.control.zctrl_changed(self.zctrl)
 
 
 def organelle_kit_switches():
@@ -282,6 +287,10 @@ class ChainControl(QObject):
     sidebarChanged = Signal()
     modeChanged = Signal()
     selectPathChanged = Signal()
+    controlLayoutChanged = Signal()
+    # The grid layouts: show the selected page's widget over its cells (name and value text of
+    # the controller that changed; "": the page was selected)
+    gridWidgetPoke = Signal(str, str)
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -335,6 +344,108 @@ class ChainControl(QObject):
         self.pageChanged.connect(self.selectPathChanged)
         self.learnChanged.connect(self.selectPathChanged)
         self.modeChanged.connect(self.selectPathChanged)
+        # The layout (docs/qt-control-grid.md): "v5" (the page list and the four controllers in a
+        # column) or a grid of pages (grid4x6, grid8x6). The user's choice is
+        # ZYNTHIAN_QT_CONTROL_LAYOUT ("" or unset: the theme's default, Theme.controlLayout);
+        # themes without the grid (v4: Theme.controlGrid false) keep their own layout
+        from zynqt.screens.control_grid import ControlGridModel, LAYOUTS
+        self._layouts = LAYOUTS
+        self.grid = ControlGridModel(self)
+        setting = os.environ.get(LAYOUT_VAR, "").strip()
+        self._layout_setting = setting if setting in LAYOUTS else ""
+        self._theme_layout = "v5"
+        self._theme_grid = True
+        self._layout = self._effective_layout()
+        if self._layout != "v5":
+            self.grid.set_layout(self._layout)
+
+    # The layout: the page list and four controllers (v5) or a grid of pages
+
+    def _effective_layout(self):
+        if not self._theme_grid:
+            return "v5"
+        return self._layout_setting or self._theme_layout
+
+    def _apply_layout(self):
+        layout = self._effective_layout()
+        if layout == self._layout:
+            return
+        self._layout = layout
+        if layout != "v5":
+            self.grid.set_layout(layout)
+            self.grid.set_pages(self.pages.entries, self._page)
+        self.controlLayoutChanged.emit()
+        self.pageChanged.emit()
+
+    @Slot(str, bool)
+    def setThemeLayout(self, default, grid):
+        """The theme's default layout and whether it has the grid (Main.qml, at every QML load)"""
+        self._theme_layout = default if default in self._layouts else "v5"
+        self._theme_grid = bool(grid)
+        self._apply_layout()
+
+    @property
+    def layout_setting(self):
+        return self._layout_setting
+
+    @property
+    def theme_layout(self):
+        return self._theme_layout if self._theme_grid else None
+
+    def set_layout_setting(self, value):
+        """The user's choice (Admin > Chain Control Layout): saved in zynthian's config, applied
+        at once ("": the theme's default)"""
+        value = value if value in self._layouts else ""
+        self._layout_setting = value
+        os.environ[LAYOUT_VAR] = value
+        try:
+            import zynconf
+            zynconf.save_config({LAYOUT_VAR: value})
+        except Exception as e:
+            logging.warning(f"Can't save the chain control layout: {e}")
+        self._apply_layout()
+
+    @Property(str, notify=controlLayoutChanged)
+    def controlLayout(self):
+        return self._layout
+
+    @Property(bool, notify=controlLayoutChanged)
+    def gridLayout(self):
+        return self._layout != "v5"
+
+    def _grid_shown(self):
+        """The grid is shown: a grid layout (a page's widget shows over its cells for a while
+        after a change: gridWidgetPoke)"""
+        return self._layout != "v5"
+
+    def _poke_grid_widget(self, zctrl=None):
+        """The selected page has a widget: show it over the page's cells in the grid, with the
+        changed controller's name and value (none: the page was selected)"""
+        if self._layout == "v5" or not self._widget_type or not self._shown:
+            return
+        if zctrl is None:
+            self.gridWidgetPoke.emit("", "")
+        else:
+            self.gridWidgetPoke.emit(gd.cell_name(zctrl), gd.cell_value_text(zctrl))
+
+    @Property(bool, notify=pageChanged)
+    def gridShown(self):
+        return self._grid_shown()
+
+    @Property(QObject, constant=True)
+    def gridModel(self):
+        return self.grid
+
+    def zctrl_changed(self, zctrl):
+        """A controller's value changed through one of the slots: every slot showing it"""
+        for c in self.controllers:
+            if c.zctrl is zctrl:
+                c.changed.emit()
+        if self._layout != "v5":
+            if self._widget_type and zctrl in self._page_zctrls:
+                self._poke_grid_widget(zctrl)
+            for p in self.grid.proxies_of(zctrl):
+                p.changed.emit()
 
     # The processor list on the left (zynthian_gui_chain_control's sidebar): SHOW_SIDEBAR,
     # HIDE_SIDEBAR, TOGGLE_SIDEBAR
@@ -394,6 +505,9 @@ class ChainControl(QObject):
             self._build()
 
     def _refresh(self):
+        if self._grid_shown():
+            # The grid's cells, by comparing values (the slots below keep zctrl.is_dirty)
+            self.grid.poll()
         for c in self.controllers:
             c.refresh()
         if self._widget_type == "envelope":
@@ -452,6 +566,8 @@ class ChainControl(QObject):
         if page is None:
             page = next((i for i, e in enumerate(entries) if not e["separator"]), None)
         self._page = -1
+        if self._layout != "v5":
+            self.grid.set_pages(entries, -1 if page is None else page)
         if page is None:
             # No controller page (e.g. no audio levels on this device): empty slots
             self._page_zctrls = []
@@ -697,7 +813,10 @@ class ChainControl(QObject):
         for i, c in enumerate(self.controllers):
             c.set_zctrl(zctrls[i] if i < len(zctrls) else None)
         self._set_widget(proc if kind != "chain" else None, zctrls)
+        if self._layout != "v5":
+            self.grid.select_entry(index)
         self.pageChanged.emit()
+        self._poke_grid_widget()
         self.ui.setup_zynpots(self)
 
     def _set_widget(self, proc, zctrls=()):
@@ -1138,6 +1257,10 @@ class ChainControl(QObject):
     def refresh_bindings(self):
         for c in self.controllers:
             c.changed.emit()
+        if self._layout != "v5":
+            for c in self.grid.cells:
+                if c.zctrl is not None:
+                    c.changed.emit()
 
     def _is_key_range(self):
         return getattr(self.special_processor, "zmop_index", None) is not None and \

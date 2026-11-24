@@ -13,6 +13,8 @@ Rectangle {
     onWidthChanged: if (view && width > 0) view.setSize(width, height)
     onHeightChanged: if (view && width > 0) view.setSize(width, height)
     onViewChanged: if (view && width > 0) view.setSize(width, height)
+    // (two views share the model: chain control's and the grid layouts' overlay, ControlGrid)
+    onVisibleChanged: if (visible && view && width > 0) view.setSize(width, height)
 
     // Grid: dB lines, 8 frequency divisions (over the curve in themes with widgetGridOnTop)
     Repeater {

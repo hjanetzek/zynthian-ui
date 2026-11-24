@@ -11,6 +11,8 @@ Rectangle {
     clip: true
 
     onViewChanged: if (view && wave.width > 0) view.setSize(wave.width, wave.height)
+    // (two views share the model: chain control's and the grid layouts' overlay, ControlGrid)
+    onVisibleChanged: if (visible && view && wave.width > 0) view.setSize(wave.width, wave.height)
 
     Item {
         id: wave

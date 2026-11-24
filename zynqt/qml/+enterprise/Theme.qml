@@ -99,4 +99,8 @@ ThemeBase {
     caps: true
     letterSpacing: 0.6
     fontScale: 1.2
+    // Chain control's grid: pill headers filled in the sections' colours (the keys' palette)
+    controlGridHeaderFilled: true
+    controlGridColors: ["#fe972c", "#bbc6cb", "#8e6790", "#7e5edb", "#e5af46", "#b08bb2"]
+    controlGridGap: 4
 }

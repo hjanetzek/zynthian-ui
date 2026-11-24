@@ -87,6 +87,12 @@ ThemeBase {
     controllerColumn: 0.25
     controllerGap: 1
     sideChainBackground: panel
+    // Grid layouts: Tk's square plates 1 px apart, the sections in Tk's colours (on, midi, hl,
+    // alt2, alt)
+    controlGridGap: 1
+    controlGridColors: [tkColor("on", "#ff0000"), tkColor("midi", "#19b1f7"), tkColor("hl", "#00c000"),
+                        tkColor("alt2", "#ff9000"), tkColor("alt", "#ff00ff")]
+    controlGridList: 0.2
 
     // Shapes and type: square plates, Audiowide
     radius: 0

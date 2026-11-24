@@ -242,6 +242,22 @@ QtObject {
     property real controllerColumn: 0.3
     property real controllerGap: 2
     property color sideChainBackground: background
+    // Chain control's grid layouts (ControlGrid, docs/qt-control-grid.md): the layout when the user
+    // chose none ("v5", "grid4x6", "grid8x6"), whether the theme has them (v4: false), the page
+    // list's part of the width beside the grid, the narrowest cell for which the list is shown,
+    // the gap between cells and pages, the sections' colours (by section: the chain's
+    // controllers, then each processor; empty: the selection colour), the page headers filled in
+    // the section's colour (dark text), the bar of continuous values in segments (0: one bar)
+    property string controlLayout: "v5"
+    property bool controlGrid: true
+    property real controlGridList: 0.18
+    property real controlCellMinWidth: 96
+    property real controlGridGap: 3
+    property var controlGridColors: ["#5a9ef0", "#f49500", "#03a598", "#c44795", "#f45c51"]
+    property bool controlGridHeaderFilled: false
+    property int controlCellSegments: 0
+    // how long a page's widget shows over its cells after a change (ms)
+    property int controlGridWidgetMs: 1800
     property real tileMargin: 1                     // around grid tiles and list rows
     property color infoBackground: background       // the selector's info pane
     property color dialogFrame: "transparent"       // around dialog buttons and the keyboard

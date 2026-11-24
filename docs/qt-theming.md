@@ -133,7 +133,9 @@ Since 2026-11-18 (branch `theme-behaviour`; the inventory is in zynthian-stuff
 which screens and actions are reachable, what is shown (titles, values, labels, indicators, LEDs)
 and the Python calls are the same. A theme changes only the look. So:
 
-- **Shared, not overridden** (one file for all themes): `ChainControlScreen` (layout, content,
+- **Shared, not overridden** (one file for all themes): `ControlGrid` and `ControlCellTouch` (chain
+  control's grid layouts and a cell's touch, [qt-control-grid.md](qt-control-grid.md)),
+  `ChainControlScreen` (layout, content,
   touch; looks from `ChainNode`, `ControlPageRow`, `Controller` and the tokens
   `controllerColumn`, `controllerGap`, `sideChainBackground`), `PatternEditorScreen` (the theme's
   `PatternToolbar` above the shared `PatternEditorView` and `PatternCcLane`, colours from the
@@ -143,7 +145,9 @@ and the Python calls are the same. A theme changes only the look. So:
   no other gestures), `ControllerTouch` (a controller's drag, tap, long press, wheel). v4
   keeps its own `ChainControlScreen` and `PatternEditorScreen` (frames, the knob hints) and uses
   the shared touch.
-- **Look-only overrides** (same properties, same data, no handlers of their own): `InfoPane`,
+- **Look-only overrides** (same properties, same data, no handlers of their own): `ControlCell`
+  and `ControlGridPage` (a cell and a page header of the grid layouts: tk Tk's arc, classic a
+  bar, used by galactica and enterprise with their tokens), `InfoPane`,
   `GridTile`, `SelectorCategories`, `KeyPlate`, `KeyFace` (classic draws the key's LED,
   `zyn.keypadLeds.lit` / `colors`, as a light; tk colours the label with it), `Controller` (the
   touch is `ControllerTouch`; the content tk's: `tkValueText`, names with spaces, no arc on path
@@ -248,6 +252,7 @@ Tokens:
 | Pattern editor | `gridRow`, `gridRowDark`, `gridRowLine`, `gridRowLineTonic`, `gridBar`, `gridBeat`, `gridStep`, `gridBarWidth`, `noteHue`, `noteFrame`, `selectionFill`, `selectionFrame`, `ccBar`, `ccBarCurrent`, `buttonOn`, `buttonRecord` | row bands (black keys darker; tk transparent: none) and lines (the tonic's), step lines (bars, beats, steps; the bar's width), notes (a hue, lighter with velocity; tk -1: Tk's grey by velocity, selected blue, the moving copy green), the selected block, CC bars, toolbar buttons |
 | Pattern playhead | `playheadLineWidth`, `playheadColor`, `playheadTailColor`, `playheadTailSteps`, `playheadTailOpacity`, `playheadTailCurve`, `playheadLineOnTop`, `playheadFps` | the playhead line across the grid and the CC view (width, colour; default `select`), its gradient tail (colour, length in steps, alpha at the line, fade curve: alpha = opacity x t^curve), the line over the notes (the tail is always behind them), updates per second (0: every frame). See "Pattern editor playhead" below |
 | Chain control | `controllerColumn`, `controllerGap`, `sideChainBackground` | the controller column's part of the width (tk 0.25), the gap below each controller, the side chain's background |
+| Chain control grid | `controlLayout`, `controlGrid`, `controlGridList`, `controlCellMinWidth`, `controlGridGap`, `controlGridColors`, `controlGridHeaderFilled`, `controlCellSegments`, `controlGridWidgetMs` | the grid layouts ([qt-control-grid.md](qt-control-grid.md)): the layout when the user chose none (`v5` in every theme), whether the theme has them (v4 false), the page list's part of the width, the narrowest cell that leaves room for it, the gap between cells, the colours by section (tk: Tk's on, midi, hl, alt2, alt; galactica amber and status colours; enterprise the keys' palette), page headers filled in the section colour (enterprise), the bar in segments (galactica 12), how long a widget page's widget shows over its cells after a change (1800 ms) |
 | Widgets | `widgetBackground`, `widgetLine`, `widgetFill`, `widgetGrid`, `widgetWave`, `widgetOutside` | the controller page widgets: envelope and filter curves, waveform, plugin meters' background |
 
 Sizes (classic's values; tk derives them from F): `topBarHeight`, `titleSize`, `listRowHeight`,

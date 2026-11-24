@@ -7,6 +7,8 @@ import ".."
 // two in step). docs/qt-theme-v4.md has the design.
 ThemeBase {
     id: t
+    // Chain control keeps its four knobs' layout (+v4/ChainControlScreen): no grid layouts
+    controlGrid: false
     // F as Tk on a V4 kit: ZYNTHIAN_UI_FONT_SIZE (14 in zynthian_envars_V4.sh) unscaled. Nura's
     // session sets ZYNTHIAN_UI_SCALE=auto (the height / 600, for HDMI screens and desktops), which
     // would halve it at 320 px; a number given as the scale still applies.

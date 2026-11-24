@@ -5,7 +5,9 @@
 // of the screen width at the right; the side chain (zynthian_side_chain, a fifth of the width)
 // only in select mode. The page's widget below the list (audio file, envelope, filter: half of
 // it) or instead of it (the other widgets). The side chain's nodes other than processors open
-// their screens (Tk shows them as subscreens in place).
+// their screens (Tk shows them as subscreens in place). In a grid layout (ZYNTHIAN_QT_CONTROL_LAYOUT
+// grid4x6 / grid8x6: ControlGrid, docs/qt-control-grid.md) the grid takes the page list's and the
+// controllers' place, except on pages with a widget.
 import QtQuick
 
 Rectangle {
@@ -13,6 +15,7 @@ Rectangle {
 
     readonly property var cc: zyn.chainControl
     readonly property bool chainShown: cc.selectMode && cc.isChain
+    readonly property bool gridShown: cc.gridShown
     readonly property bool widgetHalf: ["audio_file", "envelope", "filter", "drawbar", "unsupported"].indexOf(cc.widgetType) >= 0
 
     color: Theme.background
@@ -81,8 +84,8 @@ Rectangle {
         Column {
             id: controllers
             anchors.right: parent.right
-            width: root.cc.sidebarShown ? Math.floor(Theme.controllerColumn * root.width) : 0
-            visible: root.cc.sidebarShown
+            width: root.cc.sidebarShown && !root.gridShown ? Math.floor(Theme.controllerColumn * root.width) : 0
+            visible: root.cc.sidebarShown && !root.gridShown
             height: parent.height
             spacing: 0
             Repeater {
@@ -107,7 +110,7 @@ Rectangle {
             x: 0
             width: parent.width - controllers.width - (controllers.visible ? 1 : 0)
             height: root.widgetHalf ? Math.floor(parent.height / 2) : parent.height
-            visible: root.cc.widgetType === "" || root.widgetHalf
+            visible: (root.cc.widgetType === "" || root.widgetHalf) && !root.gridShown
             color: Theme.listBackground
 
             ListView {
@@ -157,12 +160,23 @@ Rectangle {
             y: root.widgetHalf ? listArea.height : 0
             width: listArea.width
             height: parent.height - y
+            // (the grid shows no widget: "unsupported" says so in the v5 layout only)
+            visible: root.cc.widgetType !== "" && !root.gridShown
+        }
+
+        // The grid layouts: created when chosen
+        Loader {
+            id: gridView
+            anchors.fill: parent
+            active: root.cc.gridLayout
+            visible: root.gridShown
+            sourceComponent: Component { ControlGrid { cc: root.cc } }
         }
 
         ControlOverlays {
             anchors.fill: parent
             cc: root.cc
-            area: listArea
+            area: root.gridShown ? gridView : listArea
         }
     }
 }

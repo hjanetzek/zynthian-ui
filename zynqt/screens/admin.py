@@ -17,6 +17,7 @@ from zynqt.screens.base import NOT_PORTED, SelectorScreen, entry, separator
 
 TEST_AUDIO = f"{zynthian_paths.data_dir}/files/Audio/Oya.mp3"
 TEST_MIDI = f"{zynthian_paths.data_dir}/files/Midi/roland_take5.mid"
+LAYOUT_LABELS = {"v5": "4 controllers", "grid4x6": "Grid 4x6", "grid8x6": "Grid 8x6"}
 QML_DIR = os.path.join(os.path.dirname(os.path.abspath(zyntheme.__file__)), "qml")
 
 
@@ -137,6 +138,12 @@ class Admin(SelectorScreen):
         e.append(entry(_check(self.ui.keypadDocked) + "Docked Touch Keypad", toggle(self.ui.toggleKeypadDocked),
                        icon="settings.png", info="The touch keys beside the screens (phones, touch-only devices). Also "
                        "shown / hidden by a tap on the top bar's status area."))
+        cc = self.ui.chain_control_screen
+        if cc.theme_layout is not None:
+            e.append(entry(f"Chain Control Layout ({LAYOUT_LABELS.get(cc.controlLayout, cc.controlLayout)})",
+                           lambda x: self.control_layout_menu(), icon="settings.png",
+                           info="How chain control shows the controller pages: the page list and four "
+                           "controllers, or a grid of pages (a row per page, 4 or 8 columns). Saved."))
         e.append(entry(_check(cfg.preset_preload) + "Preset Preload", toggle(s.toggle_preset_preload),
                        icon="settings.png", info="Pre-load presets while browsing the list" if cfg.preset_preload
                        else "Do not pre-load preset for while browsing the list"))
@@ -179,6 +186,15 @@ class Admin(SelectorScreen):
                 self.ui.confirm("Restart UI to apply touch-navigation settings?", do)
         self.pick("Touch Navigation", [("None", ""), ("V5 keypad at left", "v5_keypad_left"),
                                        ("V5 keypad at right", "v5_keypad_right")], cfg.touch_navigation, apply)
+
+    # Chain control's layout (ZYNTHIAN_QT_CONTROL_LAYOUT, docs/qt-control-grid.md)
+
+    def control_layout_menu(self):
+        cc = self.ui.chain_control_screen
+        default = LAYOUT_LABELS.get(cc.theme_layout, cc.theme_layout)
+        choices = [(f"Default ({default})", "")] + [(label, v) for v, label in LAYOUT_LABELS.items()]
+        self.pick("Chain Control Layout", [(_check(v == cc.layout_setting) + label, v) for label, v in choices],
+                  cc.layout_setting, cc.set_layout_setting)
 
     # Theme (ZYNTHIAN_QT_THEME, zynqt/theme.py)
 

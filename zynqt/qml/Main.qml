@@ -53,6 +53,10 @@ Window {
 
     Binding { target: Theme; property: "uiSideways"; value: ui.sideways }
 
+    // Chain control's layout: the theme's default and whether it has the grid layouts
+    // (docs/qt-control-grid.md)
+    Component.onCompleted: zyn.chainControl.setThemeLayout(Theme.controlLayout, Theme.controlGrid)
+
     // The first frame is on screen: the deferred parts of the UI (Deferred.qml) are created now,
     // in the background. (frameSwapped comes from the render thread: queued to this one.)
     onFrameSwapped: if (!Startup.ready) Startup.ready = true

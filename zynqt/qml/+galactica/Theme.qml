@@ -100,4 +100,7 @@ ThemeBase {
     caps: true
     letterSpacing: 1.2
     fontScale: 1.15             // Khand is condensed, with a small x-height
+    // Chain control's grid: console bars in segments, amber and the status colours by section
+    controlCellSegments: 12
+    controlGridColors: ["#f0ad3c", "#4f9cc8", "#8fc46a", "#e8432e", "#c890c0"]
 }

@@ -6,6 +6,7 @@ snapshots work as in the Tk UI. Changes from MIDI or the engine set zctrl.is_dir
 checks while the screen is shown (as zynthian_gui's plot_zctrls).
 """
 
+import functools
 import logging
 import os
 
@@ -238,9 +239,15 @@ class ControllerProxy(QObject):
         if self.zctrl is not None:
             show_controller_options(self.control, self.index)
 
+    def _note_cell(self):
+        """Touched or turned: this slot is the selected cell (of the selected page)"""
+        if self.zctrl is not None:
+            self.control.set_cell(self.index)
+
     @Slot()
     def touched(self):
         """Touched while MIDI learning: learn this one (zynthian_gui_control.zctrl_touch)"""
+        self._note_cell()
         c = self.control
         if c.midi_learning and self.zctrl is not None and self.zctrl != c.ui.state_manager.get_midi_learn_zctrl():
             c.midi_learn(self.index, c.midi_learning)
@@ -251,6 +258,7 @@ class ControllerProxy(QObject):
 
     def nudge_fine(self, steps, fine):
         if self.zctrl is not None and steps:
+            self._note_cell()
             self.zctrl.nudge(steps, fine=fine)
             self.zctrl.is_dirty = False
             self.control.zctrl_changed(self.zctrl)
@@ -260,6 +268,7 @@ class ControllerProxy(QObject):
         without pick-up"""
         z = self.zctrl
         if z is not None:
+            self._note_cell()
             z.set_value(z.value_min + val * z.value_range)
             z.is_dirty = False
             self.control.zctrl_changed(z)
@@ -267,6 +276,7 @@ class ControllerProxy(QObject):
     @Slot()
     def toggle(self):
         if self.zctrl is not None:
+            self._note_cell()
             self.zctrl.toggle()
             self.zctrl.is_dirty = False
             self.control.zctrl_changed(self.zctrl)
@@ -298,6 +308,12 @@ class ChainControl(QObject):
         self.chain_manager = ui.chain_manager
         self.pages = EntryModel(self)
         self._page = 0
+        # The shared selection (docs/qt-control-grid.md): the page list rows of the pages (page
+        # index -> row), the selected cell (the slot of the selected page's last touched or
+        # turned controller, else its first; -1: none) and the chain the pages were built for
+        self._page_rows = []
+        self._cell = -1
+        self._built_chain = None
         self._processors = []
         self.controllers = [ControllerProxy(i, self) for i in range(4)]
         self._shown = False
@@ -358,6 +374,8 @@ class ChainControl(QObject):
         self._layout = self._effective_layout()
         if self._layout != "v5":
             self.grid.set_layout(self._layout)
+        # The owner of the shared selection: drivers' requests come here (any thread)
+        gd.shared_selection.set_owner(self)
 
     # The layout: the page list and four controllers (v5) or a grid of pages
 
@@ -373,9 +391,10 @@ class ChainControl(QObject):
         self._layout = layout
         if layout != "v5":
             self.grid.set_layout(layout)
-            self.grid.set_pages(self.pages.entries, self._page)
+            self.grid.set_pages(self.pages.entries, self._page, self._cell)
         self.controlLayoutChanged.emit()
         self.pageChanged.emit()
+        self.report_window()
 
     @Slot(str, bool)
     def setThemeLayout(self, default, grid):
@@ -383,6 +402,12 @@ class ChainControl(QObject):
         self._theme_layout = default if default in self._layouts else "v5"
         self._theme_grid = bool(grid)
         self._apply_layout()
+
+    @Slot("QVariantList")
+    def setThemeGridColors(self, colors):
+        """The theme's section colours (Theme.controlGridColors, Main.qml at every QML load) for
+        the consumers of the grid without Qt (zynthian_control_grid_data.section_color)"""
+        gd.set_section_colors([c.name() if hasattr(c, "name") else str(c) for c in (colors or [])])
 
     @property
     def layout_setting(self):
@@ -539,33 +564,18 @@ class ChainControl(QObject):
         self.processorsChanged.emit()
 
         # Pages as zynthian_gui_control.fill_list: chain controllers, then each processor's
-        entries = []
-        page = None
-        if chain and chain.zctrls:
-            entries.append(separator("CHAIN"))
-            zctrls = list(chain.zctrls)
-            for j in range(0, len(zctrls), 4):
-                entries.append(entry(f"Controllers {j // 4 + 1}", data=("chain", None, zctrls[j:j + 4])))
-        for proc in processors:
-            screens = proc.get_ctrl_screens()
-            name = proc.engine.name.split("/")[-1]
-            if not screens:
-                # No pages (no soundfont / preset loaded yet, the audio player without a file, a
-                # plugin without controllers): the header stays selectable, so the processor can
-                # be chosen and its banks / presets opened from here (Tk: the side chain node)
-                if proc == curproc:
-                    page = len(entries)
-                entries.append(entry(name, header=True, data=("empty", proc, 0)))
-                continue
-            entries.append(separator(name))
-            for j, title in enumerate(screens):
-                if proc == curproc and j == proc.get_current_screen_index():
-                    page = len(entries)
-                entries.append(entry(title, data=("proc", proc, j)))
+        # (zynthian_control_grid_data.chain_page_items, shared with the grid's other consumers).
+        # A processor without pages (no soundfont / preset loaded yet, the audio player without a
+        # file, a plugin without controllers) is a selectable header, so the processor can be
+        # chosen and its banks / presets opened from here (Tk: the side chain node)
+        items, page = gd.chain_page_items(chain, processors, curproc)
+        entries = [separator(item.title) if item.separator else entry(item.title, header=item.header, data=item.data)
+                   for item in items]
         self.pages.set_entries(entries)
-        if page is None:
-            page = next((i for i, e in enumerate(entries) if not e["separator"]), None)
+        self._page_rows = [i for i, e in enumerate(entries) if not e["separator"]]
+        self._built_chain = chain
         self._page = -1
+        self._cell = -1
         if self._layout != "v5":
             self.grid.set_pages(entries, -1 if page is None else page)
         if page is None:
@@ -575,6 +585,7 @@ class ChainControl(QObject):
                 c.set_zctrl(None)
             self._set_widget(None)
             self.pageChanged.emit()
+            self._report_page()
         else:
             self.setPage(page)
 
@@ -812,12 +823,82 @@ class ChainControl(QObject):
         self._page_zctrls = list(zctrls)
         for i, c in enumerate(self.controllers):
             c.set_zctrl(zctrls[i] if i < len(zctrls) else None)
+        # The selected cell: the page's first controller (until one is touched or turned)
+        self._cell = next((i for i, z in enumerate(self._page_zctrls[:gd.CELLS_PER_PAGE]) if z is not None), -1)
         self._set_widget(proc if kind != "chain" else None, zctrls)
         if self._layout != "v5":
             self.grid.select_entry(index)
         self.pageChanged.emit()
         self._poke_grid_widget()
         self.ui.setup_zynpots(self)
+        self._report_page()
+
+    # The shared selection (zynthian_control_grid_data.shared_selection, docs/qt-control-grid.md):
+    # the page, the selected cell and the grid's window are reported on every change, a driver's
+    # requests are applied here (in the GUI thread)
+
+    def _chain_id(self):
+        chain = None if self.special_processor else self._built_chain
+        return chain.chain_id if chain is not None else None
+
+    @property
+    def page_index(self):
+        """The selected page's index among the pages (zynthian_control_grid_data.chain_pages), -1"""
+        return self._page_rows.index(self._page) if self._page in self._page_rows else -1
+
+    def _report_page(self):
+        gd.shared_selection.report_page(self._chain_id(), self.page_index, self._cell)
+
+    def report_window(self):
+        if self._layout == "v5":
+            gd.shared_selection.report_window(self._chain_id(), 0, 0, "")
+        else:
+            g = self.grid.grid
+            gd.shared_selection.report_window(self._chain_id(), g.first_row, g.rows, self._layout)
+
+    @property
+    def cell(self):
+        """The selected cell: a slot (0-3) of the selected page, -1: none"""
+        return self._cell
+
+    def set_cell(self, slot):
+        """A controller of the selected page touched or turned: the selected cell"""
+        if not 0 <= slot < len(self._page_zctrls) or self._page_zctrls[slot] is None or slot == self._cell:
+            return
+        self._cell = slot
+        if self._layout != "v5":
+            self.grid.grid.select_slot(slot)
+        self._report_page()
+
+    def grid_selection_request(self, kind, chain, page, slot, first_row):
+        """A request of the shared selection (any thread): applied in the GUI thread"""
+        call = functools.partial(self._apply_selection_request, kind, chain, page, slot, first_row)
+        gui = getattr(self.ui, "_gui", None)
+        if gui is None:
+            call()
+        else:
+            gui.run(call)
+
+    def _apply_selection_request(self, kind, chain, page, slot, first_row):
+        """kind "page" (its first controller the cell), "cell" (page and slot) or "window"
+        (first_row) of the active chain (chain: its chain_id; others are dropped). Not shown, or
+        built for another chain: the pages are built first (the chain's, as a consumer sees them)"""
+        if self.special_processor is not None:
+            return
+        active = self.chain_manager.get_active_chain()
+        if active is None or active.chain_id != chain:
+            return
+        if not self._shown or self._built_chain is not active:
+            self._build()
+        if kind == "window":
+            if self._layout != "v5":
+                self.grid.grid.scroll_to(first_row)
+            return
+        if not 0 <= page < len(self._page_rows):
+            return
+        self.setPage(self._page_rows[page])
+        if kind == "cell":
+            self.set_cell(slot)
 
     def _set_widget(self, proc, zctrls=()):
         """The page's widget, as zynthian_gui_control: from the page's controllers (envelope,
@@ -991,6 +1072,7 @@ class ChainControl(QObject):
             return True
         c = self._knob_controller(i)
         if c is not None and c.zctrl is not None:
+            # (the slot's nudge makes it the selected cell)
             # Fine while the knob is pushed (push-rotate, kits: zynthian_gui_controller.zynpot_cb)
             c.nudge_fine(d, self.ui.zynpot_push_rotate(i))
             if self.midi_learning:

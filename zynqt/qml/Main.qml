@@ -55,7 +55,10 @@ Window {
 
     // Chain control's layout: the theme's default and whether it has the grid layouts
     // (docs/qt-control-grid.md)
-    Component.onCompleted: zyn.chainControl.setThemeLayout(Theme.controlLayout, Theme.controlGrid)
+    Component.onCompleted: {
+        zyn.chainControl.setThemeLayout(Theme.controlLayout, Theme.controlGrid)
+        zyn.chainControl.setThemeGridColors(Theme.controlGridColors)
+    }
 
     // The first frame is on screen: the deferred parts of the UI (Deferred.qml) are created now,
     // in the background. (frameSwapped comes from the render thread: queued to this one.)

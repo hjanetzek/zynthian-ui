@@ -84,6 +84,11 @@ class zynthian_signal_manager:
     SS_GUI_VIEW_SELECT = 8  # Selected item of a view (or view part) changed => view
     SS_GUI_VIEW_LIST = 9  # Item list of a view (or view part) changed => view
     SS_GUI_VIEW_STATE = 10  # Layout or other content of a view changed => view
+    # Chain control's shared selection (zyngui/zynthian_control_grid_data.SharedSelection)
+    SS_GUI_CONTROL_GRID_PAGE = 11  # The selected page => chain, page, slot
+    SS_GUI_CONTROL_GRID_CELL = 12  # The selected cell => chain, page, slot
+    SS_GUI_CONTROL_GRID_WINDOW = 13  # The grid's window => chain, first_row, rows, layout
+    SS_GUI_CONTROL_GRID_ZCTRL_PAGES = 14  # A chain's chain controller pages changed => chain
 
     # MIDI events
     SS_MIDI_ALL = 0
@@ -128,7 +133,7 @@ class zynthian_signal_manager:
     SS_WSLEDS_UPDATE = 0
 
     last_signal = 15
-    last_subsignal = 10
+    last_subsignal = 14
 
     def __init__(self):
         """ Create an instance of a signal manager

@@ -1825,6 +1825,19 @@ class ZynUI(QObject, zynthian_websocket_feedback):
                 return
         self.show_screen("pattern_editor")
 
+    def cuia_pattern_editor_window(self, params=None):
+        """PATTERN_EDITOR_WINDOW start length low high [pattern]: the window of a controller's
+        step sequencer (DrivenByMoss' ClipEditWindow) on the pattern editor: the steps from start
+        for length (beats), the notes low..high (MIDI notes); the pattern shown if none is given.
+        Doesn't switch screens (docs/controller-view-sync.md)."""
+        try:
+            start, length, low, high = (float(params[0]), float(params[1]), int(params[2]), int(params[3]))
+            pattern = int(params[4]) if len(params) > 4 and params[4] is not None else None
+        except (TypeError, ValueError, IndexError):
+            logging.warning(f"PATTERN_EDITOR_WINDOW needs start, length, low, high: {params}")
+            return
+        self.pattern_editor.show_window(start, length, low, high, pattern)
+
     def cuia_screen_chain_manager(self, params=None):
         self.showScreen("chain_manager")
 

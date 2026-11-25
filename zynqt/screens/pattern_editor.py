@@ -46,6 +46,7 @@ class PatternEditor(QObject):
     recordChanged = Signal()        # recording from MIDI
     modeChanged = Signal()          # edit mode, its parameter, the title
     zoomChanged = Signal()
+    windowChanged = Signal()        # the controller's window to show (show_window)
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -100,6 +101,9 @@ class PatternEditor(QObject):
         # Whole patterns copied by COPY i / pasted by PASTE i (zynthian_gui_mixer's clipboard):
         # (phrase, sequence, pattern) per slot
         self.clipboard = 4 * [None]
+        # The window a controller shows (DrivenByMoss' ClipEditWindow, docs/controller-view-sync.md):
+        # (pattern, start, length in beats, lowest, highest MIDI note), shown when that pattern is
+        self._window = None
         self._timer = QTimer(self, interval=40)
         self._timer.timeout.connect(self._poll)
         # libseq's selected pattern is only valid while the screen is shown (load() selects it):
@@ -231,11 +235,73 @@ class PatternEditor(QObject):
         self.zoom = max(self._zoom_limits[0], min(self._zoom_limits[1], z)) if -1000 < z < 1000 else 0
         view_rows = self._view_rows_at(self.zoom) or view_rows
         self.cursor[1] = max(0, min(len(self.keymap) - 1, offset + view_rows // 2))
+        window = self._window_cells() is not None
+        if window:
+            self._cursor_into_window()
         self.zoomChanged.emit()
         self.patternChanged.emit()
         self.eventsChanged.emit()
         self.cursorChanged.emit()
         self.ccChanged.emit()
+        if window:
+            self.windowChanged.emit()
+
+    # A controller's window (docs/controller-view-sync.md)
+
+    def show_window(self, start, length, low, high, pattern=None):
+        """Show the steps from start for length (beats) and the notes low..high (MIDI notes,
+        inclusive): the window of a controller's step sequencer on this pattern. Kept for the
+        pattern (the shown one if None) and shown when it is (now or when it is loaded next); the
+        cursor moves into the window. The pattern itself doesn't change (its zoom and reference
+        note as the user's zooming and scrolling)."""
+        if pattern is None:
+            if not self._shown:
+                return
+            pattern = self.pattern
+        if length <= 0 or high < low:
+            return
+        self._window = (int(pattern), float(start), float(length), int(low), int(high))
+        if self._shown and int(pattern) == self.pattern and self._window_cells() is not None:
+            self._cursor_into_window()
+            self.cursorChanged.emit()
+            self.windowChanged.emit()
+
+    def _window_cells(self):
+        """The window of the shown pattern as [first step, steps, lowest row, highest row], None
+        without one"""
+        w = self._window
+        if w is None or not self._shown or w[0] != self.pattern or not self.keymap:
+            return None
+        _, start, length, low, high = w
+        spb = max(1, int(self.libseq.getStepsPerBeat()))
+        steps = max(1, self.steps)
+        first = max(0, min(steps - 1, int(round(start * spb))))
+        count = max(1, min(steps - first, int(round(length * spb))))
+        notes = [k["note"] for k in self.keymap]
+        rows = [i for i, n in enumerate(notes) if low <= n <= high]
+        if not rows:
+            # No row in the range (a drum map): the row nearest to it
+            nearest = min(range(len(notes)), key=lambda i: min(abs(notes[i] - low), abs(notes[i] - high)))
+            rows = [nearest]
+        return [first, count, min(rows), max(rows)]
+
+    def _cursor_into_window(self):
+        cells = self._window_cells()
+        if cells is None:
+            return
+        first, count, low_row, high_row = cells
+        step, row = self.cursor
+        if not first <= step < first + count:
+            step = first
+        if not low_row <= row <= high_row:
+            row = low_row
+        self.cursor = [step, row]
+
+    @Property("QVariantList", notify=windowChanged)
+    def viewWindow(self):
+        """The controller's window on the shown pattern for the grid (PatternEditorView.qml's
+        applyWindow): [first step, steps, lowest row, highest row], [] without one"""
+        return self._window_cells() or []
 
     def _poll(self):
         # The position as getPatternPlayhead computes it (sequence clock / clocks per step), but

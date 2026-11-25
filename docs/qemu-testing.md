@@ -278,6 +278,27 @@ NURA_VM_PORT=2242 tools/sync_ui.sh -V -R          # restart the Qt UI (RESTART_U
 Afterwards code changes go to the slave with `NURA_VM_PORT=2243 tools/sync_ui.sh -V -R` (the
 headless slave handles RESTART_UI on port 1370 too).
 
+## Grow a disk
+
+New disks get 8 GB (`-s SIZE`, the test VM 12 GB), a root filesystem of 7.2 GB: a Qt VM with
+plugins and a few apk upgrades fills it (2026-11-25: the compare pairs' Qt VMs at 89-93 %, an apk
+upgrade ran out of space). The image is raw, GPT, root last (`vda2`, ext4), and its kernel command
+line has `pmos.force-partition-resize`: the initramfs grows the root partition to the disk at
+each boot. Its offline `resize2fs` refuses a filesystem without a recent full fsck, though, so the
+filesystem is grown online in the guest. With the VM stopped:
+
+```sh
+tools/run_qemu.sh -s 16G -d "$VM" -D none -A silent -p 2232 -w 8092 < /dev/null > "$VM/run.log" 2>&1 &
+# (-s for an existing, smaller disk grows the file: truncate, the data stays; run.log says so)
+ssh -p 2232 user@127.0.0.1 'sudo resize2fs /dev/vda2 && df -h /'
+```
+
+The same by hand: `truncate -s 16G "$VM/zynthian-qemu-amd64.img"`, boot, `sudo resize2fs /dev/vda2`.
+`qemu_compare.sh` and `test_vm.sh` pass no size for existing disks (test_vm.sh's `-s 12G` grows only
+smaller ones); for them start `run_qemu.sh -s` once on their directory as above (ports of the
+pair: qemu_compare.sh's), then use them as usual. Done 2026-11-25 for the compare pairs
+(2242/2243, 2252/2253): 16 GB, root 15 GB.
+
 ## Stop
 
 ```sh

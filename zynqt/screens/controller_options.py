@@ -1,13 +1,16 @@
 """Options of a controller in the chain control screen (zynthian_gui_control.controller_options, a
-long press on a controller): chain controller, MIDI learn (chain or global), the learned binding's
-CC mode and value range, momentary/debounce for toggles, the step sequencer's automation, the
-input devices of the learned binding, unlearn.
+long press on a controller): chain controller (the toggle: the next free slot; the slot picker:
+a page's slot, remove, the page manager: docs/chain-controller-pages.md), MIDI learn (chain or global), the learned
+binding's CC mode and value range, momentary/debounce for toggles, the step sequencer's
+automation, the input devices of the learned binding, unlearn.
 
 """
 
 import logging
 
 import zynautoconnect
+from zyngine.zynthian_zctrl_pages import SLOTS, zctrl_ref
+from zyngui import zynthian_control_grid_data as gd
 from zyngui.zynthian_midi_learn_data import (CC_MODES, MIDI_LEARNING_CHAIN, MIDI_LEARNING_GLOBAL, automate_cc,
                                              cc_mode_label, set_cc_mode, unlearn_label)
 
@@ -34,10 +37,16 @@ def show_controller_options(cc, i, selected=0, select_text=None):
     chain = None if cc.special_processor else cm.get_active_chain()
     if chain is not None:
         def toggle_chain_ctrl():
+            # The first free slot from page 1 (a new page when all are full), or off everywhere
             chain.toggle_zctrl(zctrl)
             cc.rebuild()
+            gd.zctrl_pages_changed(chain)
             again(0)()
-        opts.append((f"{'☒' if zctrl in chain.zctrls else '☐'} Chain Controller", toggle_chain_ctrl, None, None))
+        zpages = gd.chain_zctrl_pages(chain)
+        on = zpages.contains(zctrl) if zpages is not None else zctrl in chain.zctrls
+        opts.append((f"{'☒' if on else '☐'} Chain Controller", toggle_chain_ctrl, None, None))
+        if zpages is not None and zctrl.processor is not None:
+            opts.append((zctrl_slot_label(zpages, zctrl), lambda: show_zctrl_slot_options(cc, chain, zctrl), None, None))
 
     if zctrl.is_path:
         def clear():
@@ -182,3 +191,145 @@ def _edit_cc_range(cc, i, zctrl, done):
 
     cc.ui.edit_value(f"{zctrl.name}: value at CC 0", zctrl.midi_cc_val1, zctrl.value_min, zctrl.value_max,
                      set_val1, step=step, decimals=decimals)
+
+
+# The chain controllers' pages (docs/chain-controller-pages.md): a chain's named pages of 4 slots
+
+def zctrl_slot_label(zpages, zctrl):
+    """The controller options' entry: "Chain Controller slot..." and where the controller is"""
+    places = zpages.find(zctrl)
+    if not places:
+        return "Chain Controller slot..."
+    page, slot = places[0]
+    more = f" (+{len(places) - 1})" if len(places) > 1 else ""
+    return f"Chain Controller slot: {zpages.pages[page].name}, {slot + 1}{more}"
+
+
+def _zctrl_pages_done(cc, chain):
+    """After a change of the chain controller pages: chain control's pages again, consumers told"""
+    cc.rebuild()
+    gd.zctrl_pages_changed(chain)
+
+
+def show_zctrl_slot_options(cc, chain, zctrl, selected=0):
+    """Put the controller into a chain controller slot (a page, then its slot; New page), remove
+    it, a new page of the shown processor page's controllers, the page manager"""
+    zpages = chain.zctrl_pages
+    ui = cc.ui
+    again = lambda index: (lambda: show_zctrl_slot_options(cc, chain, zctrl, index))  # noqa: E731
+    opts = []
+    for page, slot in zpages.find(zctrl):
+        def remove(page=page):
+            zpages.remove(zctrl, page, prune=True)
+            _zctrl_pages_done(cc, chain)
+            show_zctrl_slot_options(cc, chain, zctrl)
+        opts.append((f"Remove from {zpages.pages[page].name}, slot {slot + 1}", remove, None, None))
+    places = {p for p, _ in zpages.find(zctrl)}
+    for page, rpage in enumerate(zpages.pages):
+        index = len(opts)
+        opts.append((f"{'☒' if page in places else '☐'} {rpage.name}...",
+                     lambda page=page, index=index: _zctrl_slots(cc, chain, zctrl, page, again(index)), None, None))
+    index = len(opts)
+    opts.append(("New page...", lambda: _zctrl_slots(cc, chain, zctrl, len(zpages.pages), again(index)), None, None))
+    shown = _shown_page(cc)
+    if shown is not None:
+        title, zctrls = shown
+
+        def add_this_page():
+            page = zpages.add_page(title, [zctrl_ref(z) for z in zctrls])
+            zpages.current = page
+            _zctrl_pages_done(cc, chain)
+            show_zctrl_slot_options(cc, chain, zctrl)
+        opts.append((f"Add page '{title}'", add_this_page, None, None))
+    if zpages.pages:
+        opts.append(("Manage pages...", lambda: show_zctrl_pages(cc, chain), None, None))
+    ui.show_options(f"Chain Controller slot: {zctrl.name}", opts, min(selected, len(opts) - 1))
+
+
+def _shown_page(cc):
+    """(title, controllers) of chain control's selected page if it is a processor's page (not a
+    chain controller page), else None"""
+    entries = cc.pages.entries
+    if not 0 <= cc._page < len(entries) or not entries[cc._page]["data"]:
+        return None
+    kind = entries[cc._page]["data"][0]
+    zctrls = list(cc._page_zctrls[:gd.CELLS_PER_PAGE])
+    if kind != "proc" or not any(z is not None for z in zctrls):
+        return None
+    return entries[cc._page]["title"], zctrls
+
+
+def _zctrl_slots(cc, chain, zctrl, page, done):
+    """The slot picker of a page (page == the page count: a new page): what each slot holds; a
+    choice puts the controller there (on its page already: the two swap)"""
+    zpages = chain.zctrl_pages
+    new = page >= len(zpages.pages)
+    name = zpages.default_name() if new else zpages.pages[page].name
+    zctrls = [None] * SLOTS if new else zpages.zctrls(page)
+    refs = [None] * SLOTS if new else zpages.pages[page].slots
+    ref = zctrl_ref(zctrl)
+    opts = []
+    for slot in range(SLOTS):
+        held = gd.cell_name(zctrls[slot]) if zctrls[slot] is not None else ("(missing)" if refs[slot] else "–")
+        mark = "☒" if ref is not None and refs[slot] == ref else "☐"
+
+        def choose(slot=slot):
+            if gd.zctrl_assign(chain, zctrl, slot, page) >= 0:
+                zpages.current = min(page, len(zpages.pages) - 1)
+                cc.rebuild()
+            done()
+        opts.append((f"{mark} {slot + 1}  {held}", choose, None, None))
+    selected = next((k for k in range(SLOTS) if refs[k] == ref), next((k for k in range(SLOTS) if refs[k] is None), 0))
+    cc.ui.show_options(f"{name}: slot for {zctrl.name}", opts, selected)
+
+
+def show_zctrl_pages(cc, chain, selected=0):
+    """The page manager: one entry per page, each opens rename / move / clear / delete"""
+    zpages = chain.zctrl_pages
+    opts = [(f"{page.name}  ({sum(r is not None for r in page.slots)})", lambda p=p: _zctrl_page(cc, chain, p), None, None)
+            for p, page in enumerate(zpages.pages)]
+    if not opts:
+        return
+    cc.ui.show_options("Chain controller pages", opts, min(selected, len(opts) - 1))
+
+
+def _zctrl_page(cc, chain, page):
+    zpages = chain.zctrl_pages
+    if not 0 <= page < len(zpages.pages):
+        return
+    ui = cc.ui
+    name = zpages.pages[page].name
+
+    def rename():
+        def set_name(text):
+            if zpages.rename_page(page, text):
+                _zctrl_pages_done(cc, chain)
+            _zctrl_page(cc, chain, page)
+        ui.show_keyboard(set_name, name, "Page name")
+
+    def move(step):
+        def run():
+            to = zpages.move_page(page, step)
+            _zctrl_pages_done(cc, chain)
+            _zctrl_page(cc, chain, to)
+        return run
+
+    def clear():
+        zpages.clear_page(page)
+        _zctrl_pages_done(cc, chain)
+        _zctrl_page(cc, chain, page)
+
+    def delete():
+        def run():
+            zpages.delete_page(page)
+            _zctrl_pages_done(cc, chain)
+            show_zctrl_pages(cc, chain, page)
+        ui.confirm(f"Delete chain controller page '{name}'?", run)
+
+    opts = [("Rename...", rename, None, None)]
+    if page > 0:
+        opts.append(("Move up", move(-1), None, None))
+    if page < len(zpages.pages) - 1:
+        opts.append(("Move down", move(1), None, None))
+    opts += [("Clear", clear, None, None), ("Delete", delete, None, None)]
+    ui.show_options(f"Chain controller page: {name}", opts)

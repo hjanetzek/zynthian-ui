@@ -254,6 +254,8 @@ QtObject {
     property real controlCellMinWidth: 96
     property real controlGridGap: 3
     property var controlGridColors: ["#5a9ef0", "#f49500", "#03a598", "#c44795", "#f45c51"]
+    // The chain controllers' section: a fixed colour of its own (the processors keep theirs)
+    property color controlGridChainColor: "#d8d8d8"
     property bool controlGridHeaderFilled: false
     property int controlCellSegments: 0
     // how long a page's widget shows over its cells after a change (ms)

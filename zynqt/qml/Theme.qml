@@ -92,6 +92,8 @@ ThemeBase {
     controlGridGap: 1
     controlGridColors: [tkColor("on", "#ff0000"), tkColor("midi", "#19b1f7"), tkColor("hl", "#00c000"),
                         tkColor("alt2", "#ff9000"), tkColor("alt", "#ff00ff")]
+    // The chain controllers' section: Tk's text colour (the processors keep the section colours)
+    controlGridChainColor: tkColor("tx", "#e0e0e0")
     controlGridList: 0.2
 
     // Shapes and type: square plates, Audiowide

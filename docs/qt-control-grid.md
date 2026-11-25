@@ -13,11 +13,16 @@ the encoders), not a copy of its look.
 | `grid4x6` | 4 × 6 | 1 | 6 |
 | `grid8x6` | 8 × 6 | 2 | 12 |
 
+- **The chain controllers** (docs/chain-controller-pages.md: named pages of 4 slots, gaps
+  allowed) come first, as the section "Chain": one zynthian page per chain controller page,
+  named by it ("Controllers 1", or the user's name), in a colour of their own
+  (`controlGridChainColor`; the processors keep their colours with or without them). Chain
+  control opens on the first of them when it shows another chain than before.
 - A zynthian controller page keeps its four controllers together, in order, in one row (four
   cells). Pages fill the rows in order: in 8x6 page *p* is in row *p* div 2, left or right
   half. A page with fewer than four controllers has blank (recessed) cells; a processor without
   pages (no preset loaded yet) is a page with "No controllers".
-- Each page has a header: its title, and its section (the processor, or "Chain" for the chain's
+- Each page has a header: its title, and its section (the processor, or "Chain" for the chain
   controllers) at the right, with the section's colour.
 - The **selected page** (the one the four encoders turn) has its header in the selection colour
   and a frame (`frameActive`) around its four cells; in 8x6 that marks one half of a row.
@@ -86,20 +91,26 @@ Encoders and keys work as in the v5 layout; only what is drawn differs.
 UI independent (no Qt, no Tk), shared with other consumers: DrivenByMoss's zynthian adapter maps
 it onto a controller's pad grid (the Maschine JAM's host pages, below).
 
-- `GridPage(key, title, section, section_index, zctrls, empty)`: one controller page.
+- `GridPage(key, title, section, section_index, zctrls, empty, kind, color_index)`: one
+  controller page; `kind` "chain" (a chain controller page), "proc" or "empty"; `color_index` -1
+  for the chain controllers (their own colour), else the processor sections counted from 0
+  without them.
 - `LAYOUTS`: `GridLayout(name, columns, rows, pages_per_row)` for `grid4x6`, `grid8x6`.
 - **Pages without Qt**: `chain_page_items(chain, processors, current_processor)` is chain
-  control's page list (`PageItem(title, separator, header, data)`: the chain's controllers by 4
-  under "CHAIN", each processor's controller screens under its name, a processor without screens
-  as one selectable header; data `("chain", None, zctrls)`, `("proc", processor, screen index)`,
-  `("empty", processor, 0)`) and the row of the current processor's current screen;
+  control's page list (`PageItem(title, separator, header, data)`: the chain controllers' pages
+  first under "CHAIN" (data `("chain", None, (page, zctrls))`), each processor's controller
+  screens under its name (`("proc", processor, screen index)`), a processor without screens as
+  one selectable header (`("empty", processor, 0)`)) and the row of the chain controller page
+  shown (`zctrl_pages.shown`), else of the current processor's current screen;
   `grid_pages(items)` its `GridPage`s (also from the Qt UI's entry dicts) and each page's row;
   `chain_pages(...)` both at once with the selected page's index. The Qt screen builds its page
   list with them, so a driver's page indices are the screen's.
-- **Section colours**: `section_color(index)` (RGB, wrapping as `ControlGrid.qml`'s accent) from
-  the theme's `controlGridColors`: `Main.qml` passes them on every QML load
-  (`ChainControl.setThemeGridColors` -> `set_section_colors`); without it `ThemeBase`'s
-  defaults (`DEFAULT_SECTION_COLORS`, the same list as in `ThemeBase.qml`: keep both in step).
+- **Section colours**: `page_color(page)` / `section_color(color_index)` (RGB, wrapping as
+  `ControlGrid.qml`'s accent): -1 the chain controllers' `controlGridChainColor`, else the
+  theme's `controlGridColors`. `Main.qml` passes them on every QML load
+  (`ChainControl.setThemeGridColors` -> `set_section_colors`, `setThemeChainColor` ->
+  `set_chain_color`); without it `ThemeBase`'s defaults (`DEFAULT_SECTION_COLORS`,
+  `DEFAULT_CHAIN_COLOR`, the same as in `ThemeBase.qml`: keep both in step).
 - `ControlGrid(layout, paged=False)`: `pages`, `layout`, `first_row` (the window), `selected` (a page index),
   `selected_row`, `selected_half`, `selected_zctrl` (the anchor: the selected page's first
   controller, for views with other row widths), `cells` (rows × columns `GridCell`s in reading
@@ -178,7 +189,12 @@ The screen owns it; a consumer shows it and asks for changes.
   `pageTapped`: selects it; on the selected page of a processor without pages, e.g. a
   soundfont player without soundfont or the audio player without a file, opens its banks /
   presets; the JAM sends it for a press on such a page's cells, which have no controllers),
-  `request_window(chain, first_row)`. The owner
+  `request_window(chain, first_row)`; `request_show(chain)`: chain control of the active chain
+  to the front if it isn't shown (the JAM switching to the host's pages or navigating them; not
+  over a menu, a dialog, the keyboard, the file selector, a move or the busy screen; a page
+  request right after it puts it on the driver's page); `owner_shown()`: chain control is on screen (a driver
+  that moves the screen with its own selection, the adapter's device pages, does it only then);
+  `request_zctrl_assign(chain, zctrl, slot)`: a chain controller slot (docs/chain-controller-pages.md). The owner
   (`ChainControl.grid_selection_request`) posts them to the GUI thread (`GuiCaller.run`); one for
   another chain than the active one is dropped. Not shown, or built for another chain: the
   screen builds the active chain's pages first. A page request goes through `setPage` (the same

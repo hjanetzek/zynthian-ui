@@ -25,9 +25,12 @@ Item {
         && (width * (1 - Theme.controlGridList) - scrollWidth) / columns >= Theme.controlCellMinWidth
     readonly property real listWidth: listShown ? Math.floor(Theme.controlGridList * width) : 0
 
-    function accent(sectionIndex) {
+    // A page's colour (colorIndex): -1 the chain controllers' own, processors from 0
+    function accent(colorIndex) {
+        if (colorIndex < 0)
+            return Theme.controlGridChainColor
         const c = Theme.controlGridColors
-        return c.length ? c[sectionIndex % c.length] : Theme.select
+        return c.length ? c[colorIndex % c.length] : Theme.select
     }
 
     // Page list (as the v5 layout's), the grid's rows marked at the left
@@ -120,7 +123,7 @@ Item {
                     selected: page.info.selected === true
                     first: page.info.first === true
                     empty: page.info.empty === true
-                    accent: grid.accent(sectionIndex)
+                    accent: grid.accent(page.info.colorIndex || 0)
                     headerHeight: area.headerHeight
                 }
                 Item {
@@ -142,7 +145,7 @@ Item {
                             anchors.fill: parent
                             ctrl: slot.ctrl
                             dimmed: grid.cc.selectMode
-                            accent: grid.accent(slot.ctrl ? slot.ctrl.sectionIndex : 0)
+                            accent: grid.accent(slot.ctrl ? slot.ctrl.colorIndex : 0)
                         }
                         // The selected cell (ChainControl.cell, shared with controller drivers)
                         Rectangle {

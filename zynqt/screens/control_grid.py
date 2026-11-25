@@ -74,6 +74,12 @@ class GridCellProxy(ControllerProxy):
         g = self.grid.grid
         return g.pages[self.page].section_index if 0 <= self.page < len(g.pages) else 0
 
+    @Property(int, notify=stateChanged)
+    def colorIndex(self):
+        """Its page's colour (GridPage.color_index: -1 the chain controllers', else processors)"""
+        g = self.grid.grid
+        return g.pages[self.page].color_index if 0 <= self.page < len(g.pages) else 0
+
     @Property(str, notify=cellChanged)
     def kind(self):
         return gd.cell_kind(self.zctrl)
@@ -226,19 +232,21 @@ class ControlGridModel(QObject):
     @Property("QVariantList", notify=layoutChanged)
     def blocks(self):
         """The window's pages, row by row (pagesPerRow a row): title, section, sectionIndex,
-        selected, empty, valid (false: no page there), first (the first page of its section)"""
+        colorIndex (-1: the chain controllers' colour), selected, empty, valid (false: no page
+        there), first (the first page of its section)"""
         g = self.grid
         out = []
         for r in range(g.rows):
             for part in range(g.pages_per_row):
                 p = g.page_at(r, part)
                 if p < 0:
-                    out.append({"valid": False, "title": "", "section": "", "sectionIndex": 0,
+                    out.append({"valid": False, "title": "", "section": "", "sectionIndex": 0, "colorIndex": 0,
                                 "selected": False, "empty": False, "first": False})
                     continue
                 page = g.pages[p]
                 out.append({"valid": True, "title": page.title, "section": page.section,
-                            "sectionIndex": page.section_index, "selected": p == g.selected,
+                            "sectionIndex": page.section_index, "colorIndex": page.color_index,
+                            "selected": p == g.selected,
                             "empty": page.empty,
                             "first": p == 0 or g.pages[p - 1].section_index != page.section_index})
         return out

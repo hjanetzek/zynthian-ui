@@ -39,6 +39,10 @@ The UI doesn't filter by name: what it shows is what the driver reports as visib
   it is.
 - `zynqt/screens/controller_settings.py`: the Qt screen `controller_settings`, a list screen with
   three levels; BACK goes up a level.
+  A setting changed (options list, value editor, keyboard, toggle, button) leaves the screen
+  where it is: the options list is not part of the screen history (`NO_HISTORY_SCREENS` in
+  `zynqt/ui.py`), so closing it always returns to this screen, also when an older options
+  list was left by MENU (the pattern editor's options, then the main menu).
 
 | kind | widget |
 | --- | --- |

@@ -63,6 +63,13 @@ from zynqt.ws_keys import WebsocketKeys
 QML_SCREENS = ("mixer", "launcher", "pattern_editor", "chain_manager", "chain_control", "tempo", "alsa_mixer", "audio_player",
                "midi_key_range", "control_xy")
 
+# Screens which are never in the history: the options list is a modal list over the screen which
+# opened it. A screen shown from it (MENU on the pattern editor's options: the main menu) returns
+# to that screen; kept in the history, the next options list (any screen's) would end the history
+# at the old entry and return there (Admin > Controller Settings after the pattern editor's menu:
+# a setting chosen led back to the pattern editor)
+NO_HISTORY_SCREENS = ("option",)
+
 
 def _int(value):
     """An int from a number or a string ("1", "1.0": CUIA strings, untyped OSC); ValueError,
@@ -610,7 +617,7 @@ class ZynUI(QObject, zynthian_websocket_feedback):
             logging.warning(f"Qt UI has no screen '{name}' (yet)")
             self.show_info(f"'{name}' is not in the Qt UI yet.")
             return
-        if history and name != self.current_screen:
+        if history and name != self.current_screen and self.current_screen not in NO_HISTORY_SCREENS:
             self.screen_history.append(self.current_screen)
             del self.screen_history[:-20]
         # As zynthian_gui.prune_screen_history: a screen shown again ends the history where it

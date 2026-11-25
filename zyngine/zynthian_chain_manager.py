@@ -1258,7 +1258,7 @@ class zynthian_chain_manager:
         parallel = len(slots[slot_index]) > 1
         is_current = chain.current_processor == processor
         proc_state = processor.get_state()
-        chain_zctrls_state = chain.get_zctrls_state()
+        zctrl_state = (chain.zctrl_pages.get_state(), chain.zctrl_pages.current)
         midi_bindings = []
         for key, zctrls in self.midi_cc_binding.items():
             for zctrl in zctrls:
@@ -1298,7 +1298,7 @@ class zynthian_chain_manager:
                 if zctrl not in zctrls:
                     zctrls.append(zctrl)
             self.midi_bindings_changed()
-            chain.set_zctrls_state(chain_zctrls_state)
+            chain.zctrl_pages.set_state(*zctrl_state)
             if is_current:
                 chain.set_current_processor(new_processor)
             logging.info(f"Reloaded processor '{proc_id}' ({eng_code})")
@@ -1786,7 +1786,11 @@ class zynthian_chain_manager:
                         if processor:
                             slot = self.chains[chain_id].get_slot(processor)
                     slot += 1
-            if "zctrls" in chain_state:
+            # Chain controllers: their pages, else upstream's list (pages of 4, in order)
+            if "zctrl_pages" in chain_state:
+                self.chains[chain_id].zctrl_pages.set_state(chain_state["zctrl_pages"],
+                                                             chain_state.get("zctrl_pages_current", 0))
+            elif "zctrls" in chain_state:
                 self.chains[chain_id].set_zctrls_state(chain_state["zctrls"])
         self.rebuild_optimisation_cache()
         self.state_manager.end_busy("set_chain_state")

@@ -191,6 +191,46 @@ def test_tk_osc_callback_answers_the_status_query_while_busy(state_manager):
         state_manager.clear_busy()
 
 
+def test_snapshot_round_trip_keeps_zctrl_pages(state_manager, zynthian_dirs):
+    """Chain controller pages (docs/chain-controller-pages.md) are in the chain's state: saved and
+    loaded with the snapshot, references to missing processors kept"""
+    chains = state_manager.chain_manager
+    main = chains.get_chain(0)
+    mixer = main.get_processors()[0]
+    symbol = next(iter(mixer.controllers_dict))
+    rp = main.zctrl_pages
+    rp.assign(mixer.controllers_dict[symbol], 0, 3)
+    rp.rename_page(0, "Main")
+    chains.add_chain(3, midi_chan=4)
+    chains.get_chain(3).zctrl_pages.set_state([{"name": "Later", "slots": [[99, "cutoff"]]}])
+    state = state_manager.get_state()
+    assert state["chains"][0]["zctrl_pages"][0]["slots"][3] == [mixer.id, symbol]
+    path = str(zynthian_dirs["ZYNTHIAN_MY_DATA_DIR"] / "snapshots" / "zctrl_pages.zss")
+    state_manager.save_snapshot(path)
+
+    rp.set_state([])
+    chains.remove_chain(3)
+    assert state_manager.load_snapshot(path) is not False
+    main = chains.get_chain(0)
+    assert [p.name for p in main.zctrl_pages.pages] == ["Main"]
+    assert main.zctrl_pages.zctrls(0)[3] is main.get_processors()[0].controllers_dict[symbol]
+    assert chains.get_chain(3).zctrl_pages.pages[0].slots[0] == (99, "cutoff")
+
+
+def test_snapshot_merge_maps_zctrl_page_references(state_manager, zynthian_dirs):
+    """A merged snapshot's processors get new ids: the chain controller pages' references follow (or are
+    cleared when their processor isn't in the snapshot)"""
+    chains = state_manager.chain_manager
+    chains.add_chain(3, midi_chan=4)
+    chains.get_chain(3).zctrl_pages.set_state([{"name": "Gone", "slots": [[99, "cutoff"]]}])
+    path = str(zynthian_dirs["ZYNTHIAN_MY_DATA_DIR"] / "snapshots" / "merge.zss")
+    state_manager.save_snapshot(path)
+    assert state_manager.load_snapshot(path, merge=True) is not False
+    merged = [c for cid, c in chains.chains.items() if cid not in (0, 3)]
+    assert merged and merged[0].zctrl_pages.pages[0].name == "Gone"
+    assert merged[0].zctrl_pages.pages[0].slots[0] is None
+
+
 def test_snapshot_merge_maps_chain_controller_references(state_manager, zynthian_dirs, monkeypatch):
     """A merged snapshot's processors get new ids: the chain controllers' references (the chain
     state's "zctrls") follow; references to processors not in the snapshot are dropped"""
@@ -210,3 +250,49 @@ def test_snapshot_merge_maps_chain_controller_references(state_manager, zynthian
     (new_id,) = chain_state["slots"][0]
     assert new_id != 7
     assert chain_state["zctrls"] == [[new_id, "cutoff"]]
+
+
+def test_chain_controllers_are_the_pages_flat_view(state_manager):
+    """chain.zctrls is the flat view of the chain's pages (slot n % 4 of page n // 4); the
+    toggle adds to the first free slot; remove_all_processors clears the pages"""
+    main = state_manager.chain_manager.get_chain(0)
+    mixer = main.get_processors()[0]
+    zs = list(mixer.controllers_dict.values())[:6]
+    for z in zs[:5]:
+        main.toggle_zctrl(z)
+    assert main.zctrls == tuple(zs[:5])
+    assert [p.name for p in main.zctrl_pages.pages] == ["Controllers 1", "Controllers 2"]
+    main.toggle_zctrl(zs[1])
+    assert main.zctrls == (zs[0], None, zs[2], zs[3], zs[4])
+    assert main.get_zctrls_state() == [[mixer.id, z.symbol] for z in (zs[0], zs[2], zs[3], zs[4])]
+    main.toggle_zctrl(zs[5])
+    assert main.zctrls[1] is zs[5]
+    main.zctrls = [zs[3]]
+    assert main.zctrls == (zs[3],)
+    main.clean_zctrls()
+    assert main.zctrls == () and main.zctrl_pages.pages == []
+
+
+def test_old_snapshot_chain_controllers_become_pages(state_manager, zynthian_dirs):
+    """A snapshot with upstream's "zctrls" only (no pages): pages of 4 in order; saved again it
+    has both, and an older zynthian reads "zctrls" (the filled slots in order)"""
+    import json
+    chains = state_manager.chain_manager
+    main = chains.get_chain(0)
+    mixer = main.get_processors()[0]
+    symbols = list(mixer.controllers_dict)[:5]
+    path = zynthian_dirs["ZYNTHIAN_MY_DATA_DIR"] / "snapshots" / "old_zctrls.zss"
+    state_manager.save_snapshot(str(path))
+    snapshot = json.loads(path.read_text())
+    snapshot["chains"]["0"].pop("zctrl_pages", None)
+    snapshot["chains"]["0"]["zctrls"] = [[mixer.id, s] for s in symbols]
+    path.write_text(json.dumps(snapshot))
+    assert state_manager.load_snapshot(str(path)) is not False
+    main = chains.get_chain(0)
+    mixer = main.get_processors()[0]
+    assert [p.name for p in main.zctrl_pages.pages] == ["Controllers 1", "Controllers 2"]
+    assert main.zctrls == tuple(mixer.controllers_dict[s] for s in symbols)
+    main.zctrl_pages.assign(None, 0, 1)
+    state = state_manager.get_state()["chains"][0]
+    assert state["zctrls"] == [[mixer.id, s] for s in symbols if s != symbols[1]]
+    assert state["zctrl_pages"][0]["slots"][1] is None

@@ -28,6 +28,7 @@ import logging
 # Zynthian specific modules
 import zynautoconnect
 from zyngine.zynthian_processor import zynthian_processor
+from zyngine.zynthian_zctrl_pages import ZctrlPages
 from zyncoder.zyncore import lib_zyncore
 
 
@@ -77,7 +78,8 @@ class zynthian_chain:
         self.title = None  # User defined title for chain
         self.midi_routes = {}  # Map of MIDI routes indexed by jackname
         self.audio_routes = {}  # Map of audio routes indexed by jackname
-        self.zctrls = []  # List of selected zctrls
+        # Chain controllers: named pages of 4 slots (chain.zctrls is their flat view)
+        self.zctrl_pages = ZctrlPages(self)  # docs/chain-controller-pages.md
         self.reset()
 
     def reset(self):
@@ -856,40 +858,40 @@ class zynthian_chain:
     # Chain zctrls Management
     # ------------------------------------------------------------------------
 
+    # The chain controllers are pages of 4 slots (zynthian_zctrl_pages.ZctrlPages): references
+    # (processor id, symbol), gaps allowed, named pages. zctrls is their flat view: slot n % 4
+    # of page n // 4 (None: an empty slot), as the controller drivers' knob n.
+
+    @property
+    def zctrls(self):
+        """The chain controllers: the flat slots of the chain's pages (a tuple, None for gaps)"""
+        return self.zctrl_pages.flat()
+
+    @zctrls.setter
+    def zctrls(self, zctrls):
+        """Set the chain controllers from a list of zctrls (pages of 4, in order)"""
+        self.zctrl_pages.from_dense([(z.processor.id, z.symbol) for z in zctrls or [] if z is not None])
+
     def clean_zctrls(self):
-        self.zctrls = []
+        self.zctrl_pages.clear()
 
     def purge_zctrls(self):
-        if not self.zctrls:
-            return
-        purged_zctrls = []
-        procs_by_id = self.get_processors_by_id()
-        for zctrl in self.zctrls:
-            if zctrl.processor.id in procs_by_id:
-                purged_zctrls.append(zctrl)
-        self.zctrls = purged_zctrls
+        """Clear the slots of processors that aren't in the chain any more"""
+        self.zctrl_pages.purge()
 
     def toggle_zctrl(self, zctrl):
-        try:
-            self.zctrls.remove(zctrl)
-        except:
-            self.zctrls.append(zctrl)
+        """Add a controller to the first free slot (a new page when all are full), or remove it
+        from all pages (an empty default-named last page goes)"""
+        self.zctrl_pages.toggle(zctrl)
 
     def set_zctrls_state(self, state):
-        self.zctrls = []
-        procs_by_id = self.get_processors_by_id()
-        for s in state:
-            try:
-                proc = procs_by_id[s[0]]
-                self.zctrls.append(proc.controllers_dict[s[1]])
-            except Exception as e:
-                logging.error(f"Can't restore chain zctrl from state => {s}")
+        """The chain controllers from upstream's state (a list of (processor id, symbol)): pages
+        of 4, in order"""
+        self.zctrl_pages.from_dense(state)
 
     def get_zctrls_state(self):
-        state = []
-        for zctrl in self.zctrls:
-            state.append((zctrl.processor.id, zctrl.symbol))
-        return state
+        """The chain controllers as upstream's state: the filled slots, in order"""
+        return self.zctrl_pages.dense_refs()
 
     # ------------------------------------------------------------------------
     # State Management
@@ -926,7 +928,11 @@ class zynthian_chain:
             "zmop_index": self.zmop_index,
             "cc_route": cc_route,
             "slots": slots_states,
-            "zctrls": self.get_zctrls_state()
+            "zctrls": self.get_zctrls_state()  # The chain controllers as upstream's list
         }
+        # The chain controllers' pages (positions, names): read instead of "zctrls"
+        if self.zctrl_pages.pages:
+            state["zctrl_pages"] = self.zctrl_pages.get_state()
+            state["zctrl_pages_current"] = self.zctrl_pages.current
 
         return state

@@ -202,6 +202,20 @@ def test_request_while_not_shown_builds_the_chain(app, screen):
     assert cc.page_index == 2 and cc.cell == 0 and chain.current_processor is chain.procs[0]
 
 
+def test_a_failing_widget_keeps_the_selection(app, screen, monkeypatch):
+    """An exception in a page's widget (e.g. the audio player without a file) doesn't stop the
+    selection: the page is selected, shown and reported"""
+    cc, chain, got = screen
+    cc.build()
+
+    def fail(proc, zctrls=()):
+        raise KeyError("zoom")
+    monkeypatch.setattr(cc, "_set_widget", fail)
+    gd.shared_selection.request_page(3, 5)
+    assert cc.page_index == 5 and cc.grid.grid.selected == 5
+    assert gd.shared_selection.get(3).page == 5 and cc.widgetType == ""
+
+
 def test_theme_colors(screen):
     cc, chain, got = screen
     cc.setThemeGridColors(["#102030", "#405060"])

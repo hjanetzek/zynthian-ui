@@ -10,7 +10,7 @@ the reference host `dbm_host` and the protocol
 ([doc/TYPED_PROTOCOL_PLAN.md](https://github.com/hjanetzek/drivenbymoss-rust/blob/main/doc/TYPED_PROTOCOL_PLAN.md)) stay in drivenbymoss-rust and come
 from the drivenbymoss package. Plan and state: [doc/ZYNTHIAN_PLAN.md](https://github.com/hjanetzek/drivenbymoss-rust/blob/main/doc/ZYNTHIAN_PLAN.md),
 analysis: [doc/ZYNTHIAN_INTEGRATION.md](https://github.com/hjanetzek/drivenbymoss-rust/blob/main/doc/ZYNTHIAN_INTEGRATION.md) (both in drivenbymoss-rust);
-here: [docs/dbm/](../../../docs/dbm/) (the window indication analysis, the CPU profile).
+here: [docs/dbm/](../../../docs/dbm/) (the CPU profile).
 
 ## Layout
 
@@ -18,7 +18,7 @@ here: [docs/dbm/](../../../docs/dbm/) (the window indication analysis, the CPU p
 | --- | --- |
 | `zyngine/ctrldev/` | The driver base `zynthian_ctrldev_base_dbm.py`, one module per controller (`zynthian_ctrldev_dbm_*.py`), the model adapter package `dbm_zynthian/` (this folder) |
 | `tests/dbm/` | The tests without the zynthian UI (`run_tests.py`), the conformance scenarios against the adapter (`zyn_conformance.py`) |
-| `docs/dbm/` | Analyses: `ZYNTHIAN_INDICATION.md`, `ZYNTHIAN_CPU.md` |
+| `docs/dbm/` | The CPU profile: `ZYNTHIAN_CPU.md` |
 
 ## Finding DrivenByMoss
 
@@ -84,12 +84,12 @@ else 4 times a second ([docs/dbm/ZYNTHIAN_CPU.md](../../../docs/dbm/ZYNTHIAN_CPU
 zynthian's UI therefore reach the controller within 250 ms.
 
 The drivers use zynthian-ui's PipeWire port names, the `dev_in_2_dev_out` fix and
-`getTransportState` in `zynseq.h` (all on this branch).
+`getTransportState` in `zynseq.h` (all in this repository).
 
 ## The host's pages (chain control's grid)
 
 With zynthian-ui's grid module (`zyngui/zynthian_control_grid_data.py` with `chain_pages` and
-`shared_selection`: the `electra-grid` branch) a controller with a grid (the Maschine JAM:
+`shared_selection`) a controller with a grid (the Maschine JAM:
 Select + SONG) shows the active chain's controller pages as zynthian's grid layouts do, and its
 selection is chain control's: a press on a cell selects its page and cell on zynthian's screen,
 a change on the screen moves the controller's highlight (`dbm_zynthian/host_page.py`,

@@ -1,10 +1,9 @@
 # Chain controllers: positions and named pages
 
-Status: 2026-11-25, branch `electra-grid`. The remote-control pages this branch added (Bitwig-like
+Status: 2026-11-25. The remote-control pages planned first (Bitwig-like
 pages per chain) and upstream's **Chain Controllers** are one feature now: the chain
 controllers are **named pages of 4 slots**, a slot any controller of the chain's processors or
-empty. The decision and the comparison: zynthian-stuff
-`results/2026-11-25-remote-pages-vs-chain-controllers.md`.
+empty.
 
 ## 1. Where it comes from
 
@@ -78,7 +77,7 @@ encoders) and adds Bitwig's positions and names.
   references to processors not in the snapshot are dropped. (The `zctrls` mapping is also an
   upstream fix: upstream left the old ids.)
 - **ZS3**: not stored (structure, as upstream's chain controllers).
-- **The earlier 8-slot format** of this branch is not migrated: slots 5-8 are dropped.
+- **The 8-slot format** of the development versions is not migrated: slots 5-8 are dropped.
 
 ## 4. Chain control
 
@@ -166,7 +165,7 @@ slots are replaced as a whole tuple, so a read during a change sees the old or t
 - `tests/unit/test_qt_zctrl_pages.py`, `test_qt_control_grid_selection.py`: the Qt screen (the
   CHAIN section, opening, the toggle, the slot picker, the page manager, the chain options,
   driver requests).
-- drivenbymoss-rust `backends/zynthian/tests/test_host_page.py`: colours, assign, device pages.
+- `tests/dbm/test_host_page.py` (the DrivenByMoss adapter): colours, assign, device pages.
 - **Checked in the QEMU VM** (2026-11-25, 1280x800, tk theme, Noize Mak3r; the Tk VM stock
   zynthian-ui-tomita): an upstream-style snapshot (`zctrls` only, 5 controllers) loads as
   "Controllers 1" (4) and "Controllers 2" (1) and chain control opens on it; the Qt toggle fills
@@ -179,11 +178,11 @@ slots are replaced as a whole tuple, so a read during a change sees the old or t
 
 ## 9. Names
 
-The model was the branch's "remote-control pages"; since 2026-11-25 its names are the chain
+The model was first named "remote-control pages"; since 2026-11-25 its names are the chain
 controllers': `zyngine/zynthian_zctrl_pages.py` (`ZctrlPages`, `ZctrlPage`), `chain.zctrl_pages`,
 the snapshot keys `"zctrl_pages"` and `"zctrl_pages_current"`, `zctrl_assign`,
 `shared_selection.request_zctrl_assign`, `SS_GUI_CONTROL_GRID_ZCTRL_PAGES`. The earlier
-`"remote_pages"` key is not read (it only existed in test snapshots of this branch).
+`"remote_pages"` key is not read (it only existed in test snapshots of the development versions).
 
 ## 10. Open
 

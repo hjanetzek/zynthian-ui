@@ -61,11 +61,11 @@ The check, after every rebase:
 | `strand/01-upstream` | self-contained fixes for upstream (zynmixer, zynseq, snapshots, engines, xfail drops); applies directly on tomita |
 | `strand/02-tkfix` | Tk UI improvements that aren't abstraction; applies directly on tomita |
 | `strand/03-port` | the non-ZynthianOS port: `zynthian_paths`, desktop mode, `desktop/`, PipeWire, read-only data, OSC status query |
-| `strand/04-ctrldev` | controller drivers: user driver folders, `ZYNTHIAN_CTRLDEV_PATH`, HID drivers |
+| `strand/04-ctrldev` | controller drivers: user driver folders, `ZYNTHIAN_CTRLDEV_PATH`, HID drivers; the DrivenByMoss (DBM) drivers (`zyngine/ctrldev/dbm_zynthian/`, `zynthian_ctrldev_*dbm*`, `tests/dbm/`, `docs/dbm/`; need DrivenByMoss) |
 | `strand/05-tkabs` | the toolkit-independent UI-logic modules (`zyngui/zynthian_*_data.py`, …) and the Tk screens using them |
 | `strand/06-loadopt` | load and start-up time: jalv -B, lazy imports and lilv, LV2 caches, stop timeouts, engine output drain |
 | `strand/07-qt` | the Qt Quick UI: `zynqt/`, `zynthian_qt_main.py`, Qt tests, the Qt docs (`qt-*.md`, `qt-port-plan.md`) |
-| (`strand/08-nura`) | no marker: the Nura packaging (the `nura/` recipes, deploy, seed, `docs/nura-display.md`) moved to nura-builds with its history; the number stays free |
+| `strand/08-dbm` | the DrivenByMoss drivers' parts on chain control's grid and the Qt UI (host pages, controller views); needs 05 and 07 (number 08 was the Nura packaging, now in nura-builds) |
 | `strand/09-devtools` | `tools/` (test VM, QEMU, sync, profiling, screenshots) and its docs (qemu-testing, test-vm, performance-measurement) |
 | `strand/10-docs` | the shared logs and plans: upstream-candidates, rebase notes, architecture, plans |
 
@@ -73,7 +73,7 @@ Which strand a commit belongs to: by file first (`zynqt/` → qt, `tools/` → d
 port, strand-specific docs with their strand, other `docs/` → docs); code by what it does. A commit
 touching several strands' files is split by file. Nura packaging (recipes, sessions, `deploy.sh`)
 goes to nura-builds, not here. Dependencies run upwards only: tkabs needs port, loadopt needs port
-and tkabs, qt needs everything below it.
+and tkabs, qt needs everything below it, dbm needs qt and below.
 
 Rules:
 

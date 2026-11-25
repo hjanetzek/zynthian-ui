@@ -10,10 +10,11 @@ developer-visible, as dated entries, newest first.
 | [01-upstream.md](01-upstream.md) | fixes for upstream (pull request zynthian/zynthian-ui#617) |
 | [02-tkfix.md](02-tkfix.md) | Tk UI improvements |
 | [03-port.md](03-port.md) | zynthian outside ZynthianOS: paths, desktop mode, PipeWire |
-| [04-ctrldev.md](04-ctrldev.md) | controller drivers |
+| [04-ctrldev.md](04-ctrldev.md) | controller drivers, incl. the DrivenByMoss drivers |
 | [05-tkabs.md](05-tkabs.md) | toolkit-independent UI logic |
 | [06-loadopt.md](06-loadopt.md) | load and start-up time |
 | [07-qt.md](07-qt.md) | the Qt Quick UI |
+| [08-dbm.md](08-dbm.md) | the DrivenByMoss drivers' grid and Qt parts |
 | [09-devtools.md](09-devtools.md) | developer tools |
 | [10-docs.md](10-docs.md) | shared docs and plans |
 

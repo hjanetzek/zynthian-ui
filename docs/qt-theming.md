@@ -39,12 +39,13 @@ Where the choice is stored (`save_theme()` in `zynqt/theme.py`):
   value in `zynthian_envars.sh` would have no effect then.
 - **Default** removes the user's value from both files, so the system's theme applies again: the
   one in `/etc/default/zynthian` (the kit's: `zynthian-kit` writes `v4` there on V4 kits), else
-  tk. The launcher keeps a variable it once exported (it sources the config files in its own
-  shell), so removing the line alone would keep the old theme at the next start: Default also
-  writes one line, marked `# zynthian: Admin > Theme > Default, for one start`, into
-  `zynthian_envars.sh`, `export ZYNTHIAN_QT_THEME="<the system's>"` or
-  `unset ZYNTHIAN_QT_THEME`; the UI removes that line when it starts (`drop_once_lines()`), and
-  the launcher's variable then holds the system's value.
+  tk. That is all it does: the launcher sources the config files only in each start's subshell, so
+  the next start (RESTART_UI included) has the session's value again.
+- Until 2026-11-25 the launcher kept a variable it had once exported, and Default wrote a line
+  marked `# zynthian: Admin > Theme > Default, for one start` into `zynthian_envars.sh` that the UI
+  removed at its next start. `drop_once_lines()` still removes such a line when the UI starts (and
+  when a theme is saved): one chosen before an upgrade, without a start since, would else set that
+  day's session theme for good. It goes in a later cycle.
 
 Precedence at each UI start (the launcher `desktop/zynthian_desktop.sh` sources these in order,
 the last one wins):

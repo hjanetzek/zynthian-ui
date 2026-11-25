@@ -371,7 +371,7 @@ def main():
         "zynUiRotation": ui_rotation if ui_rotation in (0, 90, 180, 270) else 0,
     })
     ui.frontend = frontend
-    # Admin > Theme > Default leaves a line in the config for this one start (zynqt/theme.py)
+    # A line the old Admin > Theme > Default left for one start (zynqt/theme.py, ONCE_MARK)
     zyntheme.drop_once_lines()
     if os.environ.get("ZYNTHIAN_QT_TIMING") == "1":
         logging.warning(f"QML TIMING QML load starts at process +{since_start():.2f} s")

@@ -382,6 +382,9 @@ class zynthian_state_manager:
     def get_zmip_ctrl_index(self):
         return ZMIP_CTRL_INDEX
 
+    def get_zmip_ui_index(self):
+        return ZMIP_UI_INDEX
+
     def get_zmop_mod_index(self):
         return ZMOP_MOD_INDEX
 

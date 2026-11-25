@@ -766,6 +766,26 @@ def _port_name(port):
         return "(gone)"
 
 
+def route_zynseq_record_inputs():
+    """Route the MIDI inputs to zmop_step (ZynMidiRouter:step_out => zynseq:input, what pattern
+    recording captures)"""
+
+    izmop = state_manager.get_zmop_step_index()
+    # The devices, as configured in zynseq_input_exclude_ports
+    for idev, port in enumerate(devices_in):
+        if idev >= max_num_devs:
+            break
+        if port:
+            if port.aliases[0] in zynseq_input_exclude_ports:
+                lib_zyncore.zmop_set_route_from(izmop, idev, 0)
+            else:
+                lib_zyncore.zmop_set_route_from(izmop, idev, 1)
+    # The notes played through the UI zmip too: ctrldev drivers which take the device's MIDI from
+    # the chains and play the notes themselves (ui_send_note_on, e.g. DrivenByMoss) and the
+    # websocket keyboard. init_zyncore routes ZMIP_FAKE_UI to the chain zmops only.
+    lib_zyncore.zmop_set_route_from(izmop, state_manager.get_zmip_ui_index(), 1)
+
+
 def midi_autoconnect():
     """Connect all expected MIDI routes"""
 
@@ -966,15 +986,7 @@ def midi_autoconnect():
 
     # Connect ZynMidiRouter:step_out to zynseq input
     required_routes["zynseq:input"].add("ZynMidiRouter:step_out")
-    # Route/unroute the devices from zmop_step as configured in zynseq_input_exclude_ports
-    for idev, port in enumerate(devices_in):
-        if idev >= max_num_devs:
-            break
-        if port:
-            if port.aliases[0] in zynseq_input_exclude_ports:
-                lib_zyncore.zmop_set_route_from(state_manager.get_zmop_step_index(), idev, 0)
-            else:
-                lib_zyncore.zmop_set_route_from(state_manager.get_zmop_step_index(), idev, 1)
+    route_zynseq_record_inputs()
 
     # This doesn't work well!
     # Reverted to old behavior: ZynMidiRouter:step_out => zynseq:input

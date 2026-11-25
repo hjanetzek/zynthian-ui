@@ -58,6 +58,9 @@ ZMIP_SEQ_INDEX = lib_zyncore.zmip_get_seq_index()
 ZMIP_STEP_INDEX = lib_zyncore.zmip_get_step_index()
 ZMIP_INT_INDEX = lib_zyncore.zmip_get_int_index()
 ZMIP_CTRL_INDEX = lib_zyncore.zmip_get_ctrl_index()
+# MIDI sent by the UI (ui_send_*: ctrldev drivers, websocket keyboard): zyncore has no getter for
+# it, ZMIP_FAKE_UI follows ZMIP_CTRL (zynmidirouter.h)
+ZMIP_UI_INDEX = ZMIP_CTRL_INDEX + 1
 ZMOP_MOD_INDEX = lib_zyncore.zmop_get_mod_index()
 ZMOP_STEP_INDEX = lib_zyncore.zmop_get_step_index()
 

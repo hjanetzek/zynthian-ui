@@ -865,7 +865,7 @@ class zynthian_chain:
         purged_zctrls = []
         procs_by_id = self.get_processors_by_id()
         for zctrl in self.zctrls:
-            if zctrl.processor in procs_by_id:
+            if zctrl.processor.id in procs_by_id:
                 purged_zctrls.append(zctrl)
         self.zctrls = purged_zctrls
 

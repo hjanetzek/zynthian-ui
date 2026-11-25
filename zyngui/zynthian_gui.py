@@ -1870,6 +1870,15 @@ class zynthian_gui(zynthian_websocket_feedback):
     def cuia_paste(self, params=None):
         pass
 
+    def cuia_pattern_editor_window(self, params=None):
+        """Show a window of the pattern editor (start, length in beats, lowest and highest note,
+        optionally the pattern): what a controller's step sequencer shows. The Qt UI scrolls and
+        zooms its pattern editor to it; the Tk UI ignores it (no view window).
+
+        Category: navigation
+        """
+        pass
+
     # Zynpot & Zynswitch emulation CUIAs (low level)
     def cuia_zynpot(self, params=None):
         """Turn an encoder (zynpot) by a relative amount.

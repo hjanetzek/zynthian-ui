@@ -102,6 +102,55 @@ Rectangle {
     Connections {
         target: root.pe
         function onPatternChanged() { Qt.callLater(root.showRefRow) }
+        function onWindowChanged() { root.applyWindow() }
+    }
+    // A controller's window (pe.viewWindow: first step, steps, lowest and highest row; DBM's
+    // ClipEditWindow, docs/controller-view-sync.md): the zoom that fits its steps and rows (within
+    // the zoom limits), then (windowTimer: after the zoom's own placing) the first step at the
+    // left, the rows centred if they fit, else the lowest at the bottom
+    function applyWindow() {
+        const w = pe.viewWindow
+        if (w.length < 4)
+            return
+        if (gridWidth > 0)
+            pe.setZoom(windowZoom(w))
+        windowTimer.tries = 0
+        windowTimer.restart()
+    }
+    // The zoom which shows all steps and rows of the window (the closer of the two: one zoom
+    // for the step width and the row height)
+    function windowZoom(w) {
+        const steps = Math.floor(gridWidth / Math.max(1, w[1])) - baseStepWidth
+        const rows = Math.floor(gridHeight / Math.max(1, w[3] - w[2] + 1)) - baseRowHeight
+        return Math.min(steps, rows)
+    }
+    function scrollToWindow() {
+        const w = pe.viewWindow
+        if (w.length < 4)
+            return
+        grid.contentX = Math.max(0, Math.min(grid.contentWidth - grid.width, w[0] * stepWidth))
+        const shown = grid.height / rowHeight
+        const count = w[3] - w[2] + 1
+        const bottom = Math.max(0, count < shown ? w[2] - Math.floor((shown - count) / 2) : w[2])
+        grid.contentY = Math.max(0, Math.min(grid.contentHeight - grid.height,
+                                             grid.contentHeight - grid.height - bottom * rowHeight))
+        pe.setRefNote(Math.max(0, Math.round((grid.contentHeight - grid.contentY - grid.height) / rowHeight)))
+    }
+    Timer {
+        id: windowTimer
+        property int tries: 0
+        interval: 30
+        onTriggered: {
+            // The screen just created: wait for its size (a few tries)
+            if ((root.gridWidth <= 0 || grid.height <= 0) && ++tries < 20) {
+                restart()
+                return
+            }
+            if (tries > 0 && root.gridWidth > 0 && root.pe.viewWindow.length >= 4)
+                root.pe.setZoom(root.windowZoom(root.pe.viewWindow))
+            tries = 0
+            root.scrollToWindow()
+        }
     }
     // Tk (load_pattern, set_keymap_offset): the pattern's reference note as the bottom row, the
     // cursor in the middle of the view rows above it. Also when this screen is created: the
@@ -118,6 +167,7 @@ Rectangle {
                 pe.setGridHeight(gridHeight)
         }
         Qt.callLater(showRefRow)
+        applyWindow()
     }
 
     color: Theme.background

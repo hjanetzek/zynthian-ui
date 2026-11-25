@@ -825,7 +825,12 @@ class ChainControl(QObject):
             c.set_zctrl(zctrls[i] if i < len(zctrls) else None)
         # The selected cell: the page's first controller (until one is touched or turned)
         self._cell = next((i for i, z in enumerate(self._page_zctrls[:gd.CELLS_PER_PAGE]) if z is not None), -1)
-        self._set_widget(proc if kind != "chain" else None, zctrls)
+        try:
+            self._set_widget(proc if kind != "chain" else None, zctrls)
+        except Exception as e:
+            # The page stays selected (and reported) without its widget
+            logging.exception(f"widget of page '{entries[index]['title']}': {e}")
+            self._widget_type = ""
         if self._layout != "v5":
             self.grid.select_entry(index)
         self.pageChanged.emit()

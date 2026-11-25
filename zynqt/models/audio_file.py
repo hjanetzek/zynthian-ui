@@ -72,7 +72,9 @@ class AudioFileView(QObject):
         self.clip_info = None
         if self.eng_type == afd.ENG_CLIPPY and self.zctrl:
             self.clip_info = afd.clippy_info(processor, self.zctrl, self.ui.state_manager.zynseq)
-        elif self.eng_type in (afd.ENG_GLOBAL_AP, afd.ENG_CHAIN_AP):
+        elif self.eng_type in (afd.ENG_GLOBAL_AP, afd.ENG_CHAIN_AP) and "zoom" in processor.controllers_dict:
+            # (not for a player without controllers yet, e.g. one without a file: the engine reads
+            # its zoom and position controllers; the Tk widget is only shown with them)
             processor.engine.set_monitored_processor(processor)
         # Nothing of the previous processor's file stays (its name, markers, cursor): the new
         # one's file, if it has one, loads on the next refresh

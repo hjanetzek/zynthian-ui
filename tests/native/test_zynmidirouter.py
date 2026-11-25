@@ -246,3 +246,27 @@ def test_internal_direct_send_reaches_the_chains(chain0, lib):
     assert lib.zmip_send_note_on(lib.zmip_get_int_index(), 0, 62, 90) == 1
     chain0.runner.run(2048)
     assert [d for _, d in chain0.rec.midi["ch0"]] == [bytes(note_on(0, 62, 90))]
+
+
+# --- step sequencer record input (ZMOP_STEP = step_out => zynseq:input) ----------------------------------
+def test_ui_notes_reach_the_step_recorder_only_with_the_autoconnect_route(router, lib):
+    """MIDI sent by the UI (ui_send_note_on: ctrldev drivers that take the device's MIDI from the
+    chains and play the notes themselves, the websocket keyboard) goes into ZMIP_FAKE_UI, which
+    init_zyncore routes to the chain zmops only, not to step_out (zynseq's record input).
+    zynautoconnect adds that route (ZMIP_UI_INDEX: ZMIP_CTRL + 1, zyncore has no getter)."""
+    from zyngine.zynthian_chain_manager import ZMIP_UI_INDEX
+    router.listen("step")
+    zmop_step = lib.zmop_get_step_index()
+    zmip_ui = lib.zmip_get_ctrl_index() + 1
+    assert zmip_ui == ZMIP_UI_INDEX
+
+    def ui_note():
+        router.rec.clear()
+        assert lib.ui_send_note_on(0, 64, 90) == 1
+        router.runner.run(2048)
+        return [d for _, d in router.rec.midi["step"]]
+
+    assert lib.zmop_get_route_from(zmop_step, zmip_ui) == 0
+    assert ui_note() == []
+    assert lib.zmop_set_route_from(zmop_step, zmip_ui, 1) == 1
+    assert ui_note() == [bytes(note_on(0, 64, 90))]

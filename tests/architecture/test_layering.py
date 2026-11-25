@@ -24,6 +24,7 @@ KNOWN_CORE_TO_UI_IMPORTS = {
     "zyngine/ctrldev/zynthian_ctrldev_akai_apc_key25_mk2.py",
     "zyngine/ctrldev/dbm_zynthian/add_chain.py",
     "zyngine/ctrldev/dbm_zynthian/browser.py",
+    "zyngine/ctrldev/dbm_zynthian/views.py",
     "zyngine/ctrldev/zynthian_ctrldev_base_dbm.py",
     "zyngine/ctrldev/zynthian_ctrldev_base_ui.py",
     "zyngine/ctrldev/zynthian_ctrldev_launchkey_mini_mk3.py",

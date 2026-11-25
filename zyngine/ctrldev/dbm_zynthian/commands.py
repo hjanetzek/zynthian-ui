@@ -76,6 +76,7 @@ from drivenbymoss import protocol
 from drivenbymoss.protocol import ChKind, Cmd, Processor
 
 from zyngine.ctrldev.dbm_zynthian.host_page import ZynHostPages, grid_module
+from zyngine.ctrldev.dbm_zynthian.views import VIEW_OTHER
 
 logger = logging.getLogger("dbm_zynthian")
 
@@ -203,6 +204,9 @@ class ZynCommandHandler(CommandHandler):
         Cmd.HOST_PAGE_SHOW, Cmd.HOST_PAGE_CELL_TURN, Cmd.HOST_PAGE_CELL_PRESS, Cmd.HOST_PAGE_CELL_TOUCH,
         Cmd.HOST_PAGE_CELL_RESET, Cmd.HOST_PAGE_ROW, Cmd.HOST_PAGE_PAGE, Cmd.HOST_PAGE_SET, Cmd.HOST_PAGE_SECTION,
         Cmd.HOST_PAGE_CELL_ASSIGN,
+        # The controller's view and the edit window of its step sequencer (HOST_BRIDGE_GUIDE
+        # §4.13): agreed, not implemented yet
+        Cmd.CONTROLLER_VIEW, Cmd.CLIP_EDIT_WINDOW,
     ))
     """The CmdIds zynthian does not execute with zynseq (no arranger, no automation, no undo, no
     markers, no note repeat, …). A snapshot: the coverage test of TYPED_PROTOCOL_PLAN §2.5
@@ -236,6 +240,15 @@ class ZynCommandHandler(CommandHandler):
             self.host_pages = ZynHostPages(chain_manager, gd)
             self.reporter.host_pages = self.host_pages
             r(HOST_PAGE_COMMANDS, self._host_page)
+        # The controller's views on zynthian's screens (views.py), with zynthian's UI only (in
+        # UNHANDLED_COMMANDS: the core sends them only to hosts which handle them)
+        views = getattr(self.daw, "views", None)
+        view_cmd, window_cmd = getattr(Cmd, "CONTROLLER_VIEW", None), getattr(Cmd, "CLIP_EDIT_WINDOW", None)
+        if views is not None and views.available:
+            if view_cmd is not None:
+                r((view_cmd,), self._controller_view)
+            if window_cmd is not None:
+                r((window_cmd,), self._clip_edit_window)
         transport = self.daw.transport
         if transport is not None and transport.available:
             r((Cmd.TRANSPORT_PLAY, Cmd.TRANSPORT_STOP, Cmd.TRANSPORT_STOP_AND_REWIND, Cmd.TRANSPORT_RESTART, Cmd.TRANSPORT_METRONOME,
@@ -474,6 +487,27 @@ class ZynCommandHandler(CommandHandler):
         if selected is None or track is None or launcher.sequence_of(track) != selected[1]:
             return True  # No cursor clip: nothing to duplicate
         return launcher.duplicate(track, selected[0])
+
+    # The controller's views (views.py)
+
+    def _controller_view(self, view, cmd):
+        """``ControllerView``: the view the user picked on the controller (``view.value``, a
+        ``protocol.ControllerViewKind``; a later kind is an int, which views.py ignores)."""
+        try:
+            kind = int(view.value)
+        except (TypeError, ValueError):
+            kind = VIEW_OTHER
+        return self.daw.views.controller_view(kind)
+
+    def _clip_edit_window(self, view, cmd):
+        """``ClipEditWindow``: the window of the core's note grid (``view.value``, a
+        ``protocol.EditWindow``: start, length, low, high)."""
+        window = view.value
+        try:
+            start, length, low, high = window.start, window.length, window.low, window.high
+        except AttributeError:
+            start, length, low, high = window
+        return self.daw.views.edit_window(start, length, low, high)
 
     # The cursor clip (clip.py)
 

@@ -19,11 +19,12 @@
 #               the kiosk's scale 1.5 is the same 1280x800 logical pixels), e.g. 1024x600, 800x480.
 #               With a window the image's kiosk sets it (postmarketos-ui-zynthian r21 or newer)
 #   -D DISPLAY  gtk (default), sdl, or none: no window (agents, tests; screenshots with grim in the
-#               guest): OpenGL through egl-headless if QEMU has it (qemu-ui-egl-headless), else
-#               software rendering in the guest. Headless (or without a terminal) the serial console
-#               goes to serial.log in the cache directory, QEMU's PID to qemu.pid. With QEMU display
-#               options after a comma, e.g. -D gtk,zoom-to-fit=off
-#   -n          no OpenGL (software rendering in the guest: slow, for checking a GL problem)
+#               guest): OpenGL through egl-headless (qemu-ui-egl-headless). Headless (or without a
+#               terminal) the serial console goes to serial.log in the cache directory, QEMU's PID
+#               to qemu.pid. With QEMU display options after a comma, e.g. -D gtk,zoom-to-fit=off
+#   -n          no OpenGL (software rendering in the guest: slow, for checking a GL problem). Only
+#               on request: without OpenGL on this machine (no DRM render node, EGL failing, QEMU
+#               without its GL modules) the script stops with the cause instead of falling back
 #   -A AUDIO    virtio (default: virtio-sound, QEMU 8.2+) or hda (emulated Intel HDA), none, or
 #               silent (Intel HDA without host output: the guest's audio clock runs, nothing is
 #               heard; for long unattended zynthian tests, where -A none can stall PipeWire's graph)
@@ -35,11 +36,15 @@
 #               ws://localhost:PORT, e.g. the zynthian-operator skill's zynctl.py --host localhost --port
 #               PORT). The image's sshd doesn't allow port forwarding (ssh -L)
 #   -d DIR      cache directory (default ~/.cache/nura-builds)
+#   -l          list this user's running QEMU VMs (PID, disk, forwarded host ports) and exit
 #   -L MAC      a second NIC on a VM-to-VM LAN (no root needed): QEMU's socket multicast netdev,
 #               shared by every VM started with -L on this machine (and the same group). MAC must be
 #               unique per VM, e.g. 52:54:00:77:00:01. The group: NURA_QEMU_LAN (default
 #               230.0.0.1:12345). The guests get their addresses on it themselves (qemu_compare.sh -l
 #               sets static ones with NetworkManager)
+#
+# Given ports (-p, -w, -S) that are taken stop the script, naming the holder (NURA_QEMU_PORT_HINT:
+# the wrapper's own options for other ports, e.g. test_vm.sh's -p).
 #
 # Needs qemu-system-x86_64 (with the virtio-vga-gl device: QEMU's GL/virglrenderer support),
 # OVMF (edk2-ovmf / ovmf), zstd, curl; /dev/kvm for full speed (without it QEMU emulates, slowly).
@@ -49,8 +54,8 @@ usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0
 
 url=https://github.com/hjanetzek/nura-builds/releases/download/zynthian-latest/zynthian-qemu-amd64.img.zst
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/nura-builds
-update=0 reset=0 size=8G mem=4G cpus= res=1280x800 display=gtk gl=on audio=virtio usb= ssh_port= web_port= ws_port= lan_mac=
-while getopts urs:m:c:R:D:nA:U:p:w:S:d:L:h opt; do
+update=0 reset=0 size=8G mem=4G cpus= res=1280x800 display=gtk gl=on audio=virtio usb= ssh_port= web_port= ws_port= lan_mac= list=0
+while getopts urs:m:c:R:D:nA:U:p:w:S:d:lL:h opt; do
 	case $opt in
 		u) update=1 ;;
 		r) reset=1 ;;
@@ -66,6 +71,7 @@ while getopts urs:m:c:R:D:nA:U:p:w:S:d:L:h opt; do
 		w) web_port=$OPTARG ;;
 		S) ws_port=$OPTARG ;;
 		d) cache=$OPTARG ;;
+		l) list=1 ;;
 		L) lan_mac=$OPTARG ;;
 		h) usage ;;
 		*) usage 1 ;;
@@ -73,6 +79,23 @@ while getopts urs:m:c:R:D:nA:U:p:w:S:d:L:h opt; do
 done
 shift $((OPTIND - 1))
 [ $# -le 1 ] || usage 1
+
+# This user's QEMU processes: their disk (the first -drive with if=none: run_qemu.sh's, also other
+# scripts' virtio disks) and forwarded host ports (hostfwd=tcp:ADDR:HOSTPORT-:GUESTPORT)
+qemu_disk() { tr '\0' '\n' < "/proc/$1/cmdline" 2>/dev/null | sed -n 's/^file=\([^,]*\),.*if=none.*/\1/p; s/^.*if=virtio.*file=\([^,]*\).*/\1/p' | head -n 1; }
+qemu_ports() {
+	tr '\0' '\n' < "/proc/$1/cmdline" 2>/dev/null | tr ',' '\n' |
+		sed -n 's/^hostfwd=[a-z]*:[0-9.]*:\([0-9]*\)-[0-9.]*:\([0-9]*\)$/\1->\2/p' | paste -sd ' ' -
+}
+if [ $list = 1 ]; then
+	found=0
+	for pid in $(pgrep -u "$(id -u)" -f '^qemu-system' || true); do
+		found=1
+		echo "PID $pid: disk $(qemu_disk "$pid"), ports (host->guest) $(qemu_ports "$pid")"
+	done
+	[ $found = 1 ] || echo "no QEMU VMs running"
+	exit 0
+fi
 
 for cmd in qemu-system-x86_64 zstd; do
 	command -v "$cmd" >/dev/null || { echo "$cmd not found" >&2; exit 1; }
@@ -89,7 +112,110 @@ download_api() {
 	curl -fLR --progress-bar "$@" -H "Accept: application/octet-stream" -o "$zst.part" "$asset"
 }
 
-# The disk: a given .img as it is; a .img.zst (given or downloaded) unpacked to the cache
+# UEFI firmware (the image boots with systemd-boot)
+ovmf=
+for f in /usr/share/edk2/x64/OVMF.4m.fd /usr/share/edk2/x64/OVMF.fd /usr/share/OVMF/OVMF.fd \
+	/usr/share/edk2/ovmf/OVMF.fd /usr/share/qemu/ovmf-x86_64.bin /usr/share/ovmf/OVMF.fd; do
+	[ -f "$f" ] && { ovmf=$f; break; }
+done
+[ -n "$ovmf" ] || { echo "no OVMF firmware found: install edk2-ovmf (or ovmf)" >&2; exit 1; }
+
+# QEMU's optional modules (distributions package them separately: on Arch qemu-hw-display-*,
+# qemu-ui-*, qemu-audio-*, qemu-hw-usb-host; Debian/Ubuntu: qemu-system-gui, qemu-system-modules-*)
+devices=$(qemu-system-x86_64 -device help 2>/dev/null)
+audiodevs=$(qemu-system-x86_64 -audiodev help 2>/dev/null)
+displays=$(qemu-system-x86_64 -display help 2>/dev/null)
+missing=
+has_device() { echo "$devices" | grep -q "name \"$1\""; }
+if [ "$gl" = on ]; then
+	# (the -gl modules need the plain virtio-gpu/-vga ones too: without them QEMU lists none)
+	has_device virtio-vga-gl || missing="$missing qemu-hw-display-virtio-gpu qemu-hw-display-virtio-gpu-gl qemu-hw-display-virtio-gpu-pci qemu-hw-display-virtio-gpu-pci-gl qemu-hw-display-virtio-vga qemu-hw-display-virtio-vga-gl qemu-ui-opengl"
+else
+	has_device virtio-vga || missing="$missing qemu-hw-display-virtio-vga qemu-hw-display-virtio-gpu"
+fi
+if [ "$display" = none ]; then
+	# Headless: OpenGL through egl-headless
+	[ "$gl" = off ] || echo "$displays" | grep -qx egl-headless || missing="$missing qemu-ui-egl-headless"
+else
+	echo "$displays" | grep -qx "${display%%,*}" || missing="$missing qemu-ui-${display%%,*}"
+fi
+if [ "$audio" != none ] && [ "$audio" != silent ]; then
+	echo "$audiodevs" | grep -qx -e pipewire -e pa || missing="$missing qemu-audio-pipewire"
+fi
+if [ -n "$usb" ]; then
+	has_device usb-host || missing="$missing qemu-hw-usb-host"
+fi
+if [ -n "$missing" ]; then
+	echo "QEMU lacks modules this needs; on Arch: sudo pacman -S$missing" >&2
+	echo "(or -n for no OpenGL, -A none for no audio)" >&2
+	exit 1
+fi
+
+# OpenGL on this machine: QEMU renders through a DRM render node (egl-headless opens the first
+# /dev/dri/renderD*). Missing, it fails late ("egl: render node init failed", "eglInitialize
+# failed: EGL_NOT_INITIALIZED"), e.g. after a kernel update without a reboot. A clear error then,
+# no silent fallback to software rendering: -n is that, on request
+gl_error() {
+	echo "no OpenGL for QEMU: $1" >&2
+	echo "fixes: reboot (after a kernel update the running kernel's GPU modules can be gone), or" >&2
+	echo "recreate the DRM device nodes: sudo udevadm trigger --subsystem-match=drm --action=add" >&2
+	echo "(-n starts without OpenGL: software rendering in the guest, slow)" >&2
+	exit 1
+}
+if [ "$gl" = on ]; then
+	node=
+	for n in /dev/dri/renderD*; do
+		[ -e "$n" ] && { node=$n; break; }
+	done
+	[ -n "$node" ] || gl_error "no DRM render node (/dev/dri/renderD*)"
+	[ -r "$node" ] && [ -w "$node" ] ||
+		gl_error "no access to $node (owner $(stat -c %U:%G "$node"), mode $(stat -c %A "$node"); the render group?)"
+	# Headless: does egl-headless initialise? (a QEMU without a machine, quit at once over QMP:
+	# a fraction of a second)
+	if [ "$display" = none ]; then
+		probe=$(printf '%s\n' '{"execute":"qmp_capabilities"}' '{"execute":"quit"}' |
+			timeout 20 qemu-system-x86_64 -nodefaults -machine none -display egl-headless -qmp stdio 2>&1 >/dev/null) ||
+			gl_error "egl-headless doesn't initialise on $node: $(echo "$probe" | grep -v '^$' | tail -n 2 | tr '\n' ' ')"
+	fi
+fi
+
+[ -n "$cpus" ] || cpus=$(( $(nproc) / 2 ))
+[ "$cpus" -ge 1 ] || cpus=1
+
+# Host ports: the given ones, else the first free one from the default on
+port_free() { ! ss -Hltn "sport = :$1" 2>/dev/null | grep -q .; }
+free_port() {
+	p=$1
+	while ! port_free "$p"; do p=$((p + 1)); done
+	echo "$p"
+}
+# A given port that is taken: stop, naming the holder (ss shows this user's processes; QEMU's disk
+# from /proc), else QEMU fails late with "Could not set up host forwarding rule"
+port_check() {
+	port_free "$2" && return 0
+	holder=$(ss -Hltnp "sport = :$2" 2>/dev/null | sed -n 's/.*users:(("\([^"]*\)",pid=\([0-9]*\),.*/\2 \1/p' | head -n 1)
+	pid=${holder%% *}
+	if [ -z "$holder" ]; then
+		holder="another user's process (sudo ss -ltnp 'sport = :$2' names it)"
+	elif d=$(qemu_disk "$pid") && [ -n "$d" ]; then
+		holder="PID $pid (${holder#* }, disk $d, ports $(qemu_ports "$pid"))"
+	else
+		holder="PID $pid (${holder#* }: $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-120))"
+	fi
+	echo "host port $2 ($1) is taken by $holder" >&2
+	echo "choose other ports: ${NURA_QEMU_PORT_HINT:-run_qemu.sh -p (SSH), -w (webconf), -S (websocket)}; running VMs: run_qemu.sh -l" >&2
+	exit 1
+}
+[ -z "$ssh_port" ] || port_check SSH "$ssh_port"
+[ -z "$web_port" ] || port_check webconf "$web_port"
+[ -z "$ws_port" ] || port_check websocket "$ws_port"
+[ -n "$ssh_port" ] || ssh_port=$(free_port 2222)
+[ -n "$web_port" ] || web_port=$(free_port 8080)
+[ "$web_port" != "$ssh_port" ] || web_port=$(free_port $((web_port + 1)))
+[ -n "$ws_port" ] || ws_port=$(free_port 8370)
+
+# The disk (after the checks: no download or unpacking for a VM that can't start): a given .img
+# as it is; a .img.zst (given or downloaded) unpacked to the cache
 mkdir -p "$cache"
 if [ $# -eq 1 ] && [ "${1%.zst}" = "$1" ]; then
 	disk=$1
@@ -130,61 +256,6 @@ else
 		truncate -s ">$size" "$disk"
 	fi
 fi
-
-# UEFI firmware (the image boots with systemd-boot)
-ovmf=
-for f in /usr/share/edk2/x64/OVMF.4m.fd /usr/share/edk2/x64/OVMF.fd /usr/share/OVMF/OVMF.fd \
-	/usr/share/edk2/ovmf/OVMF.fd /usr/share/qemu/ovmf-x86_64.bin /usr/share/ovmf/OVMF.fd; do
-	[ -f "$f" ] && { ovmf=$f; break; }
-done
-[ -n "$ovmf" ] || { echo "no OVMF firmware found: install edk2-ovmf (or ovmf)" >&2; exit 1; }
-
-# QEMU's optional modules (distributions package them separately: on Arch qemu-hw-display-*,
-# qemu-ui-*, qemu-audio-*, qemu-hw-usb-host; Debian/Ubuntu: qemu-system-gui, qemu-system-modules-*)
-devices=$(qemu-system-x86_64 -device help 2>/dev/null)
-audiodevs=$(qemu-system-x86_64 -audiodev help 2>/dev/null)
-displays=$(qemu-system-x86_64 -display help 2>/dev/null)
-missing=
-has_device() { echo "$devices" | grep -q "name \"$1\""; }
-if [ "$gl" = on ] && [ "$display" != none ]; then
-	# (the -gl modules need the plain virtio-gpu/-vga ones too: without them QEMU lists none)
-	has_device virtio-vga-gl || missing="$missing qemu-hw-display-virtio-gpu qemu-hw-display-virtio-gpu-gl qemu-hw-display-virtio-gpu-pci qemu-hw-display-virtio-gpu-pci-gl qemu-hw-display-virtio-vga qemu-hw-display-virtio-vga-gl qemu-ui-opengl"
-else
-	has_device virtio-vga || missing="$missing qemu-hw-display-virtio-vga qemu-hw-display-virtio-gpu"
-fi
-if [ "$display" = none ]; then
-	# Headless: OpenGL only through egl-headless
-	echo "$displays" | grep -qx egl-headless || gl=off
-	has_device virtio-vga-gl || gl=off
-else
-	echo "$displays" | grep -qx "${display%%,*}" || missing="$missing qemu-ui-${display%%,*}"
-fi
-if [ "$audio" != none ] && [ "$audio" != silent ]; then
-	echo "$audiodevs" | grep -qx -e pipewire -e pa || missing="$missing qemu-audio-pipewire"
-fi
-if [ -n "$usb" ]; then
-	has_device usb-host || missing="$missing qemu-hw-usb-host"
-fi
-if [ -n "$missing" ]; then
-	echo "QEMU lacks modules this needs; on Arch: sudo pacman -S$missing" >&2
-	echo "(or -n for no OpenGL, -A none for no audio)" >&2
-	exit 1
-fi
-
-[ -n "$cpus" ] || cpus=$(( $(nproc) / 2 ))
-[ "$cpus" -ge 1 ] || cpus=1
-
-# Host ports: the given ones, else the first free one from the default on
-port_free() { ! ss -Hltn "sport = :$1" 2>/dev/null | grep -q .; }
-free_port() {
-	p=$1
-	while ! port_free "$p"; do p=$((p + 1)); done
-	echo "$p"
-}
-[ -n "$ssh_port" ] || ssh_port=$(free_port 2222)
-[ -n "$web_port" ] || web_port=$(free_port 8080)
-[ "$web_port" != "$ssh_port" ] || web_port=$(free_port $((web_port + 1)))
-[ -n "$ws_port" ] || ws_port=$(free_port 8370)
 
 set -- -nodefaults -machine q35 -smp "$cpus" -m "$mem" \
 	-drive "if=pflash,format=raw,readonly=on,file=$ovmf" \

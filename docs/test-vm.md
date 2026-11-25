@@ -32,6 +32,16 @@ message (mount it: `sudo mount /mnt/ssd860`, it is in `/etc/fstab`) instead of c
 the home directory. Other VMs on this machine (SSH 2222, 2240, 2242/2243, 2252/2253) belong to the
 user and other agents: the script only touches its own directory and port.
 
+Port clashes: other sessions start VM pairs on these ports too (an "electra" pair took 2262/8162).
+`start` then stops with the holder, e.g. `host port 2262 (SSH) is taken by PID 1234
+(qemu-system-x86, disk .../zynthian-qemu-amd64.img, ports 2262->22 8162->8080)`: take another
+port with `-p PORT` or `NURA_TEST_VM_PORT=PORT` (webconf PORT - 2262 + 8162; the same for every
+command: `NURA_TEST_VM_PORT=2264 tools/test_vm.sh sync && NURA_TEST_VM_PORT=2264 tools/test_vm.sh run
+all`). `tools/run_qemu.sh -l` lists the running VMs and their ports. Without OpenGL on the host
+(no render node, e.g. after a kernel update without a reboot) `start` stops with that cause and the
+fixes ([qemu-testing.md](qemu-testing.md#troubleshooting)); QEMU's errors from `run.log` are shown
+when it doesn't start or exits during the boot.
+
 **Why zynthian's image and not a plain Alpine/postmarketOS one:** the suite imports zynthian's whole
 Python stack (lilv, numpy, scipy, PySide6, Tk, JACK-Client, pyliblo3, oyaml, soundfile, ...), and the
 Nura zynthian-ui package brings exactly that: Alpine packages as dependencies, and the PyPI modules

@@ -1193,6 +1193,11 @@ class zynthian_state_manager:
                                     proc_map[old_proc_id] = new_proc_id
                                     new_proc_id += 1
                                 chain_state["slots"][slot] = new_procs
+                        # Chain controllers: their references by processor id
+                        for chain_state in state["chains"].values():
+                            if "zctrls" in chain_state:
+                                chain_state["zctrls"] = [[proc_map[str(ref[0])], ref[1]] for ref in chain_state["zctrls"]
+                                                         if ref and str(ref[0]) in proc_map]
                         # Fix zs3
                         procs = {}
                         for proc_id, proc_config in state["zs3"]["zs3-0"]["processors"].items():

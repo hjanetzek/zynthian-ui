@@ -65,10 +65,17 @@ ZynthianState = {
                     "1": "PT",  # Processor type indexed by processor id
                 }, # ... more processors in this slot
             ], # ... More slots
-            "zctrls": [ # List of pinned "Chain Controls"
+            "zctrls": [ # List of pinned "Chain Controls": the filled slots of "zctrl_pages", in order
                 (3, "cutoff"), # Processor id, symbol
                 # ... More zctrls
             ],
+            "zctrl_pages": [ # Optional: the chain controllers' pages (docs/chain-controller-pages.md); read instead of "zctrls"
+                {
+                    "name": "Controllers 1",  # Page name
+                    "slots": [[3, "cutoff"], None, None, None],  # 4 slots: [processor id, symbol] or None
+                }, # ... More pages
+            ],
+            "zctrl_pages_current": 0,  # Optional: the current page (quick assignments)
         }, # ... More chains
     },
     "zs3": {  # Dictionary of ZS3's indexed by chan/prog or ZS3-x

@@ -1255,6 +1255,11 @@ class zynthian_state_manager:
                             if "zctrls" in chain_state:
                                 chain_state["zctrls"] = [[proc_map[str(ref[0])], ref[1]] for ref in chain_state["zctrls"]
                                                          if ref and str(ref[0]) in proc_map]
+                        # Chain controller pages: their references by processor id
+                        for chain_state in state["chains"].values():
+                            for page in chain_state.get("zctrl_pages", []):
+                                page["slots"] = [[proc_map[str(ref[0])], ref[1]] if ref and str(ref[0]) in proc_map
+                                                 else None for ref in page.get("slots", [])]
                         # Fix zs3
                         procs = {}
                         for proc_id, proc_config in state["zs3"]["zs3-0"]["processors"].items():

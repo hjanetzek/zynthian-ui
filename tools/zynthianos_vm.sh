@@ -27,7 +27,7 @@ Usage: zynthianos_vm.sh [options] COMMAND [ARGS...]
   run-tests [MODE] [ARGS]
                      upstream'"'"'s run_tests.sh in /zynthian/zynthian-ui (MODE: default, gui,
                      native; ARGS go to pytest), with the test venv (/zynthian/venv + pytest);
-                     native first (re)builds tests/native/build (incremental)
+                     every mode first (re)builds tests/native/build (incremental)
   cuia NAME [ARGS]   send the CUIA /cuia/NAME over OSC (UDP 1370 in the VM)
   shot [FILE]        screenshot of the UI'"'"'s X display (:0, KasmVNC), PNG, default
                      ./zynthianos-shot.png
@@ -407,11 +407,12 @@ case $cmd in
 	run-tests)
 		mode=
 		case ${1:-} in default) shift ;; gui | native) mode=$1; shift ;; esac
-		# native: (re)build tests/native/build first. run_tests.sh builds it only when libzyncore.so
-		# is missing; build_native.sh runs cmake + make in the existing build directories, so
-		# sources changed by sync (newer mtimes) are rebuilt, the rest stays
-		build=
-		[ "$mode" != native ] || build="tests/native/build_native.sh /zynthian/zyncoder >/dev/null || { echo 'native build failed (tests/native/build/*/make.log)'; exit 1; }; "
+		# Every mode: (re)build tests/native/build first (the default and gui suites load the native
+		# libraries too, e.g. the zynseq tests). run_tests.sh builds them only when libzyncore.so is
+		# missing, so after a sync the old libraries ran: a segfault in the zynseq tests, then a
+		# jack.Client() that hung until a reboot. build_native.sh runs cmake + make in the existing
+		# build directories: sources changed by sync (newer mtimes) are rebuilt, the rest stays
+		build="tests/native/build_native.sh /zynthian/zyncoder >/dev/null || { echo 'native build failed (tests/native/build/*/make.log)'; exit 1; }; "
 		vm_ssh "cd /zynthian/zynthian-ui && $build./run_tests.sh $mode $(q "$@")" ;;
 	cuia)
 		[ $# -ge 1 ] || usage 1

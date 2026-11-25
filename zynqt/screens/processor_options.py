@@ -1,5 +1,5 @@
-"""Processor options (zynthian_gui_processor_options): presets, bypass, plugin GUI, replace, remove,
-randomize, clean MIDI learn, insert processors"""
+"""Processor options (zynthian_gui_processor_options): presets, bypass, plugin GUI, replace, reload,
+remove, randomize, clean MIDI learn, insert processors"""
 
 import random
 
@@ -53,6 +53,12 @@ class ProcessorOptions(SelectorScreen):
                 e.append(entry(f"Replace {p.name}", lambda x: self.replace(), icon="replace_processor.png",
                                info="Replace this processor with another of similar type.\n\nThe engine selection list will show, "
                                     "allowing selection of a new engine type."))
+            # Reload an LV2 plugin processor (Tk since upstream 6d8ca287, between Replace and
+            # Remove since d7d241aa)
+            if p.eng_code.startswith("JV/") and p.chain is not None:
+                e.append(entry(f"Reload {p.name}", lambda x: self.reload(), icon="replace_processor.png",
+                               info="Reload this processor, keeping its position, preset, parameters and MIDI-learn.\n\n"
+                                    "Use it to load an updated plugin or widget, or to recover a plugin that stopped working."))
             if p.type in ("MIDI Tool", "Audio Effect"):
                 e.append(entry("Remove", lambda x: self.remove(), icon="delete.png",
                                info="Remove this processor from the chain."))
@@ -115,6 +121,34 @@ class ProcessorOptions(SelectorScreen):
     def replace(self):
         p = self.processor
         self.ui.modify_chain({"chain_id": p.chain.chain_id, "processor": p, "type": p.type})
+
+    def reload(self):
+        """zynthian_gui_processor_options.reload: chain_manager.reload_processor() (it shows the busy
+        state, "Reloading processor") in the background, so the GUI thread draws the busy overlay;
+        then the new processor's control"""
+        p = self.processor
+        chain_id = p.chain.chain_id
+
+        def task():
+            return self.chain_manager.reload_processor(p)
+
+        def done(processor):
+            if processor:
+                zynautoconnect.request_audio_connect(True)
+                zynautoconnect.request_midi_connect(True)
+                self.processor = processor
+                self.ui.purge_history("processor_options")
+                self.ui.chain_control(chain_id, processor)
+                return
+            self.ui.show_info(f"Can't reload {p.name}", 2000)
+            if p.chain is None:
+                # Removed but not started again: leave the options of the removed processor
+                self.processor = None
+                self.ui.set_current_processor(None)
+                self.ui.purge_history("processor_options")
+                self.ui.chain_control(chain_id)
+
+        self.ui.run_background(task, done)
 
     def remove(self):
         p = self.processor

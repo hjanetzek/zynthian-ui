@@ -150,15 +150,19 @@ with a write guard that refuses writes to `/zynthian/config` & co.
 ```sh
 tools/zynthianos_vm.sh run-tests                 # ./run_tests.sh (hermetic: unit, integration, architecture)
 tools/zynthianos_vm.sh run-tests gui             # under xvfb
-tools/zynthianos_vm.sh run-tests native          # (re)builds tests/native (against /zynthian/zyncoder), real libs on a private dummy jackd
+tools/zynthianos_vm.sh run-tests native          # real libs on a private dummy jackd (every mode (re)builds tests/native first)
 tools/zynthianos_vm.sh run-tests -k chain -x     # pytest arguments
 tools/zynthianos_vm.sh ssh 'cd /zynthian/zynthian-ui && venv/bin/ruff check .'
 ```
 
-`run-tests native` runs `tests/native/build_native.sh /zynthian/zyncoder` before `run_tests.sh
-native`: upstream's `run_tests.sh` builds only when `tests/native/build/libzyncore.so` is missing, so
-after a sync the tests ran the old libraries. `build_native.sh` runs cmake and make in the existing
-build directories: what a sync changed is rebuilt (a few seconds when nothing changed).
+Every `run-tests` mode (default, gui, native) runs `tests/native/build_native.sh /zynthian/zyncoder`
+before `run_tests.sh`: upstream's `run_tests.sh` builds only when `tests/native/build/libzyncore.so`
+is missing, so after a sync the tests ran the old libraries. The default and gui suites load them
+too: after a sync with changed native sources the default suite segfaulted in the zynseq tests, and
+afterwards `jack.Client()` hung (also on upstream's own tree) until the VM was rebooted
+(`tools/zynthianos_vm.sh stop && tools/zynthianos_vm.sh start`). `build_native.sh` runs cmake and
+make in the existing build directories: what a sync changed is rebuilt (a few seconds when nothing
+changed).
 
 `run_tests.sh` uses the checkout's `venv` when there is one, else `/zynthian/venv`. `setup` makes
 `/zynthian/zynthian-ui/venv` (a venv of /zynthian/venv's Python with a `.pth` file that adds

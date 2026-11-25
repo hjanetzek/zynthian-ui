@@ -88,6 +88,10 @@ class Admin(SelectorScreen):
                                            cfg.midi_chanpress_cc or 0,
                                            lambda v: s.set_chanpress_cc(v, self.state_manager)),
                        icon="midi_settings.png", info="Map channel pressure messages (monoAT) to the selected CC."))
+        e.append(entry("Controller Settings", lambda x: self.ui.show_screen("controller_settings"),
+                       icon="midi_settings.png",
+                       info="The settings of the connected controllers which have their own (the DrivenByMoss "
+                            "controllers): scales, note repeat, workflow, pads, displays, ..."))
         e.append(entry("Test MIDI", lambda x: self.test_midi(), icon="midi_output.png",
                        info="Play a MIDI track to test MIDI output.\n\nThis will play the MIDI through any loaded chains."))
 

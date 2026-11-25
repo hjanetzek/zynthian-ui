@@ -51,6 +51,7 @@ from zynqt.screens.routing import AudioIn, AudioOut, MidiDevicesIn, MidiDevicesO
 from zynqt.screens.processor_options import ProcessorOptions
 from zynqt.screens.zs3 import ZS3
 from zynqt.screens.admin import Admin
+from zynqt.screens.controller_settings import ControllerSettings
 from zynqt.screens.midi_recorder import MidiRecorder
 from zynqt.screens.midi_chain import KeyRangeProcessor, MidiCC
 from zynqt.screens.mixer_nav import MixerNav
@@ -215,7 +216,7 @@ class ZynUI(QObject, zynthian_websocket_feedback):
                                    "control_xy": self.control_xy}
         for cls in (MainMenu, AddChain, Engine, MidiChannel, Bank, Preset, Options, Snapshots,
                     ChainOptions, AudioIn, AudioOut, MidiIn, MidiOut, ProcessorOptions, MidiDevicesIn,
-                    MidiDevicesOut, ZS3, Admin, MidiRecorder, MidiCC, FileSelector):
+                    MidiDevicesOut, ZS3, Admin, MidiRecorder, MidiCC, FileSelector, ControllerSettings):
             screen = cls(self, self)
             self.list_screens[screen.name] = screen
         self._info = ""

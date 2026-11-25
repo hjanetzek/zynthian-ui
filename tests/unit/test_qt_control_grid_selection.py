@@ -202,6 +202,24 @@ def test_request_while_not_shown_builds_the_chain(app, screen):
     assert cc.page_index == 2 and cc.cell == 0 and chain.current_processor is chain.procs[0]
 
 
+def test_open_request_on_a_processor_without_pages(app, screen):
+    """A driver's press on an empty page (a processor without pages, e.g. a soundfont player
+    without soundfont): selects it, a second one opens its banks / presets as a header tap"""
+    cc, chain, got = screen
+    empty = Proc("Player", [], chain)
+    chain.procs.append(empty)
+    opened = []
+    cc.ui.cuia_bank_preset = lambda params=None: opened.append(cc.ui.current_processor)
+    cc.build()
+    pages, _ = gd.chain_pages(chain, chain.procs, chain.current_processor)
+    page = next(i for i, p in enumerate(pages) if p.empty)
+    gd.shared_selection.request_open(3, page)
+    assert cc.page_index == page and cc.ui.current_processor is empty and not opened
+    assert gd.shared_selection.get(3).page == page
+    gd.shared_selection.request_open(3, page)
+    assert opened == [empty] and cc.page_index == page
+
+
 def test_a_failing_widget_keeps_the_selection(app, screen, monkeypatch):
     """An exception in a page's widget (e.g. the audio player without a file) doesn't stop the
     selection: the page is selected, shown and reported"""

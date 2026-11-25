@@ -639,6 +639,12 @@ class zynthian_gui_pated_base(zynthian_gui_base):
         options = {}
         if not self.zyngui.multitouch._f_device:
             options['Grid zoom'] = 'Grid zoom'
+        # Touch navigation: REC is on the touch keypad, hidden unless the status area is tapped
+        if zynthian_gui_config.touch_navigation:
+            if self.zynseq.libseq.isMidiRecord():
+                options['☒ Record from MIDI'] = 'Record MIDI'
+            else:
+                options['☐ Record from MIDI'] = 'Record MIDI'
         if self.seq_info:
             name = self.zynseq.get_sequence_name(self.zynseq.scene, self.phrase, self.sequence)
             options[f"Copy this ({name}) to clipboard #1"] = ('Copy pattern', 0)

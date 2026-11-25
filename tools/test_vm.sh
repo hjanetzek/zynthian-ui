@@ -31,7 +31,9 @@ Usage: test_vm.sh [options] COMMAND [ARGS...]
               mounted, else ~/.cache/nura-builds-test. When the drive isn'"'"'t mounted and ~/.cache
               has no disk either, the script stops instead of creating a
               new disk there (mount the drive, or pass -d)
-  -p PORT     its SSH port (default 2262; NURA_TEST_VM_PORT), webconf: PORT - 2262 + 8162
+  -p PORT     its SSH port (default 2262; NURA_TEST_VM_PORT), webconf: PORT - 2262 + 8162 (the
+              websocket: the first free port from 8370). Taken ports stop start with their
+              holder (another VM pair may use 2262/8162; tools/run_qemu.sh -l lists the VMs)
   -m MEM      memory (default 4G)
   -c CPUS     virtual CPUs (default 8)
 
@@ -117,7 +119,8 @@ start_vm() {
 		set -- -d "$dir" -D none -A none -m "$mem" -c "$cpus" -s 12G -p "$port" -w "$web"
 		[ $reset = 0 ] || set -- "$@" -r
 		echo "starting (SSH $port, log $dir/run.log)"
-		setsid "$here/run_qemu.sh" "$@" < /dev/null > "$dir/run.log" 2>&1 &
+		NURA_QEMU_PORT_HINT="test_vm.sh -p PORT or NURA_TEST_VM_PORT=PORT (webconf: PORT - 2262 + 8162)" \
+			setsid "$here/run_qemu.sh" "$@" < /dev/null > "$dir/run.log" 2>&1 &
 		i=0
 		while [ -z "$(vm_pid)" ]; do
 			i=$((i + 1))
@@ -130,9 +133,15 @@ start_vm() {
 		done
 	fi
 	# SSH: wait for the VM's sshd, then log in with the key, else (a new disk) qemu_setup.sh
-	# installs it and passwordless sudo
+	# installs it and passwordless sudo. QEMU can still fail after writing its PID file (e.g.
+	# "eglInitialize failed"): then its error from run.log
 	i=0
 	until ssh-keyscan -T 5 -p "$port" 127.0.0.1 >/dev/null 2>&1; do
+		if [ -z "$(vm_pid)" ]; then
+			echo "QEMU exited:" >&2
+			tail -n 20 "$dir/run.log" >&2
+			exit 1
+		fi
 		i=$((i + 1))
 		[ $i -lt 60 ] || { echo "no SSH on port $port after 5 minutes (see $dir/serial.log)" >&2; exit 1; }
 		sleep 5

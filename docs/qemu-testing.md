@@ -55,9 +55,20 @@ to `run.log`.) The first boot of a fresh disk takes about a minute (it grows the
   (postmarketos-ui-zynthian r21 or newer) sets it. Older disks in a window: `wlr-randr --output
   Virtual-1 --custom-mode 1280x800` in the guest (with the session's `WAYLAND_DISPLAY`).
 - `-D` takes QEMU display options after a comma, e.g. `-D gtk,zoom-to-fit=off`.
-- OpenGL: headless only with QEMU's `egl-headless` display (`qemu-ui-egl-headless` on Arch; ask the
-  user to install it). Without it (`opengl: off` in run.log) the guest renders with llvmpipe: slower,
-  fine for functional tests.
+- OpenGL: headless through QEMU's `egl-headless` display (`qemu-ui-egl-headless` on Arch; ask the
+  user to install it), in a window through `gtk,gl=on`. Both need the host's GPU: before starting,
+  `run_qemu.sh` checks that a DRM render node (`/dev/dri/renderD*`) exists and is read- and writable,
+  and headless that `egl-headless` initialises (a QEMU without a machine, quit at once). Missing
+  OpenGL is an error that names the cause (see Troubleshooting), not a silent fallback: `-n` (the
+  guest renders with llvmpipe: slower, fine for functional tests) only on request.
+- Ports: ports given with `-p`/`-w`/`-S` that are taken stop the script with their holder (this
+  user's process from `ss -ltnp`; a QEMU with its disk image and forwarded ports from `/proc`), e.g.
+  `host port 2262 (SSH) is taken by PID 1234 (qemu-system-x86, disk .../zynthian-qemu-amd64.img,
+  ports 2262->22 8162->8080)`. Other sessions start VM pairs on ports these tools use by default.
+  Ports not given: the first free one from the default on. `tools/run_qemu.sh -l` lists this
+  user's running VMs (PID, disk, host->guest ports). The checks run before the download and
+  unpacking of the image. `test_vm.sh` and `qemu_compare.sh` show QEMU's error from `run.log` when it
+  doesn't start or exits while they wait for SSH.
 - Serial console: `$VM/serial.log`.
 - `-A silent`: a sound card without host output (the audio clock runs, nothing is heard); `-A none`
   can stall PipeWire's graph in long tests (see Troubleshooting).
@@ -276,6 +287,14 @@ kill $(cat "$VM/qemu.pid")
 ## Troubleshooting
 
 - `QEMU lacks modules ...`: the user has to install them (the message names the packages).
+- `no OpenGL for QEMU: no DRM render node (/dev/dri/renderD*)` (or `egl-headless doesn't
+  initialise`; QEMU's own words: `egl: render node init failed`, `eglInitialize failed:
+  EGL_NOT_INITIALIZED`): seen after a kernel update without a reboot. Fixes: reboot, or recreate the
+  DRM device nodes with `sudo udevadm trigger --subsystem-match=drm --action=add`. `-n` starts without
+  OpenGL (software rendering in the guest) when that is what you want.
+- `host port N (...) is taken by ...`: another VM (often another session's pair) holds it; choose
+  other ports (`run_qemu.sh -p/-w/-S`, `test_vm.sh -p` or `NURA_TEST_VM_PORT`, `qemu_compare.sh
+  -p/-W`), see `tools/run_qemu.sh -l`.
 - `can't download the image`: GitHub's release downloads fail at times (HTTP 503/504; the script
   retries through the API); copy the user's image from `~/.cache/nura-builds` instead.
 - No SSH after a minute: `tail $VM/serial.log` (a login prompt there means the system is up).

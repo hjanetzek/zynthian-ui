@@ -24,7 +24,8 @@ Usage: qemu_compare.sh [options] [start | stop | status | shot [DIR] | ssh qt|tk
   -d BASE     directories BASE-qt and BASE-tk (default ~/.cache/nura-builds-compare)
   -p PORT     SSH ports PORT (Qt) and PORT+1 (Tk), webconf 8080 + the same offset
               (default 2242: 2242/2243, webconf 8100/8101)
-  -W PORT     webconf ports PORT (Qt) and PORT+1 (Tk), when the default ones are taken
+  -W PORT     webconf ports PORT (Qt) and PORT+1 (Tk), when the default ones are taken (a taken
+              port stops start with its holder; tools/run_qemu.sh -l lists the running VMs)
               The UI websocket (8370 in the VMs) is forwarded to 8370 + the SSH port - 2222
               (default 8390/8391): ws://localhost:PORT, e.g. for the zynthian-operator skill
   -m MEM      memory per VM (default 3G)
@@ -106,7 +107,8 @@ start_vm() {
 		set -- "$@" -D none -A silent
 	fi
 	echo "$v: starting (SSH $(vm_port "$v"), webconf $(vm_web "$v"), websocket $(vm_ws "$v"), log $dir/run.log)"
-	setsid "$here/run_qemu.sh" "$@" < /dev/null > "$dir/run.log" 2>&1 &
+	NURA_QEMU_PORT_HINT="qemu_compare.sh -p PORT (SSH PORT/PORT+1, websocket 8370 + PORT - 2222 and +1), -W PORT (webconf PORT/PORT+1)" \
+		setsid "$here/run_qemu.sh" "$@" < /dev/null > "$dir/run.log" 2>&1 &
 	# the next VM uses the image this one may be downloading: wait until its disk exists
 	i=0
 	while [ ! -f "$dir/zynthian-qemu-amd64.img" ] || [ -z "$(vm_pid "$v")" ]; do
@@ -131,6 +133,12 @@ setup_vm() {
 	# (sshd first: a key login that fails while the VM boots isn't a new disk)
 	i=0
 	until ssh-keyscan -T 5 -p "$(vm_port "$v")" 127.0.0.1 >/dev/null 2>&1; do
+		# (QEMU can still fail after writing its PID file, e.g. "eglInitialize failed")
+		if [ -z "$(vm_pid "$v")" ]; then
+			echo "$v: QEMU exited:" >&2
+			tail -n 20 "$(vm_dir "$v")/run.log" >&2
+			exit 1
+		fi
 		i=$((i + 1))
 		[ $i -lt 60 ] || { echo "$v: no SSH on port $(vm_port "$v") after 5 minutes (see $(vm_dir "$v")/run.log)" >&2; exit 1; }
 		sleep 5

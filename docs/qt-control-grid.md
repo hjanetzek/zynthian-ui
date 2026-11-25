@@ -1,6 +1,6 @@
 # Chain control as a grid of pages (Qt UI)
 
-Status: 2026-11-24, branch `electra-grid` (the shared selection and `turn_travel` for DrivenByMoss's host pages added). Layouts `grid4x6` and `grid8x6` for chain control,
+Status: 2026-11-25, branch `electra-grid` (the shared selection and `turn_travel` for DrivenByMoss's host pages added; all chain types checked). Layouts `grid4x6` and `grid8x6` for chain control,
 next to the default `v5` layout (the page list and four controllers in a column). Inspired by the
 Electra One mk2's control grid (coloured cells with name, value and a bar or arc; rows mapped to
 the encoders), not a copy of its look.
@@ -174,14 +174,20 @@ The screen owns it; a consumer shows it and asks for changes.
   first_row, rows, layout). Receivers on other threads only take note (DrivenByMoss: the next
   pass reads the state).
 - **Requests** (any thread): `request_page(chain, page)` (its first controller the cell),
-  `request_cell(chain, page, slot)`, `request_window(chain, first_row)`. The owner
+  `request_cell(chain, page, slot)`, `request_open(chain, page)` (as a tap on the page's header,
+  `pageTapped`: selects it; on the selected page of a processor without pages, e.g. a
+  soundfont player without soundfont or the audio player without a file, opens its banks /
+  presets; the JAM sends it for a press on such a page's cells, which have no controllers),
+  `request_window(chain, first_row)`. The owner
   (`ChainControl.grid_selection_request`) posts them to the GUI thread (`GuiCaller.run`); one for
   another chain than the active one is dropped. Not shown, or built for another chain: the
   screen builds the active chain's pages first. A page request goes through `setPage` (the same
   path as the page list: the processor becomes current, its screen index is set), so the grid
   scrolls to show the page: a driver's selection is always on screen, also when the driver's
   windows differ from the screen's (8x6 windows of 6 rows against a 4x6 screen scrolling by
-  rows). Without an owner (the Tk UI) a request is applied to the state at once.
+  rows). Without an owner (the Tk UI) a request is applied to the state at once (an open only
+  selects). An exception in a page's widget (`_set_widget`) is logged and the page still
+  selected and reported (it was the audio player without a file: KeyError 'zoom').
 - **The selected cell** on the screen (`ChainControl.cell`): set to the page's first controller
   by every page change, and to a slot when its controller is turned or touched: the four
   encoders (`zynpot`), the controller column's touch (`ControllerProxy`: nudge, toggle, set_abs,
@@ -239,6 +245,27 @@ once per layout. Not measured on a device yet.
   the page list's large rows and the small cell texts make 800x480 cramped; tk scales.
 - The page list doesn't re-scroll to the selected page when the window is resized (also v5).
 
+## Chain types (checked 2026-11-25 in the QEMU VM, grid8x6, with the adapter's reports)
+
+Every chain type has its pages on the screen and in the host pages, the same ones: the mixer
+strip is a processor of the chain (zynmixer `MI` for the chains with audio, `MR` for the main
+chain and the mixbuses, in its audio slots), so its pages (`level`: gain, level, balance;
+`toggles`: mute, solo, PFL, A/B; `signal`; `recorder`; one `send n - <mixbus>` page per mixbus,
+level and pre/post; the main chain's `global` and `aux`) come with `chain.get_processors()`:
+
+| Chain | Sections (pages) |
+| --- | --- |
+| instrument (FluidSynth without soundfont) | FluidSynth (empty), Mixer (level, toggles, signal, recorder, sends) |
+| main | Mixer (level, toggles, signal, global, aux, recorder) |
+| mixbus | Mixer (level, toggles, signal, recorder) |
+| Pure Data (no patch), audio player (no file) | PureData / AudioPlayer (empty), Mixer (…, sends) |
+| audio input | Mixer (…, sends) |
+| clippy (clip launcher) | Clip Launcher (Clip: file, mode, record), Mixer (…, sends) |
+| MIDI-only chain, empty chain | none (no processor, no chain controllers): `exists` with no pages |
+
+Selection (page and cell, from the screen or a driver), presses (mute, solo, record toggles)
+and `turn_travel` (level) work on all of them.
+
 ## Left for later
 
 - The widgets' own touch in the grid (the overlay is view-only), and overlays for widget pages
@@ -246,7 +273,8 @@ once per layout. Not measured on a device yet.
 - Other sizes (e.g. 6 or 8 columns with other page arrangements): add a `GridLayout` and, if a
   page should not be one row, a placement rule in `ControlGrid._fill` / `page_at`.
 - Mapping the grid onto a control surface: done for DrivenByMoss's host pages (the JAM, see the
-  shared selection above). The JAM's touch (`HostPageCellTouch`) could later show the page's
+  shared selection above). MIDI-only and empty chains have no pages (nothing on the screen
+  either); a page for them (the chain's MIDI options, or chain controllers) would be an idea. The JAM's touch (`HostPageCellTouch`) could later show the page's
   widget (`gridWidgetPoke`).
 - A per-zctrl change signal (the grid polls by value, which also sees engines that write
   `zctrl.value` directly).

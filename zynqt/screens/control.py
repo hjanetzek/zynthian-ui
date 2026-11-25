@@ -885,8 +885,8 @@ class ChainControl(QObject):
             gui.run(call)
 
     def _apply_selection_request(self, kind, chain, page, slot, first_row):
-        """kind "page" (its first controller the cell), "cell" (page and slot) or "window"
-        (first_row) of the active chain (chain: its chain_id; others are dropped). Not shown, or
+        """kind "page" (its first controller the cell), "cell" (page and slot), "open" (as a tap
+        on the page's header: pageTapped) or "window" (first_row) of the active chain (chain: its chain_id; others are dropped). Not shown, or
         built for another chain: the pages are built first (the chain's, as a consumer sees them)"""
         if self.special_processor is not None:
             return
@@ -900,6 +900,11 @@ class ChainControl(QObject):
                 self.grid.grid.scroll_to(first_row)
             return
         if not 0 <= page < len(self._page_rows):
+            return
+        if kind == "open":
+            # As a tap on the page's header: select it, on the selected processor without pages
+            # its banks / presets
+            self.pageTapped(self._page_rows[page])
             return
         self.setPage(self._page_rows[page])
         if kind == "cell":

@@ -150,3 +150,24 @@ def test_adding_a_slow_update_callback_twice_keeps_one(state_manager):
         assert len(state_manager.slow_update_callbacks) == before + 1
     finally:
         state_manager.slow_update_callbacks[:] = [c for c in state_manager.slow_update_callbacks if c[1] is not cb]
+
+
+def test_snapshot_merge_maps_chain_controller_references(state_manager, zynthian_dirs, monkeypatch):
+    """A merged snapshot's processors get new ids: the chain controllers' references (the chain
+    state's "zctrls") follow; references to processors not in the snapshot are dropped"""
+    import json
+    chains = state_manager.chain_manager
+    chains.add_chain(3, midi_chan=4)
+    path = zynthian_dirs["ZYNTHIAN_MY_DATA_DIR"] / "snapshots" / "merge_zctrls.zss"
+    state_manager.save_snapshot(str(path))
+    snapshot = json.loads(path.read_text())
+    snapshot["chains"]["3"]["slots"] = [{"7": "XY"}]
+    snapshot["chains"]["3"]["zctrls"] = [[7, "cutoff"], [99, "gone"]]
+    path.write_text(json.dumps(snapshot))
+    seen = {}
+    monkeypatch.setattr(chains, "set_state", lambda state, engine_config, merge: seen.update(state))
+    assert state_manager.load_snapshot(str(path), merge=True) is not False
+    (chain_state,) = seen.values()
+    (new_id,) = chain_state["slots"][0]
+    assert new_id != 7
+    assert chain_state["zctrls"] == [[new_id, "cutoff"]]

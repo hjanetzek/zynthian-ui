@@ -270,7 +270,7 @@ class zynthian_side_chain(tkinter.Canvas):
                     midi_chan = f"CH#ALL"
                 self._add_node(f"MIDI Input\n{midi_chan}", "midi_input")
             # Add Chain Controllers block
-            if self.chain.zctrls:
+            if self.chain.zctrl_pages.pages:
                 self._add_node(f"Chain\nControllers", "chain_controllers")
             # Add MIDI processors
             for slot_idx, slot in enumerate(self.chain.midi_slots):
@@ -530,7 +530,7 @@ class zynthian_side_chain(tkinter.Canvas):
         self.select_node(proc=self.chain.current_processor, action=action)
 
     def select_processor(self, proc, action=False):
-        if not proc and self.chain.zctrls:
+        if not proc and self.chain.zctrl_pages.pages:
             self.select_node(proc="chain_controllers", action=action)
         elif proc:
             self.select_node(proc=proc, action=action)

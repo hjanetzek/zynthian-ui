@@ -208,27 +208,18 @@ class zynthian_gui_control(zynthian_gui_selector):
             self.list_data.append((None, None, "NO PROCESSORS!"))
         else:
             i = 0
-            # Chain controllers => favorite processor controllers
+            # Chain controllers => favorite processor controllers, in named pages of 4 slots
+            # (zynthian_zctrl_pages; gaps are empty slots)
             # Some processors have no chain => I.e. global audio player
             if self.processors[0].chain:
-                chain_zctrls = self.processors[0].chain.zctrls
-                if chain_zctrls:
+                ctrl_pages = self.processors[0].chain.zctrl_pages
+                if ctrl_pages.pages:
                     self.list_data.append((None, None, "> CHAIN", None))
-                    j = 0
                     i += 1
-                    page_zctrls = []
-                    for zctrl in chain_zctrls:
-                        page_zctrls.append(zctrl)
-                        if len(page_zctrls) == 4:
-                            self.list_data.append((f"CHAIN_{j}", -1, f"Controllers {j + 1}", self.processors[0], j, page_zctrls))
-                            page_zctrls = []
-                            j += 1
-                            i += 1
-                    if len(page_zctrls) > 0:
-                        self.list_data.append((f"CHAIN_{j}", -1, f"Controllers {j + 1}", self.processors[0], j, page_zctrls))
-                        j += 1
+                    for j, page in enumerate(list(ctrl_pages.pages)):
+                        self.list_data.append((f"CHAIN_{j}", -1, page.name, self.processors[0], j, ctrl_pages.zctrls(j)))
                         i += 1
-                    self.n_screens_chain_ctrls = j
+                    self.n_screens_chain_ctrls = len(ctrl_pages.pages)
             # Processor Controllers
             for processor in self.processors:
                 j = 0
@@ -572,7 +563,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         if not self.processors:
             return
         # Chain controllers
-        if not proc and self.processors[0].chain.zctrls:
+        if not proc and self.processors[0].chain.zctrl_pages.pages:
             if self.index != 1:
                 self.select(1)
         # Processor controllers

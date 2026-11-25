@@ -245,7 +245,10 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
                 return True
             else:
                 try:
+                    # Chain controller slot n (page n // 4, slot n % 4)
                     zctrl = self._chain_manager.get_active_chain().zctrls[index]
+                    if zctrl is None:
+                        return False  # an empty slot
                     zctrl.midi_control_change(ccval)
                     return True
                 except:

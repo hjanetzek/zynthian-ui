@@ -394,7 +394,7 @@ class zynthian_ctrldev_akai_apc_40_mk2(zynthian_ctrldev_zynpad, zynthian_ctrldev
         if self.enc_mode == ENC_MODE_USER:
             for i in range(8):
                 try:
-                    # Use first chain zctrl (favorite)
+                    # The chain controller in slot `user` (None: an empty slot, no binding)
                     bindings[(0, CC_TRACK_1 + i)] = self.get_filtered_chain_by_index(self.scroll_h + i).zctrls[self.user]
                 except:
                     pass
@@ -479,7 +479,7 @@ class zynthian_ctrldev_akai_apc_40_mk2(zynthian_ctrldev_zynpad, zynthian_ctrldev
                     if send_id is not None:
                         self.set_mixer_param(f"send_{send_id}_level", pos, val / 127.0)
                 elif self.enc_mode == ENC_MODE_USER:
-                    # Use first chain zctrl (favorite)
+                    # The chain controller in slot `user` (None: an empty slot)
                     try:
                         user_zctrl = self.get_filtered_chain_by_index(pos).zctrls[self.user]
                     except:

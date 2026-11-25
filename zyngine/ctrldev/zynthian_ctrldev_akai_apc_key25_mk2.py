@@ -837,7 +837,10 @@ class MixerHandler(ModeHandlerBase):
             return True
         else:
             try:
+                # Chain controller slot n (page n // 4, slot n % 4)
                 zctrl = self._chain_manager.get_active_chain().zctrls[index]
+                if zctrl is None:
+                    return False  # an empty slot
                 zctrl.nudge(ccval, fine=fine)
                 return True
             except Exception as e:

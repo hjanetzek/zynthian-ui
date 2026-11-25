@@ -297,6 +297,13 @@ Note: several drivers call Tk screens directly (`zynthian_gui_config.zyngui.scre
 e.g. `zynthian_ctrldev_base_ui.py:45-81`, `zynthian_ctrldev_akai_apc_40_mk2.py:355-705`), so
 they depend on the UI implementation.
 
+The DrivenByMoss drivers live here too (moved from drivenbymoss-rust's `backends/zynthian`,
+2026-11-25): `zynthian_ctrldev_base_dbm.py`, `zynthian_ctrldev_dbm_*.py` and the adapter package
+`dbm_zynthian/` (README there), tests in `tests/dbm/` (own runner: `./run_tests.sh dbm`), notes in
+`docs/dbm/`. They run a controller in the DrivenByMoss core (library, `drivenbymoss` binding and
+`dbm_host` from the drivenbymoss package, or `DBM_PYTHON_DIR` / `DBM_LIBRARY`); if the binding's
+protocol doesn't match the library's, they log an error and are not loaded.
+
 ### 2.3 UI events: CUIAs
 
 A **CUIA** (Callable UI Action) is a name plus parameters, e.g. `ZS3_LOAD zs3-2`,

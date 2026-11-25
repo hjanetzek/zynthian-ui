@@ -75,18 +75,18 @@ has one (Tk's first). Regenerate with the script in the comment at the end.
 
 | CUIA | Tk | Qt | Description |
 |---|---|---|---|
-| `ACTION_MIDI_UNLEARN` | ✓ | ✓ |  |
+| `ACTION_MIDI_UNLEARN` | ✓ | ✓ | Remove the MIDI bindings (MIDI learn) of the current view's selection. |
 | `ADD_CHAIN` | ✓ | ✓ | Show add chain menu. |
 | `ALL_NOTES_OFF` | ✓ | ✓ | Stop all playing notes. |
 | `ALL_SOUNDS_OFF` | ✓ | ✓ | Stop all playing notes, sequences and audio playback. |
 | `API` | ✓ | ✓ | Access the backend API params (tuple): api: Which api to access: "sm" for state manager, "cm" for chain manager method: Name of method to call params: comma separated list of method parameters |
 | `ARROW_DOWN` | ✓ | ✓ | Arrow Down action. |
-| `ARROW_LEFT` | ✓ | ✓ | Arrow Up action. |
+| `ARROW_LEFT` | ✓ | ✓ | Arrow Left action. |
 | `ARROW_NEXT` | ✓ | ✓ | same as ARROW_RIGHT |
 | `ARROW_PREV` | ✓ | ✓ | same as ARROW_LEFT |
 | `ARROW_RIGHT` | ✓ | ✓ | Arrow Right action. |
 | `ARROW_UP` | ✓ | ✓ | Arrow Up action. |
-| `AUDIO_FILE_LIST` | ✓ | ✓ | same as SCREEN_AUDIO_PLAYER |
+| `AUDIO_FILE_LIST` | ✓ | ✓ | Show the global audio player view. Same as SCREEN_AUDIO_PLAYER. |
 | `BACK` | ✓ | ✓ | Back action. |
 | `BANK_PRESET` | ✓ | ✓ | Show presets selection view. |
 | `BOLD_SELECT_ACTION` | ✓ | ✓ | Bold select action. |
@@ -94,64 +94,65 @@ has one (Tk's first). Regenerate with the script in the comment at the end.
 | `CHAIN_OPTIONS` | ✓ | ✓ | Show chain options. |
 | `CLEAN_ALL` | ✓ | ✓ | Remove all chains and sequences. |
 | `COPY` | ✓ | ✓ | Screens with something to copy handle it (pattern editor); nothing elsewhere |
-| `DISABLE_MIDI_LEARN` | ✓ | ✓ |  |
-| `DISABLE_MIDI_LEARN_CC` | ✓ | ✓ |  |
-| `DISABLE_MIDI_LEARN_PC` | ✓ | ✓ |  |
-| `ENABLE_MIDI_LEARN` | ✓ | ✓ |  |
-| `ENABLE_MIDI_LEARN_CC` | ✓ | ✓ | Learn a CC for a controller: params processor id, controller symbol (as MIDI_UNLEARN_NODE); in chain control also the controller's position (0-3) |
-| `ENABLE_MIDI_LEARN_PC` | ✓ | ✓ |  |
-| `EXIT_UI` | ✓ | ✓ |  |
+| `DISABLE_MIDI_LEARN` | ✓ | ✓ | Leave the MIDI learn mode. |
+| `DISABLE_MIDI_LEARN_CC` | ✓ | ✓ | Disable the MIDI CC learning. |
+| `DISABLE_MIDI_LEARN_PC` | ✓ | ✓ | Disable the MIDI program change learning. |
+| `ENABLE_MIDI_LEARN` | ✓ | ✓ | Enter the MIDI learn mode on the current view. |
+| `ENABLE_MIDI_LEARN_CC` | ✓ | ✓ | Enable the MIDI CC learning for a controller: the next CC received is bound to it. |
+| `ENABLE_MIDI_LEARN_PC` | ✓ | ✓ | Enable the MIDI program change learning, to bind a program change to a subsnapshot (ZS3). |
+| `EXIT_UI` | ✓ | ✓ | Exit the zynthian user interface to the console. |
 | `HELP` | ✓ | ✓ | Show the contextual help screen. |
-| `HIDE_CURSOR` | ✓ | ✓ |  |
-| `HIDE_SIDEBAR` | ✓ | ✓ |  |
-| `HIDE_TOPBAR` | ✓ | ✓ |  |
-| `LAST_STATE_ACTION` | ✓ | ✓ | Save the state for the next start, or delete it (admin: restore last state) |
+| `HIDE_CURSOR` | ✓ | ✓ | Hide the mouse cursor. |
+| `HIDE_SIDEBAR` | ✓ | ✓ | Hide the sidebar (controllers) of the current view. |
+| `HIDE_TOPBAR` | ✓ | ✓ | Hide the topbar of the current view. |
+| `LAST_STATE_ACTION` | ✓ | ✓ | Save the last state snapshot, if "restore last state" is enabled, or delete it otherwise. |
 | `LAYER_OPTIONS` | ✓ | ✓ | same as CHAIN_OPTIONS |
 | `MAIN_MENU` | ✓ | ✓ | Show the main menu. |
 | `MENU` | ✓ | ✓ | Show contextual menu. |
-| `MIDI_LEARN_CONTROL` | ✓ | ✓ |  |
-| `MIDI_LEARN_CONTROL_OPTIONS` | ✓ | ✓ |  |
-| `MIDI_UNLEARN_CHAIN` | ✓ | ✓ |  |
-| `MIDI_UNLEARN_CONTROL` | ✓ | ✓ |  |
-| `MIDI_UNLEARN_MIXER` | ✓ | ✓ |  |
-| `MIDI_UNLEARN_NODE` | ✓ | ✓ | params: processor id, controller symbol (zynthian_gui passes both as one list, which remove_midi_learn(proc, symbol) doesn't take) |
+| `MIDI_LEARN_CONTROL` | ✓ | ✓ | Start MIDI learning for a controller of the current view: the next MIDI CC received is bound to it. |
+| `MIDI_LEARN_CONTROL_OPTIONS` | ✓ | ✓ | Show the options (MIDI learn, unlearn, ...) of a controller of the current view. |
+| `MIDI_UNLEARN_CHAIN` | ✓ | ✓ | Remove all the MIDI bindings of a chain. |
+| `MIDI_UNLEARN_CONTROL` | ✓ | ✓ | Remove the MIDI bindings of a controller of the current view. |
+| `MIDI_UNLEARN_MIXER` | ✓ | ✓ | Remove the MIDI bindings of all the mixer controls. |
+| `MIDI_UNLEARN_NODE` | ✓ | ✓ | Remove the MIDI bindings of a controller. |
 | `MIXER` | ✓ | ✓ | Set the specified mixer parameter to a given value. |
 | `NOP` | ✓ | ✓ |  |
 | `PASTE` | ✓ | ✓ | Screens with something to paste handle it (pattern editor); nothing elsewhere |
+| `PATTERN_EDITOR_WINDOW` | ✓ | ✓ | Show a window of the pattern editor (start, length in beats, lowest and highest note, optionally the pattern): what a controller's step sequencer shows. The Qt UI scrolls and zooms its pattern editor to it; the Tk UI ignores it (no view window). |
 | `POWER` | ✓ | ✓ | Poweroff the zynthian device. |
-| `POWER_SAVE` | ✓ | ✓ | Blank the screen (power save mode, as zynthian_gui); the next input wakes it, as does POWER_SAVE 0 |
+| `POWER_SAVE` | ✓ | ✓ | Enter or leave the power save mode (screen and LEDs off). |
 | `PRESET` | ✓ | ✓ | same as BANK_PRESET |
 | `PRESET_FAV` | ✓ | ✓ | Show the favorite presets. |
-| `PROGRAM_CHANGE` | ✓ | ✓ | PROGRAM_CHANGE n[,chan] (F1-F4 on the V5 keypad), n also "+" / "-": a program change on the active chain's channel, as if from a MIDI device (zynthian_gui.cuia_program_change) |
+| `PROGRAM_CHANGE` | ✓ | ✓ | Send a MIDI program change. |
 | `REBOOT` | ✓ | ✓ | Reboot the zynthian device. |
-| `REFRESH_SCREEN` | ✓ | ✓ | Rebuild the screen shown (params: only if it is one of these) |
-| `RELOAD_KEY_BINDING` | ✓ | ✓ | Re-read the computer keyboard bindings (webconf saves them) |
-| `RELOAD_MIDI_CONFIG` | ✓ | ✓ | Re-read the MIDI profile (webconf sends it after saving) |
-| `RELOAD_WIRING_LAYOUT` | ✓ | ✓ | Re-read the wiring configuration: custom switches, Zynaptik, Zyntof (webconf) |
-| `RESTART_UI` | ✓ | ✓ |  |
+| `REFRESH_SCREEN` | ✓ | ✓ | Rebuild and redraw the current view. |
+| `RELOAD_KEY_BINDING` | ✓ | ✓ | Reload the keyboard bindings from the configuration. |
+| `RELOAD_MIDI_CONFIG` | ✓ | ✓ | Reload the MIDI configuration. |
+| `RELOAD_WIRING_LAYOUT` | ✓ | ✓ | Reload the wiring layout (buttons, encoders) from the configuration. |
+| `RESTART_UI` | ✓ | ✓ | Restart the zynthian user interface. |
 | `SCREEN_ADMIN` | ✓ | ✓ | Show the admin view. |
 | `SCREEN_ALSA_MIXER` | ✓ | ✓ | Show the audio levels (ALSA levels) view. |
 | `SCREEN_AUDIO_MIXER` | ✓ | ✓ | Show the audio mixer view. |
 | `SCREEN_AUDIO_PLAYER` | ✓ | ✓ | Show the global audio player view. |
-| `SCREEN_CALIBRATE` | ✓ | ✓ | Tk's touchscreen calibration (X11 transformation matrix): under Wayland the compositor maps the touchscreen (output rotation, udev calibration rules) |
+| `SCREEN_CALIBRATE` | ✓ | ✓ | Show the touchscreen calibration view. |
 | `SCREEN_CHAIN_MANAGER` | ✓ | ✓ | Show the chain manager view. |
-| `SCREEN_CLEAN` | ✓ | ✓ | 10 s with the touches swallowed by the busy overlay, to clean the screen (as Tk) |
+| `SCREEN_CLEAN` | ✓ | ✓ | Lock the touchscreen for 10 seconds, so it can be cleaned. |
 | `SCREEN_CONTROL` | ✓ | ✓ | same as CHAIN_CONTROL |
 | `SCREEN_LAUNCHER` | ✓ | ✓ | Show the launcher view. |
 | `SCREEN_MIDI_RECORDER` | ✓ | ✓ | Show the MIDI recorder/player view. |
-| `SCREEN_MIXER` | ✓ | ✓ |  |
+| `SCREEN_MIXER` | ✓ | ✓ | Show the mixer view, resetting the view history. |
 | `SCREEN_PATTERN_EDITOR` | ✓ | ✓ | Show the pattern editor view. |
 | `SCREEN_SNAPSHOT` | ✓ | ✓ | Show the snapshots view. |
 | `SCREEN_ZS3` | ✓ | ✓ | Show the subsnapshots (ZS3) view. |
-| `SCREEN_ZYNPAD` | ✓ | ✓ |  |
-| `SELECT` | ✓ | ✓ | Select entry params[0] of the shown list (as zynthian_gui: an index, no action) |
+| `SCREEN_ZYNPAD` | ✓ | ✓ | Show the launcher (zynpad) view. |
+| `SELECT` | ✓ | ✓ | Highlight an item in the list of the current view, without performing its action. |
 | `SELECT_ACTION` | ✓ | ✓ | Select action. |
 | `SET_TEMPO` | ✓ | ✓ | Sets the global clock tempo (BPM) for the Zynthian framework. |
-| `SHOW_CURSOR` | ✓ | ✓ |  |
-| `SHOW_NAVIGATION_GRID` | ✓ | ✓ | SHOW_NAVIGATION_GRID title,buttons (zynthian_gui: the grid selector with a list of {"title", "icon", "action"}): as options; only from code, OSC can't pass the buttons |
-| `SHOW_SCREEN` | ✓ | ✓ |  |
-| `SHOW_SIDEBAR` | ✓ | ✓ |  |
-| `SHOW_TOPBAR` | ✓ | ✓ |  |
+| `SHOW_CURSOR` | ✓ | ✓ | Show the mouse cursor. |
+| `SHOW_NAVIGATION_GRID` | ✓ | ✓ | Show a grid of buttons, configured by the caller. |
+| `SHOW_SCREEN` | ✓ | ✓ | Show a view, resetting the view history (BACK won't return to the previous view). |
+| `SHOW_SIDEBAR` | ✓ | ✓ | Show the sidebar (controllers) of the current view. |
+| `SHOW_TOPBAR` | ✓ | ✓ | Show the topbar of the current view. |
 | `START_AUDIO_PLAY` | ✓ | ✓ | Starts the global audio playback. |
 | `START_AUDIO_RECORD` | ✓ | ✓ | Starts the global audio recording. |
 | `START_MIDI_PLAY` | ✓ | ✓ | Starts the MIDI (SMF) playback. |
@@ -161,46 +162,46 @@ has one (Tk's first). Regenerate with the script in the comment at the end.
 | `STOP_AUDIO_RECORD` | ✓ | ✓ | Stops the global audio recording. |
 | `STOP_MIDI_PLAY` | ✓ | ✓ | Stops the MIDI (SMF) playback. |
 | `STOP_MIDI_RECORD` | ✓ | ✓ | Stops the MIDI (SMF) recording. |
-| `TAP_TEMPO` | ✓ | ✓ |  |
+| `TAP_TEMPO` | ✓ | ✓ | Tap tempo: call it repeatedly, on the beat, to set the global clock tempo. |
 | `TEMPO` | ✓ | ✓ | Show the tempo screen. |
-| `TEMPO_DOWN` | ✓ | ✓ |  |
-| `TEMPO_UP` | ✓ | ✓ |  |
+| `TEMPO_DOWN` | ✓ | ✓ | Decrease the global clock tempo (BPM). |
+| `TEMPO_UP` | ✓ | ✓ | Increase the global clock tempo (BPM). |
 | `TOGGLE_ALT_MODE` | ✓ | ✓ |  |
 | `TOGGLE_AUDIO_PLAY` | ✓ | ✓ | Toggles the global audio playback. |
 | `TOGGLE_AUDIO_RECORD` | ✓ | ✓ | Toggles the global audio recording. |
-| `TOGGLE_MIDI_LEARN` | ✓ | ✓ |  |
+| `TOGGLE_MIDI_LEARN` | ✓ | ✓ | Toggle the MIDI learn mode on the current view. |
 | `TOGGLE_MIDI_PLAY` | ✓ | ✓ | Toggles the MIDI (SMF) playback. |
 | `TOGGLE_MIDI_RECORD` | ✓ | ✓ | Toggles the MIDI (SMF) recording. |
 | `TOGGLE_PLAY` | ✓ | ✓ | Toggles the contextual playback action. |
 | `TOGGLE_RECORD` | ✓ | ✓ | Toggles the contextual recording action. |
-| `TOGGLE_SCREEN` | ✓ | ✓ | TOGGLE_SCREEN name: show the screen, or close it if shown (zynthian_gui.toggle_screen) |
-| `TOGGLE_SEQ` | ✓ | ✓ | TOGGLE_SEQ phrase,sequence: start / stop a sequence of the current scene |
-| `TOGGLE_SIDEBAR` | ✓ | ✓ |  |
+| `TOGGLE_SCREEN` | ✓ | ✓ | Show a view, or close it if it's already shown. |
+| `TOGGLE_SEQ` | ✓ | ✓ | Toggle the play state of a sequence (launcher pad) in the current scene. |
+| `TOGGLE_SIDEBAR` | ✓ | ✓ | Toggle the sidebar (controllers) of the current view. |
 | `TTS_ANNOUNCE` | ✓ | ✓ | Announce a TTS message |
 | `TTS_PAUSE` | ✓ | ✓ | Pause current TTS announcement. Do not clear queue. |
-| `TTS_REGISTER` | ✓ | ✓ |  |
+| `TTS_REGISTER` | ✓ | ✓ | Send the TTS announcements to a remote host via OSC. |
 | `TTS_RESUME` | ✓ | ✓ | Resume paused TTS queue. |
 | `TTS_STOP` | ✓ | ✓ | Stop current TTS announcement. Clear queue. |
 | `TTS_TOGGLE_ENABLE` | ✓ | ✓ | Toggle the TTS enabled state |
 | `TTS_TOGGLE_PAUSE` | ✓ | ✓ | Toggle TTS pause |
 | `TTS_TOGGLE_PLAYBACK` | ✓ | ✓ | Stop TTS if playing, else announce context info |
-| `V5_ZYNPOT_SWITCH` | ✓ | ✓ | V5 encoder push (the screen's cuia_v5_zynpot_switch first): long press the X-Y touchpad if both axes are set; the select encoder as SELECT |
+| `V5_ZYNPOT_SWITCH` | ✓ | ✓ | Push an encoder's switch (V5 hardware). |
 | `WORKFLOW_CAPTURE_START` | ✓ | ✓ | Starts capturing workflow. |
 | `WORKFLOW_CAPTURE_STOP` | ✓ | ✓ | Stops capturing workflow. |
 | `WORKFLOW_CAPTURE_TEXT` | ✓ | ✓ | Includes a text note into the on-going workflow capture. |
-| `Z2_ZYNPOT_TOUCH` | ✓ | ✓ |  |
-| `ZS3_LOAD` | ✓ | ✓ |  |
-| `ZS3_NEXT` | ✓ | ✓ | The next ZS3; params[0] true: from the last back to the first |
-| `ZS3_PREV` | ✓ | ✓ |  |
-| `ZS3_SAVE` | ✓ | ✓ |  |
-| `ZYNAPTIK_CVIN_SET_NOTE0` | ✓ | ✓ |  |
-| `ZYNAPTIK_CVIN_SET_VOLTS_OCTAVE` | ✓ | ✓ |  |
-| `ZYNAPTIK_CVOUT_SET_NOTE0` | ✓ | ✓ |  |
-| `ZYNAPTIK_CVOUT_SET_VOLTS_OCTAVE` | ✓ | ✓ |  |
-| `ZYNPOT` | ✓ | ✓ |  |
-| `ZYNPOT_ABS` | ✓ | ✓ | ZYNPOT_ABS i,value (value 0..1): the screen's zynpot_abs(i, value) if it has one, else in chain control encoder i's controller (the layout's ctrl_order) to that part of its range |
-| `ZYNSWITCH` | ✓ | ✓ |  |
-| `ZYN_CC` | ✓ | ✓ | ZYN_CC chan,cc,value[,R,release value]: a CC as if from a MIDI device (switches) |
+| `Z2_ZYNPOT_TOUCH` | ✓ | ✓ | Touch an encoder (Z2 hardware). While MIDI learning, it selects the controller to learn. |
+| `ZS3_LOAD` | ✓ | ✓ | Load a subsnapshot (ZS3). |
+| `ZS3_NEXT` | ✓ | ✓ | Load the next subsnapshot (ZS3), or the first one if none is loaded. |
+| `ZS3_PREV` | ✓ | ✓ | Load the previous subsnapshot (ZS3). |
+| `ZS3_SAVE` | ✓ | ✓ | Save the current state into a subsnapshot (ZS3), overwriting it. |
+| `ZYNAPTIK_CVIN_SET_NOTE0` | ✓ | ✓ | Set the MIDI note of the zynaptik CV inputs for 0 volts. |
+| `ZYNAPTIK_CVIN_SET_VOLTS_OCTAVE` | ✓ | ✓ | Set the volts per octave of the zynaptik CV inputs. |
+| `ZYNAPTIK_CVOUT_SET_NOTE0` | ✓ | ✓ | Set the MIDI note of the zynaptik CV outputs for 0 volts. |
+| `ZYNAPTIK_CVOUT_SET_VOLTS_OCTAVE` | ✓ | ✓ | Set the volts per octave of the zynaptik CV outputs. |
+| `ZYNPOT` | ✓ | ✓ | Turn an encoder (zynpot) by a relative amount. |
+| `ZYNPOT_ABS` | ✓ | ✓ | Set the controller of an encoder (zynpot) to an absolute value, if the current view supports it. |
+| `ZYNSWITCH` | ✓ | ✓ | Push a switch (button). |
+| `ZYN_CC` | ✓ | ✓ | Send a MIDI CC message. |
 
 <!--
 Regenerate the table: an ast walk over zyngui/zynthian_gui.py (class zynthian_gui) and

@@ -218,7 +218,7 @@ safety-net pass (every few seconds instead of 250 ms).
   bank for the slots from `SS_SEQ_PLAY_STATE`'s `phrase`/`chan`). Commands of the core: dirty
   subtrees from the command's processor (`track`, `device`, `clip`, …) instead of all.
   The "report again" (300 ms) of a command: the subtree of its prefix.
-- **zynthian additions** (zynthian-ui, branch `dbm`):
+- **zynthian additions** (zynthian-ui):
   - **zctrl value change signal**: in `zynthian_controller.set_value` / `send_value`
     (`zyngine/zynthian_controller.py`), e.g. `S_PROCESSOR/SS_ZCTRL_SET_VALUE` (the Launchkey Mini
     Mk4 driver already refers to a `SS_ZCTRL_SET_VALUE` which the signal manager lacks) with the

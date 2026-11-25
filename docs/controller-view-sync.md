@@ -1,10 +1,10 @@
 # Controller view sync: the JAM's modes and step window on zynthian's screens
 
 Status: plan agreed with the DrivenByMoss core (dbm-surface-link) on 2026-11-25. The zynthian
-side (zynthian-ui and the zynthian adapter of drivenbymoss-rust) is implemented against the
+side (zynthian-ui with its DrivenByMoss adapter, `zyngine/ctrldev/dbm_zynthian/`) is implemented against the
 agreed names. The core and JAM side is on drivenbymoss-rust `controller-view-sync` (3aac720,
 7d74087: the window also with the host's step grid, which zynthian's adapter is); checked end to
-end with the JAM in-process against the adapter (backends/zynthian/tests/test_views.py JamTest:
+end with the JAM in-process against the adapter (tests/dbm/test_views.py JamTest:
 STEP sends view 2 and the window 0.0+2.0 beats, notes 36..47; NAV RIGHT 2.0+2.0; NAV UP notes
 48..59; SONG view 0).
 
@@ -22,7 +22,7 @@ With a Maschine JAM run by DrivenByMoss (DBM) as a zynthian ctrldev driver:
 
 ## How Bitwig does it
 
-Checked in the Java DrivenByMoss (`~/bastel/github/DrivenByMoss`) and in DBM's Bitwig host
+Checked in the Java DrivenByMoss (github.com/git-moss/DrivenByMoss) and in DBM's Bitwig host
 (`drivenbymoss-rust/backends/bitwig/`):
 
 - **The controller's modes do not switch Bitwig's views.** Only explicit layout functions do:
@@ -135,6 +135,6 @@ without switching screens.
 - zynthian-ui: `zynqt/screens/pattern_editor.py` (`show_window`, the stored window, `viewWindow`
   for QML), `zynqt/qml/PatternEditorView.qml` (`applyWindow`), `zynqt/ui.py`
   (`cuia_pattern_editor_window`).
-- Adapter (drivenbymoss-rust `backends/zynthian/ctrldev/dbm_zynthian/`): `views.py` (`ZynViews`:
+- Adapter (`zyngine/ctrldev/dbm_zynthian/`): `views.py` (`ZynViews`:
   the kinds to CUIAs, the window), `commands.py` (the handlers, registered only with the UI),
   the driver base sets its UI.

@@ -56,7 +56,7 @@ The UI doesn't filter by name: what it shows is what the driver reports as visib
 ## Threading and polling
 
 The UI calls the interface from the GUI thread. The driver must make that safe. The DBM drivers
-(`zynthian_ctrldev_base_dbm.py`, for now in drivenbymoss-rust `backends/zynthian/ctrldev/`) do:
+(`zyngine/ctrldev/zynthian_ctrldev_base_dbm.py`) do:
 only their tick thread calls into the core, so
 
 - `get_settings()` returns a cached list which the tick thread replaces as a whole;

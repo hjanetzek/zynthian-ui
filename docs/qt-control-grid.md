@@ -1,6 +1,6 @@
 # Chain control as a grid of pages (Qt UI)
 
-Status: 2026-11-25, branch `electra-grid` (the shared selection and `turn_travel` for DrivenByMoss's host pages added; all chain types checked). Layouts `grid4x6` and `grid8x6` for chain control,
+Status: 2026-11-25 (the shared selection and `turn_travel` for DrivenByMoss's host pages added; all chain types checked). Layouts `grid4x6` and `grid8x6` for chain control,
 next to the default `v5` layout (the page list and four controllers in a column). Inspired by the
 Electra One mk2's control grid (coloured cells with name, value and a bar or arc; rows mapped to
 the encoders), not a copy of its look.

@@ -53,12 +53,15 @@ def available_themes(qml_dir):
 
 
 # The user's choice (Admin > Theme) is ZYNTHIAN_QT_THEME in zynthian's config, which the launcher
-# (desktop/zynthian_desktop.sh) sources at each UI start, after the session exported its value
-# (/etc/default/zynthian): zynthian_envars.sh, or zynthian_custom_config.sh if that sets it (it is
-# sourced last, so it wins). "Default" removes the user's value. The launcher keeps the value it
-# exported last, though, so for one start a line marked ONCE_MARK sets the session's value again
-# (or unsets the variable); the UI removes it when it starts (drop_once_lines()).
+# (desktop/zynthian_desktop.sh) sources at each UI start, in that start's subshell, after the
+# session exported its value (/etc/default/zynthian): zynthian_envars.sh, or
+# zynthian_custom_config.sh if that sets it (it is sourced last, so it wins). "Default" removes the
+# user's value: the next start (RESTART_UI) has the session's again.
 VAR = "ZYNTHIAN_QT_THEME"
+# Until 2026-11-25 (when the launcher kept the variables it had exported), "Default" wrote a line
+# with this mark that set the session's value for one start; the UI removed it when it started.
+# drop_once_lines() still removes such a line left in a config (chosen before an upgrade, no start
+# since): it would set the theme of that day for good. To go in a later cycle
 ONCE_MARK = "# zynthian: Admin > Theme > Default, for one start"
 SESSION_DEFAULTS = "/etc/default/zynthian"
 _EXPORT = re.compile(r"^\s*export\s+" + VAR + r"=")
@@ -120,8 +123,8 @@ def save_theme(name):
     """Save the user's theme for the next UI start; "" for the default (the session's theme)"""
     from zynconf import zynthian_config
     envars, custom = _config_files()
+    drop_once_lines()
     if name:
-        drop_once_lines()
         # Where it is set already and wins: the custom config, else zynthian_envars.sh
         fpath = custom if custom_config_sets_theme() else envars
         zynthian_config.save_config({VAR: name}, fpath=fpath)
@@ -130,22 +133,16 @@ def save_theme(name):
     for fpath in (envars, custom):
         lines = _read_lines(fpath)
         if lines is not None:
-            kept = [line for line in lines if not _EXPORT.match(line)
-                    and not (ONCE_MARK in line and VAR in line)]
+            kept = [line for line in lines if not _EXPORT.match(line)]
             if kept != lines:
                 _write_lines(fpath, kept)
-    session = session_theme()
-    once = f'export {VAR}="{session}"' if session else f"unset {VAR}"
-    lines = _read_lines(envars) or []
-    if lines and not lines[-1].endswith("\n"):
-        lines[-1] += "\n"
-    _write_lines(envars, lines + [f"{once}  {ONCE_MARK}\n"])
-    logging.info("Qt theme: the user's choice removed, the session's ('%s') for the next start", session)
+    logging.info("Qt theme: the user's choice removed, the session's ('%s') from the next start",
+                 session_theme())
 
 
 def drop_once_lines():
-    """Remove the line save_theme("") left for one start (called when the UI starts: the launcher
-    has the value by then)"""
+    """Remove a line the old "Default" left for one start (ONCE_MARK; called when the UI starts
+    and by save_theme())"""
     try:
         envars = _config_files()[0]
     except Exception as err:

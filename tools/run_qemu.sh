@@ -11,8 +11,10 @@
 #
 #   -u          download the newest image (if the release has a newer one) and start from it
 #   -r          start from a fresh copy of the downloaded image (discards the VM's changes)
-#   -s SIZE     disk size of a fresh copy (default 8G; postmarketOS grows its root partition to the
-#               disk at the first boot)
+#   -s SIZE     disk size of a fresh copy (default 8G). Given for an existing disk that is smaller,
+#               it grows that one (raw: the file only grows, the data stays). postmarketOS grows its
+#               root partition to the disk at each boot (pmos.force-partition-resize); the root
+#               filesystem then once in the guest: sudo resize2fs /dev/vda2 (docs/qemu-testing.md)
 #   -m MEM      memory (default 4G)
 #   -c CPUS     virtual CPUs (default: half of this machine's)
 #   -R WxH      the screen's resolution (default 1280x800: 16:10 as the Duet, whose 1920x1200 at
@@ -54,12 +56,12 @@ usage() { sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p}' "$0"; exit "${1:-0
 
 url=https://github.com/hjanetzek/nura-builds/releases/download/zynthian-latest/zynthian-qemu-amd64.img.zst
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/nura-builds
-update=0 reset=0 size=8G mem=4G cpus= res=1280x800 display=gtk gl=on audio=virtio usb= ssh_port= web_port= ws_port= lan_mac= list=0
+update=0 reset=0 size=8G mem=4G cpus= res=1280x800 display=gtk gl=on audio=virtio usb= ssh_port= web_port= ws_port= lan_mac= list=0 size_given=0
 while getopts urs:m:c:R:D:nA:U:p:w:S:d:lL:h opt; do
 	case $opt in
 		u) update=1 ;;
 		r) reset=1 ;;
-		s) size=$OPTARG ;;
+		s) size=$OPTARG size_given=1 ;;
 		m) mem=$OPTARG ;;
 		c) cpus=$OPTARG ;;
 		R) res=$OPTARG ;;
@@ -254,6 +256,16 @@ else
 		echo "unpacking $zst"
 		zstd -d -q -f "$zst" -o "$disk"
 		truncate -s ">$size" "$disk"
+	fi
+fi
+# -s for an existing disk: grow it (">": never shrinks). The initramfs grows the root partition at
+# the next boot; its offline resize2fs refuses a filesystem without a recent full fsck, so the
+# filesystem is grown online in the guest
+old_size=$(stat -c %s "$disk")
+if [ $size_given = 1 ]; then
+	truncate -s ">$size" "$disk"
+	if [ "$(stat -c %s "$disk")" != "$old_size" ]; then
+		echo "disk grown to $size: after the boot grow the root filesystem in the guest: sudo resize2fs /dev/vda2"
 	fi
 fi
 

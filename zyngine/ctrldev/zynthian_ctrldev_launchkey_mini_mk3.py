@@ -163,7 +163,10 @@ class zynthian_ctrldev_launchkey_mini_mk3(zynthian_ctrldev_zynpad, zynthian_ctrl
                             self.set_mixer_param(f"send_{id}_level", pot, ccval / 127.0)
                         case self.POT_MODE_DEVICE:
                             try:
+                                # Chain controller slot n (page n // 4, slot n % 4)
                                 zctrl = self.chain_manager.active_chain.zctrls[pot]
+                                if zctrl is None:
+                                    return False  # an empty slot
                                 zctrl.midi_control_change(ccval)
                             except:
                                 return False # Allows learning of non-auto mapped controls

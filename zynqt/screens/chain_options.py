@@ -1,5 +1,5 @@
-"""Chain options (zynthian_gui_chain_options): add or remove effects, clean MIDI learn, rename or
-remove the chain"""
+"""Chain options (zynthian_gui_chain_options): add or remove effects, clean MIDI learn, the chain
+controllers' pages, rename or remove the chain"""
 
 import os
 
@@ -45,6 +45,10 @@ class ChainOptions(SelectorScreen):
         if chain.chain_id:
             entries.append(entry("Move chain", lambda e: self.ui.start_move_chain(), icon="move_left_right.png",
                                  info="Reposition the chain in the mixer: arrows or ◀ ▶, SELECT or Done to finish."))
+        if chain.zctrl_pages.pages:
+            entries.append(entry("Chain controller pages...", lambda e: self.chain_controller_pages(chain),
+                                 info="Rename, move, clear or delete the pages of the chain controllers.",
+                                 icon="rename.png"))
         entries.append(entry("Rename chain", lambda e: self.rename(),
                              info="Change the name of the chain. Clear name to reset to default name.",
                              icon="rename.png"))
@@ -55,6 +59,11 @@ class ChainOptions(SelectorScreen):
             entries.append(entry("Remove chain", lambda e: self.remove_chain(),
                                  info="Remove this chain and all its processors.", icon="delete_chains.png"))
         self.set_entries(entries)
+
+    def chain_controller_pages(self, chain):
+        """The page manager of the chain controllers (as from the controller options)"""
+        from zynqt.screens.controller_options import show_zctrl_pages
+        show_zctrl_pages(self.ui.chain_control_screen, chain)
 
     # Export (zynthian_gui_chain_options.export_chain): folder, name, then the state manager
 

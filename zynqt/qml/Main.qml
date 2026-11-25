@@ -58,6 +58,7 @@ Window {
     Component.onCompleted: {
         zyn.chainControl.setThemeLayout(Theme.controlLayout, Theme.controlGrid)
         zyn.chainControl.setThemeGridColors(Theme.controlGridColors)
+        zyn.chainControl.setThemeChainColor(Theme.controlGridChainColor)
     }
 
     // The first frame is on screen: the deferred parts of the UI (Deferred.qml) are created now,

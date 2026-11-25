@@ -409,6 +409,13 @@ class ChainControl(QObject):
         the consumers of the grid without Qt (zynthian_control_grid_data.section_color)"""
         gd.set_section_colors([c.name() if hasattr(c, "name") else str(c) for c in (colors or [])])
 
+    @Slot("QVariant")
+    def setThemeChainColor(self, color):
+        """The theme's colour of the chain controllers' section (Theme.controlGridChainColor,
+        Main.qml at every QML load) for the consumers without Qt (zynthian_control_grid_data.
+        page_color)"""
+        gd.set_chain_color(color.name() if hasattr(color, "name") else str(color) if color else None)
+
     @property
     def layout_setting(self):
         return self._layout_setting
@@ -499,6 +506,11 @@ class ChainControl(QObject):
 
     # Shown / hidden (ZynUI)
 
+    @property
+    def shown(self):
+        """On screen (shared_selection.owner_shown: drivers follow it only then)"""
+        return self._shown
+
     def build(self):
         self._build()
         self._shown = True
@@ -563,6 +575,11 @@ class ChainControl(QObject):
         self._processors = processors
         self.processorsChanged.emit()
 
+        # Opening another chain (shown, or the active chain changed) with chain controllers:
+        # their first page
+        zpages = gd.chain_zctrl_pages(chain)
+        if zpages is not None and zpages.pages and chain is not self._built_chain:
+            zpages.set_shown(0)
         # Pages as zynthian_gui_control.fill_list: chain controllers, then each processor's
         # (zynthian_control_grid_data.chain_page_items, shared with the grid's other consumers).
         # A processor without pages (no soundfont / preset loaded yet, the audio player without a
@@ -641,7 +658,9 @@ class ChainControl(QObject):
         if chain.is_midi():
             ch = f"CH#{chain.midi_chan + 1:02}" if chain.midi_chan is not None and chain.midi_chan < 16 else "CH#ALL"
             add(f"MIDI Input\n{ch}", "midi_input")
-        if chain.zctrls:
+        zpages = gd.chain_zctrl_pages(chain)
+        if zpages is not None and zpages.pages:
+            # The chain controllers' pages (docs/chain-controller-pages.md)
             add("Chain\nControllers", "chain_controllers")
         for i, slot in enumerate(chain.midi_slots):
             for proc in slot:
@@ -696,16 +715,16 @@ class ChainControl(QObject):
 
     @Property(int, notify=pageChanged)
     def chainNode(self):
-        """The selected side chain node: the chain controllers on a chain page, else the
-        current processor"""
+        """The selected side chain node: the chain controllers on a chain controller page, else
+        the current processor"""
         nodes = getattr(self, "_nodes", None) or self._chain_nodes()
         entries = self.pages.entries
-        on_chain_page = 0 <= self._page < len(entries) and entries[self._page]["data"] \
-            and entries[self._page]["data"][0] == "chain"
+        kind = entries[self._page]["data"][0] if 0 <= self._page < len(entries) and entries[self._page]["data"] else None
+        node = "chain_controllers" if kind == "chain" else None
         for i, n in enumerate(nodes):
-            if on_chain_page and n["proc"] == "chain_controllers":
+            if node is not None and n["proc"] == node:
                 return i
-            if not on_chain_page and n["proc"] is self.ui.current_processor:
+            if node is None and n["proc"] is self.ui.current_processor:
                 return i
         return -1
 
@@ -801,8 +820,14 @@ class ChainControl(QObject):
             return
         self._page = index
         kind, proc, arg = entries[index]["data"]
+        # The chain controller page shown (zctrl_pages.shown: chain control comes back to it),
+        # None for others
+        zpages = gd.chain_zctrl_pages(None if self.special_processor else self._built_chain)
+        if zpages is not None:
+            zpages.set_shown(arg[0] if kind == "chain" else None)
         if kind == "chain":
-            zctrls = arg
+            # A chain controller page: its four controllers (no processor change)
+            zctrls = arg[1]
         elif kind == "empty":
             # A processor without pages: selected, no controllers
             if proc != self.ui.current_processor and not self.special_processor:
@@ -883,6 +908,50 @@ class ChainControl(QObject):
             call()
         else:
             gui.run(call)
+
+    # Screens that a driver's show request doesn't replace: menus, dialogs, text and file input
+    _NO_DRIVER_SHOW = ("option", "file_selector")
+
+    def grid_show_request(self, chain):
+        """shared_selection.request_show (any thread): chain control of the active chain to the
+        front, in the GUI thread"""
+        gui = getattr(self.ui, "_gui", None)
+        call = functools.partial(self._apply_show_request, chain)
+        if gui is None:
+            call()
+        else:
+            gui.run(call)
+
+    def _apply_show_request(self, chain):
+        """Show chain control for the active chain (chain: its chain_id), unless it is shown
+        already (not for a special processor) or the screen is busy with something the user is
+        doing: a menu, a dialog, the keyboard, the file selector, a move, the busy screen.
+        Returns True if it switched"""
+        ui = self.ui
+        active = self.chain_manager.get_active_chain()
+        if active is None or active.chain_id != chain:
+            return False
+        if self._shown and self.special_processor is None:
+            return False
+        if (getattr(ui, "current_screen", None) in self._NO_DRIVER_SHOW or getattr(ui, "_confirm_text", "")
+                or getattr(ui, "_keyboard_action", None) is not None or getattr(ui, "_busy", False)
+                or getattr(ui, "_moving_chain", False) or getattr(ui, "_moving_processor", None) is not None):
+            return False
+        ui.show_screen("chain_control")
+        return True
+
+    def grid_zctrl_request(self, chain, call):
+        """A change of a chain's controller pages from a driver (shared_selection.request_zctrl_assign,
+        any thread): applied in the GUI thread, the pages rebuilt when they are that chain's"""
+        def run():
+            call()
+            if self._shown and self.special_processor is None and self._built_chain is chain:
+                self._build()
+        gui = getattr(self.ui, "_gui", None)
+        if gui is None:
+            run()
+        else:
+            gui.run(run)
 
     def _apply_selection_request(self, kind, chain, page, slot, first_row):
         """kind "page" (its first controller the cell), "cell" (page and slot), "open" (as a tap

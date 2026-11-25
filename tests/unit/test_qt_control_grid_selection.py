@@ -64,10 +64,19 @@ class Chain:
     zynmixer_proc = None
 
     def __init__(self):
-        self.zctrls = [ctrl(f"c{i}") for i in range(4)]
+        from zyngine.zynthian_zctrl_pages import ZctrlPages
         self.procs = [Proc("Helm", [(f"S{i}", [ctrl(f"s{i}{j}") for j in range(4)]) for i in range(30)], self),
                       Proc("Reverb", [("Room", [None, ctrl("size")])], self)]
+        helm = self.procs[0]
+        helm.controllers_dict = {z.symbol: z for zs in helm.screens.values() for z in zs}
+        for z in helm.controllers_dict.values():
+            z.processor = helm
+        self.procs[1].id = 2
+        self.procs[1].controllers_dict = {}
         self.current_processor = self.procs[0]
+        # The chain controllers: one page of 4 (CHAIN, page 0)
+        self.zctrl_pages = ZctrlPages(self)
+        self.zctrl_pages.from_dense([(1, f"s2{j}") for j in range(4)])
 
     def get_processors(self):
         return self.procs
@@ -143,9 +152,28 @@ def wait_for(app, cond, timeout=3.0):
     return cond()
 
 
+def on_processor_page(cc):
+    """Built (it opens on the chain controllers' first page), then the processor's first page"""
+    cc.build()
+    cc.setPage(cc._page_rows[1])
+
+
+def test_build_opens_on_the_chain_controllers(screen):
+    cc, chain, got = screen
+    assert not gd.shared_selection.owner_shown()
+    cc.build()
+    assert cc.shown and gd.shared_selection.owner_shown()
+    assert cc.page_index == 0 and chain.zctrl_pages.shown == 0
+    pages, selected = gd.chain_pages(chain, chain.procs, chain.current_processor)
+    assert selected == 0 and pages[0].kind == "chain"
+    cc.setPage(cc._page_rows[1])
+    cc.build()                                  # the same chain again: where it was
+    assert cc.page_index == 1
+
+
 def test_build_reports_and_pages_are_the_shared_ones(screen):
     cc, chain, got = screen
-    cc.build()
+    on_processor_page(cc)
     pages, selected = gd.chain_pages(chain, chain.procs, chain.current_processor)
     assert [p.title for p in cc.grid.grid.pages] == [p.title for p in pages]
     assert cc.page_index == selected == 1 and cc.cell == 0
@@ -155,7 +183,7 @@ def test_build_reports_and_pages_are_the_shared_ones(screen):
 
 def test_touch_and_encoders_move_the_cell(screen):
     cc, chain, got = screen
-    cc.build()
+    on_processor_page(cc)
     got.clear()
     cc.controllers[2].nudge(1)                  # the controller column (v5's touch)
     assert cc.cell == 2 and cc.grid.grid.selected_slot == 2
@@ -176,7 +204,7 @@ def test_touch_and_encoders_move_the_cell(screen):
 
 def test_driver_requests_from_another_thread(app, screen):
     cc, chain, got = screen
-    cc.build()
+    on_processor_page(cc)
     got.clear()
     t = threading.Thread(target=lambda: gd.shared_selection.request_cell(3, 20, 2))
     t.start()
@@ -262,3 +290,36 @@ def test_driver_selections_are_always_on_screen(app, layout, monkeypatch):
     finally:
         gd.shared_selection.clear_owner(cc)
         cc._timer.stop()
+
+
+def test_show_request_brings_chain_control_to_the_front(app, screen):
+    """A driver switched to the host's pages (the JAM's HostPageShow) or navigates them:
+    chain control of the active chain comes to the front (in the GUI thread), where the driver's
+    page request right after puts it; not over a menu, a dialog or the keyboard"""
+    cc, chain, got = screen
+    shown = []
+
+    def show_screen(name):
+        shown.append(name)
+        cc.build()
+    cc.ui.show_screen = show_screen
+    cc.ui.current_screen = "mixer"
+    gd.shared_selection.request_show(4)             # another chain: dropped
+    app.processEvents()
+    assert shown == []
+    for blocker in (dict(current_screen="option"), dict(_confirm_text="Delete?"), dict(_keyboard_action=print),
+                    dict(_busy=True), dict(_moving_chain=True)):
+        for k, v in blocker.items():
+            setattr(cc.ui, k, v)
+        assert not cc._apply_show_request(3)
+        for k in blocker:
+            setattr(cc.ui, k, {"current_screen": "mixer", "_confirm_text": "", "_busy": False,
+                               "_moving_chain": False}.get(k))
+    t = threading.Thread(target=lambda: (gd.shared_selection.request_show(3), gd.shared_selection.request_page(3, 7)))
+    t.start()
+    t.join()
+    assert shown == []                              # queued to the GUI thread
+    assert wait_for(app, lambda: shown == ["chain_control"] and cc.page_index == 7)
+    gd.shared_selection.request_show(3)             # shown already: nothing
+    app.processEvents()
+    assert shown == ["chain_control"] and cc.page_index == 7

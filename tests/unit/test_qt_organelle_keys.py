@@ -170,8 +170,9 @@ def setup(pd, selector=True):
     ui._switch_timing = ZynUI._switch_timing
     ui.state_manager.parse_cuia_params = lambda s: [int(p) if p.strip().isdigit() else p.strip() for p in s.split(",")]
     ui._cuiaRequested = SimpleNamespace(emit=lambda name, params: ui._run_cuia(name, list(params)))
-    bind(ui, ZynUI, "_push_action", "cuia__zynswitch", "zynswitch", "_is_current_screen_switch", "switch_select",
-         "cuia_select_action", "cuia_v5_zynpot_switch", "cuia_arrow_up", "cuia_arrow_down", "pushSwitch",
+    bind(ui, ZynUI, "_push_action", "cuia__zynswitch", "zynswitch", "_is_current_screen_switch", "get_current_screen",
+         "switch_select", "cuia_select_action", "cuia_v5_zynpot_switch", "cuia_arrow_up", "cuia_arrow_down",
+         "pushSwitch",
          "zynswitch_disable_autolong", "zynswitch_enable_autolong", "_switch_zynpot", "_take_zynpots")
     cc.ui = ui
     return ui, cc

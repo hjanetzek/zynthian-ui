@@ -15,6 +15,8 @@ from PySide6.QtCore import QObject, QTimer, Property, Signal
 
 from zyngui import zynthian_gui_config
 
+from zynqt.screen_names import tk_name
+
 # LED index -> keypad key (zynthian_wsleds_v5touch.LED2BUTTON)
 LED2BUTTON = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12, 16, 17, 18, 19]
 
@@ -115,6 +117,27 @@ def switch_cuia(config, alt):
         if cuia:
             return cuia
     return ""
+
+
+def current_screen_switch(config, screen):
+    """zynthian_gui.check_current_screen_switch ("BIG ÑAPA"): a short press on this custom switch
+    runs its bold action instead, on screen (the Tk name: ZynUI.get_current_screen). True when the
+    bold action is BANK_PRESET in the bank or preset list or the audio player (the V5's CTRL key:
+    chain control -> presets -> banks -> back), when the short action ends with the screen's name
+    (CHAIN_CONTROL in chain control, SCREEN_ZS3 in the ZS3 list, SCREEN_AUDIO_MIXER in the mixer),
+    or when it is MENU in the main menu or the chain manager"""
+    if not config or not screen:
+        return False
+    bold = (config.get("B") or "").lower()
+    if bold == "bank_preset" and screen in ("bank", "preset", "audio_player"):
+        return True
+    short = (config.get("S") or "").lower()
+    if short:
+        if short.endswith(screen):
+            return True
+        if short == "menu" and screen in ("main_menu", "chain_manager"):
+            return True
+    return False
 
 
 def _env(name, default):
@@ -261,10 +284,9 @@ class KeypadLeds(QObject):
                 continue
             config = actions[key] if key < len(actions) else None
             cuia = switch_cuia(config, alt)
-            # Short press on the shown screen's key: its bold action (zynthian_gui)
-            short = (config or {}).get("S") or ""
-            if cuia == short and short and cur and (short.lower().endswith(cur)
-                                                     or (short.lower() == "menu" and cur == "main_menu")):
+            # Short press on the shown screen's key: its bold action (zynthian_gui, before ALT's)
+            push = config and ((alt and config.get("AP")) or config.get("P"))
+            if not push and current_screen_switch(config, tk_name(cur)):
                 cuia = config.get("B") or cuia
             labels[key] = cuia_label(cuia)
         return labels

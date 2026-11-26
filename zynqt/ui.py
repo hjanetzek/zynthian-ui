@@ -39,7 +39,7 @@ from zynqt.screens.menus import AddChain, MainMenu
 from zynqt.screens.chain_screens import Bank, Engine, MidiChannel, Preset, has_bank_dirs
 from zynqt.models.control_xy import ControlXY
 from zynqt.models.launcher import Launcher
-from zynqt.keypad_leds import KeypadLeds
+from zynqt.keypad_leds import KeypadLeds, current_screen_switch
 from zynqt.hw_input import HwInput, list_step
 from zynqt.screens.pattern_editor import PatternEditor
 from zynqt.screens.chain_manager import ChainManager
@@ -1538,11 +1538,9 @@ class ZynUI(QObject, zynthian_websocket_feedback):
             self.confirmNo()
 
     def _is_current_screen_switch(self, config):
-        """Short press on the key of the shown screen: its bold action (as zynthian_gui)"""
-        short = (config.get("S") or "").lower()
-        if not short:
-            return False
-        return short.endswith(self.current_screen) or (short == "menu" and self.current_screen == "main_menu")
+        """Short press on the key of the shown screen: its bold action (as
+        zynthian_gui.check_current_screen_switch, on the Tk screen names; keypad_leds)"""
+        return current_screen_switch(config, self.get_current_screen())
 
     @Slot(str, list)
     def _run_cuia(self, cuia, params):
@@ -2005,7 +2003,10 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         elif self.current_screen == "bank":
             self.back()
         elif self.current_screen == "preset":
-            if len(proc.get_bank_list()) > 1:
+            # Up a sub-folder first (zynthian_gui_preset.browse_back)
+            if self.list_screens["preset"].back():
+                pass
+            elif len(proc.get_bank_list()) > 1:
                 self.replace_screen("bank")
             else:
                 self.back()

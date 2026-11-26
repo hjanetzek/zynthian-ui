@@ -48,6 +48,9 @@ The slow part is split into subtrees (``SUBTREES``), each callable on its own
 now a full pass collects all of them; the next step collects only the dirty ones, with the full
 pass as the slow safety net (doc/ZYNTHIAN_CPU.md, "Next").
 
+The snapshots (``collect_snapshots``, snapshots.py): zynthian's ZS3s bound to program changes
+0..63 on any channel, with a binding that has the snapshot reports.
+
 Not reported, so the core keeps its defaults for them: markers, ``/drum``, ``/eq``, the layers and drum pads of ``/primary``, the arranger position and loop, ``/track/<p>/active``
 (zynthian has no deactivated chains), ``/track/hasPrevious|hasNext``. ``/track/pinned`` (-1) and ``/device/pinned`` (0) are reported:
 zynthian has no pinning.
@@ -71,8 +74,8 @@ SLOW_INTERVAL_MS = 250.0
 # the host features and the project, the track list (tracks, effect tracks, master: positions,
 # names, types, selection; the peak meters), their mixer values and sends, the slots and scenes,
 # the transport, the cursor device with its pages and the first instrument, the cursor clip with
-# its step grids, the browser
-SUBTREES = ("host", "tracks", "mixer", "slots", "transport", "device", "clip", "browser", "page")
+# its step grids, the browser, the host's pages, the snapshots (zynthian's ZS3s)
+SUBTREES = ("host", "tracks", "mixer", "slots", "transport", "device", "clip", "browser", "page", "snapshots")
 ALL_SUBTREES = frozenset(SUBTREES)
 
 # The values of a slot, in the order of collect_slots
@@ -104,6 +107,7 @@ class ZynReporter(Reporter):
             ZynReporter.collect_browser,
             Reporter.collect_grids,
             ZynReporter.collect_host_pages,
+            ZynReporter.collect_snapshots,
         ]
         # The subtrees of each collector (collect_subtrees): the track collectors run for any of
         # theirs and check "mixer" and "slots" for those parts
@@ -122,6 +126,7 @@ class ZynReporter(Reporter):
             ZynReporter.collect_browser: {"browser"},
             Reporter.collect_grids: {"clip"},
             ZynReporter.collect_host_pages: {"page"},
+            ZynReporter.collect_snapshots: {"snapshots"},
         }
         # The subtrees of the pass being collected
         self.refreshing = ALL_SUBTREES
@@ -598,6 +603,12 @@ class ZynReporter(Reporter):
         """The host's pages (host_page.py, doc/HOST_PAGE_PLAN.md §12.2), while shown"""
         if self.host_pages is not None:
             self.host_pages.collect_full(self.put)
+
+    def collect_snapshots(self):
+        """zynthian's ZS3s as the host's snapshots (snapshots.py), with a binding that has them"""
+        snapshots = getattr(self.daw, "snapshots", None)
+        if snapshots is not None:
+            snapshots.collect(self.put)
 
     def collect_host_page_values(self):
         """The values and texts of the host page's shown cells that changed (fast)"""

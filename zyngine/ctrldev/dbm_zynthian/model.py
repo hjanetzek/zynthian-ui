@@ -447,6 +447,7 @@ class ZynthianModel:
         from zyngine.ctrldev.dbm_zynthian.device import DeviceChain
         from zyngine.ctrldev.dbm_zynthian.launcher import ZynLauncher
         from zyngine.ctrldev.dbm_zynthian.transport import ZynTransport
+        from zyngine.ctrldev.dbm_zynthian.snapshots import ZynSnapshots
         from zyngine.ctrldev.dbm_zynthian.views import ZynViews
         self.chain_manager = chain_manager
         self.devices = DeviceChain(self)
@@ -456,6 +457,9 @@ class ZynthianModel:
         self.transport = ZynTransport(zynseq) if zynseq is not None else None
         self.launcher = ZynLauncher(self, zynseq) if zynseq is not None else None
         self.views = ZynViews(self)
+        self.snapshots = ZynSnapshots()
+        """zynthian's ZS3s as the host's snapshots (snapshots.py); its ``state_manager`` is set
+        by the driver."""
         """The controller's views on zynthian's screens (views.py); its ``ui`` is set by the
         driver."""
         self.selected_notes = {}

@@ -50,6 +50,7 @@ controllers too):
 |---|---|---|
 | Launcher | SONG | pads view: CUIA `SCREEN_ZYNPAD` (not `SCREEN_LAUNCHER`, which in the launcher opens the pad's editor); nothing if the launcher is shown |
 | Sequencer, DrumSequencer | STEP (each press, also cycling the sequencers) | pattern editor of the cursor slot: CUIA `SCREEN_PATTERN_EDITOR`; nothing if it already shows that pattern |
+| Snapshots | Select + SONG (the snapshot view) | the ZS3 screen: CUIA `TOGGLE_SCREEN zs3` (not `SCREEN_ZS3`, which turns on program change learning); nothing if it is shown |
 | Play, Mixer, Device, Other | pad modes, mixer modes, CONTROL | nothing (for now) |
 
 `SCREEN_PATTERN_EDITOR` opens the active chain's sequence in the selected phrase, in the Qt UI

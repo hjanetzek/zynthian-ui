@@ -85,6 +85,12 @@ def change_signals():
         (s.S_STEPSEQ, s.SS_SEQ_TIMESIG, {"transport", "clip"}),
         (s.S_STEPSEQ, s.SS_SEQ_METRO, {"transport"}),
         (s.S_STATE_MAN, s.SS_LOAD_ZS3, set(ALL_SUBTREES)),
+        # The ZS3s (snapshots.py): stored, a snapshot loaded; SS_ZS3_LIST (zynthian-ui with it)
+        # for every change of the list
+        (s.S_STATE_MAN, s.SS_SAVE_ZS3, {"snapshots"}),
+        (s.S_STATE_MAN, s.SS_LOAD_SNAPSHOT, {"snapshots"}),
+    ] + [
+        (s.S_STATE_MAN, getattr(s, name), {"snapshots"}) for name in ("SS_ZS3_LIST",) if hasattr(s, name)
     ] + [
         # Chain control's shared selection (zynthian-ui's grid module: host_page.py)
         (s.S_GUI, getattr(s, name), {"page"})

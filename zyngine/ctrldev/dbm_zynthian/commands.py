@@ -60,6 +60,10 @@ primary/…``) and the columns 1..6 are not handled.
 While a session opened by the host is open (add_chain.py: the Add Chain view, the engine screen),
 the ``browser`` commands go to it.
 
+The host's snapshots (snapshots.py, with zynthian's state manager and a binding that has them):
+``snapshot <i>/load|store|remove`` on the ZS3 bound to program change i (any channel), through
+zynthian's CUIAs.
+
 Everything else is logged as not handled, e.g. ``send/<s>/active`` (zynthian's sends have no
 switch), ``device remove|duplicate``, slot and scene ``name``/``color``, the Reaper-only
 transport forms.
@@ -116,6 +120,11 @@ def _page_end_last(view):
 HOST_PAGE_COMMANDS = (Cmd.HOST_PAGE_SHOW, Cmd.HOST_PAGE_CELL_TURN, Cmd.HOST_PAGE_CELL_PRESS, Cmd.HOST_PAGE_CELL_TOUCH,
                       Cmd.HOST_PAGE_CELL_RESET, Cmd.HOST_PAGE_ROW, Cmd.HOST_PAGE_PAGE, Cmd.HOST_PAGE_SET, Cmd.HOST_PAGE_SECTION) \
     + ((HOST_PAGE_CELL_ASSIGN,) if HOST_PAGE_CELL_ASSIGN is not None else ())
+# The host's snapshots (snapshots.py: zynthian's ZS3s): only once the core has the commands
+SNAPSHOT_LOAD = getattr(Cmd, "SNAPSHOT_LOAD", None)
+SNAPSHOT_STORE = getattr(Cmd, "SNAPSHOT_STORE", None)
+SNAPSHOT_REMOVE = getattr(Cmd, "SNAPSHOT_REMOVE", None)
+SNAPSHOT_COMMANDS = tuple(c for c in (SNAPSHOT_LOAD, SNAPSHOT_STORE, SNAPSHOT_REMOVE) if c is not None)
 BROWSER_COMMANDS = (Cmd.BROWSER_REPLACE_DEVICE, Cmd.BROWSER_STOP, Cmd.BROWSER_PREVIEW, Cmd.BROWSER_CONTENT_TYPE, Cmd.BROWSER_COLUMN_STEP,
                     Cmd.BROWSER_COLUMN_PAGE, Cmd.BROWSER_COLUMN_RESET, Cmd.BROWSER_RESULT_STEP, Cmd.BROWSER_RESULT_PAGE)
 
@@ -207,6 +216,8 @@ class ZynCommandHandler(CommandHandler):
         # The controller's view and the edit window of its step sequencer (HOST_BRIDGE_GUIDE
         # §4.13): agreed, not implemented yet
         Cmd.CONTROLLER_VIEW, Cmd.CLIP_EDIT_WINDOW,
+        # The host's snapshots: handled only with zynthian's state manager (snapshots.py)
+        *SNAPSHOT_COMMANDS,
     ))
     """The CmdIds zynthian does not execute with zynseq (no arranger, no automation, no undo, no
     markers, no note repeat, …). A snapshot: the coverage test of TYPED_PROTOCOL_PLAN §2.5
@@ -249,6 +260,11 @@ class ZynCommandHandler(CommandHandler):
                 r((view_cmd,), self._controller_view)
             if window_cmd is not None:
                 r((window_cmd,), self._clip_edit_window)
+        # The host's snapshots: zynthian's ZS3s (snapshots.py), with the state manager only (in
+        # UNHANDLED_COMMANDS)
+        snapshots = getattr(self.daw, "snapshots", None)
+        if SNAPSHOT_COMMANDS and snapshots is not None and snapshots.available:
+            r(SNAPSHOT_COMMANDS, self._snapshot)
         transport = self.daw.transport
         if transport is not None and transport.available:
             r((Cmd.TRANSPORT_PLAY, Cmd.TRANSPORT_STOP, Cmd.TRANSPORT_STOP_AND_REWIND, Cmd.TRANSPORT_RESTART, Cmd.TRANSPORT_METRONOME,
@@ -298,6 +314,22 @@ class ZynCommandHandler(CommandHandler):
         elif HOST_PAGE_CELL_ASSIGN is not None and id_ == HOST_PAGE_CELL_ASSIGN:
             pages.assign(view.cell, view.epoch, int(view.value))
         # HOST_PAGE_CELL_TOUCH: nothing (later: the page's widget on the screen)
+
+    def _snapshot(self, view, cmd):
+        """SnapshotLoad / Store / Remove {index} on zynthian's ZS3s (snapshots.py)"""
+        snapshots = self.daw.snapshots
+        id_ = view.h[0]
+        index = getattr(view, "index", -1)
+        try:
+            if id_ == SNAPSHOT_LOAD:
+                snapshots.load(index)
+            elif id_ == SNAPSHOT_STORE:
+                snapshots.store(index)
+            elif id_ == SNAPSHOT_REMOVE:
+                snapshots.remove(index)
+        except Exception as e:
+            logger.exception("snapshot command %s failed: %s", id_, e)
+        return True
 
     def configure(self):
         """No clip launcher navigator; one step grid per size of the model setup's ``noteClips``

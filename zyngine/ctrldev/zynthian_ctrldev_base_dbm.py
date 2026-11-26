@@ -185,6 +185,8 @@ class zynthian_ctrldev_base_dbm(zynthian_ctrldev_base):
         self.model.browse_add_chain = self.browse_add_chain
         # The controller's views show zynthian's screens (CUIAs)
         self.model.views.ui = ViewsUI(state_manager)
+        # The ZS3s as the host's snapshots (read from the state manager, changed by CUIAs)
+        self.model.snapshots.state_manager = state_manager
         # The "add chain" track opens zynthian's Add Chain view (model.py)
         self.model.send_cuia = state_manager.send_cuia
 

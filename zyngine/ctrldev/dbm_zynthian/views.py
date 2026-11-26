@@ -32,6 +32,7 @@ SONG, STEP, pad and mixer mode buttons):
 |---|---|
 | Launcher | the pads view (CUIA ``SCREEN_ZYNPAD``), unless the launcher is shown |
 | Sequencer, DrumSequencer | the pattern editor of the cursor slot (``SCREEN_PATTERN_EDITOR``: the active chain's sequence in the selected phrase, the core's cursor clip), unless it shows that pattern; nothing without a cursor slot |
+| Snapshots | the ZS3 screen (CUIA ``TOGGLE_SCREEN zs3``, not ``SCREEN_ZS3``: that turns on program change learning), unless it is shown |
 | the others (Play, Mixer, Device, Other, later kinds) | nothing |
 
 ``ClipEditWindow`` (start, length in beats, the lowest and highest MIDI note of the core's note
@@ -57,8 +58,10 @@ VIEW_DRUM_SEQUENCER = 3
 VIEW_MIXER = 4
 VIEW_DEVICE = 5
 VIEW_OTHER = 6
+VIEW_SNAPSHOTS = 7
 
 LAUNCHER_SCREENS = ("launcher", "zynpad")
+ZS3_SCREEN = "zs3"
 PATTERN_EDITOR_SCREENS = ("pattern_editor", "pated")
 WINDOW_CUIA = "PATTERN_EDITOR_WINDOW"
 
@@ -146,6 +149,11 @@ class ZynViews:
                 return True
             if screen not in PATTERN_EDITOR_SCREENS or self.ui.shown_pattern() != slot[2]:
                 self.ui.send("SCREEN_PATTERN_EDITOR")
+        elif kind == VIEW_SNAPSHOTS:
+            # Not SCREEN_ZS3: that turns on program change learning (a program change would
+            # then store a ZS3). TOGGLE_SCREEN only when it isn't shown: it shows it with history
+            if screen != ZS3_SCREEN:
+                self.ui.send("TOGGLE_SCREEN", [ZS3_SCREEN])
         return True
 
     def edit_window(self, start, length, low, high):

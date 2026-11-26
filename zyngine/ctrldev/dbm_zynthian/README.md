@@ -96,6 +96,26 @@ a change on the screen moves the controller's highlight (`dbm_zynthian/host_page
 [doc/HOST_PAGE_PLAN.md §12](https://github.com/hjanetzek/drivenbymoss-rust/blob/main/doc/HOST_PAGE_PLAN.md)). Without that module (a stock zynthian)
 the host-page commands are not declared and the controller has no host source.
 
+## Snapshots: the ZS3s on the pads
+
+The core's `snapshots` feature (area 0x0E / 0x8E; the Maschine JAM's snapshot view, Select +
+SONG) shows zynthian's ZS3s (`dbm_zynthian/snapshots.py`), **by program number**: pad i (0..63)
+is the ZS3 bound to program change i on any channel (`*/i`), the one program change i recalls.
+
+- Pad = load, SHIFT + pad = store (overwrites at once, as zynthian's "Update"; an empty pad
+  creates `*/i`), CLEAR + pad = delete (no confirmation). Through the CUIAs `ZS3_LOAD`,
+  `ZS3_SAVE`, `ZS3_DELETE` (zynthian's UI thread); ignored while zynthian is busy.
+- Reported: count 128 (the program slots), appendOnly false (every empty pad is a store
+  target), the active pad (the last ZS3 if it is a `*/P` one), exists and the title per pad; no
+  colours.
+- **Not on the grid:** ZS3s without a program number (`zs3-N`, "Save as new ZS3"), channel
+  bound ones (`C/P`, MIDI learn on a channel), programs 64..127, and the default state `zs3-0`
+  (it is not program 0: program 0 is `*/0`, pad 0).
+- Entering the view shows the ZS3 screen (`TOGGLE_SCREEN zs3` if it isn't shown; not
+  `SCREEN_ZS3`, which turns on program change learning).
+- Changes on zynthian's side arrive with `SS_ZS3_LIST` (zynthian-ui with it), `SS_SAVE_ZS3`,
+  `SS_LOAD_ZS3`, or the slow pass.
+
 ## Device IDs from the environment
 
 `ZYNTHIAN_DBM_DEVICE_<MODEL>` (the driver module's model, upper-cased, e.g.

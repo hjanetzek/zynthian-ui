@@ -811,6 +811,9 @@ class ZynthianState:
         self.busy = set()
         self.cuias = []
         """The CUIAs sent to the UI (send_cuia)."""
+        self.zs3 = {"zs3-0": {"title": "Default"}}
+        """The ZS3s (id -> state), as the state manager's ordered dict; the default state zs3-0."""
+        self.last_zs3_id = None
         self.next_chan = 0
         self.next_bus = 1
         self.add_chain(0, "Main", mixbus=True)

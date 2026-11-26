@@ -70,6 +70,7 @@ class zynthian_signal_manager:
     SS_SAVE_ZS3 = 5
     SS_ALL_NOTES_OFF = 6
     SS_BUSY = 7
+    SS_ZS3_LIST = 8  # The ZS3 list changed: added, updated, removed, renamed, moved, re-id'd, replaced
 
     # zyngui
     SS_GUI_SHOW_SCREEN = 0

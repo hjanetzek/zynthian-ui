@@ -2649,6 +2649,21 @@ class zynthian_gui:
             else:
                 self.state_manager.save_zs3(params[0])
 
+    def cuia_zs3_delete(self, params=None):
+        """Delete a subsnapshot (ZS3), without confirmation.
+
+        Category: zs3
+
+        AI Context:
+            This deletes the ZS3 at once. Only call it when the user explicitly asks to delete it.
+
+        Params:
+            zs3 (str) [REQUIRED]: ZS3 id. The default state (zs3-0) can't be deleted.
+        """
+
+        if params and isinstance(params[0], str) and params[0] != "zs3-0":
+            self.state_manager.delete_zs3(params[0])
+
     def cuia_zs3_load(self, params=None):
         """Load a subsnapshot (ZS3).
 

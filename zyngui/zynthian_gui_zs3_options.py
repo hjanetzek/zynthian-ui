@@ -297,15 +297,9 @@ class zynthian_gui_zs3_options(zynthian_gui_selector_info):
         """ Rename a ZS3 id
             params: [prog, chan, id]
         """
-        position = self.get_position()
-        # get current zs3 - with current id (which encodes chan/prog)
-        zs3 = self.zyngui.state_manager.zs3.pop(self.zs3_id)
-        # set current zs3 id - with new id (which encodes chan/prog)
+        # the new id encodes chan/prog; the ZS3 keeps its place in the order
+        self.zyngui.state_manager.change_zs3_id(self.zs3_id, params[2])
         self.zs3_id = params[2]
-        # re-insert the zs3 under the new id (which encodes chan/prog)
-        self.zyngui.state_manager.zs3[self.zs3_id] = zs3
-        # Move it in place again
-        self.zyngui.state_manager.move_zs3(self.zs3_id, position)
         self.prog = params[0]
         self.chan = params[1]
         self.zyngui.close_screen()

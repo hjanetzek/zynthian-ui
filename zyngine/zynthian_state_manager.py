@@ -1246,6 +1246,7 @@ class zynthian_state_manager:
                     self.zs3 = zs3
                 if self.last_zs3_id not in self.zs3:
                     self.last_zs3_id = None
+                self.send_zs3_list_signal()
                 self.load_zs3(zs3["zs3-0"], autoconnect=False)
                 try:
                     mute |= state['zs3']['zs3-0']['processors'][MAIN_MIXBUS_ID]['controllers']['mute']["value"]
@@ -1391,6 +1392,16 @@ class zynthian_state_manager:
 
     def set_zs3_title(self, zs3_id, title):
         self.zs3[zs3_id]["title"] = title
+        self.send_zs3_list_signal()
+
+    def send_zs3_list_signal(self):
+        """Tell listeners (controller drivers, remote UIs) that the ZS3 list changed
+
+        Sent after every change of the list or of an entry's title or note: save (new and
+        update), delete, rename, note, clone, move, id change, reset and a snapshot load.
+        """
+
+        zynsigman.send(zynsigman.S_STATE_MAN, zynsigman.SS_ZS3_LIST)
 
     def get_zs3_note(self, zs3_id=None):
         """Get ZS3 note
@@ -1417,6 +1428,7 @@ class zynthian_state_manager:
             self.zs3[zs3_id]["note"] = note
         else:
             self.zs3[zs3_id].pop("note", None)
+        self.send_zs3_list_signal()
 
     def toggle_zs3_restore_flag(self, zs3_id, type, id=None):
         zs3_state = self.zs3[zs3_id]
@@ -1779,6 +1791,7 @@ class zynthian_state_manager:
         if zs3_id != 'zs3-0':
             self.last_zs3_id = zs3_id
         zynsigman.send(zynsigman.S_STATE_MAN, zynsigman.SS_SAVE_ZS3, zs3_id=zs3_id)
+        self.send_zs3_list_signal()
 
     def delete_zs3(self, zs3_id):
         """Remove a ZS3
@@ -1792,6 +1805,8 @@ class zynthian_state_manager:
 
         except:
             logging.info("Tried to remove non-existant ZS3")
+            return
+        self.send_zs3_list_signal()
 
     def clone_zs3(self, zs3_id, title=None):
         """Copy a ZS3, placing the copy directly after it
@@ -1815,7 +1830,8 @@ class zynthian_state_manager:
         if not title:
             title = f"ZS3-{index}"
         self.zs3[new_zs3_id]["title"] = title
-        self.move_zs3(new_zs3_id, self.get_zs3_ids().index(zs3_id) + 1)
+        self._move_zs3(new_zs3_id, self.get_zs3_ids().index(zs3_id) + 1)
+        self.send_zs3_list_signal()
         return new_zs3_id
 
     def move_zs3(self, zs3_id, index):
@@ -1830,6 +1846,14 @@ class zynthian_state_manager:
         index : New position, zero-based, among the ZS3s that stepping walks
         Returns : True if the order changed
         """
+
+        if self._move_zs3(zs3_id, index):
+            self.send_zs3_list_signal()
+            return True
+        return False
+
+    def _move_zs3(self, zs3_id, index):
+        """move_zs3 without the list signal"""
 
         zs3_ids = self.get_zs3_ids()
         try:
@@ -1853,11 +1877,36 @@ class zynthian_state_manager:
         self.zs3 = zs3
         return True
 
+    def change_zs3_id(self, zs3_id, new_zs3_id):
+        """Give a ZS3 a new id, keeping its place in the stepping order
+
+        The id encodes the program change binding ("*/P", "C/P", "zs3-N"), so binding a ZS3 to
+        another program is changing its id. A ZS3 that already has the new id is overwritten.
+
+        zs3_id : ZS3 ID to change
+        new_zs3_id : The new ID
+        Returns : True if the id changed
+        """
+
+        if zs3_id == new_zs3_id or zs3_id == "zs3-0" or new_zs3_id == "zs3-0" or zs3_id not in self.zs3:
+            return False
+        zs3_ids = self.get_zs3_ids()
+        position = zs3_ids.index(zs3_id) if zs3_id in zs3_ids else -1
+        zs3 = self.zs3.pop(zs3_id)
+        self.zs3[new_zs3_id] = zs3
+        if position >= 0:
+            self._move_zs3(new_zs3_id, position)
+        if self.last_zs3_id == zs3_id:
+            self.last_zs3_id = new_zs3_id
+        self.send_zs3_list_signal()
+        return True
+
     def reset_zs3(self):
         """Remove all ZS3"""
 
         # ZS3 list (subsnapshots)
         self.zs3 = {}
+        self.send_zs3_list_signal()
 
     def sanitize_zs3_from_json(self, zs3_state):
         """Fix chain & processor ID keys in ZS3 data decoded from JSON"""

@@ -106,6 +106,7 @@ class zynthian_gui_zs3(zynthian_gui_selector_info):
         if super().build_view():
             zynsigman.register_queued(zynsigman.S_STATE_MAN, zynsigman.SS_LOAD_ZS3, self.cb_load_zs3)
             zynsigman.register_queued(zynsigman.S_STATE_MAN, zynsigman.SS_SAVE_ZS3, self.cb_save_zs3)
+            zynsigman.register_queued(zynsigman.S_STATE_MAN, zynsigman.SS_ZS3_LIST, self.cb_zs3_list)
             self.perf_zs3_id = self.zyngui.state_manager.last_zs3_id
             self.show_performance(self.alt_mode)
             return True
@@ -118,6 +119,7 @@ class zynthian_gui_zs3(zynthian_gui_selector_info):
             self.disable_midi_learn()
             zynsigman.unregister(zynsigman.S_STATE_MAN, zynsigman.SS_LOAD_ZS3, self.cb_load_zs3)
             zynsigman.unregister(zynsigman.S_STATE_MAN, zynsigman.SS_SAVE_ZS3, self.cb_save_zs3)
+            zynsigman.unregister(zynsigman.S_STATE_MAN, zynsigman.SS_ZS3_LIST, self.cb_zs3_list)
             super().hide()
 
     def fill_list(self):
@@ -214,6 +216,12 @@ class zynthian_gui_zs3(zynthian_gui_selector_info):
             self.disable_midi_learn()
             if zs3_id != "zs3-0":
                 self.cb_load_zs3(zs3_id)
+
+    def cb_zs3_list(self):
+        """The ZS3 list changed elsewhere (a controller, another UI): refresh it"""
+
+        if self.shown:
+            self.update_list()
 
     def select_action(self, i, t='S'):
         if self.moving_zs3:

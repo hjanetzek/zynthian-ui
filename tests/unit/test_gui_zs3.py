@@ -28,6 +28,7 @@ def screen(monkeypatch):
     yield s
     zynsigman.unregister(zynsigman.S_STATE_MAN, zynsigman.SS_LOAD_ZS3, s.cb_load_zs3)
     zynsigman.unregister(zynsigman.S_STATE_MAN, zynsigman.SS_SAVE_ZS3, s.cb_save_zs3)
+    zynsigman.unregister(zynsigman.S_STATE_MAN, zynsigman.SS_ZS3_LIST, s.cb_zs3_list)
 
 
 def test_the_cursor_starts_on_the_last_loaded_zs3(screen):

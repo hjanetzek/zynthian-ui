@@ -14,6 +14,7 @@ class ZS3(SelectorScreen):
         super().__init__(ui, parent)
         self.moving_zs3 = None      # the ZS3 being moved (zs3 options: Move)
         ui.bridge.zs3Saved.connect(self._saved)
+        ui.bridge.zs3ListChanged.connect(self._list_changed)
 
     # Program change learning (zynthian_gui_zs3): the state manager saves the ZS3
 
@@ -57,6 +58,11 @@ class ZS3(SelectorScreen):
     def _saved(self):
         if self.ui.current_screen == self.name:
             self.state_manager.disable_learn_pc()
+            self.fill()
+
+    def _list_changed(self):
+        """The ZS3 list changed elsewhere (a controller, another UI): refresh it"""
+        if self.ui.current_screen == self.name:
             self.fill()
 
     def build(self):
@@ -305,12 +311,7 @@ class ZS3(SelectorScreen):
             return
 
         def do():
-            ids = sm.get_zs3_ids()
-            position = ids.index(zs3_id) if zs3_id in ids else -1
-            zs3 = sm.zs3.pop(zs3_id)
-            sm.zs3[new_id] = zs3
-            if position >= 0:
-                sm.move_zs3(new_id, position)
+            sm.change_zs3_id(zs3_id, new_id)
             self.fill()
         if new_id in sm.zs3:
             self.ui.confirm(f"Overwrite existing ZS3: {sm.zs3[new_id]['title']}?", do)

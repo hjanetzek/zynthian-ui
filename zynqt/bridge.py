@@ -32,6 +32,8 @@ class SignalBridge(QObject):
     midiNoteOn = Signal(int, int, int, int)
     midiProgramChange = Signal(int, int, int)
     zs3Saved = Signal()
+    # The ZS3 list changed (SS_ZS3_LIST: added, updated, removed, renamed, moved, ...)
+    zs3ListChanged = Signal()
     # A message for the user (SS_GUI_SHOW_MESSAGE: drivers, engines)
     showMessage = Signal(str)
     # A path controller asks for a file (SS_GUI_SHOW_FILE_SELECTOR, zynthian_controller.nudge):
@@ -63,6 +65,7 @@ class SignalBridge(QObject):
         self._register(zynsigman.S_MIDI, zynsigman.SS_MIDI_NOTE_ON, self._cb_midi_note_on)
         self._register(zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self._cb_midi_pc)
         self._register(zynsigman.S_STATE_MAN, zynsigman.SS_SAVE_ZS3, self._cb_zs3_saved)
+        self._register(zynsigman.S_STATE_MAN, zynsigman.SS_ZS3_LIST, self._cb_zs3_list)
         self._register(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_MESSAGE, self._cb_show_message)
         # Queued as in zynthian_gui.register_signals (their senders queue them anyway)
         self._register(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_FILE_SELECTOR, self._cb_show_file_selector,
@@ -103,6 +106,9 @@ class SignalBridge(QObject):
 
     def _cb_zs3_saved(self, **kwargs):
         self.zs3Saved.emit()
+
+    def _cb_zs3_list(self, **kwargs):
+        self.zs3ListChanged.emit()
 
     def _cb_show_message(self, message="", **kwargs):
         self.showMessage.emit(str(message))

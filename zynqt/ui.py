@@ -1774,6 +1774,10 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         if self._learn_screen() is self.chain_control_screen and params:
             self.chain_control_screen.controllers[int(params[0])].touched()
 
+    def cuia_zs3_delete(self, params=None):
+        if params and isinstance(params[0], str) and params[0] != "zs3-0":
+            self.state_manager.delete_zs3(params[0])
+
     def cuia_zs3_load(self, params=None):
         if params:
             if isinstance(params[0], int):

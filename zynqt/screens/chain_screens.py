@@ -323,6 +323,11 @@ class Bank(SelectorScreen):
         self.ui.current_processor.engine.delete_user_bank(bank)
         self.fill()
 
+    def enters(self, index):
+        """A bank (or the favourites, a sub-folder) opens the presets; not the empty list's hint"""
+        e = self._entry_at(index)
+        return bool(e and e["data"] is not None)
+
     def switch(self, i, t):
         """Switch 2 short: the favourite presets (zynthian_gui_bank.switch)"""
         if i == 2 and t == "S":
@@ -773,6 +778,13 @@ class Preset(SelectorScreen):
             self._save_create_bank = None
             sm.end_busy("Save Preset")
         self.fill()
+
+    def enters(self, index):
+        """Only a preset sub-folder (the audio player's folders) is a level: a preset is loaded
+        (ARROW_RIGHT does nothing there)"""
+        e = self._entry_at(index)
+        row = e["data"] if e and not self.flat else None
+        return bool(row) and isinstance(row[0], str) and os.path.isdir(row[0])
 
     def switch(self, i, t):
         """Switch 1 short (BACK on the kits, the keyboard's Escape): the banks (more than one);

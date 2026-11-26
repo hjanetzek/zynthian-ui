@@ -92,7 +92,7 @@ class ControllerSettings(SelectorScreen):
                 info = f"{len(shown)} settings in {len(data.categories(settings))} categories."
             else:
                 info = "The controller isn't running (not connected, or asleep)."
-            entries.append(entry(data.driver_title(d), action=self._open_driver, info=info,
+            entries.append(entry(data.driver_title(d), action=self._open_driver, info=info, level=True,
                                  enabled=bool(shown), data=d))
         if not entries:
             entries.append(entry("No controller with settings", enabled=False,
@@ -104,7 +104,7 @@ class ControllerSettings(SelectorScreen):
         entries = []
         for c in categories:
             labels = [data.label(s) for s in data.category_settings(settings, c)]
-            entries.append(entry(c or "Settings", action=self._open_category, data=c,
+            entries.append(entry(c or "Settings", action=self._open_category, data=c, level=True,
                                  info="\n".join(labels)))
         self.set_entries(entries, self._keep_index(entries, select))
 

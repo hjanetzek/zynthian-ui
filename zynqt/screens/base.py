@@ -30,11 +30,13 @@ def icon_url(icon):
     return QUrl.fromLocalFile(path).toString() if os.path.isfile(path) else ""
 
 
-def entry(title, action=None, info="", icon="", separator=False, enabled=True, data=None, header=False):
+def entry(title, action=None, info="", icon="", separator=False, enabled=True, data=None, header=False,
+          level=False):
     """header: a selectable row drawn as a section title (chain control: a processor without
-    controller pages)"""
+    controller pages); level: the entry opens a level (a submenu, another list) and changes
+    nothing, so ARROW_RIGHT may enter it (SelectorScreen.enters)"""
     return {"title": title, "action": action, "info": info, "icon": icon, "separator": separator,
-            "enabled": enabled, "data": data, "header": header}
+            "enabled": enabled, "data": data, "header": header, "level": level}
 
 
 def separator(title):
@@ -402,12 +404,13 @@ class SelectorScreen(QObject):
     def navigate(self, what):
         """Keys and encoders: up/down/left/right/select/select_bold.
 
-        Left / right in a list (Qt only; Tk's lists ignore them): left goes one level back as
-        switch 1 short (the screen's switch(1, "S") first: the preset list -> the bank list, else
-        ui.back()), right enters the selected entry as SELECT short, in every list (leaf lists
-        too: the preset list loads the preset). For the touch keypads without switch 1 (the V5
-        layout: BACK leaves the list), docs/qt-navigation.md. Grids move, category lists (the
-        engine list) switch the category."""
+        Left / right in a list (a Qt experiment, navigation only; Tk's lists ignore them): left
+        goes one level back as switch 1 short, Tk's BACK on the kits (the screen's
+        switch(1, "S") first: the preset list -> the bank list, else ui.back()); right enters the
+        selected entry as SELECT short only when it opens a level (enters()), else nothing: it
+        never loads, toggles or runs anything. For the touch keypads without switch 1,
+        docs/qt-navigation.md. Grids move, category lists (the engine list) switch the
+        category."""
         step = self.columns if self.kind == "grid" else 1
         if what == "up":
             self.move(-step)
@@ -425,12 +428,27 @@ class SelectorScreen(QObject):
                 self.move(1)
             elif self._categories:
                 self.setCategory(self._category_index + 1)
-            else:
+            elif self.enters(self._index):
                 self.activate(self._index, "S")
         elif what == "select":
             self.activate(self._index, "S")
         elif what == "select_bold":
             self.activate(self._index, "B")
+
+    def enters(self, index):
+        """Entry index opens a level (a submenu, another list, a folder) and changes nothing:
+        ARROW_RIGHT enters it. Default: the entry's level flag; screens whose rows are data
+        (banks, folders) override it"""
+        e = self._entry_at(index)
+        return bool(e and e.get("level"))
+
+    def _entry_at(self, index):
+        """The selectable, enabled entry index, else None"""
+        entries = self.model.entries
+        if not 0 <= index < len(entries):
+            return None
+        e = entries[index]
+        return None if e["separator"] or not e["enabled"] else e
 
     def back(self):
         """BACK pressed: True if handled by the screen (e.g. leaving a sub-folder)"""

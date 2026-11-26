@@ -159,6 +159,11 @@ class FileSelector(SelectorScreen):
 
     # Actions
 
+    def enters(self, index):
+        """A directory (a file is chosen: its callback runs)"""
+        e = self._entry_at(index)
+        return bool(e and e["data"]) and os.path.isdir(e["data"])
+
     def select_action(self, index, t):
         if t != "S":
             return

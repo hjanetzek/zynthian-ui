@@ -32,7 +32,7 @@ class ProcessorOptions(SelectorScreen):
         self.set_title(f"{p.get_basepath()} > Processor Options")   # zynthian_gui_processor_options
         e = [separator("> Manage this processor")]
         if len(p.get_bank_list()) > 1 or p.preset_list or has_bank_dirs(p):
-            e.append(entry("Presets", lambda x: self.ui.cuia_bank_preset(), icon="preset.png",
+            e.append(entry("Presets", lambda x: self.ui.cuia_bank_preset(), icon="preset.png", level=True,
                            info="Select a bank and preset for this processor."))
         if p.type == "Audio Effect" and p.eng_code not in ("MI", "MR"):
             e.append(entry(("☒ " if p.is_bypassed() else "☐ ") + "Bypass",
@@ -77,11 +77,11 @@ class ProcessorOptions(SelectorScreen):
         add = []
         pos = "series" if p.type in ("MIDI Synth", "MIDI Tool") or p.eng_code in ("MI", "MX") else "parallel"
         if p.type in ("MIDI Synth", "MIDI Tool"):
-            add.append(entry("Insert MIDI Processor", lambda x: self.add_processor("MIDI Tool"),
+            add.append(entry("Insert MIDI Processor", lambda x: self.add_processor("MIDI Tool"), level=True,
                              icon="midi_processor.png",
                              info=f"Insert a new MIDI processor in the chain in {pos} with this processor."))
         if p.type in ("MIDI Synth", "Audio Effect", "Audio Generator"):
-            add.append(entry("Insert Audio Processor", lambda x: self.add_processor("Audio Effect"),
+            add.append(entry("Insert Audio Processor", lambda x: self.add_processor("Audio Effect"), level=True,
                              icon="audio_processor.png",
                              info=f"Insert a new audio processor in the chain in {pos} with this processor."))
         if add:

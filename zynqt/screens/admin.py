@@ -89,7 +89,7 @@ class Admin(SelectorScreen):
                                            lambda v: s.set_chanpress_cc(v, self.state_manager)),
                        icon="midi_settings.png", info="Map channel pressure messages (monoAT) to the selected CC."))
         e.append(entry("Controller Settings", lambda x: self.ui.show_screen("controller_settings"),
-                       icon="midi_settings.png",
+                       icon="midi_settings.png", level=True,
                        info="The settings of the connected controllers which have their own (the DrivenByMoss "
                             "controllers): scales, note repeat, workflow, pads, displays, ..."))
         e.append(entry("Test MIDI", lambda x: self.test_midi(), icon="midi_output.png",
@@ -106,7 +106,7 @@ class Admin(SelectorScreen):
                                            s.set_pfl_output),
                        icon="headphones.png", info="Select the audio output device for pre-fader listening."))
         e.append(todo("ZynVoice", "audio_options.png"))
-        e.append(entry("Hotplug USB Audio", lambda x: self.hotplug_menu(), icon="audio_options.png",
+        e.append(entry("Hotplug USB Audio", lambda x: self.hotplug_menu(), icon="audio_options.png", level=True,
                        info="Use USB audio devices plugged in at runtime (alsa_in/alsa_out). Not needed with "
                             "PipeWire, which adds them itself."))
         e.append(entry(_check(cfg.snapshot_mixer_settings) + "Audio Levels on Snapshots",

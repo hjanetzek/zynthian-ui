@@ -66,6 +66,12 @@ class Snapshots(SelectorScreen):
         # Tk's snapshot screen has no default info (only its action rows have texts)
         self.set_entries(list_data_entries(rows), index)
 
+    def enters(self, index):
+        """A snapshot bank (not "..", which goes up, nor a snapshot: its options load it)"""
+        e = self._entry_at(index)
+        row = e["data"] if e else None
+        return bool(row) and isdir(row[0]) and row[0] != self.state_manager.snapshot_dir
+
     def show_menu(self):
         """MENU: the selected entry's options (Tk's show_menu: bold select)"""
         self.activate(self._index, "B")

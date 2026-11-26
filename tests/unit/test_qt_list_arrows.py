@@ -1,9 +1,11 @@
-"""ARROW_LEFT / ARROW_RIGHT in the Qt UI's lists (a deliberate deviation from Tk, whose lists ignore
-them): left goes one level back as switch 1 short (the screen's switch first: the preset list ->
-the bank list), right enters the selected entry as SELECT short. For the V5 touch keypad (the
-Lenovo Duet), which has no switch 1: its BACK key (the BACK CUIA) leaves the preset list as in Tk,
-so the bank list was out of reach. Grids move, category lists (the engine list) switch the
-category, as before. docs/qt-navigation.md."""
+"""ARROW_LEFT / ARROW_RIGHT in the Qt UI's lists (an experiment, navigation only; Tk's lists ignore
+them): left goes one level back as switch 1 short, Tk's BACK on the kits (the screen's switch
+first: the preset list -> the bank list); right enters the selected entry as SELECT short only
+when it opens a level (a submenu, the presets of a bank, a folder: SelectorScreen.enters), else
+nothing: it never loads a preset, runs an option or toggles a setting. For the V5 touch keypad
+(the Lenovo Duet), which has no switch 1: its BACK key (the BACK CUIA) leaves the preset list as
+in Tk. Grids move, category lists (the engine list) switch the category, as before.
+docs/qt-navigation.md."""
 
 from types import SimpleNamespace
 
@@ -91,7 +93,7 @@ def test_right_in_the_banks_shows_the_presets(app):
 
 
 @pytest.mark.parametrize("flat", [False, True])
-def test_right_in_the_presets_selects_as_select(app, flat):
+def test_right_in_the_presets_does_nothing(app, flat):
     ui = nav_ui(banks=3, flat=flat)
     preset = ui.list_screens["preset"]
     chosen = []
@@ -105,7 +107,27 @@ def test_right_in_the_presets_selects_as_select(app, flat):
     ui.show_screen("chain_control")
     ui.show_screen("preset")
     ui._navigate("right")
+    assert chosen == [] and ui.current_screen == "preset"
+    ui._navigate("select")
     assert chosen == [(2, "S")]
+
+
+def test_right_enters_a_preset_folder(app, tmp_path):
+    ui = nav_ui(banks=3)
+    preset = ui.list_screens["preset"]
+    chosen = []
+    preset.select_action = lambda index, t: chosen.append(index)
+    preset.selection_changed = lambda: None
+    folder = tmp_path / "Loops"
+    folder.mkdir()
+    preset.set_entries([entry("Loops", data=[str(folder), 0, "Loops"]),
+                        entry("a.wav", data=[str(tmp_path / "a.wav"), 1, "a.wav"])], 0)
+    ui.show_screen("chain_control")
+    ui.show_screen("preset")
+    ui._navigate("right")
+    preset.set_index(1)
+    ui._navigate("right")
+    assert chosen == [0]
 
 
 class Plain(SelectorScreen):
@@ -115,7 +137,7 @@ class Plain(SelectorScreen):
         super().__init__(ui)
         self.kind = kind
         self.chosen = []
-        self.set_entries([entry(t, action=self.chosen.append) for t in "abcd"], 1)
+        self.set_entries([entry(t, action=self.chosen.append, level=t in "bd") for t in "abcd"], 1)
 
     def fill(self):
         pass
@@ -129,9 +151,12 @@ def plain_ui(kind="list"):
     return ui, screen
 
 
-def test_left_in_a_plain_list_goes_back_right_selects(app):
+def test_left_in_a_plain_list_goes_back_right_enters_only_levels(app):
     ui, screen = plain_ui()
-    ui._navigate("right")
+    ui._navigate("right")                        # b: a level
+    assert [e["title"] for e in screen.chosen] == ["b"]
+    screen.set_index(2)
+    ui._navigate("right")                        # c: an action
     assert [e["title"] for e in screen.chosen] == ["b"]
     ui._navigate("left")
     assert ui.current_screen == "chain_control"
@@ -176,3 +201,44 @@ def test_the_value_editor_takes_the_arrows(app):
     ui._navigate("left")
     ui._navigate("right")
     assert steps == [-1, 1] and ui.current_screen == "plain" and screen.chosen == []
+
+
+def test_the_options_list_right_does_nothing(app):
+    from zynqt.screens.snapshots import Options
+    ui = nav_ui()
+    ran = []
+    options = ui.list_screens["option"] = Options(ui)
+    options.fill = lambda: None
+    options.set_entries([entry("Load", action=lambda e: ran.append("load"))], 0)
+    ui.show_screen("chain_control")
+    ui.show_screen("option")
+    ui._navigate("right")
+    assert ran == [] and ui.current_screen == "option"
+    ui._navigate("left")
+    assert ui.current_screen == "chain_control"
+
+
+def test_snapshots_enter_banks_only(app, tmp_path):
+    from zynqt.screens.snapshots import Snapshots
+    (tmp_path / "000").mkdir()
+    snap = tmp_path / "000" / "a.zss"
+    snap.write_text("{}")
+    s = Snapshots.__new__(Snapshots)
+    SelectorScreen.__init__(s, SimpleNamespace(state_manager=SimpleNamespace(snapshot_dir=str(tmp_path)),
+                                               chain_manager=None))
+    rows = [[str(tmp_path), 0, ".."], [str(tmp_path / "000"), 1, "000"], [str(snap), 2, "a"],
+            ["NEW_BANK", 3, "New Bank"]]
+    s.set_entries([entry(r[2], data=r) for r in rows], 0)
+    assert [s.enters(i) for i in range(4)] == [False, True, False, False]
+
+
+def test_file_selector_enters_directories_only(app, tmp_path):
+    from zynqt.screens.file_selector import FileSelector
+    (tmp_path / "dir").mkdir()
+    (tmp_path / "f.mid").write_text("")
+    s = FileSelector.__new__(FileSelector)
+    SelectorScreen.__init__(s, SimpleNamespace(state_manager=None, chain_manager=None))
+    s.selection_changed = lambda: None   # the preview
+    s.set_entries([entry("dir", data=str(tmp_path / "dir")), entry("f", data=str(tmp_path / "f.mid")),
+                   entry("none", data=None)], 0)
+    assert [s.enters(i) for i in range(3)] == [True, False, False]

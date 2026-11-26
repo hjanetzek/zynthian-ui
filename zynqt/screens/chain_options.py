@@ -21,11 +21,11 @@ class ChainOptions(SelectorScreen):
         audio_procs = max(0, chain.get_processor_count("Audio Effect") - 1)
         processors = []
         if chain.is_midi():
-            processors.append(entry("Add MIDI-FX processor", lambda e: self.add_processor("MIDI Tool"),
+            processors.append(entry("Add MIDI-FX processor", lambda e: self.add_processor("MIDI Tool"), level=True,
                                     info="Add a MIDI effects processor to the end of this chain.",
                                     icon="midi_processor.png"))
         if chain.is_audio():
-            processors.append(entry("Add Audio-FX processor", lambda e: self.add_processor("Audio Effect"),
+            processors.append(entry("Add Audio-FX processor", lambda e: self.add_processor("Audio Effect"), level=True,
                                     info="Add an audio effects processor to the end of this chain.",
                                     icon="audio_processor.png"))
         if midi_procs:
@@ -46,7 +46,7 @@ class ChainOptions(SelectorScreen):
             entries.append(entry("Move chain", lambda e: self.ui.start_move_chain(), icon="move_left_right.png",
                                  info="Reposition the chain in the mixer: arrows or ◀ ▶, SELECT or Done to finish."))
         if chain.zctrl_pages.pages:
-            entries.append(entry("Chain controller pages...", lambda e: self.chain_controller_pages(chain),
+            entries.append(entry("Chain controller pages...", lambda e: self.chain_controller_pages(chain), level=True,
                                  info="Rename, move, clear or delete the pages of the chain controllers.",
                                  icon="rename.png"))
         entries.append(entry("Rename chain", lambda e: self.rename(),

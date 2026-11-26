@@ -169,6 +169,10 @@ class zynthian_gui:
     SCREEN_HMODE_REPLACE = 2
     SCREEN_HMODE_RESET = 3
 
+    # Screens which every caller configures anew (the options list): shown again, an older entry is
+    # another list, so it is dropped from the history instead of ending the history there
+    SHARED_SCREENS = ("option",)
+
     def __init__(self):
         self.capture_dir_sdc = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/capture"
         self.ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
@@ -804,7 +808,10 @@ class zynthian_gui:
 
         if hmode == zynthian_gui.SCREEN_HMODE_ADD:
             if len(self.screen_history) == 0 or self.screen_history[-1] != screen:
-                self.prune_screen_history(screen)
+                if screen in self.SHARED_SCREENS:
+                    self.purge_screen_history(screen)
+                else:
+                    self.prune_screen_history(screen)
                 self.screen_history.append(screen)
         elif hmode == zynthian_gui.SCREEN_HMODE_REPLACE:
             self.screen_history.pop()

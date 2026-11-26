@@ -190,6 +190,7 @@ has one (Tk's first). Regenerate with the script in the comment at the end.
 | `WORKFLOW_CAPTURE_STOP` | ✓ | ✓ | Stops capturing workflow. |
 | `WORKFLOW_CAPTURE_TEXT` | ✓ | ✓ | Includes a text note into the on-going workflow capture. |
 | `Z2_ZYNPOT_TOUCH` | ✓ | ✓ | Touch an encoder (Z2 hardware). While MIDI learning, it selects the controller to learn. |
+| `ZS3_DELETE` | ✓ | ✓ | Delete a subsnapshot (ZS3), without confirmation. |
 | `ZS3_LOAD` | ✓ | ✓ | Load a subsnapshot (ZS3). |
 | `ZS3_NEXT` | ✓ | ✓ | Load the next subsnapshot (ZS3), or the first one if none is loaded. |
 | `ZS3_PREV` | ✓ | ✓ | Load the previous subsnapshot (ZS3). |

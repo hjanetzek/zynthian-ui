@@ -778,13 +778,15 @@ class Preset(SelectorScreen):
         self.fill()
 
     def switch(self, i, t):
-        """Switch 1 short: the banks (more than one); 2 short: favourites on / off
-        (zynthian_gui_preset.switch)"""
+        """Switch 1 short (BACK on the kits, the keyboard's Escape): the banks (more than one);
+        2 short: favourites on / off (zynthian_gui_preset.switch). The BACK CUIA (the V5's BACK
+        key) goes back, as in Tk."""
         proc = self.ui.current_processor
         if proc is None:
             return False
-        # The flat list has no bank level: BACK leaves it, as any list (the defaults)
-        if i == 1 and t == "S" and not self.flat and len(proc.get_bank_list()) > 1:
+        # Also from the flat list: it is the only way to the bank list without a BANK_PRESET
+        # key (a V4 kit), as BANK_PRESET and chain control open the flat list directly
+        if i == 1 and t == "S" and len(proc.get_bank_list()) > 1:
             self.ui.replace_screen("bank")
             return True
         if i == 2 and t == "S":

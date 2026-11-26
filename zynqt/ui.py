@@ -1990,7 +1990,9 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         sm = self.state_manager
         if self.current_screen == "alsa_mixer":
             return
-        if self.current_processor is not sm.audio_player or self.current_screen != "audio_player":
+        # The audio player's own screen and its file lists keep it (Tk: is_shown_audio_player)
+        if self.current_processor is not sm.audio_player or self.current_screen not in ("audio_player", "bank",
+                                                                                         "preset"):
             chain = self.chain_manager.get_active_chain()
             if chain is not None and chain.current_processor is not None:
                 self.current_processor = chain.current_processor
@@ -2001,10 +2003,12 @@ class ZynUI(QObject, zynthian_websocket_feedback):
             # Clippy: the selected clip's file
             proc.engine.request_file()
         elif self.current_screen == "bank":
-            self.back()
+            # Up a sub-folder first (zynthian_gui_bank.browse_back), else back
+            if not self.list_screens["bank"].up_level():
+                self.back()
         elif self.current_screen == "preset":
             # Up a sub-folder first (zynthian_gui_preset.browse_back)
-            if self.list_screens["preset"].back():
+            if self.list_screens["preset"].up_level():
                 pass
             elif len(proc.get_bank_list()) > 1:
                 self.replace_screen("bank")

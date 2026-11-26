@@ -405,12 +405,12 @@ class SelectorScreen(QObject):
         """Keys and encoders: up/down/left/right/select/select_bold.
 
         Left / right in a list (a Qt experiment, navigation only; Tk's lists ignore them): left
-        goes one level back as switch 1 short, Tk's BACK on the kits (the screen's
-        switch(1, "S") first: the preset list -> the bank list, else ui.back()); right enters the
-        selected entry as SELECT short only when it opens a level (enters()), else nothing: it
-        never loads, toggles or runs anything. For the touch keypads without switch 1,
-        docs/qt-navigation.md. Grids move, category lists (the engine list) switch the
-        category."""
+        goes one level back: up_level() (a bank / preset sub-folder), else as switch 1 short, Tk's
+        BACK on the kits (the screen's switch(1, "S") first: the preset list -> the bank list,
+        else ui.back()); right enters the selected entry as SELECT short only when it opens a
+        level (enters()), else nothing: it never loads, toggles or runs anything. For the touch
+        keypads without switch 1, docs/qt-navigation.md. Grids move, category lists (the engine
+        list) switch the category."""
         step = self.columns if self.kind == "grid" else 1
         if what == "up":
             self.move(-step)
@@ -421,7 +421,7 @@ class SelectorScreen(QObject):
                 self.move(-1)
             elif self._categories:
                 self.setCategory(self._category_index - 1)
-            else:
+            elif not self.up_level():
                 self.ui.zynswitch(1, "S")
         elif what == "right":
             if self.kind == "grid":
@@ -434,6 +434,11 @@ class SelectorScreen(QObject):
             self.activate(self._index, "S")
         elif what == "select_bold":
             self.activate(self._index, "B")
+
+    def up_level(self):
+        """ARROW_LEFT: up one level inside the screen where BACK leaves it (the bank / preset
+        sub-folders, as BANK_PRESET's browse_back); True if done"""
+        return False
 
     def enters(self, index):
         """Entry index opens a level (a submenu, another list, a folder) and changes nothing:

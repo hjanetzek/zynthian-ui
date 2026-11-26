@@ -81,8 +81,8 @@ The screen's own step comes first; when it returns False the screen closes (hist
 | chain control | the sub-screen's first (control: MIDI learn off), then hides the chain blocks (select mode) | `ChainControl.back`: MIDI / note learn off, then select mode off |
 | chain manager | ends processor / chain moving | move modes are overlays |
 | engine list | "show all" off (saves the engine info) | the same |
-| bank | (none: the history) | `Bank.back`: up one sub-folder (`bank_subdir_info`; **a Qt deviation**: Tk's BACK leaves the list, only BANK_PRESET goes up a folder) |
-| preset | (none: the history, chain control or the bank list); **switch 1 short: `replace_screen("bank")` with more than one bank**; switch 2 short: favourites | `Preset.switch`: the same, also from the flat list (since 2026-11-26: it left the list, and the bank list was then out of reach on a V4 kit); `Preset.back`: up one sub-folder (a Qt deviation, as `Bank.back`) |
+| bank | (none: the history) | the same: BACK leaves the list, also from a sub-folder (`Bank.up_level`, Tk's `browse_back`, is BANK_PRESET's and ARROW_LEFT's step) |
+| preset | (none: the history, chain control or the bank list); **switch 1 short: `replace_screen("bank")` with more than one bank**; switch 2 short: favourites | `Preset.switch`: the same, also from the flat list (since 2026-11-26: it left the list, and the bank list was then out of reach on a V4 kit); BACK leaves the list, also from a sub-folder; switch 1 shows the banks from a sub-folder too (as Tk); `Preset.up_level` (`browse_back`) is BANK_PRESET's and ARROW_LEFT's step |
 | ZS3 | PC learning off, ends ZS3 moving | the same |
 | pattern editor (pated) | clears the selected notes, leaves block / multi edit mode, else the history | `PatternEditor.back`: the same |
 | key range | MIDI learn off (then the history); SELECT goes back too | (QML screen, not checked) |
@@ -96,8 +96,12 @@ The screen's own step comes first; when it returns False the screen closes (hist
 list up a sub-folder, else the bank list (more than one bank, REPLACE) or back; elsewhere the
 presets if there is a preset list, else the banks, else the empty preset list's options.
 Qt: `cuia_bank_preset`, the same (the flat list counts as a preset list). The sub-folder steps
-(`Bank.back`, `Preset.back`) go up one folder, as Tk's `browse_back` (the parent's info, the
-folder left selected); before 2026-11-26 they left every sub-folder at once.
+(`Bank.up_level`, `Preset.up_level`) go up one folder, as Tk's `browse_back` (the parent's info,
+the folder left selected). Only BANK_PRESET (and ARROW_LEFT, below) takes them: BACK and switch 1
+behave as in a list without folders, as Tk's (until 2026-11-26 Qt's BACK went up the folders
+first, and left every folder at once). In the audio player's file lists BANK_PRESET keeps the
+audio player (Tk's `is_shown_audio_player`: the current processor; Qt switched to the active
+chain's processor there until 2026-11-26).
 
 ## Arrows left / right in lists (a Qt experiment, navigation only)
 
@@ -111,11 +115,13 @@ lists, the menus and the options list.
 
 **Qt** (`SelectorScreen.navigate`), in a list (`kind` "list", no categories):
 
-- **ARROW_LEFT** goes one level back, as switch 1 short (Tk's BACK on the kits): the screen's
-  `switch(1, "S")` first (the preset list, flat or not → the bank list with more than one bank),
-  else `ui.back()` (the screen's `back()`: up one bank / preset sub-folder, the controller
-  settings' levels, up a file selector directory; then the history: the bank list → where it
-  came from, e.g. chain control; the options list → its opener, as it is never recorded).
+- **ARROW_LEFT** goes one level back: in a bank / preset sub-folder up one folder (the screen's
+  `up_level()`, BANK_PRESET's `browse_back` step), else as switch 1 short (Tk's BACK on the kits):
+  the screen's `switch(1, "S")` first (the preset list, flat or not → the bank list with more
+  than one bank), else `ui.back()` (the screen's `back()`: the controller settings' levels, up a
+  file selector directory; then the history: the bank list → where it came from, e.g. chain
+  control; the options list → its opener, as it is never recorded). So in a preset folder:
+  ◀ up the folders, then the bank list, then back.
 - **ARROW_RIGHT** enters the selected entry, as SELECT short, **only when it opens a level** (a
   submenu, another list, a folder) and changes nothing (`SelectorScreen.enters(index)`: the
   entry's `level` flag, `entry(..., level=True)`; the data-row screens override it). Anywhere
@@ -155,8 +161,9 @@ Unchanged (as before, and as Tk where it has the screen):
 
 The `SelectorScreen` subclasses: none overrides `navigate` except `Preset` (the group jumps, now
 removed); `Engine` has categories; `MainMenu` and `AddChain` are grids. `Bank`, `Preset` and
-`ZS3` have a `switch` (only `Preset` takes switch 1); `Bank`, `Preset`, `FileSelector`,
-`ControllerSettings`, `Engine` (show all off) have a `back`; left takes those steps. `Bank`,
+`ZS3` have a `switch` (only `Preset` takes switch 1); `FileSelector`,
+`ControllerSettings`, `Engine` (show all off) have a `back`, `Bank` and `Preset` an `up_level`
+(their sub-folders); left takes those steps. `Bank`,
 `Preset`, `Snapshots` and `FileSelector` override `enters`; `Admin`, `ControllerSettings`,
 `ChainOptions` and `ProcessorOptions` flag their level entries. `ARROW_PREV` / `ARROW_NEXT` are
 ARROW_LEFT / RIGHT (as in Tk).
@@ -184,4 +191,5 @@ the top bar) returns to the screen below; the options list closes before its act
   the V5's CTRL key),
 - `tests/unit/test_qt_list_arrows.py` (Qt: left / right in lists, grids, category lists; what
   ▶ enters),
-- `tests/unit/test_qt_preset_subdirs.py` (Qt: BACK up one bank / preset sub-folder).
+- `tests/unit/test_qt_preset_subdirs.py` (Qt: the bank / preset sub-folders: BANK_PRESET and
+  ARROW_LEFT up one folder, BACK and switch 1 as Tk).

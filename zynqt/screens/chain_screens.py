@@ -335,9 +335,10 @@ class Bank(SelectorScreen):
             return True
         return False
 
-    def back(self):
+    def up_level(self):
         """Up one bank sub-folder (zynthian_gui_bank.browse_back): the parent's (bank_subdir_info
-        [3]), the folder left selected (its index, [1])"""
+        [3]), the folder left selected (its index, [1]). BANK_PRESET and ARROW_LEFT; BACK leaves
+        the list, as Tk's (zynthian_gui_bank has no back_action)"""
         proc = self.ui.current_processor
         sdi = proc.bank_subdir_info if proc else None
         if sdi:
@@ -804,9 +805,11 @@ class Preset(SelectorScreen):
             return True
         return False
 
-    def back(self):
+    def up_level(self):
         """Up one preset sub-folder (zynthian_gui_preset.browse_back; the audio player's folders):
-        the parent's (preset_subdir_info[3]), the folder left selected (its index, [1])"""
+        the parent's (preset_subdir_info[3]), the folder left selected (its index, [1]).
+        BANK_PRESET and ARROW_LEFT; BACK leaves the list and switch 1 shows the banks, as Tk's
+        (zynthian_gui_preset has no back_action)"""
         proc = self.ui.current_processor
         sdi = proc.preset_subdir_info if proc else None
         if sdi:

@@ -55,6 +55,21 @@ Setup > LED Brightness: BACK went to the step sequencer").
 So in Tk the kit's BACK switch and the V5's BACK key differ where a screen overrides
 `switch(1, "S")`: only the **preset list** does (below).
 
+**A custom switch's short press on its own screen** (Tk: `custom_switch_ui_action`,
+`check_current_screen_switch`, "BIG ÑAPA"): a short press runs the key's **bold** action when the
+bold action is `BANK_PRESET` and the bank list, the preset list or the audio player is shown, when
+the short action ends with the shown screen's name (`CHAIN_CONTROL` in chain control,
+`SCREEN_ZS3` in the ZS3 list, `SCREEN_AUDIO_MIXER` in the mixer, `SCREEN_LAUNCHER` in the
+launcher), or when it is `MENU` in the main menu or the chain manager. It comes before ALT's
+actions. On a V5 (and the Duet's keypad, the same v5 profile) the CTRL key (`CUSTOM_SWITCH_03`:
+short `CHAIN_CONTROL`, bold `BANK_PRESET`) therefore walks chain control → the presets → the banks
+→ back, as the V5 manual says ("Short press CTRL button to access the bank list. Short press CTRL
+again to exit bank/preset selection"). Qt: `cuia__zynswitch` with `keypad_leds.current_screen_switch`
+on the Tk screen names (`get_current_screen`); the F-key labels use the same rule. Until
+2026-11-26 the Qt UI lacked the `BANK_PRESET` clause and "menu" in the chain manager: short CTRL
+in the preset list reopened chain control, and on the Duet (no switch 1, no knobs) the bank list
+was out of reach.
+
 ## BACK per screen (back_action → Qt back())
 
 The screen's own step comes first; when it returns False the screen closes (history).
@@ -80,10 +95,54 @@ The screen's own step comes first; when it returns False the screen closes (hist
 **BANK_PRESET** (the PRESET key): from the bank list back (or up a sub-folder); from the preset
 list up a sub-folder, else the bank list (more than one bank, REPLACE) or back; elsewhere the
 presets if there is a preset list, else the banks, else the empty preset list's options.
-Qt: `cuia_bank_preset`, the same (the flat list counts as a preset list).
+Qt: `cuia_bank_preset`, the same (the flat list counts as a preset list; the preset list's
+sub-folder step since 2026-11-26: `Preset.back()`, which leaves the sub-folders at once, Tk one
+level).
 
-**Arrows.** Tk's lists have no `arrow_left` / `arrow_right`: they do nothing in the bank and
-preset lists. The Qt flat preset list moves from group to group with them (and the BACK knob).
+## Arrows left / right in lists (a Qt deviation)
+
+**Tk.** The lists have no `arrow_left` / `arrow_right`: they do nothing in the bank and preset
+lists, the menus and the options list.
+
+**Qt** (since 2026-11-26, `SelectorScreen.navigate`): in a list (`kind` "list"),
+
+- **ARROW_LEFT** goes one level back, as switch 1 short: the screen's `switch(1, "S")` first (the
+  preset list, flat or not → the bank list with more than one bank), else `ui.back()` (the
+  screen's `back()`: a bank / preset sub-folder, the controller settings' levels, a file
+  selector directory; then the history: the bank list → where it came from, e.g. chain control;
+  the options list → its opener, as it is never recorded).
+- **ARROW_RIGHT** enters the selected entry, as SELECT short, in **every** list, the leaf lists
+  too: in the preset list it loads the preset (and returns to chain control, as SELECT), in the
+  options list it runs the option, in the admin menu it toggles a setting. One rule (right =
+  SELECT, left = BACK on the kits) is easier to learn than a right arrow that works in some lists
+  and not in others; nothing it does is new, SELECT does the same.
+
+Why: the touch keypads have no switch 1 (the Duet: the docked keypad, V5 layout, no knobs). Their
+BACK key sends the BACK CUIA, which leaves the preset list as in Tk, and the user found no way back
+to the bank list ("I'm ok if we use the arrow left, right buttons to go back from and into a
+menu"). Tk's way, CTRL short in the preset list (above), is mapped too.
+
+Unchanged:
+
+- grids (the main menu, add chain): left / right move;
+- category lists (the engine list, `set_categories`): left / right switch the category;
+- the overlays first (`ui._navigate`): help, processor / chain moving, the value editor (left /
+  right step), the keyboard, the confirm dialog;
+- the screens with their own `navigate` (not lists): mixer (`MixerNav`), launcher, chain control,
+  chain manager, pattern editor, X-Y control.
+- The **flat preset list** moved from group to group with left / right before; now left is the
+  bank list and right loads the preset. Groups: the group knob (knob 1, `GROUP_KNOB`) and touch
+  scrolling.
+
+The `SelectorScreen` subclasses: none overrides `navigate` except `Preset` (the group jumps, now
+removed); `Engine` has categories; `MainMenu` and `AddChain` are grids. `Bank`, `Preset` and
+`ZS3` have a `switch` (only `Preset` takes switch 1); `Bank`, `Preset`, `FileSelector`,
+`ControllerSettings`, `Engine` (show all off) have a `back`; left takes those steps. All the
+lists follow the rule: also `Admin`, `Options`, `Snapshots`, `MidiChannel`, `ChainOptions`,
+`ProcessorOptions`, `MidiCC`, `MidiRecorder`, `AudioIn`, `AudioOut`, `MidiIn` / `MidiOut`,
+`MidiDevicesIn` / `MidiDevicesOut`. `ARROW_PREV` / `ARROW_NEXT` are ARROW_LEFT / RIGHT (as in Tk). The snapshot list's
+bank level is an entry (".."), not a `back()`: left leaves the snapshots as BACK does (as Tk's
+BACK).
 
 ## Dialogs and modal screens
 
@@ -100,4 +159,7 @@ the top bar) returns to the screen below; the options list closes before its act
 - `tests/unit/test_qt_controller_settings_stay.py` (Qt: settings chosen / BACK after the pattern
   editor's menu),
 - `tests/unit/test_qt_preset_back_to_banks.py` (Qt: switch 1 in the preset list, flat or not),
-- `tests/unit/test_qt_modify_chain_history.py` (Qt: BACK after adding a chain or a processor).
+- `tests/unit/test_qt_modify_chain_history.py` (Qt: BACK after adding a chain or a processor),
+- `tests/unit/test_qt_custom_switch_screen.py` (Qt: a custom switch's short press on its screen,
+  the V5's CTRL key),
+- `tests/unit/test_qt_list_arrows.py` (Qt: left / right in lists, grids, category lists).

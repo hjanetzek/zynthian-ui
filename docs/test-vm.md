@@ -59,6 +59,9 @@ PipeWire) is switched off: the VM only runs tests.
   zyncoder's sources come from the host (synced next to the tree, see below).
 - **GUI tests**: xvfb, xvfb-run, xauth, mesa-dri-gallium, font-dejavu (Tk comes with zynthian-ui).
 - **git** (the executable-bit test reads the index, see `sync`), rsync, py3-cffi, py3-cairosvg.
+- **jsonschema** (`py3-jsonschema`, with `referencing`): the zynseq state and pattern schema tests
+  (`tests/native/zynseq/test_state_schema.py`, upstream 2026-11-23; `requirements-dev.txt` lists it
+  for a venv); they skip without it.
 - **A venv** `~/zyntest-venv` with the system's modules (`--system-site-packages`), the modules
   zynthian-ui vendors (a `.pth` file for `/usr/share/zynthian/python`), and from PyPI what neither
   has: moderngl-window and pyopengltk (imported by the Tk UI's `zynthian_widget_audio_file.py`).

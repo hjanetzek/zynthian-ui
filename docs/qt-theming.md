@@ -296,7 +296,7 @@ Knob 1 (`GROUP_KNOB`) turns to the next / previous group's first preset (back fr
 group: its first preset first); knob 3 still moves entry by entry. Switch 1 short (BACK on the
 kits, the keyboard's Escape) and ARROW_LEFT open the bank list, as Tk's switch 1 does
 (zynthian_gui_preset.switch; the BACK CUIA, the V5's BACK key, leaves the list as in Tk);
-ARROW_RIGHT loads the preset as SELECT ([qt-navigation.md](qt-navigation.md), "Arrows"); the
+ARROW_RIGHT does nothing on a preset ([qt-navigation.md](qt-navigation.md), "Arrows"); the
 BANK_PRESET CUIA (the V5's CTRL key, short in the list) too (bank options), and a bank chosen there shows the flat list at that bank. A new chain opens the flat list instead of the
 bank list. Cost: sfizz ~30 us per preset to scan (1200 presets in 40 banks: 45 ms in the QEMU
 VM); the presets of directory banks are cached while the directory's mtime stays the same (the

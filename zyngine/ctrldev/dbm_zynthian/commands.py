@@ -262,7 +262,7 @@ class ZynCommandHandler(CommandHandler):
                 r((window_cmd,), self._clip_edit_window)
         # The host's snapshots: zynthian's ZS3s (snapshots.py), with the state manager only (in
         # UNHANDLED_COMMANDS)
-        snapshots = getattr(self.daw, "snapshots", None)
+        snapshots = getattr(self.daw, "zs3_snapshots", None)
         if SNAPSHOT_COMMANDS and snapshots is not None and snapshots.available:
             r(SNAPSHOT_COMMANDS, self._snapshot)
         transport = self.daw.transport
@@ -317,7 +317,7 @@ class ZynCommandHandler(CommandHandler):
 
     def _snapshot(self, view, cmd):
         """SnapshotLoad / Store / Remove {index} on zynthian's ZS3s (snapshots.py)"""
-        snapshots = self.daw.snapshots
+        snapshots = self.daw.zs3_snapshots
         id_ = view.h[0]
         index = getattr(view, "index", -1)
         try:

@@ -606,7 +606,7 @@ class ZynReporter(Reporter):
 
     def collect_snapshots(self):
         """zynthian's ZS3s as the host's snapshots (snapshots.py), with a binding that has them"""
-        snapshots = getattr(self.daw, "snapshots", None)
+        snapshots = getattr(self.daw, "zs3_snapshots", None)
         if snapshots is not None:
             snapshots.collect(self.put)
 

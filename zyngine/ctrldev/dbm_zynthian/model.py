@@ -457,9 +457,10 @@ class ZynthianModel:
         self.transport = ZynTransport(zynseq) if zynseq is not None else None
         self.launcher = ZynLauncher(self, zynseq) if zynseq is not None else None
         self.views = ZynViews(self)
-        self.snapshots = ZynSnapshots()
+        self.zs3_snapshots = ZynSnapshots()
         """zynthian's ZS3s as the host's snapshots (snapshots.py); its ``state_manager`` is set
-        by the driver."""
+        by the driver. Not ``snapshots``: the reference host's handler and reporter take a DAW's
+        ``snapshots`` as their simulated ones (dbm_host.Snapshots)."""
         """The controller's views on zynthian's screens (views.py); its ``ui`` is set by the
         driver."""
         self.selected_notes = {}

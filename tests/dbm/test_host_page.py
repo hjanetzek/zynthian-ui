@@ -503,8 +503,9 @@ class JamEndToEndTest(unittest.TestCase):
         return next((m[2] for m in reversed(self.midi_out) if len(m) == 3 and m[0] & 0xF0 == 0x90 and m[1] == note), None)
 
     def test_shared_selection(self):
-        # Select + SONG: the host's pages
-        for control, value in ((50, 127), (30, 127), (30, 0), (50, 0)):
+        # Select + CONTROL: the host's pages (Select + SONG before the core had the snapshot view)
+        surface = 39 if hasattr(protocol.Cmd, "SNAPSHOT_LOAD") else 30
+        for control, value in ((50, 127), (surface, 127), (surface, 0), (50, 0)):
             self.cc(control, value)
         self.advance(200)
         notifications = self.bridge.take_notifications()

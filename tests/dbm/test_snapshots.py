@@ -178,7 +178,7 @@ class SnapshotsTest(unittest.TestCase):
     def test_reporter_subtree(self):
         state = state_with_zs3(1)
         model = ZynthianModel(state.chain_manager, palette=["#0000FF"], zynseq=None)
-        model.snapshots = self.snapshots(state)
+        model.zs3_snapshots = self.snapshots(state)
         banks = Banks.from_model_setup({"numTracks": 8})
         reporter = ZynReporter(model, banks)
         lines = []
@@ -210,7 +210,7 @@ class SnapshotViewTest(unittest.TestCase):
 def handler(state, with_state_manager=True):
     model = ZynthianModel(state.chain_manager, palette=["#0000FF"], zynseq=None)
     if with_state_manager:
-        model.snapshots.state_manager = state
+        model.zs3_snapshots.state_manager = state
     banks = Banks.from_model_setup({"numTracks": 8})
     commands = ZynCommandHandler(model, banks, ZynReporter(model, banks))
     commands.configure()
@@ -237,6 +237,107 @@ class SnapshotCommandsTest(unittest.TestCase):
         commands.process_commands(drivenbymoss.messages_from_text("\n".join(lines)))
         self.assertEqual(state.cuias, [("ZS3_LOAD", ["*/3"]), ("ZS3_SAVE", ["*/7"]), ("ZS3_DELETE", ["*/3"])])
         self.assertEqual(Cmd.SNAPSHOT_LOAD in commands.handled_commands(), True)
+
+
+JAM = "72F32A83-A697-446B-9016-64AA3F9476E4"
+SELECT, SONG, CLEAR = 50, 30, 33
+SHIFT_DOWN = bytes.fromhex("F0002109" "1500" "4D5000014D01F7")
+SHIFT_UP = bytes.fromhex("F0002109" "1500" "4D5000014D00F7")
+
+
+@unittest.skipUnless(SNAPSHOT_COMMANDS, "the binding has no snapshot commands yet")
+class JamSnapshotsTest(unittest.TestCase):
+    """The Maschine JAM in the core: Select + SONG, the pads on zynthian's ZS3s"""
+
+    def setUp(self):
+        import tempfile
+        from zyngine.ctrldev.dbm_zynthian.bridge import ZynBridge
+        logging.disable(logging.CRITICAL)
+        self.addCleanup(logging.disable, logging.NOTSET)
+        self.state = state_with_zs3(0, 3, 70, others=("zs3-1",))
+        self.state.last_zs3_id = "*/3"
+        self.ui = FakeUI("mixer")
+        model = ZynthianModel(self.state.chain_manager, palette=["#0000FF"], zynseq=None)
+        model.views.ui = ViewsUI(self.state, get_ui=lambda: self.ui)
+        model.zs3_snapshots.state_manager = self.state
+        self.temp = tempfile.TemporaryDirectory(prefix="dbm-zynthian-snapshots-")
+        self.addCleanup(self.temp.cleanup)
+        self.midi_out = []
+        self.bridge = ZynBridge(model, JAM, self.temp.name, "zynthian", midi_sink=self.midi_out.append)
+        self.bridge.start()
+        self.addCleanup(self.bridge.close)
+        self.bridge.wait_for_startup()
+        self.advance(1100)
+
+    def advance(self, ms):
+        for _ in range(0, ms, 10):
+            self.bridge.advance(10)
+
+    def cc(self, control, value):
+        self.bridge.receive(bytes([0xB0, control, value]))
+
+    def pad(self, slot):
+        """Pad of slot (row by row from the upper left)"""
+        x, y = slot % 8, slot // 8
+        note = 36 + (7 - y) * 8 + x
+        self.bridge.receive(bytes([0x90, note, 127]))
+        self.advance(20)
+        self.bridge.receive(bytes([0x80, note, 0]))
+        self.advance(20)
+
+    def led(self, slot):
+        x, y = slot % 8, slot // 8
+        note = 36 + (7 - y) * 8 + x
+        return next((m[2] for m in reversed(self.midi_out) if len(m) == 3 and m[0] & 0xF0 == 0x90 and m[1] == note), None)
+
+    def cuias(self):
+        cuias, self.state.cuias[:] = list(self.state.cuias), []
+        return cuias
+
+    def enter(self):
+        for control, value in ((SELECT, 127), (SONG, 127), (SONG, 0), (SELECT, 0)):
+            self.cc(control, value)
+        self.advance(200)
+
+    def test_snapshot_view(self):
+        self.enter()
+        self.assertIn("Snapshots", self.bridge.take_notifications())
+        self.assertEqual(self.cuias(), [("TOGGLE_SCREEN", ["zs3"])], "the ZS3 screen")
+        # Stored pads lit, the active one (*/3) different, the empty ones off
+        lit = [slot for slot in range(WINDOW) if self.led(slot)]
+        self.assertEqual(lit, [0, 3])
+        self.assertNotEqual(self.led(0), self.led(3))
+        # Pad: load; an empty pad: nothing
+        self.pad(0)
+        self.pad(5)
+        self.assertEqual(self.cuias(), [("ZS3_LOAD", ["*/0"])])
+        # SHIFT + pad: store (overwrite, or a new one on an empty pad)
+        self.bridge.receive(SHIFT_DOWN)
+        self.advance(50)
+        self.assertTrue(all(self.led(slot) for slot in range(WINDOW)), "every pad a store target (appendOnly false)")
+        self.pad(3)
+        self.pad(9)
+        self.bridge.receive(SHIFT_UP)
+        self.advance(50)
+        self.assertEqual(self.cuias(), [("ZS3_SAVE", ["*/3"]), ("ZS3_SAVE", ["*/9"])])
+        # zynthian stores */9: the pad lights after the signal
+        self.state.zs3["*/9"] = {"title": "ZS3-4"}
+        zynstubs.send_signal("S_STATE_MAN", "SS_ZS3_LIST")
+        self.advance(100)
+        self.assertTrue(self.led(9))
+        # CLEAR + pad: remove
+        self.cc(CLEAR, 127)
+        self.advance(20)
+        self.pad(9)
+        self.cc(CLEAR, 0)
+        self.advance(50)
+        self.assertEqual(self.cuias(), [("ZS3_DELETE", ["*/9"])])
+        self.assertEqual(self.bridge.core_errors(), [])
+
+    def test_the_zs3_screen_shown_stays(self):
+        self.ui.current_screen = "zs3"
+        self.enter()
+        self.assertEqual(self.cuias(), [])
 
 
 if __name__ == "__main__":

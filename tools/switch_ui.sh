@@ -1,9 +1,11 @@
 #!/bin/sh
 usage_text='Switch the device between the zynthian-ui packages, for quick comparisons.
 
-Usage: switch_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-R DIR] [-n] [qt | vangelis | tomita]
+Usage: switch_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-R DIR] [-n] [qt | testing | vangelis | tomita]
 
-  qt        zynthian-ui: the Qt UI port (hjanetzek/zynthian-ui, nura branch)
+  qt        zynthian-ui: the Qt UI port (hjanetzek/zynthian-ui, main branch)
+  testing   zynthian-ui-testing: the Qt UI port from the testing branch of hjanetzek/zynthian-ui (work in
+            progress; built by hand: gh workflow run zynthian-testing.yml -R hjanetzek/nura-builds)
   vangelis  zynthian-ui-vangelis: upstream vangelis (stable), Tk UI, with the port patches
   tomita    zynthian-ui-tomita: upstream tomita (development), Tk UI, with the port patches
   (none)    show which one is installed
@@ -15,7 +17,7 @@ Usage: switch_ui.sh [-c CONFIG] [-H HOST] [-u USER] [-P PORT] [-V] [-R DIR] [-n]
 The packages come from the device'"'"'s repositories (nura-builds'"'"' release "aarch64"). Each one
 provides zynthian-ui, so apk installs only one; the kiosk package (postmarketos-ui-zynthian) works
 with all of them and starts the Tk UI when the installed one has no Qt UI. The settings in
-~/.config/zynthian stay; snapshots and presets are shared between the three.'
+~/.config/zynthian stay; snapshots and presets are shared between them.'
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/common.sh"
@@ -37,15 +39,15 @@ setup_target
 case ${1:-} in
 	"") want= ;;
 	qt) want=zynthian-ui ;;
-	vangelis | tomita) want=zynthian-ui-$1 ;;
+	testing | vangelis | tomita) want=zynthian-ui-$1 ;;
 	*) usage 1 ;;
 esac
 
 # The installed provider of zynthian-ui
-# (by package name: "apk info -e zynthian-ui" also matches the other two, which provide it)
-current=$(dev "apk info 2>/dev/null | grep -xE 'zynthian-ui(-vangelis|-tomita)?'" | head -n 1 || true)
+# (by package name: "apk info -e zynthian-ui" also matches the others, which provide it)
+current=$(dev "apk info 2>/dev/null | grep -xE 'zynthian-ui(-testing|-vangelis|-tomita)?'" | head -n 1 || true)
 if [ -z "$want" ]; then
-	echo "installed: $(dev "apk info -v 2>/dev/null | grep -E '^zynthian-ui(-vangelis|-tomita)?-[0-9]'" || echo none)"
+	echo "installed: $(dev "apk info -v 2>/dev/null | grep -E '^zynthian-ui(-testing|-vangelis|-tomita)?-[0-9]'" || echo none)"
 	exit 0
 fi
 if [ "$current" = "$want" ]; then

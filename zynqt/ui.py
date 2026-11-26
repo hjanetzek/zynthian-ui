@@ -981,7 +981,13 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         if name in ("chain_control", "tempo", "alsa_mixer", "audio2midi", "audio_player", "midi_key_range"):
             proc = self.current_processor
             if name == "chain_control" and proc is not None and getattr(proc, "name", None):
-                return [f"{proc.name.lower()}.html", "chain_control.html"]
+                topics = [f"{proc.name.lower()}.html", "chain_control.html"]
+                # The help page declared by the processor's widget (zyngui:help in its LV2
+                # data) first, as zynthian_gui_control.get_help_fpath
+                fpath = getattr(getattr(proc, "engine", None), "custom_gui_help_fpath", None)
+                if fpath and os.path.isfile(fpath):
+                    topics.insert(0, fpath)
+                return topics
             return [f"{name}.html", "chain_control.html"]
         screen = self.list_screens.get(name)
         if screen is not None:

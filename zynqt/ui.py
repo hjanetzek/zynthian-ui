@@ -975,19 +975,21 @@ class ZynUI(QObject, zynthian_websocket_feedback):
     def helpBaseUrl(self):
         return "file://" + os.path.dirname(self._help_path or zynthian_help.help_dir + "/") + "/"
 
+    def _widget_help_paths(self):
+        """The current processor's widget help page (custom_gui_help_fpath), if the file is there"""
+        proc = self.current_processor
+        fpath = getattr(getattr(proc, "engine", None), "custom_gui_help_fpath", None)
+        return (fpath,) if fpath and os.path.isfile(fpath) else ()
+
     def _help_topic(self):
         """The help file name for the screen shown (as the Tk screens' get_help_fpath)"""
         name = self.current_screen
         if name in ("chain_control", "tempo", "alsa_mixer", "audio2midi", "audio_player", "midi_key_range"):
             proc = self.current_processor
             if name == "chain_control" and proc is not None and getattr(proc, "name", None):
-                topics = [f"{proc.name.lower()}.html", "chain_control.html"]
                 # The help page declared by the processor's widget (zyngui:help in its LV2
                 # data) first, as zynthian_gui_control.get_help_fpath
-                fpath = getattr(getattr(proc, "engine", None), "custom_gui_help_fpath", None)
-                if fpath and os.path.isfile(fpath):
-                    topics.insert(0, fpath)
-                return topics
+                return list(self._widget_help_paths()) + [f"{proc.name.lower()}.html", "chain_control.html"]
             return [f"{name}.html", "chain_control.html"]
         screen = self.list_screens.get(name)
         if screen is not None:
@@ -1003,7 +1005,8 @@ class ZynUI(QObject, zynthian_websocket_feedback):
             return
         names = [fpath] if fpath else self._help_topic()
         for name in names:
-            path = zynthian_help.find_file(name, layout)
+            # (a widget's own page is an absolute path: find_file takes "/" as the help directory)
+            path = name if name in self._widget_help_paths() else zynthian_help.find_file(name, layout)
             if path:
                 self._show_help_page(path)
                 return

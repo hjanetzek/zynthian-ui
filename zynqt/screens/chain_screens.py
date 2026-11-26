@@ -484,13 +484,6 @@ class Preset(SelectorScreen):
             return True
         return False
 
-    def navigate(self, what):
-        # Left / right (keys): from group to group in the flat list
-        if self.flat and what in ("left", "right"):
-            self.move_group(-1 if what == "left" else 1)
-            return
-        super().navigate(what)
-
     def fill(self, keep=False):
         """keep: the flat list keeps the selected preset (filled again after a preset option)"""
         proc = self.ui.current_processor

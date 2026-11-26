@@ -400,7 +400,14 @@ class SelectorScreen(QObject):
             self.set_index(i)
 
     def navigate(self, what):
-        """Keys and encoders: up/down/left/right/select/select_bold"""
+        """Keys and encoders: up/down/left/right/select/select_bold.
+
+        Left / right in a list (Qt only; Tk's lists ignore them): left goes one level back as
+        switch 1 short (the screen's switch(1, "S") first: the preset list -> the bank list, else
+        ui.back()), right enters the selected entry as SELECT short, in every list (leaf lists
+        too: the preset list loads the preset). For the touch keypads without switch 1 (the V5
+        layout: BACK leaves the list), docs/qt-navigation.md. Grids move, category lists (the
+        engine list) switch the category."""
         step = self.columns if self.kind == "grid" else 1
         if what == "up":
             self.move(-step)
@@ -411,11 +418,15 @@ class SelectorScreen(QObject):
                 self.move(-1)
             elif self._categories:
                 self.setCategory(self._category_index - 1)
+            else:
+                self.ui.zynswitch(1, "S")
         elif what == "right":
             if self.kind == "grid":
                 self.move(1)
             elif self._categories:
                 self.setCategory(self._category_index + 1)
+            else:
+                self.activate(self._index, "S")
         elif what == "select":
             self.activate(self._index, "S")
         elif what == "select_bold":

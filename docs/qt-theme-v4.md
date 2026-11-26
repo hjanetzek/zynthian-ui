@@ -100,8 +100,10 @@ Files (`zynqt/qml/+v4/` unless noted):
   The BACK knob (knob 1, bottom left; unused in Tk's lists) turns from group to group, SELECT
   (knob 3) moves entry by entry, so all groups are reachable from the list itself (on the Pi the
   bank list was only reachable with a short push of BACK, which users didn't find).
-  A short push of BACK leaves the list (no bank level); the BANK_PRESET CUIA still opens the bank
-  list.
+  A short push of BACK (switch 1) opens the bank list, as in Tk (a bank chosen there shows the
+  flat list at that bank; BACK from the bank list leaves); the BANK_PRESET CUIA too. Before
+  2026-11-26 BACK left the list, and on a kit without a BANK_PRESET key the bank list was then
+  out of reach.
 - `PatternEditorScreen.qml`: tk's `PatternEditorView` between the hints; the texts from
   `pattern_editor.py` `knobHints(editMode, ccMode)` (zoom, note, step; per edit mode and in the CC
   view).

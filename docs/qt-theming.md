@@ -294,9 +294,9 @@ title in view (the screen's `sectionIndex`; a jump to a group puts its title at 
 `showSection`). Choosing a preset of another bank sets that bank first, as the bank list does.
 Knob 1 (`GROUP_KNOB`) turns to the next / previous group's first preset (back from inside a
 group: its first preset first), ARROW_LEFT / RIGHT do the same; knob 3 still moves entry by
-entry. Switch 1 short (BACK) leaves the list as BACK leaves any list: there is no bank level (Tk
-goes to the bank list); the BANK_PRESET CUIA still opens the bank list (bank options), and a bank
-chosen there shows the flat list at that bank. A new chain opens the flat list instead of the
+entry. Switch 1 short (BACK on the kits, the keyboard's Escape) opens the bank list, as Tk's does
+(zynthian_gui_preset.switch; the BACK CUIA, the V5's BACK key, leaves the list as in Tk); the
+BANK_PRESET CUIA too (bank options), and a bank chosen there shows the flat list at that bank. A new chain opens the flat list instead of the
 bank list. Cost: sfizz ~30 us per preset to scan (1200 presets in 40 banks: 45 ms in the QEMU
 VM); the presets of directory banks are cached while the directory's mtime stays the same (the
 current bank is always read again), so the list opens again in ~5 ms; LV2 (Dexed, 1600 presets

@@ -1832,6 +1832,14 @@ class ZynUI(QObject, zynthian_websocket_feedback):
                 return
         self.show_screen("pattern_editor")
 
+    def cuia_set_pattern_json(self, params=None):
+        """SET_PATTERN_JSON patnum json: set a pattern from its JSON form
+        (zynlibs/zynseq/pattern.schema.json), as zynthian_gui"""
+        try:
+            self.state_manager.zynseq.set_pattern_json(params[0], params[1])
+        except Exception as err:
+            logging.debug(err)
+
     def cuia_pattern_editor_window(self, params=None):
         """PATTERN_EDITOR_WINDOW start length low high [pattern]: the window of a controller's
         step sequencer (DrivenByMoss' ClipEditWindow) on the pattern editor: the steps from start
@@ -2306,6 +2314,15 @@ class ZynUI(QObject, zynthian_websocket_feedback):
                     self.show_info(f"Can't {action}: {error}", 5000)
                 # else the system stops the session (and zynthian, SIGTERM) soon
             self.run_background(task, done)
+
+    def cuia_vnc_start(self, params=None):
+        """Start the VNC service for zynthian UI and processor GUIs (as zynthian_gui; virtualized
+        zynthians: the processor GUIs' only). In a thread: it waits for systemctl."""
+        Thread(target=self.state_manager.start_vncserver, name="vnc start", daemon=True).start()
+
+    def cuia_vnc_stop(self, params=None):
+        """Stop the VNC service for zynthian UI and processor GUIs (as zynthian_gui). In a thread."""
+        Thread(target=self.state_manager.stop_vncserver, name="vnc stop", daemon=True).start()
 
     def cuia_power_save(self, params=None):
         """Blank the screen (power save mode, as zynthian_gui); the next input wakes it, as does

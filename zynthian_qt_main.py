@@ -356,6 +356,9 @@ def main():
 
     # QML types implemented in Python
     qmlRegisterType(OledDisplay, "Zynthian", 1, 0, "OledDisplay")
+    # Third-party (Tk) widgets through the external widget shim, if configured (zynqt/widget_shim.py)
+    from zynqt import widget_shim
+    widget_shim.register_qml()
     # Rotation of the whole UI in QML (Main.qml), for displays nobody rotates (eglfs on KMS)
     try:
         ui_rotation = int(os.environ.get("ZYNTHIAN_UI_ROTATION", "0") or 0) % 360

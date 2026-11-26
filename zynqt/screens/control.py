@@ -26,6 +26,7 @@ from zynqt.hw_input import STEP_FIXED, list_step, zctrl_step
 from zynqt.models.audio_file import AudioFileView
 from zynqt.models.organelle import OrganelleView
 from zynqt.models.widgets import DrawbarView, EnvelopeView, FilterView, PluginView, EuclidSeqView, SooperLooperView
+from zynqt import widget_shim
 from zynqt.screens.base import EntryModel, entry, separator
 from zynqt.screens.controller_options import show_controller_options
 
@@ -346,6 +347,9 @@ class ChainControl(QObject):
         self.sl_view = SooperLooperView(ui, self)
         self._widget_type = ""      # "audio_file", "envelope", "filter" or "" (none)
         self._unsupported_widget = ""
+        # Widgets without a Qt view (Tk code) on the external widget shim (widgetType "tk"), if
+        # ZYNTHIAN_QT_WIDGET_SHIM is set (zynqt/widget_shim.py); None without it
+        self.tk_view = widget_shim.create_view(self)
         ui.bridge.chainsChanged.connect(self._rebuild_if_shown)
         # Another chain selected while shown (arrows, switch 0): show it (Tk's cb_set_active_chain)
         ui.bridge.activeChainChanged.connect(self._active_chain_changed)
@@ -517,10 +521,14 @@ class ChainControl(QObject):
         self._timer.start()
         if self._widget_type == "audio_file":
             self.audio_view.start()
+        if self.tk_view is not None:
+            self.tk_view.screen_shown(True)
 
     def hide(self):
         self._shown = False
         self._timer.stop()
+        if self.tk_view is not None:
+            self.tk_view.screen_shown(False)
         self.audio_view.stop()
         self.organelle_keys.reset()
         self.exit_midi_learn()
@@ -557,6 +565,8 @@ class ChainControl(QObject):
             self.plugin_view.refresh()
         elif self._widget_type == "sooperlooper":
             self.sl_view.refresh()
+        elif self._widget_type == "tk":
+            self.tk_view.refresh()
 
     # Contents
 
@@ -1022,12 +1032,17 @@ class ChainControl(QObject):
             gui = getattr(proc.engine, "custom_gui_fpath", None)
             if afd.engine_type(proc) != afd.ENG_NONE or (gui and gui.endswith("zynthian_widget_audio_file.py")):
                 wtype = "audio_file"
+            elif wd.engine_widget(proc) and self.tk_view is not None and self.tk_view.set_processor(proc):
+                # On the widget shim
+                wtype = "tk"
             elif wd.engine_widget(proc):
                 # A zynthian widget the Qt UI has no view for (a user or external widget: Tk
                 # code): say so, the controllers stay
                 wtype = "unsupported"
                 unsupported = f"zynthian_widget_{wd.engine_widget(proc)}"
         self._unsupported_widget = unsupported
+        if wtype != "tk" and self.tk_view is not None:
+            self.tk_view.hide()
         if wtype in ("envelope", "filter"):
             group = proc.get_group_zctrls(zctrls[0].group_symbol) if zctrls and zctrls[0] else list(zctrls)
             (self.envelope_view if wtype == "envelope" else self.filter_view).set_group(group)
@@ -1044,6 +1059,16 @@ class ChainControl(QObject):
     @Property(str, notify=pageChanged)
     def widgetType(self):
         return self._widget_type
+
+    @Property(QObject, constant=True)
+    def tkView(self):
+        """The widget shim's view (null without the shim)"""
+        return self.tk_view
+
+    def widget_cuia(self, name, params):
+        """A CUIA for the shown widget first (zynthian_gui_control.callable_ui_action: its
+        cuia_<name>); True if it took it"""
+        return self._widget_type == "tk" and self.tk_view.cuia(name, params)
 
     @Property(str, notify=pageChanged)
     def unsupportedWidget(self):
@@ -1143,6 +1168,8 @@ class ChainControl(QObject):
         widget first (the Organelle's menu select mode)"""
         if self._widget_type == "organelle" and self.organelle_keys.zynpot(i, d):
             return True
+        if self._widget_type == "tk" and self.tk_view.zynpot(i, d):
+            return True
         if self._mode == "select":
             if i == 2 and self.isChain:
                 self._processor_step(1 if d > 0 else -1)
@@ -1169,6 +1196,8 @@ class ChainControl(QObject):
             return True
         # The widget next (zynthian_gui_control.switch): the Organelle's select mode and AUX
         if self._widget_type == "organelle" and self.organelle_keys.switch(i, t):
+            return True
+        if self._widget_type == "tk" and self.tk_view.switch(i, t):
             return True
         if t == "P":
             return False

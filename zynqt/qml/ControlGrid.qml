@@ -180,7 +180,8 @@ Item {
             z: 5
             enabled: false
             opacity: 0
-            visible: opacity > 0 && row >= 0 && grid.cc.widgetType !== ""
+            // (not for third-party widgets: ChainControlScreen places them, thirdPartyWidgetPlacement)
+            visible: opacity > 0 && row >= 0 && grid.cc.widgetType !== "" && grid.cc.widgetType !== "tk"
             Behavior on opacity { NumberAnimation { duration: 200 } }
 
             function poke(n, v) {

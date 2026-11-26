@@ -17,6 +17,13 @@ Rectangle {
     readonly property bool chainShown: cc.selectMode && cc.isChain
     readonly property bool gridShown: cc.gridShown
     readonly property bool widgetHalf: ["audio_file", "envelope", "filter", "drawbar", "unsupported"].indexOf(cc.widgetType) >= 0
+    // A third-party widget on the widget shim (widgetType "tk", zynqt/widget_shim.py): placed by
+    // Theme.thirdPartyWidgetPlacement (or the setting), the page list / grid keeps the rest
+    readonly property var tkView: cc.tkView
+    readonly property bool tkWidget: tkView !== null && cc.widgetType === "tk"
+    readonly property bool tkShown: tkWidget && !tkView.collapsed && !(cc.selectMode && tkView.hideOnSelect)
+    readonly property string tkPlacement: tkView && tkView.placement !== "" ? tkView.placement : Theme.thirdPartyWidgetPlacement
+    readonly property real tkReserve: !tkShown ? 0 : tkPlacement === "lowerHalf" ? 0.5 : tkPlacement === "lowerThird" ? 1 / 3 : 0
 
     color: Theme.background
 
@@ -109,8 +116,8 @@ Rectangle {
             id: listArea
             x: 0
             width: parent.width - controllers.width - (controllers.visible ? 1 : 0)
-            height: root.widgetHalf ? Math.floor(parent.height / 2) : parent.height
-            visible: (root.cc.widgetType === "" || root.widgetHalf) && !root.gridShown
+            height: root.widgetHalf ? Math.floor(parent.height / 2) : Math.floor(parent.height * (1 - root.tkReserve))
+            visible: (root.cc.widgetType === "" || root.widgetHalf || root.tkWidget) && !root.gridShown
             color: Theme.listBackground
 
             ListView {
@@ -161,16 +168,40 @@ Rectangle {
             width: listArea.width
             height: parent.height - y
             // (the grid shows no widget: "unsupported" says so in the v5 layout only)
-            visible: root.cc.widgetType !== "" && !root.gridShown
+            visible: root.cc.widgetType !== "" && root.cc.widgetType !== "tk" && !root.gridShown
         }
 
         // The grid layouts: created when chosen
         Loader {
             id: gridView
-            anchors.fill: parent
+            width: parent.width
+            height: Math.floor(parent.height * (1 - root.tkReserve))
             active: root.cc.gridLayout
             visible: root.gridShown
             sourceComponent: Component { ControlGrid { cc: root.cc } }
+        }
+
+        // The widget shim's area (its QML: the widget, a bar to collapse it); created when a
+        // third-party widget is first shown
+        Loader {
+            id: tkArea
+            anchors.fill: parent
+            property bool seen: false
+            readonly property int contentWidth: root.gridShown ? width : listArea.width
+            readonly property int areaY: root.tkReserve > 0 ? Math.floor(height * (1 - root.tkReserve)) : 0
+            readonly property int areaHeight: height - areaY
+            readonly property bool tkShown: root.tkShown
+            readonly property color barColor: Theme.listBackground
+            readonly property color textColor: Theme.text
+            readonly property string fontFamily: Theme.fontFamily
+            Connections {
+                target: root
+                function onTkWidgetChanged() { if (root.tkWidget) tkArea.seen = true }
+            }
+            active: root.tkView !== null && (seen || root.tkWidget)
+            visible: root.tkWidget
+            source: root.tkView ? root.tkView.qmlUrl : ""
+            onLoaded: item.view = root.tkView
         }
 
         ControlOverlays {

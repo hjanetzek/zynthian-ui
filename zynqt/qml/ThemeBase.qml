@@ -260,6 +260,12 @@ QtObject {
     property int controlCellSegments: 0
     // how long a page's widget shows over its cells after a change (ms)
     property int controlGridWidgetMs: 1800
+    // Third-party widgets (Tk code on the widget shim, zynqt/widget_shim.py) on chain control, in
+    // every layout (v5, grid4x6, grid8x6): "overlay" (over the page list / grid, collapsible),
+    // "lowerHalf" or "lowerThird" (that part of the screen; the list / grid above). The stock
+    // widgets (envelope, filter, waveform, ...) keep their places. The setting
+    // ZYNTHIAN_QT_THIRD_PARTY_WIDGET_PLACEMENT overrides it
+    property string thirdPartyWidgetPlacement: "overlay"
     // the selected cell (the selected page's last touched or turned controller, shared with
     // controller drivers): a thin frame, subtle next to the page's frameActive
     property color controlGridCurrent: Qt.rgba(textOff.r, textOff.g, textOff.b, 0.5)

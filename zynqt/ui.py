@@ -1577,6 +1577,14 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         # As zynthian_gui.callable_ui_action: the current screen first (transport keys in the
         # pattern editor, MIDI recorder, audio file widgets, ...); it returns True if it handled it
         screen = self._screen_obj()
+        # A widget on the widget shim (Tk code) before its screen, as in Tk
+        widget_cuia = getattr(screen, "widget_cuia", None) if screen is not None and not self._overlay_shown() else None
+        if widget_cuia is not None:
+            try:
+                if widget_cuia(name, params):
+                    return
+            except Exception as e:
+                logging.exception(f"CUIA '{name}' of the widget failed with {params}: {e}")
         screen_func = getattr(screen, "cuia_" + name, None) if screen is not None and not self._overlay_shown() else None
         if callable(screen_func):
             try:

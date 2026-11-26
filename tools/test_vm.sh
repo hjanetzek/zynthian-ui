@@ -171,7 +171,7 @@ stop_vm() {
 apk_packages="build-base cmake pkgconf python3-dev py3-pip py3-pytest py3-pytest-timeout py3-pytest-cov ruff
 	git rsync xvfb xvfb-run xauth font-dejavu mesa-dri-gallium
 	pipewire-jack-dev alsa-lib-dev liblo-dev libsndfile-dev libsamplerate-dev rubberband-dev fftw-dev nlohmann-json
-	py3-cffi py3-cairosvg"
+	py3-cffi py3-cairosvg py3-jsonschema"
 # Not in Alpine and not vendored by the zynthian-ui package: what zyngui/zynthian_widget_audio_file.py
 # (the Tk UI's audio file widget) imports, from PyPI into the venv
 pip_packages="moderngl-window pyopengltk"

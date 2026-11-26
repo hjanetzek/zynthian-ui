@@ -115,7 +115,7 @@ def test_ctrl_short_in_the_presets_shows_the_banks_then_leaves(app, monkeypatch,
 def test_ctrl_short_in_a_preset_sub_folder_goes_up_first(app, monkeypatch):
     ui = switch_ui(monkeypatch, "preset")
     proc = ui.current_processor
-    proc.preset_subdir_info = ("sub", 0)
+    proc.preset_subdir_info = ["/sub", 0, "Sub", None]
     ui.cuia__zynswitch([CTRL, "S"])
     assert proc.preset_subdir_info is None and ui.current_screen == "preset"
 

@@ -981,18 +981,31 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         fpath = getattr(getattr(proc, "engine", None), "custom_gui_help_fpath", None)
         return (fpath,) if fpath and os.path.isfile(fpath) else ()
 
+    def _processor_help_paths(self):
+        """The current processor's help pages: its widget's (custom_gui_help_fpath, if the file is
+        there) and the one named after it, as zynthian_gui_control.get_processor_help_fpaths"""
+        proc = self.current_processor
+        if proc is None or not getattr(proc, "name", None):
+            return []
+        return list(self._widget_help_paths()) + [proc.name.lower().replace(" ", "_") + ".html"]
+
     def _help_topic(self):
-        """The help file name for the screen shown (as the Tk screens' get_help_fpath)"""
+        """The candidate help files for the screen shown, the most specific first (as the Tk
+        screens' get_help_fpath, upstream #1779)"""
         name = self.current_screen
-        if name in ("chain_control", "tempo", "alsa_mixer", "audio2midi", "audio_player", "midi_key_range"):
-            proc = self.current_processor
-            if name == "chain_control" and proc is not None and getattr(proc, "name", None):
-                # The help page declared by the processor's widget (zyngui:help in its LV2
-                # data) first, as zynthian_gui_control.get_help_fpath
-                return list(self._widget_help_paths()) + [f"{proc.name.lower()}.html", "chain_control.html"]
+        if name == "chain_control":
+            # The processor's own page (its widget's, then the one named after it)
+            return self._processor_help_paths() + ["chain_control.html"]
+        if name in ("tempo", "alsa_mixer", "audio2midi", "audio_player"):
+            # The views sharing the control screen: their own page, then the processor's
+            return [f"{name}.html"] + self._processor_help_paths() + ["chain_control.html"]
+        if name == "midi_key_range":
             return [f"{name}.html", "chain_control.html"]
         screen = self.list_screens.get(name)
         if screen is not None:
+            if name == "bank":
+                # Banks are described in the preset view's page
+                return [f"{name}.html", "preset.html", "selector.html"]
             return [f"{name}.html", "selector_grid.html" if screen.kind == "grid" else "selector.html"]
         return [f"{name}.html"]
 

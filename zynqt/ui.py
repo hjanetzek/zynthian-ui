@@ -1192,6 +1192,7 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         pressed = {}    # switch index -> press time
         repeating = {}  # switch index -> repeat intervals left before the next push action
         pot_repeating = {}  # zynpot index -> [intervals left, delta] while a key turns it
+        waking = set()  # switches pressed to wake from power save, until released
         repeat_delay = 3        # as zynthian_gui: intervals before auto repeat starts
         repeat_interval = 0.15  # seconds
         while not self.exit_flag:
@@ -1252,6 +1253,24 @@ class ZynUI(QObject, zynthian_websocket_feedback):
                     if sw is None:
                         continue    # logged; bad parameters must not end this thread
                     i, t, dtus = sw
+                    # A switch pressed in power save wakes the UI: its push and short actions are
+                    # ignored, bold and long still act (zynthian_gui, upstream #1687)
+                    if getattr(self.state_manager, "power_save_mode", False) or i in waking:
+                        if t == "P":
+                            waking.add(i)
+                            pressed[i] = monotonic()   # (long while held: as any switch)
+                            continue
+                        waking.discard(i)
+                        if t == "R":
+                            ts = pressed.pop(i, None)
+                            if ts is None:
+                                continue  # long press already handled
+                            t = self._switch_timing(dtus / 1000000 if dtus is not None else monotonic() - ts)
+                        else:
+                            pressed.pop(i, None)
+                        if t != "S":
+                            self._cuiaRequested.emit("_zynswitch", [i, t])
+                        continue
                     # The push switch of an encoder (kits): push-rotate (zynthian_gui.zynpot_pr_state)
                     zpi = self._switch_zynpot(i)
                     if t == "P":

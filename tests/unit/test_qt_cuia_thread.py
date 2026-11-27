@@ -105,3 +105,44 @@ def test_an_error_in_one_event_doesnt_end_the_thread():
     ui._switch_zynpot = broken
     emitted = run_queue(ui, ("ZYNSWITCH", ("1", "S")), ("ZYNSWITCH", ("2", "S")))
     assert emitted == [("_zynswitch", [2, "S"])]
+
+
+# Upstream #1687 (35fdbbb2): a switch pressed in power save wakes the UI; its push and short
+# actions are ignored, bold and long still act
+
+def sleeping_ui():
+    ui = switch_ui()
+    ui.state_manager.power_save_mode = True
+    return ui
+
+
+def test_short_press_in_power_save_only_wakes():
+    ui = sleeping_ui()
+    emitted = run_queue(ui, ("ZYNSWITCH", ("1", "P")), ("ZYNSWITCH", ("1", "R", "1000")))
+    assert emitted == []
+
+
+def test_bold_press_in_power_save_still_acts():
+    from zyngui import zynthian_gui_config
+    us = int(1000000 * (zynthian_gui_config.zynswitch_bold_seconds + zynthian_gui_config.zynswitch_long_seconds) / 2)
+    ui = sleeping_ui()
+    emitted = run_queue(ui, ("ZYNSWITCH", ("1", "P")), ("ZYNSWITCH", ("1", "R", str(us))))
+    assert emitted == [("_zynswitch", [1, "B"])]
+
+
+def test_release_after_waking_is_still_a_wake_press():
+    """The UI wakes after the press (every CUIA sets the event flag, the power save check ends
+    power save on its next tick: here before the release); the release still belongs to the
+    waking press, the next press acts again"""
+    ui = sleeping_ui()
+    sm = ui.state_manager
+    flags = []
+
+    def set_event_flag():
+        if flags:
+            sm.power_save_mode = False   # the check ran after the press
+        flags.append(True)
+
+    sm.set_event_flag = set_event_flag
+    emitted = run_queue(ui, ("ZYNSWITCH", ("2", "P")), ("ZYNSWITCH", ("2", "R", "1000")), ("ZYNSWITCH", ("2", "S")))
+    assert emitted == [("_zynswitch", [2, "S"])]

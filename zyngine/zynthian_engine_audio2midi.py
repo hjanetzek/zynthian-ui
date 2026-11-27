@@ -26,13 +26,14 @@ import ctypes
 import logging
 
 import zynautoconnect
+from zynconf import zynthian_paths
 from zyngine.zynthian_engine import zynthian_engine
 
 # ------------------------------------------------------------------------------
 # Audio to MIDI Engine Class
 # ------------------------------------------------------------------------------
 
-LIB_PATH = "/zynthian/zynthian-ui/zynlibs/zynaudio2midi/build/libzynaudio2midi.so"
+LIB_PATH = zynthian_paths.native_lib("libzynaudio2midi.so", f"{zynthian_paths.ui_dir}/zynlibs/zynaudio2midi/build")
 JACK_CLIENT_NAME = "audio2midi"  # Ports: "input", "input_2" (audio), "midi_out", "midi_out_2" (MIDI)
 NUM_OUTPUTS = 2
 AUDIO_IN_SYMBOLS = ("audio_in", "audio_in_2")  # Audio input controller of each channel
@@ -159,8 +160,7 @@ class zynthian_engine_audio2midi(zynthian_engine):
         self.processor = proc
 
         # Help page of the control view (the default would be named after the processor's name)
-        help_dir = os.environ.get('ZYNTHIAN_HELP_DIR', "/zynthian/zynthian-help")
-        self.custom_gui_help_fpath = f"{help_dir}/common/audio2midi.html"
+        self.custom_gui_help_fpath = f"{zynthian_paths.help_dir}/common/audio2midi.html"
 
         self.audio_out = []
         self.options['midi_chan'] = False

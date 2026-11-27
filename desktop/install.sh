@@ -67,7 +67,8 @@ install_ui() {
 	ln -sfn ../zynthian-help "$ui_dst/help"
 
 	for lib in zynsmf/build/libzynsmf.so zynseq/build/libzynseq.so zynaudioplayer/build/libzynaudioplayer.so \
-		zynmixer/build/libzynmixer.so zynmixer/build/libzynmixer_mixbus.so zynclippy/build/libzynclippy.so; do
+		zynmixer/build/libzynmixer.so zynmixer/build/libzynmixer_mixbus.so zynclippy/build/libzynclippy.so \
+		zynaudio2midi/build/libzynaudio2midi.so; do
 		install -m 755 "$ui_src/zynlibs/$lib" "$lib_dir/"
 	done
 

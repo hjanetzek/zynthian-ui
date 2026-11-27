@@ -194,6 +194,8 @@ Rectangle {
             readonly property color barColor: Theme.listBackground
             readonly property color textColor: Theme.text
             readonly property string fontFamily: Theme.fontFamily
+            // the whole theme, for the shim's manual QML ports of third-party widgets
+            readonly property var theme: Theme
             Connections {
                 target: root
                 function onTkWidgetChanged() { if (root.tkWidget) tkArea.seen = true }

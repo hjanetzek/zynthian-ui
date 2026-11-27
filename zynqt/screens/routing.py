@@ -30,19 +30,51 @@ class AudioOut(SelectorScreen):
             self.fill()
 
 
+class Audio2MidiInputs:
+    """The audio inputs (mixed) of the audio to MIDI converter, as a chain for AudioIn
+    (zynthian_gui_midi_config.audio2midi_inputs)"""
+
+    def __init__(self, state_manager):
+        self.state_manager = state_manager
+        self.audio_in = state_manager.audio2midi_in
+
+    def get_name(self):
+        return "Audio \u2794 MIDI"
+
+    def toggle_audio_in(self, input):
+        if input in self.audio_in:
+            self.audio_in.remove(input)
+        else:
+            self.audio_in.append(input)
+        self.state_manager.audio2midi_in = self.audio_in
+        zynautoconnect.request_audio_connect()
+
+
 class AudioIn(SelectorScreen):
     """Audio inputs of the active chain (zynthian_gui_audio_in): tap toggles, long press shows the
-    input's ALSA levels"""
+    input's ALSA levels. With a target (show_for): its inputs instead (the audio to MIDI
+    converter's, as Tk's set_chain), until the screen is left."""
 
     name = "audio_in"
     default_icon = "zynthian_logo.png"   # Tk's selector_info default
+    target = None
+
+    def show_for(self, target):
+        self.target = target
+        self.ui.show_screen(self.name)
+
+    def hide(self):
+        self.target = None
+
+    def _chain(self):
+        return self.target or self.chain_manager.get_active_chain()
 
     def build(self):
         self.capture_ports = zynautoconnect.get_audio_capture_ports()
         super().build()
 
     def fill(self):
-        chain = self.chain_manager.get_active_chain()
+        chain = self._chain()
         self.set_title(f"{chain.get_name()}/Capture Audio from ...")
         self.set_entries(list_data_entries(audio_in_list(chain, self.capture_ports)))
 
@@ -51,7 +83,7 @@ class AudioIn(SelectorScreen):
         if not row:
             return
         if t == "S":
-            self.chain_manager.get_active_chain().toggle_audio_in(row[0])
+            self._chain().toggle_audio_in(row[0])
             self.fill()
         else:
             ctrls = alsa_input_controls(self.state_manager, row[1])
@@ -117,6 +149,14 @@ class MidiDevices(SelectorScreen):
 
     def select_action(self, index, t):
         row = self.entries[index]["data"]
+        if t != "S" and row and row[0] == "audio2midi":
+            # The audio to MIDI converter: long press (Tk: bold select) shows its controls,
+            # running: its options (controls, inputs, its MIDI port's options)
+            if isinstance(row[1], int):
+                show_device_options(self.ui, self.midi_input, row[1], self.fill)
+            else:
+                self.ui.show_screen("audio2midi")
+            return
         what = midi_config_action(self.state_manager, None, self.midi_input, row)
         if what == "options" and isinstance(row[1], int):
             show_device_options(self.ui, self.midi_input, row[1], self.fill)
@@ -156,6 +196,13 @@ def show_device_options(ui, midi_input, idev, refresh):
         return run
 
     opts = []
+    if midi_input and port.aliases[0] == zynautoconnect.AUDIO2MIDI_UID:
+        # The audio to MIDI converter's port (zynthian_gui_midi_config.show_options)
+        opts.append(("Audio \u2794 MIDI controls", lambda: ui.show_screen("audio2midi"),
+                     "Onset & release thresholds, mono/poly mode and noise filter.", "midi_audio.png"))
+        opts.append(("Select audio inputs",
+                     lambda: ui.list_screens["audio_in"].show_for(Audio2MidiInputs(ui.state_manager)),
+                     "Select audio inputs to be converted to MIDI (mixed).", "midi_audio.png"))
     if midi_input:
         if zynautoconnect.get_midi_in_dev_mode(idev):
             opts.append(("Input mode (Active chain)", act(lambda: (lib_zyncore.zmip_set_flag_active_chain(idev, False),

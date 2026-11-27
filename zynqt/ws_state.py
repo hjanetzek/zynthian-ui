@@ -141,7 +141,7 @@ def current_state(ui):
         return name, ListState(screen)
     if cur == "chain_control":
         return name, ControlState(ui.chain_control_screen)
-    if cur in ("tempo", "alsa_mixer", "audio_player"):
+    if cur in ("tempo", "alsa_mixer", "audio2midi", "audio_player"):
         return name, ControlState(ui.chain_control_screen, embedded=False)
     if cur in ("mixer", "launcher"):
         return name, TitleOnly(ui._snapshot_title)
@@ -197,7 +197,7 @@ class ScreenStateWatch:
                         screen.model.countChanged, screen.model.modelReset, screen.model.dataChanged):
                 self._connect(sig, slot)
         cc = ui.chain_control_screen
-        slot = when_shown("chain_control", "tempo", "alsa_mixer", "audio_player", "midi_key_range")
+        slot = when_shown("chain_control", "tempo", "alsa_mixer", "audio2midi", "audio_player", "midi_key_range")
         for sig in (cc.processorsChanged, cc.pageChanged, cc.modeChanged, cc.selectPathChanged,
                     cc.pages.modelReset, cc.pages.dataChanged):
             self._connect(sig, slot)

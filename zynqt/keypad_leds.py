@@ -32,6 +32,7 @@ WORKFLOWS = {
     "audio_player": (("audio_player",), ("midi_cc_range", "midi_cc_single")),
     "alsa_mixer": (("alsa_mixer",), ("midi_cc_range", "midi_cc_single")),
     "tempo": (("tempo",), ("midi_cc_range", "midi_cc_single")),
+    "audio2midi": (("audio2midi",), ("midi_cc_range", "midi_cc_single")),
     "pated": (("pattern_editor", "pated_cc"), ("midi_prog",)),
     "snapshot": (("snapshot",), ()),
     "zs3": (("zs3",), ()),

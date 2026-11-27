@@ -1476,7 +1476,7 @@ class ChainControl(QObject):
                 self.ui.state_manager.set_midi_learn(True)
                 self.learnChanged.emit()
             return
-        default = MIDI_LEARNING_GLOBAL if getattr(self.special_processor, "eng_code", None) == "MX" \
+        default = MIDI_LEARNING_GLOBAL if getattr(self.special_processor, "eng_code", None) in ("MX", "AM") \
             else MIDI_LEARNING_CHAIN
         if i is not None:
             zctrl = self.controllers[i].zctrl if 0 <= i < 4 else None

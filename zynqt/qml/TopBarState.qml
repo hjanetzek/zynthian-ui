@@ -13,7 +13,7 @@ QtObject {
     readonly property var status: zyn.status
     readonly property bool onMixer: zyn.currentScreen === "mixer" || zyn.currentScreen === "launcher"
     readonly property bool onPatternEditor: zyn.currentScreen === "pattern_editor"
-    readonly property bool onControl: ["chain_control", "audio_player", "tempo", "alsa_mixer"].indexOf(zyn.currentScreen) >= 0
+    readonly property bool onControl: ["chain_control", "audio_player", "tempo", "alsa_mixer", "audio2midi"].indexOf(zyn.currentScreen) >= 0
     // The pattern editor's edit modes: their title inverted
     readonly property bool inverted: onPatternEditor && zyn.patternEditor.modeTitle !== ""
 

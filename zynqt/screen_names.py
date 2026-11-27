@@ -8,7 +8,7 @@ SS_GUI_SHOW_SCREEN, as zynthian_gui.show_screen does, so the drivers see the scr
 Most names are the same in both UIs. The differences:
 
   Tk name                Qt screen
-  control                chain_control (or tempo / alsa_mixer / audio_player when that special
+  control                chain_control (or tempo / alsa_mixer / audio2midi / audio_player when that special
                          processor is the current one: Tk's "control" screen shows it then)
   root                   mixer or launcher, whichever was shown last (Tk: the mixer in its mode)
   zynpad, arranger       launcher (both gone from Tk on tomita: the mixer's launcher mode)
@@ -60,7 +60,7 @@ def tk_name(qt_screen, pattern_cc=False):
 
 def qt_name(name, last_root="mixer", special=None):
     """The Qt screen for name (a Tk or Qt name). last_root: the root screen shown last (mixer or
-    launcher); special: the name of the special processor screen ("tempo", "alsa_mixer",
+    launcher); special: the name of the special processor screen ("tempo", "alsa_mixer", "audio2midi",
     "audio_player") whose processor is the current one, else None"""
     if name == "root":
         return last_root

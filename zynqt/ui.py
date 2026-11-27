@@ -58,10 +58,11 @@ from zynqt.screens.mixer_nav import MixerNav
 from zynqt.ws_state import ScreenStateWatch, current_state
 from zynqt.ws_keys import WebsocketKeys
 
-# Screens with their own QML (the others are selector screens, zynqt.screens); tempo and
-# alsa_mixer are chain control showing the state manager's tempo or ALSA mixer processor
-QML_SCREENS = ("mixer", "launcher", "pattern_editor", "chain_manager", "chain_control", "tempo", "alsa_mixer", "audio_player",
-               "midi_key_range", "control_xy")
+# Screens with their own QML (the others are selector screens, zynqt.screens); tempo, alsa_mixer
+# and audio2midi are chain control showing the state manager's tempo, ALSA mixer or audio to MIDI
+# converter processor
+QML_SCREENS = ("mixer", "launcher", "pattern_editor", "chain_manager", "chain_control", "tempo", "alsa_mixer", "audio2midi",
+               "audio_player", "midi_key_range", "control_xy")
 
 # Screens which are never in the history: the options list is a modal list over the screen which
 # opened it. A screen shown from it (MENU on the pattern editor's options: the main menu) returns
@@ -218,6 +219,7 @@ class ZynUI(QObject, zynthian_websocket_feedback):
                                    "chain_control": self.chain_control_screen,
                                    "tempo": self.chain_control_screen,
                                    "alsa_mixer": self.chain_control_screen,
+                                   "audio2midi": self.chain_control_screen,
                                    "audio_player": self.chain_control_screen,
                                    "midi_key_range": self.chain_control_screen,
                                    "control_xy": self.control_xy}
@@ -546,16 +548,17 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         old = self.qml_screen_objects.get(self.current_screen) or self.list_screens.get(self.current_screen)
         if old and name != self.current_screen and callable(getattr(old, "hide", None)):
             old.hide()
-        if name in ("tempo", "alsa_mixer", "audio_player"):
+        if name in ("tempo", "alsa_mixer", "audio2midi", "audio_player"):
             # As zynthian_gui.show_screen: the control screen with a processor without chain;
             # it becomes the current processor (its bank/preset lists: the player's files)
             proc = {"tempo": self.state_manager.tempo_processor,
                     "alsa_mixer": self.state_manager.alsa_mixer_processor,
+                    "audio2midi": getattr(self.state_manager, "audio2midi_processor", None),
                     "audio_player": self.state_manager.audio_player}[name]
             if proc is None:
                 self.show_info(f"No {name} processor.")
                 return
-            if name != "audio_player":
+            if name in ("tempo", "alsa_mixer"):
                 proc.refresh_controllers(params)
             self.chain_control_screen.special_processor = proc
             self.current_processor = proc
@@ -604,6 +607,7 @@ class ZynUI(QObject, zynthian_websocket_feedback):
             sm = self.state_manager
             proc = self.current_processor
             for screen, sproc in (("tempo", sm.tempo_processor), ("alsa_mixer", sm.alsa_mixer_processor),
+                                  ("audio2midi", getattr(sm, "audio2midi_processor", None)),
                                   ("audio_player", sm.audio_player)):
                 if proc is not None and proc is sproc:
                     special = screen
@@ -974,7 +978,7 @@ class ZynUI(QObject, zynthian_websocket_feedback):
     def _help_topic(self):
         """The help file name for the screen shown (as the Tk screens' get_help_fpath)"""
         name = self.current_screen
-        if name in ("chain_control", "tempo", "alsa_mixer", "audio_player", "midi_key_range"):
+        if name in ("chain_control", "tempo", "alsa_mixer", "audio2midi", "audio_player", "midi_key_range"):
             proc = self.current_processor
             if name == "chain_control" and proc is not None and getattr(proc, "name", None):
                 return [f"{proc.name.lower()}.html", "chain_control.html"]
@@ -1659,7 +1663,7 @@ class ZynUI(QObject, zynthian_websocket_feedback):
     # it shows: ALSA mixer, note range) learns controllers / notes, the ZS3 screen program changes
 
     def _learn_screen(self):
-        if self.current_screen in ("chain_control", "alsa_mixer", "midi_key_range", "tempo", "audio_player"):
+        if self.current_screen in ("chain_control", "alsa_mixer", "audio2midi", "midi_key_range", "tempo", "audio_player"):
             return self.chain_control_screen
         if self.current_screen == "zs3":
             return self.list_screens["zs3"]
@@ -1793,6 +1797,11 @@ class ZynUI(QObject, zynthian_websocket_feedback):
 
     def cuia_screen_alsa_mixer(self, params=None):
         self.show_screen("alsa_mixer", params=params)
+
+    def cuia_screen_audio2midi(self, params=None):
+        """The audio to MIDI converter's controls (chain control with its global processor, as
+        zynthian_gui)"""
+        self.show_screen("audio2midi")
 
     def cuia_screen_audio_mixer(self, params=None):
         self.show_screen_reset("mixer")
@@ -1988,7 +1997,7 @@ class ZynUI(QObject, zynthian_websocket_feedback):
         reads its banks from directories (no soundfonts installed, ...), else (Tk) the empty
         preset list and its options"""
         sm = self.state_manager
-        if self.current_screen == "alsa_mixer":
+        if self.current_screen in ("alsa_mixer", "audio2midi"):
             return
         # The audio player's own screen and its file lists keep it (Tk: is_shown_audio_player)
         if self.current_processor is not sm.audio_player or self.current_screen not in ("audio_player", "bank",

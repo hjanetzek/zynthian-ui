@@ -1800,7 +1800,13 @@ class ZynUI(QObject, zynthian_websocket_feedback):
 
     def cuia_screen_audio2midi(self, params=None):
         """The audio to MIDI converter's controls (chain control with its global processor, as
-        zynthian_gui)"""
+        zynthian_gui): the audio input and MIDI output pages of channel params[0] (1 or 2),
+        default the channel last shown"""
+        if params:
+            try:
+                self.state_manager.audio2midi_processor.engine.set_channel(int(params[0]) - 1)
+            except (ValueError, TypeError, AttributeError) as e:
+                logging.warning(f"Can't set audio to MIDI channel => {e}")
         self.show_screen("audio2midi")
 
     def cuia_screen_audio_mixer(self, params=None):

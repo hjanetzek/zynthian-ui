@@ -1032,8 +1032,9 @@ class ChainControl(QObject):
             gui = getattr(proc.engine, "custom_gui_fpath", None)
             if afd.engine_type(proc) != afd.ENG_NONE or (gui and gui.endswith("zynthian_widget_audio_file.py")):
                 wtype = "audio_file"
-            elif wd.engine_widget(proc) and self.tk_view is not None and self.tk_view.set_processor(proc):
-                # On the widget shim
+            elif (self.tk_view is not None and (wd.engine_widget(proc) or getattr(self.tk_view, "has_port", lambda p: False)(proc))
+                  and self.tk_view.set_processor(proc)):
+                # On the widget shim (also a manual QML port for a plugin without a widget)
                 wtype = "tk"
             elif wd.engine_widget(proc):
                 # A zynthian widget the Qt UI has no view for (a user or external widget: Tk
